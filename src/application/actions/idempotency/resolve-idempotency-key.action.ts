@@ -1,8 +1,26 @@
-import { PayableError } from '../../../domain/errors/payable-error';
+import type {
+  IdempotencyKeyResolver,
+  IdempotencyKeyResolverContext,
+} from '../../../domain/contracts/idempotency-key-resolver.contract';
+import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
+import { DefaultIdempotencyKeyResolver } from '../../services/idempotency/default-idempotency-key-resolver';
 
-// TODO: Phase 2
+export interface ResolveIdempotencyKeyInput {
+  context: IdempotencyKeyResolverContext;
+  explicitKey?: string;
+  entityResolver?: IdempotencyKeyResolver;
+  globalResolver?: IdempotencyKeyResolver;
+}
+
 export class ResolveIdempotencyKeyAction {
-  async handle(): Promise<never> {
-    throw PayableError.notImplemented('ResolveIdempotencyKeyAction (Phase 2)');
+  private readonly fallback = new DefaultIdempotencyKeyResolver();
+
+  handle(input: ResolveIdempotencyKeyInput): IdempotencyKey {
+    const resolved =
+      input.explicitKey ??
+      input.entityResolver?.resolve(input.context) ??
+      input.globalResolver?.resolve(input.context) ??
+      this.fallback.resolve(input.context);
+    return IdempotencyKey.of(resolved);
   }
 }

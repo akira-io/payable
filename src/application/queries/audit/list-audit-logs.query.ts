@@ -1,8 +1,13 @@
-import { PayableError } from '../../../domain/errors/payable-error';
+import type {
+  AuditLogQuery,
+  AuditLogRepository,
+} from '../../../domain/contracts/audit-log-repository.contract';
+import type { AuditLog } from '../../../domain/entities/audit-log.entity';
 
-// TODO: Phase 2
 export class ListAuditLogsQuery {
-  async run(): Promise<never> {
-    throw PayableError.notImplemented('ListAuditLogsQuery (Phase 2)');
+  constructor(private readonly repository: AuditLogRepository) {}
+
+  async run(query: AuditLogQuery = {}): Promise<AuditLog[]> {
+    return this.repository.list(query);
   }
 }
