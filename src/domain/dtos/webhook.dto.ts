@@ -1,3 +1,5 @@
+import type { NormalizedEventName } from '../events/domain-event';
+
 export interface WebhookVerificationInput {
   payload: string;
   signature: string;
@@ -7,5 +9,6 @@ export interface WebhookVerificationInput {
 export interface VerifiedWebhook {
   providerEventId: string;
   type: string;
+  normalizedType: NormalizedEventName | null;
   data: Record<string, unknown>;
 }

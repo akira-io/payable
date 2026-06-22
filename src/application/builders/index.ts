@@ -6,3 +6,4 @@ export { CustomerContext } from './customer-context';
 export { InvoiceBuilder } from './invoice-builder';
 export { SubscriptionBuilder } from './subscription-builder';
 export { SubscriptionManager } from './subscription-manager';
+export type { WebhookDependencies } from './webhook-dependencies';

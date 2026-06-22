@@ -22,9 +22,11 @@ import type {
 } from '../../../domain/dtos/product.dto';
 import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
-import type { VerifiedWebhook } from '../../../domain/dtos/webhook.dto';
+import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
+import { StripeEventNormalizer } from './stripe-event-normalizer';
 import { toCheckoutSessionDTO, toCustomerDTO, toPriceDTO, toProductDTO } from './stripe-mappers';
+import { StripeWebhookVerifier } from './stripe-webhook-verifier';
 
 export interface StripeProviderOptions {
   secretKey: string;
@@ -34,12 +36,15 @@ export interface StripeProviderOptions {
 export class StripeProvider implements PaymentProvider {
   readonly name = 'stripe';
   private client?: Stripe;
+  private readonly verifier: StripeWebhookVerifier;
+  private readonly normalizer = new StripeEventNormalizer();
 
   constructor(
     private readonly options: StripeProviderOptions,
     client?: Stripe,
   ) {
     this.client = client;
+    this.verifier = new StripeWebhookVerifier(options.webhookSecret);
   }
 
   capabilities(): ProviderCapabilities {
@@ -160,8 +165,15 @@ export class StripeProvider implements PaymentProvider {
     return this.unsupported('refund (Phase 10)');
   }
 
-  verifyWebhook(): Promise<VerifiedWebhook> {
-    return this.unsupported('verifyWebhook (Phase 6)');
+  async verifyWebhook(input: WebhookVerificationInput): Promise<VerifiedWebhook> {
+    const stripe = await this.stripe();
+    const event = await this.verifier.verify(stripe, input.payload, input.signature);
+    return {
+      providerEventId: event.id,
+      type: event.type,
+      normalizedType: this.normalizer.normalize(event.type),
+      data: (event.data.object ?? {}) as unknown as Record<string, unknown>,
+    };
   }
 
   billingPortal(): Promise<BillingPortalDTO> {

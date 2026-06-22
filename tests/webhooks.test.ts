@@ -1,0 +1,100 @@
+import type Stripe from 'stripe';
+import { describe, expect, it } from 'vitest';
+import { createPayable } from '../src/create-payable';
+import { InvalidWebhookSignatureError } from '../src/domain/errors/invalid-webhook-signature.error';
+import { InMemoryEventBus } from '../src/infrastructure/event-bus/in-memory-event-bus';
+import { StripeEventNormalizer } from '../src/infrastructure/providers/stripe/stripe-event-normalizer';
+import { StripeProvider } from '../src/infrastructure/providers/stripe/stripe-provider';
+import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
+import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
+import { FakeClock } from '../src/support/clock/fake-clock';
+import { FakeProvider } from './support/fake-provider';
+import { createTestDb } from './support/knex';
+
+const stripeWith = (event: unknown): Stripe =>
+  ({ webhooks: { constructEventAsync: async () => event } }) as unknown as Stripe;
+
+describe('StripeEventNormalizer', () => {
+  it('maps provider event types to internal names', () => {
+    const normalizer = new StripeEventNormalizer();
+    expect(normalizer.normalize('checkout.session.completed')).toBe('checkout.completed');
+    expect(normalizer.normalize('customer.subscription.deleted')).toBe('subscription.cancelled');
+    expect(normalizer.normalize('unknown.event')).toBeNull();
+  });
+});
+
+describe('StripeProvider.verifyWebhook', () => {
+  it('verifies and normalizes a signed event', async () => {
+    const provider = new StripeProvider(
+      { secretKey: 'sk', webhookSecret: 'wh' },
+      stripeWith({
+        id: 'evt_1',
+        type: 'checkout.session.completed',
+        data: { object: { id: 'cs_1' } },
+      }),
+    );
+    const verified = await provider.verifyWebhook({ payload: '{}', signature: 'sig' });
+    expect(verified).toEqual({
+      providerEventId: 'evt_1',
+      type: 'checkout.session.completed',
+      normalizedType: 'checkout.completed',
+      data: { id: 'cs_1' },
+    });
+  });
+
+  it('rejects an invalid signature', async () => {
+    const failing = {
+      webhooks: {
+        constructEventAsync: async () => {
+          throw new Error('bad signature');
+        },
+      },
+    } as unknown as Stripe;
+    const provider = new StripeProvider({ secretKey: 'sk', webhookSecret: 'wh' }, failing);
+    await expect(
+      provider.verifyWebhook({ payload: '{}', signature: 'bad' }),
+    ).rejects.toBeInstanceOf(InvalidWebhookSignatureError);
+  });
+});
+
+describe('payable.receiveWebhook', () => {
+  it('stores, processes, and deduplicates a webhook', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new FakeProvider();
+    provider.verifyResult = {
+      providerEventId: 'evt_1',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      data: { id: 'in_1' },
+    };
+    const events = new InMemoryEventBus();
+    const processed: string[] = [];
+    events.listen('webhook.processed', (event) => {
+      processed.push(event.name);
+    });
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({ providers: { stripe: provider }, storage, events });
+
+    const first = await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
+    expect(first.duplicate).toBe(false);
+    expect((await storage.webhookEvents.findByProviderEvent('stripe', 'evt_1'))?.status).toBe(
+      'processed',
+    );
+    expect(await storage.auditLogs.list({ resourceType: 'webhook_event' })).toHaveLength(1);
+    expect(await storage.outboxEvents.pullPending(10)).toHaveLength(1);
+    expect(processed).toEqual(['webhook.processed']);
+
+    const second = await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
+    expect(second.duplicate).toBe(true);
+    expect(await storage.outboxEvents.pullPending(10)).toHaveLength(1);
+    await db.destroy();
+  });
+
+  it('requires storage for webhook processing', async () => {
+    const payable = createPayable({ providers: { stripe: new FakeProvider() } });
+    await expect(payable.receiveWebhook({ payload: '{}', signature: 'sig' })).rejects.toThrow(
+      'requires a storage driver',
+    );
+  });
+});

@@ -1,8 +1,54 @@
-import { PayableError } from '../../../domain/errors/payable-error';
+import type { VerifiedWebhook } from '../../../domain/dtos/webhook.dto';
+import { CorrelationId } from '../../../domain/value-objects/correlation-id';
+import type { WebhookDependencies } from '../../builders/webhook-dependencies';
 
-// TODO: Phase 6
+export interface StoreWebhookEventInput {
+  verified: VerifiedWebhook;
+  payload: string;
+  headers?: Record<string, string>;
+}
+
+export interface StoredWebhookEvent {
+  id: string;
+  correlationId: string;
+  duplicate: boolean;
+}
+
 export class StoreWebhookEventAction {
-  async handle(): Promise<never> {
-    throw PayableError.notImplemented('StoreWebhookEventAction (Phase 6)');
+  constructor(private readonly deps: WebhookDependencies) {}
+
+  async handle(input: StoreWebhookEventInput): Promise<StoredWebhookEvent> {
+    const { storage, providerName, clock } = this.deps;
+    const existing = await storage.webhookEvents.findByProviderEvent(
+      providerName,
+      input.verified.providerEventId,
+    );
+    if (existing) {
+      return { id: existing.id, correlationId: existing.correlationId, duplicate: true };
+    }
+    const correlationId = CorrelationId.generate().toString();
+    try {
+      const created = await storage.webhookEvents.create({
+        tenantId: null,
+        provider: providerName,
+        providerEventId: input.verified.providerEventId,
+        type: input.verified.type,
+        payload: input.payload,
+        headers: input.headers ?? {},
+        status: 'pending',
+        correlationId,
+        receivedAt: clock.now(),
+      });
+      return { id: created.id, correlationId, duplicate: false };
+    } catch (error) {
+      const raced = await storage.webhookEvents.findByProviderEvent(
+        providerName,
+        input.verified.providerEventId,
+      );
+      if (raced) {
+        return { id: raced.id, correlationId: raced.correlationId, duplicate: true };
+      }
+      throw error;
+    }
   }
 }

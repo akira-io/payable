@@ -6,7 +6,14 @@ export {
   ResolveIdempotencyKeyAction,
   type ResolveIdempotencyKeyInput,
 } from './application/actions/idempotency/resolve-idempotency-key.action';
+export {
+  ReceiveWebhookAction,
+  type ReceiveWebhookInput,
+  type ReceiveWebhookResult,
+} from './application/actions/webhooks/receive-webhook.action';
+export { StoreWebhookEventAction } from './application/actions/webhooks/store-webhook-event.action';
 export * from './application/builders';
+export { ProcessWebhookPipeline } from './application/pipelines/webhooks/process-webhook.pipeline';
 export { ListAuditLogsQuery } from './application/queries/audit/list-audit-logs.query';
 export { DefaultIdempotencyKeyResolver } from './application/services/idempotency/default-idempotency-key-resolver';
 export {
@@ -33,10 +40,12 @@ export {
   PaddleProvider,
   type PaddleProviderOptions,
 } from './infrastructure/providers/paddle/paddle-provider';
+export { StripeEventNormalizer } from './infrastructure/providers/stripe/stripe-event-normalizer';
 export {
   StripeProvider,
   type StripeProviderOptions,
 } from './infrastructure/providers/stripe/stripe-provider';
+export { StripeWebhookVerifier } from './infrastructure/providers/stripe/stripe-webhook-verifier';
 export { BullMQQueueDriver } from './infrastructure/queue/bullmq/bullmq-queue-driver';
 export { SyncQueueDriver } from './infrastructure/queue/sync/sync-queue-driver';
 export { KnexStorageDriver } from './infrastructure/storage/knex/knex-storage-driver';

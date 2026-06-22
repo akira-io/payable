@@ -13,13 +13,15 @@ import type { PriceDTO } from '../../src/domain/dtos/price.dto';
 import type { ProductDTO } from '../../src/domain/dtos/product.dto';
 import type { RefundResultDTO } from '../../src/domain/dtos/refund.dto';
 import type { SubscriptionDTO } from '../../src/domain/dtos/subscription.dto';
-import type { VerifiedWebhook } from '../../src/domain/dtos/webhook.dto';
+import type { VerifiedWebhook, WebhookVerificationInput } from '../../src/domain/dtos/webhook.dto';
 
 export class FakeProvider implements PaymentProvider {
   readonly name = 'stripe';
   createCustomerCalls = 0;
   lastCustomerCtx?: OperationContext;
   lastCheckout?: { input: CreateCheckoutSessionInput; ctx: OperationContext };
+  verifyResult?: VerifiedWebhook;
+  lastVerifyInput?: WebhookVerificationInput;
 
   capabilities(): ProviderCapabilities {
     return {
@@ -88,8 +90,12 @@ export class FakeProvider implements PaymentProvider {
     return this.unused('refund');
   }
 
-  verifyWebhook(): Promise<VerifiedWebhook> {
-    return this.unused('verifyWebhook');
+  async verifyWebhook(input: WebhookVerificationInput): Promise<VerifiedWebhook> {
+    this.lastVerifyInput = input;
+    if (!this.verifyResult) {
+      return this.unused('verifyWebhook');
+    }
+    return this.verifyResult;
   }
 
   billingPortal(): Promise<BillingPortalDTO> {
