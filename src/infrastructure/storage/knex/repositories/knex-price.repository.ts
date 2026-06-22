@@ -1,32 +1,54 @@
-import type { PriceRepository } from '../../../../domain/contracts/price-repository.contract';
+import type {
+  NewPrice,
+  PriceRepository,
+} from '../../../../domain/contracts/price-repository.contract';
+import type { RecurringInterval } from '../../../../domain/entities/common';
 import type { Price } from '../../../../domain/entities/price.entity';
-import { PayableError } from '../../../../domain/errors/payable-error';
+import { KnexRepository } from '../knex-repository';
+import { toBool, toDate } from '../mappers';
 
-// TODO: Phase 3
-export class KnexPriceRepository implements PriceRepository {
-  constructor(protected readonly connection: unknown) {}
+export class KnexPriceRepository
+  extends KnexRepository<Price, NewPrice>
+  implements PriceRepository
+{
+  protected readonly table = 'payable_prices';
 
-  create(): Promise<Price> {
-    return this.unsupported('create');
+  findByProviderId(provider: string, providerPriceId: string): Promise<Price | null> {
+    return this.firstWhere({ provider, provider_price_id: providerPriceId });
   }
 
-  update(): Promise<Price> {
-    return this.unsupported('update');
+  listByProduct(productId: string): Promise<Price[]> {
+    return this.manyWhere({ product_id: productId });
   }
 
-  findById(): Promise<Price | null> {
-    return this.unsupported('findById');
+  protected toEntity(row: Record<string, unknown>): Price {
+    return {
+      id: row.id as string,
+      tenantId: (row.tenant_id as string | null) ?? null,
+      provider: row.provider as string,
+      providerPriceId: (row.provider_price_id as string | null) ?? null,
+      productId: row.product_id as string,
+      currency: row.currency as string,
+      unitAmount: row.unit_amount as number,
+      interval: (row.interval as RecurringInterval | null) ?? null,
+      intervalCount: (row.interval_count as number | null) ?? null,
+      active: toBool(row.active),
+      createdAt: toDate(row.created_at),
+      updatedAt: toDate(row.updated_at),
+    };
   }
 
-  findByProviderId(): Promise<Price | null> {
-    return this.unsupported('findByProviderId');
-  }
-
-  listByProduct(): Promise<Price[]> {
-    return this.unsupported('listByProduct');
-  }
-
-  private unsupported(op: string): never {
-    throw PayableError.notImplemented(`KnexPriceRepository.${op} (Phase 3)`);
+  protected toRow(data: Partial<NewPrice>): Record<string, unknown> {
+    return {
+      tenant_id: data.tenantId,
+      provider: data.provider,
+      provider_price_id: data.providerPriceId,
+      product_id: data.productId,
+      currency: data.currency,
+      unit_amount: data.unitAmount,
+      interval: data.interval,
+      interval_count: data.intervalCount,
+      active: data.active,
+    };
   }
 }

@@ -1,32 +1,59 @@
-import type { CustomerRepository } from '../../../../domain/contracts/customer-repository.contract';
+import type {
+  CustomerRepository,
+  NewCustomer,
+} from '../../../../domain/contracts/customer-repository.contract';
 import type { Customer } from '../../../../domain/entities/customer.entity';
-import { PayableError } from '../../../../domain/errors/payable-error';
+import { KnexRepository } from '../knex-repository';
+import { fromJson, toDate, toJson } from '../mappers';
 
-// TODO: Phase 3
-export class KnexCustomerRepository implements CustomerRepository {
-  constructor(protected readonly connection: unknown) {}
+export class KnexCustomerRepository
+  extends KnexRepository<Customer, NewCustomer>
+  implements CustomerRepository
+{
+  protected readonly table = 'payable_customers';
 
-  create(): Promise<Customer> {
-    return this.unsupported('create');
+  findByBillable(
+    billableType: string,
+    billableId: string,
+    tenantId: string | null = null,
+  ): Promise<Customer | null> {
+    return this.firstWhere({
+      billable_type: billableType,
+      billable_id: billableId,
+      tenant_id: tenantId,
+    });
   }
 
-  update(): Promise<Customer> {
-    return this.unsupported('update');
+  findByProviderId(provider: string, providerCustomerId: string): Promise<Customer | null> {
+    return this.firstWhere({ provider, provider_customer_id: providerCustomerId });
   }
 
-  findById(): Promise<Customer | null> {
-    return this.unsupported('findById');
+  protected toEntity(row: Record<string, unknown>): Customer {
+    return {
+      id: row.id as string,
+      tenantId: (row.tenant_id as string | null) ?? null,
+      provider: row.provider as string,
+      providerCustomerId: (row.provider_customer_id as string | null) ?? null,
+      billableType: row.billable_type as string,
+      billableId: row.billable_id as string,
+      email: row.email as string,
+      name: (row.name as string | null) ?? null,
+      metadata: toJson(row.metadata),
+      createdAt: toDate(row.created_at),
+      updatedAt: toDate(row.updated_at),
+    };
   }
 
-  findByBillable(): Promise<Customer | null> {
-    return this.unsupported('findByBillable');
-  }
-
-  findByProviderId(): Promise<Customer | null> {
-    return this.unsupported('findByProviderId');
-  }
-
-  private unsupported(op: string): never {
-    throw PayableError.notImplemented(`KnexCustomerRepository.${op} (Phase 3)`);
+  protected toRow(data: Partial<NewCustomer>): Record<string, unknown> {
+    return {
+      tenant_id: data.tenantId,
+      provider: data.provider,
+      provider_customer_id: data.providerCustomerId,
+      billable_type: data.billableType,
+      billable_id: data.billableId,
+      email: data.email,
+      name: data.name,
+      metadata: data.metadata === undefined ? undefined : fromJson(data.metadata),
+    };
   }
 }
