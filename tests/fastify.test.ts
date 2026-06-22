@@ -1,0 +1,102 @@
+import Fastify from 'fastify';
+import { describe, expect, it } from 'vitest';
+import { createPayable } from '../src/create-payable';
+import { InvalidWebhookSignatureError } from '../src/domain/errors/invalid-webhook-signature.error';
+import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
+import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
+import type { Payable } from '../src/payable';
+import { createFastifyPayablePlugin } from '../src/presentation/fastify/create-fastify-payable-plugin';
+import { FakeClock } from '../src/support/clock/fake-clock';
+import { FakeProvider } from './support/fake-provider';
+import { createTestDb } from './support/knex';
+
+async function makeApp(payable: Payable) {
+  const app = Fastify();
+  await app.register(createFastifyPayablePlugin(payable), { prefix: '/payable' });
+  await app.ready();
+  return app;
+}
+
+const billable = { billableType: 'User', billableId: '1', email: 'user@example.com', name: 'User' };
+
+describe('fastify adapter', () => {
+  it('creates a subscription checkout session', async () => {
+    const provider = new FakeProvider();
+    const app = await makeApp(createPayable({ providers: { stripe: provider } }));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/payable/checkout',
+      payload: {
+        billable,
+        subscription: { name: 'default', price: 'price_pro', trialDays: 14 },
+        successUrl: 'https://app.test/s',
+        cancelUrl: 'https://app.test/c',
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toEqual({ id: 'cs_fake', url: 'https://fake.test/cs' });
+    expect(provider.lastCheckout?.input.trialDays).toBe(14);
+    await app.close();
+  });
+
+  it('processes a webhook from the raw body', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new FakeProvider();
+    provider.verifyResult = {
+      providerEventId: 'evt_1',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      data: { id: 'in_1' },
+    };
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const app = await makeApp(createPayable({ providers: { stripe: provider }, storage }));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/payable/webhooks',
+      headers: { 'stripe-signature': 'sig', 'content-type': 'application/json' },
+      payload: '{"id":"evt_1"}',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().duplicate).toBe(false);
+    expect(provider.lastVerifyInput?.payload).toBe('{"id":"evt_1"}');
+    expect((await storage.webhookEvents.findByProviderEvent('stripe', 'evt_1'))?.status).toBe(
+      'processed',
+    );
+    await app.close();
+    await db.destroy();
+  });
+
+  it('rejects a webhook with a bad signature', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new FakeProvider();
+    provider.verifyError = new InvalidWebhookSignatureError('stripe');
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const app = await makeApp(createPayable({ providers: { stripe: provider }, storage }));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/payable/webhooks',
+      headers: { 'stripe-signature': 'sig', 'content-type': 'application/json' },
+      payload: '{"id":"evt_x"}',
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('INVALID_WEBHOOK_SIGNATURE');
+    await app.close();
+    await db.destroy();
+  });
+
+  it('maps not-implemented operations to 501', async () => {
+    const app = await makeApp(createPayable({ providers: { stripe: new FakeProvider() } }));
+    const res = await app.inject({ method: 'GET', url: '/payable/invoices' });
+    expect(res.statusCode).toBe(501);
+    expect(res.json().error).toBe('NOT_IMPLEMENTED');
+    await app.close();
+  });
+});

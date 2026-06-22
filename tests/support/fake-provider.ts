@@ -37,6 +37,7 @@ export class FakeProvider implements PaymentProvider {
   lastCustomerCtx?: OperationContext;
   lastCheckout?: { input: CreateCheckoutSessionInput; ctx: OperationContext };
   verifyResult?: VerifiedWebhook;
+  verifyError?: Error;
   lastVerifyInput?: WebhookVerificationInput;
   createdSubscriptions = 0;
   lastSubscriptionUpdate?: UpdateSubscriptionInput;
@@ -142,6 +143,9 @@ export class FakeProvider implements PaymentProvider {
 
   async verifyWebhook(input: WebhookVerificationInput): Promise<VerifiedWebhook> {
     this.lastVerifyInput = input;
+    if (this.verifyError) {
+      throw this.verifyError;
+    }
     if (!this.verifyResult) {
       return this.unused('verifyWebhook');
     }
