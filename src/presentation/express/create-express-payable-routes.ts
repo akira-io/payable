@@ -1,7 +1,26 @@
-import { PayableError } from '../../domain/errors/payable-error';
+import { Router } from 'express';
 import type { Payable } from '../../payable';
+import { type ExpressPayableOptions, payableErrorHandler } from './helpers';
+import { registerCheckoutRoutes } from './routes/checkout.routes';
+import { registerCustomerRoutes } from './routes/customers.routes';
+import { registerInvoiceRoutes } from './routes/invoices.routes';
+import { registerPaymentRoutes } from './routes/payments.routes';
+import { registerRefundRoutes } from './routes/refunds.routes';
+import { registerSubscriptionRoutes } from './routes/subscriptions.routes';
+import { registerWebhookRoutes } from './routes/webhooks.routes';
 
-// TODO: Phase 8
-export function createExpressPayableRoutes(_payable: Payable): unknown {
-  throw PayableError.notImplemented('createExpressPayableRoutes (Phase 8)');
+export function createExpressPayableRoutes(
+  payable: Payable,
+  options: ExpressPayableOptions = {},
+): Router {
+  const router = Router();
+  registerWebhookRoutes(router, payable, options);
+  registerCheckoutRoutes(router, payable);
+  registerSubscriptionRoutes(router, payable);
+  registerCustomerRoutes(router, payable);
+  registerInvoiceRoutes(router, payable);
+  registerPaymentRoutes(router, payable);
+  registerRefundRoutes(router, payable);
+  router.use(payableErrorHandler);
+  return router;
 }
