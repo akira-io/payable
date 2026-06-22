@@ -1,0 +1,76 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Install git-cliff
+        uses: taiki-e/install-action@9e1e5806d4a4822de933115878265be9aaa786d9 # v2
+        with:
+          tool: git-cliff
+
+      - name: Bump package.json version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          node -e "const p=require('./package.json'); p.version='${VERSION}'; require('fs').writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n')"
+
+      - name: Generate CHANGELOG
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: git-cliff --config cliff.toml --tag "${{ github.ref_name }}" --output CHANGELOG.md
+
+      - name: Commit release changes
+        run: |
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          DEFAULT_BRANCH="$(git remote show origin | sed -n 's/.*HEAD branch: //p')"
+          git add package.json CHANGELOG.md
+          git diff --cached --quiet || git commit -m "chore(release): ${{ github.ref_name }}"
+          git push origin "HEAD:${DEFAULT_BRANCH}" || true
+
+      - name: Extract release notes
+        id: notes
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo 'body<<EOF'
+            git-cliff --config cliff.toml --latest --strip all
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete "${{ github.ref_name }}" --yes 2>/dev/null || true
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --notes "${{ steps.notes.outputs.body }}" \
+            --latest
+
+      - name: Send GitHub Release to Discord
+        uses: SethCohen/github-releases-to-discord@24d166886aee4646d448c8a389ff9e1ebcab3682 # v1.20.0
+        with:
+          webhook_url: ${{ secrets.DISCORD }}
+          release_name: ${{ github.ref_name }}
+          release_body: ${{ steps.notes.outputs.body }}
+          release_html_url: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+          color: "8150256"
+          username: "Payable Releases"
+          footer_title: "@akira-io/payable"
+          footer_timestamp: true
