@@ -5,6 +5,7 @@ export default defineConfig({
     index: 'src/index.ts',
     'express/index': 'src/presentation/express/index.ts',
     'fastify/index': 'src/presentation/fastify/index.ts',
+    'nest/index': 'src/presentation/nest/index.ts',
   },
   format: ['esm', 'cjs'],
   dts: {
@@ -12,6 +13,7 @@ export default defineConfig({
       index: 'src/index.ts',
       'express/index': 'src/presentation/express/index.ts',
       'fastify/index': 'src/presentation/fastify/index.ts',
+      'nest/index': 'src/presentation/nest/index.ts',
     },
   },
   noExternal: ['dinero.js'],
