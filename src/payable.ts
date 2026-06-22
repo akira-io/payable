@@ -9,10 +9,12 @@ import {
   type ReceiveWebhookInput,
   type ReceiveWebhookResult,
 } from './application/actions/webhooks/receive-webhook.action';
+import { ReplayWebhookAction } from './application/actions/webhooks/replay-webhook.action';
 import type { Billable } from './application/builders/billable';
 import type { BillingDependencies } from './application/builders/billing-dependencies';
 import { CustomerContext } from './application/builders/customer-context';
 import type { WebhookDependencies } from './application/builders/webhook-dependencies';
+import type { ReplayWebhookContext } from './application/policies/can-replay-webhook.policy';
 import type { Clock } from './domain/contracts/clock.contract';
 import type { EventBus } from './domain/contracts/event-bus.contract';
 import type { Logger } from './domain/contracts/logger.contract';
@@ -22,6 +24,7 @@ import type { Refund } from './domain/entities/refund.entity';
 import { PayableError } from './domain/errors/payable-error';
 import { ProviderNotFoundError } from './domain/errors/provider-not-found.error';
 import type { Money } from './domain/value-objects/money';
+import { OutboxService, type OutboxServiceOptions } from './infrastructure/outbox/outbox-service';
 import type { ResolvedConfig } from './support/config/payable-config';
 
 export interface RefundRequest {
@@ -92,6 +95,26 @@ export class Payable {
     input: ReceiveWebhookInput & { provider?: string },
   ): Promise<ReceiveWebhookResult> {
     return new ReceiveWebhookAction(this.webhookDependencies(input.provider)).handle(input);
+  }
+
+  replayWebhook(
+    webhookEventId: string,
+    context?: ReplayWebhookContext,
+    provider?: string,
+  ): Promise<void> {
+    return new ReplayWebhookAction(this.webhookDependencies(provider)).handle(
+      webhookEventId,
+      context,
+    );
+  }
+
+  outbox(options?: OutboxServiceOptions): OutboxService {
+    if (!this.resolved.storage) {
+      throw new PayableError('Outbox requires a storage driver', {
+        code: 'OUTBOX_STORAGE_REQUIRED',
+      });
+    }
+    return new OutboxService(this.resolved.storage.outboxEvents, this.resolved.clock, options);
   }
 
   private dependencies(): BillingDependencies {

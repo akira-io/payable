@@ -1,8 +1,11 @@
-import { PayableError } from '../../domain/errors/payable-error';
+export interface ReplayWebhookContext {
+  actorType?: string;
+  actorId?: string;
+  allowed?: boolean;
+}
 
-// TODO: Phase 11
 export class CanReplayWebhookPolicy {
-  authorize(): boolean {
-    throw PayableError.notImplemented('CanReplayWebhookPolicy (Phase 11)');
+  authorize(context: ReplayWebhookContext = {}): boolean {
+    return context.allowed !== false;
   }
 }

@@ -8,7 +8,9 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.string('provider').notNullable();
     table.string('provider_event_id').notNullable();
     table.string('type').notNullable();
+    table.string('normalized_type').nullable();
     table.text('payload').notNullable();
+    table.text('data').notNullable();
     table.text('headers').notNullable();
     table.string('status').notNullable();
     table.string('correlation_id').notNullable();
@@ -67,5 +69,32 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.timestamp('created_at').notNullable();
     table.timestamp('updated_at').notNullable();
     table.index('status');
+  });
+
+  await createIfMissing(knex, 'payable_webhook_endpoints', (table) => {
+    table.uuid('id').primary();
+    table.string('tenant_id').nullable();
+    table.string('url').notNullable();
+    table.text('events').notNullable();
+    table.string('secret').nullable();
+    table.string('status').notNullable();
+    table.timestamp('created_at').notNullable();
+    table.timestamp('updated_at').notNullable();
+  });
+
+  await createIfMissing(knex, 'payable_webhook_deliveries', (table) => {
+    table.uuid('id').primary();
+    table.string('tenant_id').nullable();
+    table.uuid('endpoint_id').notNullable();
+    table.string('event_type').notNullable();
+    table.text('payload').notNullable();
+    table.string('status').notNullable();
+    table.integer('attempts').notNullable();
+    table.integer('response_code').nullable();
+    table.text('response_body').nullable();
+    table.timestamp('next_retry_at').nullable();
+    table.timestamp('created_at').notNullable();
+    table.timestamp('updated_at').notNullable();
+    table.index('endpoint_id');
   });
 }
