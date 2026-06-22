@@ -22,7 +22,7 @@ export class CustomerContext {
   }
 
   subscription(name: string): SubscriptionManager {
-    return new SubscriptionManager(this.billable, name);
+    return new SubscriptionManager(this.billable, name, this.deps);
   }
 
   async charge(request: ChargeRequest): Promise<ChargeResultDTO> {

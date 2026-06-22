@@ -1,8 +1,22 @@
-import { PayableError } from '../../../domain/errors/payable-error';
+import type { Subscription } from '../../../domain/entities/subscription.entity';
+import type { Billable } from '../../builders/billable';
+import type { BillingDependencies } from '../../builders/billing-dependencies';
 
-// TODO: Phase 9
 export class ListSubscriptionsQuery {
-  async run(): Promise<never> {
-    throw PayableError.notImplemented('ListSubscriptionsQuery (Phase 9)');
+  constructor(private readonly deps: BillingDependencies) {}
+
+  async run(billable: Billable): Promise<Subscription[]> {
+    const { storage } = this.deps;
+    if (!storage) {
+      return [];
+    }
+    const customer = await storage.customers.findByBillable(
+      billable.billableType,
+      billable.billableId,
+    );
+    if (!customer) {
+      return [];
+    }
+    return storage.subscriptions.listByCustomer(customer.id);
   }
 }

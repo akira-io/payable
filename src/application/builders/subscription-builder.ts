@@ -1,6 +1,7 @@
 import type { CheckoutSessionDTO } from '../../domain/dtos/checkout.dto';
-import type { SubscriptionDTO } from '../../domain/dtos/subscription.dto';
+import type { Subscription } from '../../domain/entities/subscription.entity';
 import { PayableError } from '../../domain/errors/payable-error';
+import { CreateSubscriptionAction } from '../actions/subscriptions/create-subscription.action';
 import { CreateCheckoutPipeline } from '../pipelines/checkout/create-checkout.pipeline';
 import type { Billable } from './billable';
 import type { BillingDependencies } from './billing-dependencies';
@@ -61,7 +62,19 @@ export class SubscriptionBuilder {
     });
   }
 
-  async create(): Promise<SubscriptionDTO> {
-    throw PayableError.notImplemented(`SubscriptionBuilder.create (${this.state.name})`);
+  async create(): Promise<Subscription> {
+    if (!this.state.priceId) {
+      throw new PayableError('A price is required before creating a subscription', {
+        code: 'SUBSCRIPTION_PRICE_REQUIRED',
+      });
+    }
+    return new CreateSubscriptionAction(this.deps).handle({
+      billable: this.billable,
+      name: this.state.name,
+      priceId: this.state.priceId,
+      quantity: this.state.quantity,
+      trialDays: this.state.trialDays,
+      coupon: this.state.coupon,
+    });
   }
 }

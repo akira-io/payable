@@ -1,8 +1,22 @@
-import { PayableError } from '../../../domain/errors/payable-error';
+import type { Subscription } from '../../../domain/entities/subscription.entity';
+import type { Billable } from '../../builders/billable';
+import type { BillingDependencies } from '../../builders/billing-dependencies';
 
-// TODO: Phase 9
 export class FindSubscriptionQuery {
-  async run(): Promise<never> {
-    throw PayableError.notImplemented('FindSubscriptionQuery (Phase 9)');
+  constructor(private readonly deps: BillingDependencies) {}
+
+  async run(billable: Billable, name: string): Promise<Subscription | null> {
+    const { storage } = this.deps;
+    if (!storage) {
+      return null;
+    }
+    const customer = await storage.customers.findByBillable(
+      billable.billableType,
+      billable.billableId,
+    );
+    if (!customer) {
+      return null;
+    }
+    return storage.subscriptions.findByName(customer.id, name);
   }
 }

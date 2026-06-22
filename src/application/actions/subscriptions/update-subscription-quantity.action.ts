@@ -1,8 +1,14 @@
-import { PayableError } from '../../../domain/errors/payable-error';
+import type { Subscription } from '../../../domain/entities/subscription.entity';
+import type { Billable } from '../../builders/billable';
+import { SubscriptionAction } from './subscription-action';
 
-// TODO: Phase 9
-export class UpdateSubscriptionQuantityAction {
-  async handle(): Promise<never> {
-    throw PayableError.notImplemented('UpdateSubscriptionQuantityAction (Phase 9)');
+export class UpdateSubscriptionQuantityAction extends SubscriptionAction {
+  async handle(billable: Billable, name: string, quantity: number): Promise<Subscription> {
+    const subscription = await this.resolve(billable, name);
+    const dto = await this.deps.provider.updateSubscription(
+      { providerSubscriptionId: subscription.providerSubscriptionId, quantity },
+      this.context('quantity', subscription.providerSubscriptionId),
+    );
+    return this.storage().subscriptions.update(subscription.id, { quantity, status: dto.status });
   }
 }
