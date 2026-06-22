@@ -10,6 +10,7 @@
       },
       "devDependencies": {
         "@biomejs/biome": "^2.3.0",
+        "@paddle/paddle-node-sdk": "^3.8.0",
         "@types/express": "^5.0.6",
         "@types/node": "^22.10.0",
         "@types/supertest": "^7.2.0",
@@ -25,12 +26,14 @@
         "vitest": "^3.2.0",
       },
       "peerDependencies": {
+        "@paddle/paddle-node-sdk": ">=2",
         "bullmq": ">=5",
         "express": ">=4.18",
         "knex": ">=3",
         "stripe": ">=15",
       },
       "optionalPeers": [
+        "@paddle/paddle-node-sdk",
         "bullmq",
         "express",
         "knex",
@@ -148,6 +151,8 @@
     "@msgpackr-extract/msgpackr-extract-win32-x64": ["@msgpackr-extract/msgpackr-extract-win32-x64@3.0.4", "", { "os": "win32", "cpu": "x64" }, "sha512-CmCXPQrkbwExx3j946/PtHWHbYJiCRBRDl4BlkRQcJB/YOwQxJRTpoo7aTsortjgoJ1x7opzTSxn7C+ASSLVjQ=="],
 
     "@noble/hashes": ["@noble/hashes@1.8.0", "", {}, "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="],
+
+    "@paddle/paddle-node-sdk": ["@paddle/paddle-node-sdk@3.8.0", "", {}, "sha512-4RS6AhZisloYaT2jiFgx9hwm22qwLRUx4EgIVb1gS3bS96lhDBQWq8BC1/Zow2i3CuxMkehXQUc3qKSBS77ozA=="],
 
     "@paralleldrive/cuid2": ["@paralleldrive/cuid2@2.3.1", "", { "dependencies": { "@noble/hashes": "^1.1.5" } }, "sha512-XO7cAxhnTZl0Yggq6jOgjiOHhbgcO4NqFqwSmQpjK3b6TEE6Uj/jfSk6wzYyemh3+I0sHirKSetjQwn5cZktFw=="],
 
