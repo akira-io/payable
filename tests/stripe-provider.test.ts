@@ -1,6 +1,5 @@
 import type Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
-import { PayableError } from '../src/domain/errors/payable-error';
 import { Money } from '../src/domain/value-objects/money';
 import { StripeProvider } from '../src/infrastructure/providers/stripe/stripe-provider';
 
@@ -107,8 +106,29 @@ describe('StripeProvider', () => {
     expect(calls.get('checkout.sessions.create')?.options.idempotencyKey).toBe('idem-1');
   });
 
-  it('throws NOT_IMPLEMENTED for later-phase capabilities', async () => {
-    const { client } = fakeStripe();
-    await expect(provider(client).billingPortal()).rejects.toBeInstanceOf(PayableError);
+  it('creates a billing portal session', async () => {
+    const calls = new Map<string, { params: unknown; options: { idempotencyKey?: string } }>();
+    const stripe = {
+      billingPortal: {
+        sessions: {
+          create: (params: unknown, options: { idempotencyKey?: string }) => {
+            calls.set('portal', { params, options });
+            return Promise.resolve({ url: 'https://billing.stripe.test/p' });
+          },
+        },
+      },
+    } as unknown as Stripe;
+
+    const dto = await new StripeProvider(
+      { secretKey: 'sk', webhookSecret: 'wh' },
+      stripe,
+    ).billingPortal({ providerCustomerId: 'cus_1', returnUrl: 'https://app.test/account' }, ctx);
+
+    expect(dto).toEqual({ url: 'https://billing.stripe.test/p' });
+    expect(calls.get('portal')?.params).toMatchObject({
+      customer: 'cus_1',
+      return_url: 'https://app.test/account',
+    });
+    expect(calls.get('portal')?.options.idempotencyKey).toBe('idem-1');
   });
 });
