@@ -1,8 +1,14 @@
-import { PayableError } from '../../../domain/errors/payable-error';
+import type { Refund } from '../../../domain/entities/refund.entity';
+import type { BillingDependencies } from '../../builders/billing-dependencies';
 
-// TODO: Phase 10
 export class ListRefundsQuery {
-  async run(): Promise<never> {
-    throw PayableError.notImplemented('ListRefundsQuery (Phase 10)');
+  constructor(private readonly deps: BillingDependencies) {}
+
+  async run(paymentId: string): Promise<Refund[]> {
+    const storage = this.deps.storage;
+    if (!storage) {
+      return [];
+    }
+    return storage.refunds.listByPayment(paymentId);
   }
 }

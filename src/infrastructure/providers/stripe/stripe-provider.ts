@@ -5,7 +5,7 @@ import type {
 } from '../../../domain/contracts/payment-provider.contract';
 import type { BillingPortalDTO } from '../../../domain/dtos/billing-portal.dto';
 import type { ProviderCapabilities } from '../../../domain/dtos/capabilities.dto';
-import type { ChargeResultDTO } from '../../../domain/dtos/charge.dto';
+import type { ChargeInput, ChargeResultDTO } from '../../../domain/dtos/charge.dto';
 import type {
   CheckoutSessionDTO,
   CreateCheckoutSessionInput,
@@ -16,14 +16,18 @@ import type {
   CustomerDTO,
   UpdateCustomerInput,
 } from '../../../domain/dtos/customer.dto';
-import type { InvoiceDTO, InvoicePdfDTO } from '../../../domain/dtos/invoice.dto';
+import type {
+  InvoiceDTO,
+  InvoicePdfDTO,
+  ListInvoicesInput,
+} from '../../../domain/dtos/invoice.dto';
 import type { CreatePriceInput, PriceDTO } from '../../../domain/dtos/price.dto';
 import type {
   CreateProductInput,
   ProductDTO,
   UpdateProductInput,
 } from '../../../domain/dtos/product.dto';
-import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
+import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type {
   CancelSubscriptionInput,
   CreateSubscriptionInput,
@@ -34,12 +38,15 @@ import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/
 import { PayableError } from '../../../domain/errors/payable-error';
 import { StripeEventNormalizer } from './stripe-event-normalizer';
 import {
+  toChargeResultDTO,
   toCheckoutSessionDTO,
   toCustomerDTO,
+  toInvoiceDTO,
   toPriceDTO,
   toProductDTO,
-  toSubscriptionDTO,
+  toRefundResultDTO,
 } from './stripe-mappers';
+import { StripeSubscriptions } from './stripe-subscriptions';
 import { StripeWebhookVerifier } from './stripe-webhook-verifier';
 
 export interface StripeProviderOptions {
@@ -52,6 +59,7 @@ export class StripeProvider implements PaymentProvider {
   private client?: Stripe;
   private readonly verifier: StripeWebhookVerifier;
   private readonly normalizer = new StripeEventNormalizer();
+  private readonly subscriptions = new StripeSubscriptions(() => this.stripe());
 
   constructor(
     private readonly options: StripeProviderOptions,
@@ -155,87 +163,60 @@ export class StripeProvider implements PaymentProvider {
     return toCheckoutSessionDTO(session);
   }
 
-  async createSubscription(
+  createSubscription(
     input: CreateSubscriptionInput,
     ctx: OperationContext,
   ): Promise<SubscriptionDTO> {
-    const stripe = await this.stripe();
-    const params: Stripe.SubscriptionCreateParams = {
-      customer: input.providerCustomerId,
-      items: [{ price: input.priceId, quantity: input.quantity ?? 1 }],
-    };
-    if (input.trialDays !== undefined) {
-      params.trial_period_days = input.trialDays;
-    }
-    if (input.coupon) {
-      params.discounts = [{ coupon: input.coupon }];
-    }
-    const subscription = await stripe.subscriptions.create(params, {
-      idempotencyKey: ctx.idempotencyKey,
-    });
-    return toSubscriptionDTO(subscription);
+    return this.subscriptions.create(input, ctx);
   }
 
-  async updateSubscription(
+  updateSubscription(
     input: UpdateSubscriptionInput,
     ctx: OperationContext,
   ): Promise<SubscriptionDTO> {
-    const stripe = await this.stripe();
-    const params: Stripe.SubscriptionUpdateParams = {};
-    if (input.priceId !== undefined || input.quantity !== undefined) {
-      const current = await stripe.subscriptions.retrieve(input.providerSubscriptionId);
-      params.items = [
-        { id: current.items.data[0]?.id, price: input.priceId, quantity: input.quantity },
-      ];
-    }
-    const subscription = await stripe.subscriptions.update(input.providerSubscriptionId, params, {
-      idempotencyKey: ctx.idempotencyKey,
-    });
-    return toSubscriptionDTO(subscription);
+    return this.subscriptions.update(input, ctx);
   }
 
-  async cancelSubscription(
+  cancelSubscription(
     input: CancelSubscriptionInput,
     ctx: OperationContext,
   ): Promise<SubscriptionDTO> {
-    const stripe = await this.stripe();
-    if (input.immediately) {
-      const subscription = await stripe.subscriptions.cancel(
-        input.providerSubscriptionId,
-        undefined,
-        {
-          idempotencyKey: ctx.idempotencyKey,
-        },
-      );
-      return toSubscriptionDTO(subscription);
-    }
-    const subscription = await stripe.subscriptions.update(
-      input.providerSubscriptionId,
-      { cancel_at_period_end: true },
-      { idempotencyKey: ctx.idempotencyKey },
-    );
-    return toSubscriptionDTO(subscription);
+    return this.subscriptions.cancel(input, ctx);
   }
 
-  async resumeSubscription(
+  resumeSubscription(
     input: ResumeSubscriptionInput,
     ctx: OperationContext,
   ): Promise<SubscriptionDTO> {
+    return this.subscriptions.resume(input, ctx);
+  }
+
+  async charge(input: ChargeInput, ctx: OperationContext): Promise<ChargeResultDTO> {
     const stripe = await this.stripe();
-    const subscription = await stripe.subscriptions.update(
-      input.providerSubscriptionId,
-      { cancel_at_period_end: false },
+    const intent = await stripe.paymentIntents.create(
+      {
+        amount: input.amount.amount(),
+        currency: input.amount.currency().toLowerCase(),
+        customer: input.providerCustomerId,
+        description: input.description,
+        metadata: input.reference ? { reference: input.reference } : undefined,
+      },
       { idempotencyKey: ctx.idempotencyKey },
     );
-    return toSubscriptionDTO(subscription);
+    return toChargeResultDTO(intent);
   }
 
-  charge(): Promise<ChargeResultDTO> {
-    return this.unsupported('charge (Phase 10)');
-  }
-
-  refund(): Promise<RefundResultDTO> {
-    return this.unsupported('refund (Phase 10)');
+  async refund(input: RefundInput, ctx: OperationContext): Promise<RefundResultDTO> {
+    const stripe = await this.stripe();
+    const refund = await stripe.refunds.create(
+      {
+        payment_intent: input.providerPaymentId,
+        amount: input.amount?.amount(),
+        reason: input.reason as Stripe.RefundCreateParams.Reason | undefined,
+      },
+      { idempotencyKey: ctx.idempotencyKey },
+    );
+    return toRefundResultDTO(refund);
   }
 
   async verifyWebhook(input: WebhookVerificationInput): Promise<VerifiedWebhook> {
@@ -253,12 +234,26 @@ export class StripeProvider implements PaymentProvider {
     return this.unsupported('billingPortal (Phase 12)');
   }
 
-  listInvoices(): Promise<InvoiceDTO[]> {
-    return this.unsupported('listInvoices (Phase 10)');
+  async listInvoices(input: ListInvoicesInput): Promise<InvoiceDTO[]> {
+    const stripe = await this.stripe();
+    const invoices = await stripe.invoices.list({
+      customer: input.providerCustomerId,
+      limit: input.limit,
+    });
+    return invoices.data.map(toInvoiceDTO);
   }
 
-  downloadInvoicePdf(): Promise<InvoicePdfDTO> {
-    return this.unsupported('downloadInvoicePdf (Phase 10)');
+  async downloadInvoicePdf(providerInvoiceId: string): Promise<InvoicePdfDTO> {
+    const stripe = await this.stripe();
+    const invoice = await stripe.invoices.retrieve(providerInvoiceId);
+    if (!invoice.invoice_pdf) {
+      throw new PayableError(`Invoice ${providerInvoiceId} has no PDF`, {
+        code: 'INVOICE_PDF_UNAVAILABLE',
+      });
+    }
+    const response = await globalThis.fetch(invoice.invoice_pdf);
+    const content = new Uint8Array(await response.arrayBuffer());
+    return { filename: `${providerInvoiceId}.pdf`, content };
   }
 
   private async stripe(): Promise<Stripe> {

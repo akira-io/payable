@@ -1,5 +1,5 @@
-import type { ChargeResultDTO } from '../../domain/dtos/charge.dto';
-import { PayableError } from '../../domain/errors/payable-error';
+import type { Payment } from '../../domain/entities/payment.entity';
+import { ChargeAction } from '../actions/payments/charge.action';
 import type { Billable } from './billable';
 import type { BillingDependencies } from './billing-dependencies';
 import type { ChargeRequest } from './charge-builder';
@@ -25,9 +25,12 @@ export class CustomerContext {
     return new SubscriptionManager(this.billable, name, this.deps);
   }
 
-  async charge(request: ChargeRequest): Promise<ChargeResultDTO> {
-    throw PayableError.notImplemented(
-      `CustomerContext.charge (${this.billable.billableId} / ${request.reference ?? 'no-reference'})`,
-    );
+  charge(request: ChargeRequest): Promise<Payment> {
+    return new ChargeAction(this.deps).handle({
+      billable: this.billable,
+      amount: request.amount,
+      reference: request.reference,
+      description: request.description,
+    });
   }
 }

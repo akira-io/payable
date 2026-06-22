@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
 import { ProviderNotFoundError } from '../src/domain/errors/provider-not-found.error';
-import { Money } from '../src/domain/value-objects/money';
 import { InMemoryEventBus } from '../src/infrastructure/event-bus/in-memory-event-bus';
 import { StripeProvider } from '../src/infrastructure/providers/stripe/stripe-provider';
 import { SystemClock } from '../src/support/clock/system-clock';
 
 const provider = () => new StripeProvider({ secretKey: 'sk_test', webhookSecret: 'wh_test' });
-const billable = { billableType: 'User', billableId: '1', email: 'user@example.com' };
 
 describe('createPayable', () => {
   it('wires default clock and event bus', () => {
@@ -44,13 +42,5 @@ describe('createPayable', () => {
         idempotency: { strategy: 'sometimes' },
       }),
     ).toThrow();
-  });
-
-  it('returns not-implemented for later-phase fluent terminals', async () => {
-    const payable = createPayable({ providers: { stripe: provider() } });
-    await expect(
-      payable.customer(billable).charge({ amount: Money.of(9900, 'USD') }),
-    ).rejects.toThrow('Not implemented');
-    await expect(payable.refund({ paymentId: 'pay_1' })).rejects.toThrow('Not implemented');
   });
 });
