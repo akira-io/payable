@@ -6,6 +6,12 @@ export {
   ResolveIdempotencyKeyAction,
   type ResolveIdempotencyKeyInput,
 } from './application/actions/idempotency/resolve-idempotency-key.action';
+export { DispatchWebhookJobAction } from './application/actions/webhooks/dispatch-webhook-job.action';
+export {
+  PROCESS_WEBHOOK_JOB,
+  ProcessWebhookAction,
+  type ProcessWebhookJobPayload,
+} from './application/actions/webhooks/process-webhook.action';
 export {
   ReceiveWebhookAction,
   type ReceiveWebhookInput,
@@ -46,7 +52,11 @@ export {
   type StripeProviderOptions,
 } from './infrastructure/providers/stripe/stripe-provider';
 export { StripeWebhookVerifier } from './infrastructure/providers/stripe/stripe-webhook-verifier';
-export { BullMQQueueDriver } from './infrastructure/queue/bullmq/bullmq-queue-driver';
+export {
+  BullMQQueueDriver,
+  type BullMQQueueOptions,
+  type BullMQRetryOptions,
+} from './infrastructure/queue/bullmq/bullmq-queue-driver';
 export { SyncQueueDriver } from './infrastructure/queue/sync/sync-queue-driver';
 export { KnexStorageDriver } from './infrastructure/storage/knex/knex-storage-driver';
 export { migrate } from './infrastructure/storage/knex/migrations/migrate';
