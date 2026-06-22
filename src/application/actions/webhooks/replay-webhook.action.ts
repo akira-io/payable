@@ -1,8 +1,40 @@
+import type { VerifiedWebhook } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
+import type { NormalizedEventName } from '../../../domain/events/domain-event';
+import { CorrelationId } from '../../../domain/value-objects/correlation-id';
+import type { WebhookDependencies } from '../../builders/webhook-dependencies';
+import { ProcessWebhookPipeline } from '../../pipelines/webhooks/process-webhook.pipeline';
+import {
+  CanReplayWebhookPolicy,
+  type ReplayWebhookContext,
+} from '../../policies/can-replay-webhook.policy';
 
-// TODO: Phase 11
 export class ReplayWebhookAction {
-  async handle(): Promise<never> {
-    throw PayableError.notImplemented('ReplayWebhookAction (Phase 11)');
+  constructor(
+    private readonly deps: WebhookDependencies,
+    private readonly policy = new CanReplayWebhookPolicy(),
+  ) {}
+
+  async handle(webhookEventId: string, context: ReplayWebhookContext = {}): Promise<void> {
+    if (!this.policy.authorize(context)) {
+      throw new PayableError('Webhook replay not permitted', { code: 'WEBHOOK_REPLAY_DENIED' });
+    }
+    const event = await this.deps.storage.webhookEvents.findById(webhookEventId);
+    if (!event) {
+      throw new PayableError(`Webhook event not found: ${webhookEventId}`, {
+        code: 'WEBHOOK_EVENT_NOT_FOUND',
+      });
+    }
+    const verified: VerifiedWebhook = {
+      providerEventId: event.providerEventId,
+      type: event.type,
+      normalizedType: event.normalizedType as NormalizedEventName | null,
+      data: event.data,
+    };
+    await new ProcessWebhookPipeline(this.deps).handle({
+      verified,
+      webhookEventId: event.id,
+      correlationId: CorrelationId.generate().toString(),
+    });
   }
 }

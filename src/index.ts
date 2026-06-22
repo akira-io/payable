@@ -36,9 +36,14 @@ export {
   type ReceiveWebhookInput,
   type ReceiveWebhookResult,
 } from './application/actions/webhooks/receive-webhook.action';
+export { ReplayWebhookAction } from './application/actions/webhooks/replay-webhook.action';
 export { StoreWebhookEventAction } from './application/actions/webhooks/store-webhook-event.action';
 export * from './application/builders';
 export { ProcessWebhookPipeline } from './application/pipelines/webhooks/process-webhook.pipeline';
+export {
+  CanReplayWebhookPolicy,
+  type ReplayWebhookContext,
+} from './application/policies/can-replay-webhook.policy';
 export { ListAuditLogsQuery } from './application/queries/audit/list-audit-logs.query';
 export { ListPaymentsQuery } from './application/queries/payments/list-payments.query';
 export { ListRefundsQuery } from './application/queries/refunds/list-refunds.query';
@@ -70,6 +75,12 @@ export { NodeEncryptionDriver } from './infrastructure/encryption/node-encryptio
 export { InMemoryEventBus } from './infrastructure/event-bus/in-memory-event-bus';
 export { MemoryLockDriver } from './infrastructure/locks/memory-lock-driver';
 export { RedisLockDriver } from './infrastructure/locks/redis-lock-driver';
+export {
+  type OutboxDelivery,
+  type OutboxPublishResult,
+  OutboxService,
+  type OutboxServiceOptions,
+} from './infrastructure/outbox/outbox-service';
 export {
   PaddleProvider,
   type PaddleProviderOptions,
