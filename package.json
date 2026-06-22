@@ -30,6 +30,11 @@
       "types": "./dist/fastify/index.d.ts",
       "import": "./dist/fastify/index.js",
       "require": "./dist/fastify/index.cjs"
+    },
+    "./nest": {
+      "types": "./dist/nest/index.d.ts",
+      "import": "./dist/nest/index.js",
+      "require": "./dist/nest/index.cjs"
     }
   },
   "files": [
@@ -60,14 +65,19 @@
     "zod": "^3.24.1"
   },
   "peerDependencies": {
+    "@nestjs/common": ">=10",
     "@paddle/paddle-node-sdk": ">=2",
     "bullmq": ">=5",
     "express": ">=4.18",
     "fastify": ">=4",
     "knex": ">=3",
+    "reflect-metadata": ">=0.2",
     "stripe": ">=15"
   },
   "peerDependenciesMeta": {
+    "@nestjs/common": {
+      "optional": true
+    },
     "@paddle/paddle-node-sdk": {
       "optional": true
     },
@@ -83,12 +93,16 @@
     "knex": {
       "optional": true
     },
+    "reflect-metadata": {
+      "optional": true
+    },
     "stripe": {
       "optional": true
     }
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.0",
+    "@nestjs/common": "^11.1.27",
     "@paddle/paddle-node-sdk": "^3.8.0",
     "@types/express": "^5.0.6",
     "@types/node": "^22.10.0",
@@ -99,6 +113,7 @@
     "express": "^5.2.1",
     "fastify": "^5.8.5",
     "knex": "^3.1.0",
+    "reflect-metadata": "^0.2.2",
     "stripe": "^22.2.2",
     "supertest": "^7.2.2",
     "tsup": "^8.5.0",

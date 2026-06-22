@@ -1,9 +1,20 @@
-import { PayableError } from '../../domain/errors/payable-error';
+import { type DynamicModule, Module } from '@nestjs/common';
+import type { Payable } from '../../payable';
+import { type NestPayableOptions, PAYABLE_INSTANCE, PAYABLE_OPTIONS } from './payable.constants';
+import { PayableController } from './payable.controller';
+import { PayableExceptionFilter } from './payable.exception-filter';
 
-// TODO: Phase 15
-// biome-ignore lint/complexity/noStaticOnlyClass: NestJS dynamic-module convention.
+@Module({})
 export class PayableModule {
-  static forRoot(): unknown {
-    throw PayableError.notImplemented('PayableModule.forRoot (Phase 15)');
+  static forRoot(payable: Payable, options: NestPayableOptions = {}): DynamicModule {
+    return {
+      module: PayableModule,
+      controllers: [PayableController],
+      providers: [
+        { provide: PAYABLE_INSTANCE, useValue: payable },
+        { provide: PAYABLE_OPTIONS, useValue: options },
+        PayableExceptionFilter,
+      ],
+    };
   }
 }
