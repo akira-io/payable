@@ -1,8 +1,14 @@
-import { PayableError } from '../../../domain/errors/payable-error';
+import type Stripe from 'stripe';
+import { InvalidWebhookSignatureError } from '../../../domain/errors/invalid-webhook-signature.error';
 
-// TODO: Phase 6
 export class StripeWebhookVerifier {
-  async handle(): Promise<never> {
-    throw PayableError.notImplemented('StripeWebhookVerifier (Phase 6)');
+  constructor(private readonly secret: string) {}
+
+  async verify(stripe: Stripe, payload: string, signature: string): Promise<Stripe.Event> {
+    try {
+      return await stripe.webhooks.constructEventAsync(payload, signature, this.secret);
+    } catch (error) {
+      throw new InvalidWebhookSignatureError('stripe', { cause: error });
+    }
   }
 }

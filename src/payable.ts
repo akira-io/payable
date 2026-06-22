@@ -1,6 +1,12 @@
+import {
+  ReceiveWebhookAction,
+  type ReceiveWebhookInput,
+  type ReceiveWebhookResult,
+} from './application/actions/webhooks/receive-webhook.action';
 import type { Billable } from './application/builders/billable';
 import type { BillingDependencies } from './application/builders/billing-dependencies';
 import { CustomerContext } from './application/builders/customer-context';
+import type { WebhookDependencies } from './application/builders/webhook-dependencies';
 import type { Clock } from './domain/contracts/clock.contract';
 import type { EventBus } from './domain/contracts/event-bus.contract';
 import type { Logger } from './domain/contracts/logger.contract';
@@ -72,6 +78,12 @@ export class Payable {
     return new CustomerContext(billable, this.dependencies());
   }
 
+  async receiveWebhook(
+    input: ReceiveWebhookInput & { provider?: string },
+  ): Promise<ReceiveWebhookResult> {
+    return new ReceiveWebhookAction(this.webhookDependencies(input.provider)).handle(input);
+  }
+
   private dependencies(): BillingDependencies {
     const [providerName] = this.registry.names();
     if (!providerName) {
@@ -82,6 +94,25 @@ export class Payable {
       providerName,
       clock: this.resolved.clock,
       storage: this.resolved.storage,
+    };
+  }
+
+  private webhookDependencies(providerName?: string): WebhookDependencies {
+    const name = providerName ?? this.registry.names()[0];
+    if (!name) {
+      throw new ProviderNotFoundError('default');
+    }
+    if (!this.resolved.storage) {
+      throw new PayableError('Webhook processing requires a storage driver', {
+        code: 'WEBHOOK_STORAGE_REQUIRED',
+      });
+    }
+    return {
+      provider: this.registry.get(name),
+      providerName: name,
+      storage: this.resolved.storage,
+      events: this.resolved.events,
+      clock: this.resolved.clock,
     };
   }
 
