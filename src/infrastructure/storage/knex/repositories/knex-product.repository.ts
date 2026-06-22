@@ -1,28 +1,45 @@
-import type { ProductRepository } from '../../../../domain/contracts/product-repository.contract';
+import type {
+  NewProduct,
+  ProductRepository,
+} from '../../../../domain/contracts/product-repository.contract';
 import type { Product } from '../../../../domain/entities/product.entity';
-import { PayableError } from '../../../../domain/errors/payable-error';
+import { KnexRepository } from '../knex-repository';
+import { fromJson, toBool, toDate, toJson } from '../mappers';
 
-// TODO: Phase 3
-export class KnexProductRepository implements ProductRepository {
-  constructor(protected readonly connection: unknown) {}
+export class KnexProductRepository
+  extends KnexRepository<Product, NewProduct>
+  implements ProductRepository
+{
+  protected readonly table = 'payable_products';
 
-  create(): Promise<Product> {
-    return this.unsupported('create');
+  findByProviderId(provider: string, providerProductId: string): Promise<Product | null> {
+    return this.firstWhere({ provider, provider_product_id: providerProductId });
   }
 
-  update(): Promise<Product> {
-    return this.unsupported('update');
+  protected toEntity(row: Record<string, unknown>): Product {
+    return {
+      id: row.id as string,
+      tenantId: (row.tenant_id as string | null) ?? null,
+      provider: row.provider as string,
+      providerProductId: (row.provider_product_id as string | null) ?? null,
+      name: row.name as string,
+      description: (row.description as string | null) ?? null,
+      active: toBool(row.active),
+      metadata: toJson(row.metadata),
+      createdAt: toDate(row.created_at),
+      updatedAt: toDate(row.updated_at),
+    };
   }
 
-  findById(): Promise<Product | null> {
-    return this.unsupported('findById');
-  }
-
-  findByProviderId(): Promise<Product | null> {
-    return this.unsupported('findByProviderId');
-  }
-
-  private unsupported(op: string): never {
-    throw PayableError.notImplemented(`KnexProductRepository.${op} (Phase 3)`);
+  protected toRow(data: Partial<NewProduct>): Record<string, unknown> {
+    return {
+      tenant_id: data.tenantId,
+      provider: data.provider,
+      provider_product_id: data.providerProductId,
+      name: data.name,
+      description: data.description,
+      active: data.active,
+      metadata: data.metadata === undefined ? undefined : fromJson(data.metadata),
+    };
   }
 }

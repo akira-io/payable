@@ -40,6 +40,8 @@ export {
 export { BullMQQueueDriver } from './infrastructure/queue/bullmq/bullmq-queue-driver';
 export { SyncQueueDriver } from './infrastructure/queue/sync/sync-queue-driver';
 export { KnexStorageDriver } from './infrastructure/storage/knex/knex-storage-driver';
+export { migrate } from './infrastructure/storage/knex/migrations/migrate';
+export { KnexIdempotencyRepository } from './infrastructure/storage/knex/repositories/knex-idempotency.repository';
 export { Payable, ProviderRegistry, type RefundRequest } from './payable';
 export { FakeClock } from './support/clock/fake-clock';
 export { SystemClock } from './support/clock/system-clock';

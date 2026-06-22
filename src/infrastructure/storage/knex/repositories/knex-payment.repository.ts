@@ -1,32 +1,56 @@
-import type { PaymentRepository } from '../../../../domain/contracts/payment-repository.contract';
+import type {
+  NewPayment,
+  PaymentRepository,
+} from '../../../../domain/contracts/payment-repository.contract';
 import type { Payment } from '../../../../domain/entities/payment.entity';
-import { PayableError } from '../../../../domain/errors/payable-error';
+import type { PaymentStatus } from '../../../../domain/value-objects/payment-status';
+import { KnexRepository } from '../knex-repository';
+import { toDate } from '../mappers';
 
-// TODO: Phase 3
-export class KnexPaymentRepository implements PaymentRepository {
-  constructor(protected readonly connection: unknown) {}
+export class KnexPaymentRepository
+  extends KnexRepository<Payment, NewPayment>
+  implements PaymentRepository
+{
+  protected readonly table = 'payable_payments';
 
-  create(): Promise<Payment> {
-    return this.unsupported('create');
+  findByProviderId(provider: string, providerPaymentId: string): Promise<Payment | null> {
+    return this.firstWhere({ provider, provider_payment_id: providerPaymentId });
   }
 
-  update(): Promise<Payment> {
-    return this.unsupported('update');
+  listByCustomer(customerId: string, limit?: number): Promise<Payment[]> {
+    return this.manyWhere({ customer_id: customerId }, limit);
   }
 
-  findById(): Promise<Payment | null> {
-    return this.unsupported('findById');
+  protected toEntity(row: Record<string, unknown>): Payment {
+    return {
+      id: row.id as string,
+      tenantId: (row.tenant_id as string | null) ?? null,
+      customerId: (row.customer_id as string | null) ?? null,
+      provider: row.provider as string,
+      providerPaymentId: (row.provider_payment_id as string | null) ?? null,
+      status: row.status as PaymentStatus,
+      currency: row.currency as string,
+      amount: row.amount as number,
+      refundedAmount: row.refunded_amount as number,
+      reference: (row.reference as string | null) ?? null,
+      description: (row.description as string | null) ?? null,
+      createdAt: toDate(row.created_at),
+      updatedAt: toDate(row.updated_at),
+    };
   }
 
-  findByProviderId(): Promise<Payment | null> {
-    return this.unsupported('findByProviderId');
-  }
-
-  listByCustomer(): Promise<Payment[]> {
-    return this.unsupported('listByCustomer');
-  }
-
-  private unsupported(op: string): never {
-    throw PayableError.notImplemented(`KnexPaymentRepository.${op} (Phase 3)`);
+  protected toRow(data: Partial<NewPayment>): Record<string, unknown> {
+    return {
+      tenant_id: data.tenantId,
+      customer_id: data.customerId,
+      provider: data.provider,
+      provider_payment_id: data.providerPaymentId,
+      status: data.status,
+      currency: data.currency,
+      amount: data.amount,
+      refunded_amount: data.refundedAmount,
+      reference: data.reference,
+      description: data.description,
+    };
   }
 }

@@ -1,30 +1,79 @@
+import type { Knex } from 'knex';
+import type { Clock } from '../../../../domain/contracts/clock.contract';
 import type {
+  NewOutboxEvent,
   OutboxEvent,
   OutboxEventRepository,
+  OutboxStatus,
 } from '../../../../domain/contracts/outbox-event-repository.contract';
-import { PayableError } from '../../../../domain/errors/payable-error';
+import { toDate, toJson, toNullableDate } from '../mappers';
 
-// TODO: Phase 3
 export class KnexOutboxEventRepository implements OutboxEventRepository {
-  constructor(protected readonly connection: unknown) {}
+  private readonly table = 'payable_outbox_events';
 
-  create(): Promise<OutboxEvent> {
-    return this.unsupported('create');
+  constructor(
+    private readonly knex: Knex,
+    private readonly clock: Clock,
+  ) {}
+
+  async create(data: NewOutboxEvent): Promise<OutboxEvent> {
+    const id = globalThis.crypto.randomUUID();
+    const timestamp = this.clock.now().toISOString();
+    await this.knex(this.table).insert({
+      id,
+      tenant_id: data.tenantId,
+      correlation_id: data.correlationId,
+      event_type: data.eventType,
+      event_version: data.eventVersion,
+      payload: JSON.stringify(data.payload),
+      status: 'pending',
+      attempts: 0,
+      next_retry_at: null,
+      created_at: timestamp,
+      updated_at: timestamp,
+    });
+    const row = await this.knex(this.table).where({ id }).first();
+    return this.toEntity(row as Record<string, unknown>);
   }
 
-  pullPending(): Promise<OutboxEvent[]> {
-    return this.unsupported('pullPending');
+  async pullPending(limit: number): Promise<OutboxEvent[]> {
+    const rows = (await this.knex(this.table)
+      .where({ status: 'pending' })
+      .orderBy('created_at', 'asc')
+      .limit(limit)) as Record<string, unknown>[];
+    return rows.map((row) => this.toEntity(row));
   }
 
-  markPublished(): Promise<void> {
-    return this.unsupported('markPublished');
+  async markPublished(id: string): Promise<void> {
+    await this.knex(this.table)
+      .where({ id })
+      .update({ status: 'published', updated_at: this.clock.now().toISOString() });
   }
 
-  markFailed(): Promise<void> {
-    return this.unsupported('markFailed');
+  async markFailed(id: string, nextRetryAt: Date | null): Promise<void> {
+    await this.knex(this.table)
+      .where({ id })
+      .update({
+        status: 'failed',
+        attempts: this.knex.raw('attempts + 1'),
+        next_retry_at: nextRetryAt ? nextRetryAt.toISOString() : null,
+        updated_at: this.clock.now().toISOString(),
+      });
   }
 
-  private unsupported(op: string): never {
-    throw PayableError.notImplemented(`KnexOutboxEventRepository.${op} (Phase 3)`);
+  private toEntity(row: Record<string, unknown>): OutboxEvent {
+    return {
+      id: row.id as string,
+      tenantId: (row.tenant_id as string | null) ?? null,
+      correlationId: row.correlation_id as string,
+      eventType: row.event_type as string,
+      eventVersion: row.event_version as number,
+      payload: toJson<Record<string, unknown>>(row.payload) ?? {},
+      status: row.status as OutboxStatus,
+      attempts: row.attempts as number,
+      nextRetryAt: toNullableDate(row.next_retry_at),
+      createdAt: toDate(row.created_at),
+      updatedAt: toDate(row.updated_at),
+    };
   }
 }
