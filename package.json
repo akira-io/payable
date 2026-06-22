@@ -1,0 +1,60 @@
+{
+  "name": "@akira-io/payable",
+  "version": "0.1.0",
+  "description": "Laravel Cashier-inspired, framework/provider/storage/queue-agnostic billing engine for Node.js.",
+  "license": "(MIT OR Apache-2.0)",
+  "author": "Kidiatoliny <kidiatoliny@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/akira-io/payable.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": [
+    "billing",
+    "payments",
+    "subscriptions",
+    "stripe",
+    "paddle",
+    "cashier",
+    "webhooks",
+    "idempotency",
+    "clean-architecture"
+  ],
+  "dependencies": {
+    "dinero.js": "^2.0.2",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.0",
+    "@types/node": "^22.10.0",
+    "@vitest/coverage-v8": "^3.2.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}
