@@ -55,12 +55,16 @@
     "zod": "^3.24.1"
   },
   "peerDependencies": {
+    "@paddle/paddle-node-sdk": ">=2",
     "bullmq": ">=5",
     "express": ">=4.18",
     "knex": ">=3",
     "stripe": ">=15"
   },
   "peerDependenciesMeta": {
+    "@paddle/paddle-node-sdk": {
+      "optional": true
+    },
     "bullmq": {
       "optional": true
     },
@@ -76,6 +80,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.0",
+    "@paddle/paddle-node-sdk": "^3.8.0",
     "@types/express": "^5.0.6",
     "@types/node": "^22.10.0",
     "@types/supertest": "^7.2.0",

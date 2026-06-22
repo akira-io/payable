@@ -1,8 +1,30 @@
-import { PayableError } from '../../../domain/errors/payable-error';
+import { InvalidWebhookSignatureError } from '../../../domain/errors/invalid-webhook-signature.error';
+import type { PaddleClient, PaddleWebhookEvent } from './paddle-types';
 
-// TODO: Phase 13
 export class PaddleWebhookVerifier {
-  async handle(): Promise<never> {
-    throw PayableError.notImplemented('PaddleWebhookVerifier (Phase 13)');
+  constructor(private readonly secret: string) {}
+
+  async verify(
+    client: PaddleClient,
+    payload: string,
+    signature: string,
+  ): Promise<PaddleWebhookEvent> {
+    const event = await this.unmarshal(client, payload, signature);
+    if (!event) {
+      throw new InvalidWebhookSignatureError('paddle');
+    }
+    return event;
+  }
+
+  private async unmarshal(
+    client: PaddleClient,
+    payload: string,
+    signature: string,
+  ): Promise<PaddleWebhookEvent | null> {
+    try {
+      return await client.webhooks.unmarshal(payload, this.secret, signature);
+    } catch (error) {
+      throw new InvalidWebhookSignatureError('paddle', { cause: error });
+    }
   }
 }
