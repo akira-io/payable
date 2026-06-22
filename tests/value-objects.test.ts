@@ -1,0 +1,55 @@
+import { describe, expect, it } from 'vitest';
+import { CorrelationId } from '../src/domain/value-objects/correlation-id';
+import { IdempotencyKey } from '../src/domain/value-objects/idempotency-key';
+import { ProviderName } from '../src/domain/value-objects/provider-name';
+import { TenantId } from '../src/domain/value-objects/tenant-id';
+
+describe('ProviderName', () => {
+  it('normalizes to lowercase', () => {
+    expect(ProviderName.of('Stripe').toString()).toBe('stripe');
+  });
+
+  it('rejects invalid names', () => {
+    expect(() => ProviderName.of('1bad')).toThrow(TypeError);
+  });
+});
+
+describe('IdempotencyKey', () => {
+  it('builds deterministic charge keys', () => {
+    const key = IdempotencyKey.forCharge({
+      provider: 'stripe',
+      billableType: 'User',
+      billableId: '1',
+      reference: 'invoice_123',
+      amount: 9900,
+      currency: 'USD',
+    });
+    expect(key.toString()).toBe('charge:stripe:User:1:invoice_123:9900:USD');
+  });
+
+  it('builds deterministic webhook keys', () => {
+    expect(
+      IdempotencyKey.forWebhook({ provider: 'stripe', providerEventId: 'evt_1' }).toString(),
+    ).toBe('webhook:stripe:evt_1');
+  });
+
+  it('rejects empty keys', () => {
+    expect(() => IdempotencyKey.of('  ')).toThrow(TypeError);
+  });
+});
+
+describe('CorrelationId', () => {
+  it('generates a unique value', () => {
+    expect(CorrelationId.generate().toString()).not.toBe(CorrelationId.generate().toString());
+  });
+
+  it('wraps an explicit value', () => {
+    expect(CorrelationId.of('corr_1').toString()).toBe('corr_1');
+  });
+});
+
+describe('TenantId', () => {
+  it('rejects empty values', () => {
+    expect(() => TenantId.of('')).toThrow(TypeError);
+  });
+});
