@@ -1,5 +1,8 @@
 import type { PaymentProvider } from '../../src/domain/contracts/payment-provider.contract';
-import type { BillingPortalDTO } from '../../src/domain/dtos/billing-portal.dto';
+import type {
+  BillingPortalDTO,
+  BillingPortalInput,
+} from '../../src/domain/dtos/billing-portal.dto';
 import type { ProviderCapabilities } from '../../src/domain/dtos/capabilities.dto';
 import type { ChargeInput, ChargeResultDTO } from '../../src/domain/dtos/charge.dto';
 import type {
@@ -37,6 +40,7 @@ export class FakeProvider implements PaymentProvider {
   lastVerifyInput?: WebhookVerificationInput;
   createdSubscriptions = 0;
   lastSubscriptionUpdate?: UpdateSubscriptionInput;
+  lastCreateSubscription?: CreateSubscriptionInput;
   lastChargeCtx?: OperationContext;
   lastRefundInput?: RefundInput;
 
@@ -85,6 +89,7 @@ export class FakeProvider implements PaymentProvider {
 
   async createSubscription(input: CreateSubscriptionInput): Promise<SubscriptionDTO> {
     this.createdSubscriptions += 1;
+    this.lastCreateSubscription = input;
     return {
       providerSubscriptionId: 'sub_fake',
       status: input.trialDays !== undefined ? 'trialing' : 'active',
@@ -143,8 +148,8 @@ export class FakeProvider implements PaymentProvider {
     return this.verifyResult;
   }
 
-  billingPortal(): Promise<BillingPortalDTO> {
-    return this.unused('billingPortal');
+  async billingPortal(input: BillingPortalInput): Promise<BillingPortalDTO> {
+    return { url: `https://portal.fake/${input.providerCustomerId}` };
   }
 
   async listInvoices(_input: ListInvoicesInput): Promise<InvoiceDTO[]> {

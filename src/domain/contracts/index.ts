@@ -33,6 +33,10 @@ export type { NewProduct, ProductRepository } from './product-repository.contrac
 export type { JobHandler, QueueDriver, QueueJob } from './queue-driver.contract';
 export type { NewRefund, RefundRepository } from './refund-repository.contract';
 export type { Repositories, StorageDriver } from './storage-driver.contract';
+export type {
+  NewSubscriptionItem,
+  SubscriptionItemRepository,
+} from './subscription-item-repository.contract';
 export type { NewSubscription, SubscriptionRepository } from './subscription-repository.contract';
 export type {
   NewWebhookEvent,

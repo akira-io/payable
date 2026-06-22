@@ -14,9 +14,13 @@ export class StripeSubscriptions {
 
   async create(input: CreateSubscriptionInput, ctx: OperationContext): Promise<SubscriptionDTO> {
     const stripe = await this.client();
+    const items =
+      input.items && input.items.length > 0
+        ? input.items.map((item) => ({ price: item.priceId, quantity: item.quantity }))
+        : [{ price: input.priceId, quantity: input.quantity ?? 1 }];
     const params: Stripe.SubscriptionCreateParams = {
       customer: input.providerCustomerId,
-      items: [{ price: input.priceId, quantity: input.quantity ?? 1 }],
+      items,
     };
     if (input.trialDays !== undefined) {
       params.trial_period_days = input.trialDays;

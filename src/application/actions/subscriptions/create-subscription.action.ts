@@ -1,3 +1,4 @@
+import type { SubscriptionLineItem } from '../../../domain/dtos/subscription.dto';
 import type { Subscription } from '../../../domain/entities/subscription.entity';
 import { CustomerNotFoundError } from '../../../domain/errors/customer-not-found.error';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
@@ -11,6 +12,7 @@ export interface CreateSubscriptionInputData {
   name: string;
   priceId: string;
   quantity?: number;
+  items?: SubscriptionLineItem[];
   trialDays?: number;
   coupon?: string;
 }
@@ -40,12 +42,13 @@ export class CreateSubscriptionAction extends SubscriptionAction {
         providerCustomerId,
         priceId: input.priceId,
         quantity: input.quantity,
+        items: input.items,
         trialDays: input.trialDays,
         coupon: input.coupon,
       },
       { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
     );
-    return storage.subscriptions.create({
+    const subscription = await storage.subscriptions.create({
       tenantId: null,
       customerId: customer.id,
       name: input.name,
@@ -59,5 +62,15 @@ export class CreateSubscriptionAction extends SubscriptionAction {
       currentPeriodStart: null,
       currentPeriodEnd: dto.currentPeriodEnd,
     });
+    const items = input.items ?? [{ priceId: input.priceId, quantity: input.quantity ?? 1 }];
+    for (const item of items) {
+      await storage.subscriptionItems.create({
+        subscriptionId: subscription.id,
+        priceId: item.priceId,
+        providerItemId: null,
+        quantity: item.quantity,
+      });
+    }
+    return subscription;
   }
 }

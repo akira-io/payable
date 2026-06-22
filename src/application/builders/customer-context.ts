@@ -1,4 +1,7 @@
+import type { BillingPortalDTO } from '../../domain/dtos/billing-portal.dto';
 import type { Payment } from '../../domain/entities/payment.entity';
+import { CorrelationId } from '../../domain/value-objects/correlation-id';
+import { SyncCustomerWithProviderAction } from '../actions/customers/sync-customer-with-provider.action';
 import { ChargeAction } from '../actions/payments/charge.action';
 import type { Billable } from './billable';
 import type { BillingDependencies } from './billing-dependencies';
@@ -32,5 +35,16 @@ export class CustomerContext {
       reference: request.reference,
       description: request.description,
     });
+  }
+
+  async billingPortal(returnUrl: string): Promise<BillingPortalDTO> {
+    const providerCustomerId = await new SyncCustomerWithProviderAction(this.deps).handle(
+      this.billable,
+    );
+    const key = `portal:${this.deps.providerName}:${this.billable.billableType}:${this.billable.billableId}`;
+    return this.deps.provider.billingPortal(
+      { providerCustomerId, returnUrl },
+      { correlationId: CorrelationId.generate().toString(), idempotencyKey: key },
+    );
   }
 }

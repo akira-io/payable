@@ -3,7 +3,7 @@ import type {
   PaymentProvider,
   ResumeSubscriptionInput,
 } from '../../../domain/contracts/payment-provider.contract';
-import type { BillingPortalDTO } from '../../../domain/dtos/billing-portal.dto';
+import type { BillingPortalDTO, BillingPortalInput } from '../../../domain/dtos/billing-portal.dto';
 import type { ProviderCapabilities } from '../../../domain/dtos/capabilities.dto';
 import type { ChargeInput, ChargeResultDTO } from '../../../domain/dtos/charge.dto';
 import type {
@@ -230,8 +230,13 @@ export class StripeProvider implements PaymentProvider {
     };
   }
 
-  billingPortal(): Promise<BillingPortalDTO> {
-    return this.unsupported('billingPortal (Phase 12)');
+  async billingPortal(input: BillingPortalInput, ctx: OperationContext): Promise<BillingPortalDTO> {
+    const stripe = await this.stripe();
+    const session = await stripe.billingPortal.sessions.create(
+      { customer: input.providerCustomerId, return_url: input.returnUrl },
+      { idempotencyKey: ctx.idempotencyKey },
+    );
+    return { url: session.url };
   }
 
   async listInvoices(input: ListInvoicesInput): Promise<InvoiceDTO[]> {
@@ -263,9 +268,5 @@ export class StripeProvider implements PaymentProvider {
     const { default: StripeClient } = await import('stripe');
     this.client = new StripeClient(this.options.secretKey);
     return this.client;
-  }
-
-  private unsupported(operation: string): Promise<never> {
-    return Promise.reject(PayableError.notImplemented(`StripeProvider.${operation}`));
   }
 }

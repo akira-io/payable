@@ -1,9 +1,15 @@
 import type { SubscriptionStatus } from '../value-objects/subscription-status';
 
+export interface SubscriptionLineItem {
+  priceId: string;
+  quantity: number;
+}
+
 export interface CreateSubscriptionInput {
   providerCustomerId: string;
   priceId: string;
   quantity?: number;
+  items?: SubscriptionLineItem[];
   trialDays?: number;
   coupon?: string;
 }
