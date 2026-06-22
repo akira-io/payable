@@ -3,8 +3,14 @@ import type { CheckoutSessionDTO } from '../../../domain/dtos/checkout.dto';
 import type { CustomerDTO } from '../../../domain/dtos/customer.dto';
 import type { PriceDTO } from '../../../domain/dtos/price.dto';
 import type { ProductDTO } from '../../../domain/dtos/product.dto';
+import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import type { RecurringInterval } from '../../../domain/entities/common';
 import { Money } from '../../../domain/value-objects/money';
+import type { SubscriptionStatus } from '../../../domain/value-objects/subscription-status';
+
+function fromUnixSeconds(value: number | null | undefined): Date | null {
+  return value === null || value === undefined ? null : new Date(value * 1000);
+}
 
 export function toCustomerDTO(customer: Stripe.Customer): CustomerDTO {
   return {
@@ -35,5 +41,14 @@ export function toCheckoutSessionDTO(session: Stripe.Checkout.Session): Checkout
   return {
     id: session.id,
     url: session.url ?? '',
+  };
+}
+
+export function toSubscriptionDTO(subscription: Stripe.Subscription): SubscriptionDTO {
+  return {
+    providerSubscriptionId: subscription.id,
+    status: subscription.status as SubscriptionStatus,
+    currentPeriodEnd: fromUnixSeconds(subscription.items.data[0]?.current_period_end),
+    trialEndsAt: fromUnixSeconds(subscription.trial_end),
   };
 }

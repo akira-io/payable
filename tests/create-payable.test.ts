@@ -51,9 +51,6 @@ describe('createPayable', () => {
     await expect(
       payable.customer(billable).charge({ amount: Money.of(9900, 'USD') }),
     ).rejects.toThrow('Not implemented');
-    await expect(payable.customer(billable).subscription('default').cancel()).rejects.toThrow(
-      'Not implemented',
-    );
     await expect(payable.refund({ paymentId: 'pay_1' })).rejects.toThrow('Not implemented');
   });
 });

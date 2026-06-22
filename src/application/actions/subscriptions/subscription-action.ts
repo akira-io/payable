@@ -1,0 +1,40 @@
+import type { StorageDriver } from '../../../domain/contracts/storage-driver.contract';
+import type { OperationContext } from '../../../domain/dtos/common.dto';
+import type { Subscription } from '../../../domain/entities/subscription.entity';
+import { PayableError } from '../../../domain/errors/payable-error';
+import { SubscriptionNotFoundError } from '../../../domain/errors/subscription-not-found.error';
+import { CorrelationId } from '../../../domain/value-objects/correlation-id';
+import type { Billable } from '../../builders/billable';
+import type { BillingDependencies } from '../../builders/billing-dependencies';
+import { FindSubscriptionQuery } from '../../queries/subscriptions/find-subscription.query';
+
+export type ManagedSubscription = Subscription & { providerSubscriptionId: string };
+
+export abstract class SubscriptionAction {
+  constructor(protected readonly deps: BillingDependencies) {}
+
+  protected storage(): StorageDriver {
+    if (!this.deps.storage) {
+      throw new PayableError('Subscription management requires a storage driver', {
+        code: 'SUBSCRIPTION_STORAGE_REQUIRED',
+      });
+    }
+    return this.deps.storage;
+  }
+
+  protected async resolve(billable: Billable, name: string): Promise<ManagedSubscription> {
+    this.storage();
+    const subscription = await new FindSubscriptionQuery(this.deps).run(billable, name);
+    if (!subscription?.providerSubscriptionId) {
+      throw new SubscriptionNotFoundError(name);
+    }
+    return subscription as ManagedSubscription;
+  }
+
+  protected context(operation: string, providerSubscriptionId: string): OperationContext {
+    return {
+      correlationId: CorrelationId.generate().toString(),
+      idempotencyKey: `subscription:${operation}:${this.deps.providerName}:${providerSubscriptionId}`,
+    };
+  }
+}

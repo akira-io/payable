@@ -67,7 +67,7 @@ describe('express adapter', () => {
 
   it('maps not-implemented operations to 501', async () => {
     const app = makeApp(createPayable({ providers: { stripe: new FakeProvider() } }));
-    const res = await request(app).post('/payable/subscriptions/default/cancel').send({ billable });
+    const res = await request(app).get('/payable/invoices');
     expect(res.status).toBe(501);
     expect(res.body.error).toBe('NOT_IMPLEMENTED');
   });

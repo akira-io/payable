@@ -6,6 +6,15 @@ export {
   ResolveIdempotencyKeyAction,
   type ResolveIdempotencyKeyInput,
 } from './application/actions/idempotency/resolve-idempotency-key.action';
+export { CancelSubscriptionAction } from './application/actions/subscriptions/cancel-subscription.action';
+export { CancelSubscriptionNowAction } from './application/actions/subscriptions/cancel-subscription-now.action';
+export {
+  CreateSubscriptionAction,
+  type CreateSubscriptionInputData,
+} from './application/actions/subscriptions/create-subscription.action';
+export { ResumeSubscriptionAction } from './application/actions/subscriptions/resume-subscription.action';
+export { SwapSubscriptionAction } from './application/actions/subscriptions/swap-subscription.action';
+export { UpdateSubscriptionQuantityAction } from './application/actions/subscriptions/update-subscription-quantity.action';
 export { DispatchWebhookJobAction } from './application/actions/webhooks/dispatch-webhook-job.action';
 export {
   PROCESS_WEBHOOK_JOB,
@@ -21,6 +30,8 @@ export { StoreWebhookEventAction } from './application/actions/webhooks/store-we
 export * from './application/builders';
 export { ProcessWebhookPipeline } from './application/pipelines/webhooks/process-webhook.pipeline';
 export { ListAuditLogsQuery } from './application/queries/audit/list-audit-logs.query';
+export { FindSubscriptionQuery } from './application/queries/subscriptions/find-subscription.query';
+export { ListSubscriptionsQuery } from './application/queries/subscriptions/list-subscriptions.query';
 export { DefaultIdempotencyKeyResolver } from './application/services/idempotency/default-idempotency-key-resolver';
 export {
   IdempotencyService,
@@ -31,6 +42,11 @@ export { createPayable } from './create-payable';
 export * from './domain/contracts';
 export * from './domain/dtos';
 export * from './domain/entities';
+export {
+  onGracePeriod,
+  onTrial,
+  subscriptionEnded,
+} from './domain/entities/subscription-state';
 export * from './domain/errors';
 export * from './domain/events';
 export * from './domain/states';

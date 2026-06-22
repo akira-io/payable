@@ -12,8 +12,16 @@ import type { InvoiceDTO, InvoicePdfDTO } from '../../src/domain/dtos/invoice.dt
 import type { PriceDTO } from '../../src/domain/dtos/price.dto';
 import type { ProductDTO } from '../../src/domain/dtos/product.dto';
 import type { RefundResultDTO } from '../../src/domain/dtos/refund.dto';
-import type { SubscriptionDTO } from '../../src/domain/dtos/subscription.dto';
+import type {
+  CancelSubscriptionInput,
+  CreateSubscriptionInput,
+  SubscriptionDTO,
+  UpdateSubscriptionInput,
+} from '../../src/domain/dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../src/domain/dtos/webhook.dto';
+
+const PERIOD_END = new Date('2026-07-22T00:00:00.000Z');
+const TRIAL_END = new Date('2026-07-06T00:00:00.000Z');
 
 export class FakeProvider implements PaymentProvider {
   readonly name = 'stripe';
@@ -22,6 +30,8 @@ export class FakeProvider implements PaymentProvider {
   lastCheckout?: { input: CreateCheckoutSessionInput; ctx: OperationContext };
   verifyResult?: VerifiedWebhook;
   lastVerifyInput?: WebhookVerificationInput;
+  createdSubscriptions = 0;
+  lastSubscriptionUpdate?: UpdateSubscriptionInput;
 
   capabilities(): ProviderCapabilities {
     return {
@@ -66,20 +76,42 @@ export class FakeProvider implements PaymentProvider {
     return this.unused('createPrice');
   }
 
-  createSubscription(): Promise<SubscriptionDTO> {
-    return this.unused('createSubscription');
+  async createSubscription(input: CreateSubscriptionInput): Promise<SubscriptionDTO> {
+    this.createdSubscriptions += 1;
+    return {
+      providerSubscriptionId: 'sub_fake',
+      status: input.trialDays !== undefined ? 'trialing' : 'active',
+      currentPeriodEnd: PERIOD_END,
+      trialEndsAt: input.trialDays !== undefined ? TRIAL_END : null,
+    };
   }
 
-  updateSubscription(): Promise<SubscriptionDTO> {
-    return this.unused('updateSubscription');
+  async updateSubscription(input: UpdateSubscriptionInput): Promise<SubscriptionDTO> {
+    this.lastSubscriptionUpdate = input;
+    return {
+      providerSubscriptionId: input.providerSubscriptionId,
+      status: 'active',
+      currentPeriodEnd: PERIOD_END,
+      trialEndsAt: null,
+    };
   }
 
-  cancelSubscription(): Promise<SubscriptionDTO> {
-    return this.unused('cancelSubscription');
+  async cancelSubscription(input: CancelSubscriptionInput): Promise<SubscriptionDTO> {
+    return {
+      providerSubscriptionId: input.providerSubscriptionId,
+      status: input.immediately ? 'canceled' : 'active',
+      currentPeriodEnd: PERIOD_END,
+      trialEndsAt: null,
+    };
   }
 
-  resumeSubscription(): Promise<SubscriptionDTO> {
-    return this.unused('resumeSubscription');
+  async resumeSubscription(input: { providerSubscriptionId: string }): Promise<SubscriptionDTO> {
+    return {
+      providerSubscriptionId: input.providerSubscriptionId,
+      status: 'active',
+      currentPeriodEnd: PERIOD_END,
+      trialEndsAt: null,
+    };
   }
 
   charge(): Promise<ChargeResultDTO> {

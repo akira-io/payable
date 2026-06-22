@@ -1,40 +1,40 @@
-import type { SubscriptionDTO } from '../../domain/dtos/subscription.dto';
-import { PayableError } from '../../domain/errors/payable-error';
+import type { Subscription } from '../../domain/entities/subscription.entity';
+import { CancelSubscriptionAction } from '../actions/subscriptions/cancel-subscription.action';
+import { CancelSubscriptionNowAction } from '../actions/subscriptions/cancel-subscription-now.action';
+import { ResumeSubscriptionAction } from '../actions/subscriptions/resume-subscription.action';
+import { SwapSubscriptionAction } from '../actions/subscriptions/swap-subscription.action';
+import { UpdateSubscriptionQuantityAction } from '../actions/subscriptions/update-subscription-quantity.action';
 import type { Billable } from './billable';
+import type { BillingDependencies } from './billing-dependencies';
 
 export class SubscriptionManager {
-  private readonly state: { billable: Billable; name: string };
+  constructor(
+    private readonly billable: Billable,
+    private readonly name: string,
+    private readonly deps: BillingDependencies,
+  ) {}
 
-  constructor(billable: Billable, name: string) {
-    this.state = { billable, name };
+  swap(priceId: string): Promise<Subscription> {
+    return new SwapSubscriptionAction(this.deps).handle(this.billable, this.name, priceId);
   }
 
-  // TODO: Phase 9 - swap to a different price.
-  async swap(priceId: string): Promise<SubscriptionDTO> {
-    throw PayableError.notImplemented(
-      `SubscriptionManager.swap (${this.state.name} -> ${priceId})`,
-    );
+  cancel(): Promise<Subscription> {
+    return new CancelSubscriptionAction(this.deps).handle(this.billable, this.name);
   }
 
-  // TODO: Phase 9 - cancel at period end (grace period).
-  async cancel(): Promise<SubscriptionDTO> {
-    throw PayableError.notImplemented(`SubscriptionManager.cancel (${this.state.name})`);
+  cancelNow(): Promise<Subscription> {
+    return new CancelSubscriptionNowAction(this.deps).handle(this.billable, this.name);
   }
 
-  // TODO: Phase 9 - cancel immediately.
-  async cancelNow(): Promise<SubscriptionDTO> {
-    throw PayableError.notImplemented(`SubscriptionManager.cancelNow (${this.state.name})`);
+  resume(): Promise<Subscription> {
+    return new ResumeSubscriptionAction(this.deps).handle(this.billable, this.name);
   }
 
-  // TODO: Phase 9 - resume during the grace period.
-  async resume(): Promise<SubscriptionDTO> {
-    throw PayableError.notImplemented(`SubscriptionManager.resume (${this.state.name})`);
-  }
-
-  // TODO: Phase 9 - update seat quantity.
-  async updateQuantity(quantity: number): Promise<SubscriptionDTO> {
-    throw PayableError.notImplemented(
-      `SubscriptionManager.updateQuantity (${this.state.name} -> ${quantity})`,
+  updateQuantity(quantity: number): Promise<Subscription> {
+    return new UpdateSubscriptionQuantityAction(this.deps).handle(
+      this.billable,
+      this.name,
+      quantity,
     );
   }
 }
