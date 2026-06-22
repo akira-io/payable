@@ -1,8 +1,22 @@
-import { PayableError } from '../../../domain/errors/payable-error';
+import type { Payment } from '../../../domain/entities/payment.entity';
+import type { Billable } from '../../builders/billable';
+import type { BillingDependencies } from '../../builders/billing-dependencies';
 
-// TODO: Phase 10
 export class ListPaymentsQuery {
-  async run(): Promise<never> {
-    throw PayableError.notImplemented('ListPaymentsQuery (Phase 10)');
+  constructor(private readonly deps: BillingDependencies) {}
+
+  async run(billable: Billable, limit?: number): Promise<Payment[]> {
+    const storage = this.deps.storage;
+    if (!storage) {
+      return [];
+    }
+    const customer = await storage.customers.findByBillable(
+      billable.billableType,
+      billable.billableId,
+    );
+    if (!customer) {
+      return [];
+    }
+    return storage.payments.listByCustomer(customer.id, limit);
   }
 }

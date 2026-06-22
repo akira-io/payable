@@ -1,17 +1,21 @@
 import type { PaymentProvider } from '../../src/domain/contracts/payment-provider.contract';
 import type { BillingPortalDTO } from '../../src/domain/dtos/billing-portal.dto';
 import type { ProviderCapabilities } from '../../src/domain/dtos/capabilities.dto';
-import type { ChargeResultDTO } from '../../src/domain/dtos/charge.dto';
+import type { ChargeInput, ChargeResultDTO } from '../../src/domain/dtos/charge.dto';
 import type {
   CheckoutSessionDTO,
   CreateCheckoutSessionInput,
 } from '../../src/domain/dtos/checkout.dto';
 import type { OperationContext } from '../../src/domain/dtos/common.dto';
 import type { CreateCustomerInput, CustomerDTO } from '../../src/domain/dtos/customer.dto';
-import type { InvoiceDTO, InvoicePdfDTO } from '../../src/domain/dtos/invoice.dto';
+import type {
+  InvoiceDTO,
+  InvoicePdfDTO,
+  ListInvoicesInput,
+} from '../../src/domain/dtos/invoice.dto';
 import type { PriceDTO } from '../../src/domain/dtos/price.dto';
 import type { ProductDTO } from '../../src/domain/dtos/product.dto';
-import type { RefundResultDTO } from '../../src/domain/dtos/refund.dto';
+import type { RefundInput, RefundResultDTO } from '../../src/domain/dtos/refund.dto';
 import type {
   CancelSubscriptionInput,
   CreateSubscriptionInput,
@@ -19,6 +23,7 @@ import type {
   UpdateSubscriptionInput,
 } from '../../src/domain/dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../src/domain/dtos/webhook.dto';
+import { Money } from '../../src/domain/value-objects/money';
 
 const PERIOD_END = new Date('2026-07-22T00:00:00.000Z');
 const TRIAL_END = new Date('2026-07-06T00:00:00.000Z');
@@ -32,6 +37,8 @@ export class FakeProvider implements PaymentProvider {
   lastVerifyInput?: WebhookVerificationInput;
   createdSubscriptions = 0;
   lastSubscriptionUpdate?: UpdateSubscriptionInput;
+  lastChargeCtx?: OperationContext;
+  lastRefundInput?: RefundInput;
 
   capabilities(): ProviderCapabilities {
     return {
@@ -114,12 +121,18 @@ export class FakeProvider implements PaymentProvider {
     };
   }
 
-  charge(): Promise<ChargeResultDTO> {
-    return this.unused('charge');
+  async charge(input: ChargeInput, ctx: OperationContext): Promise<ChargeResultDTO> {
+    this.lastChargeCtx = ctx;
+    return { providerPaymentId: 'pi_fake', status: 'succeeded', amount: input.amount };
   }
 
-  refund(): Promise<RefundResultDTO> {
-    return this.unused('refund');
+  async refund(input: RefundInput): Promise<RefundResultDTO> {
+    this.lastRefundInput = input;
+    return {
+      providerRefundId: 're_fake',
+      status: 'succeeded',
+      amount: input.amount ?? Money.of(0, 'USD'),
+    };
   }
 
   async verifyWebhook(input: WebhookVerificationInput): Promise<VerifiedWebhook> {
@@ -134,12 +147,20 @@ export class FakeProvider implements PaymentProvider {
     return this.unused('billingPortal');
   }
 
-  listInvoices(): Promise<InvoiceDTO[]> {
-    return this.unused('listInvoices');
+  async listInvoices(_input: ListInvoicesInput): Promise<InvoiceDTO[]> {
+    return [
+      {
+        providerInvoiceId: 'in_fake',
+        status: 'paid',
+        total: Money.of(9900, 'USD'),
+        hostedInvoiceUrl: 'https://stripe.test/in_fake',
+        invoicePdf: 'https://stripe.test/in_fake.pdf',
+      },
+    ];
   }
 
-  downloadInvoicePdf(): Promise<InvoicePdfDTO> {
-    return this.unused('downloadInvoicePdf');
+  async downloadInvoicePdf(providerInvoiceId: string): Promise<InvoicePdfDTO> {
+    return { filename: `${providerInvoiceId}.pdf`, content: new Uint8Array([1, 2, 3]) };
   }
 
   private unused(operation: string): Promise<never> {

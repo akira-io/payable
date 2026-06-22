@@ -1,3 +1,4 @@
+import { RefundPaymentAction } from './application/actions/refunds/refund-payment.action';
 import {
   PROCESS_WEBHOOK_JOB,
   ProcessWebhookAction,
@@ -17,7 +18,7 @@ import type { EventBus } from './domain/contracts/event-bus.contract';
 import type { Logger } from './domain/contracts/logger.contract';
 import type { PaymentProvider } from './domain/contracts/payment-provider.contract';
 import type { QueueJob } from './domain/contracts/queue-driver.contract';
-import type { RefundResultDTO } from './domain/dtos/refund.dto';
+import type { Refund } from './domain/entities/refund.entity';
 import { PayableError } from './domain/errors/payable-error';
 import { ProviderNotFoundError } from './domain/errors/provider-not-found.error';
 import type { Money } from './domain/value-objects/money';
@@ -131,7 +132,11 @@ export class Payable {
     };
   }
 
-  async refund(request: RefundRequest): Promise<RefundResultDTO> {
-    throw PayableError.notImplemented(`Payable.refund (${request.paymentId})`);
+  refund(request: RefundRequest): Promise<Refund> {
+    return new RefundPaymentAction(this.dependencies()).handle({
+      paymentId: request.paymentId,
+      amount: request.amount,
+      reason: request.reason,
+    });
   }
 }

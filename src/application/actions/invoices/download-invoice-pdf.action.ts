@@ -1,8 +1,10 @@
-import { PayableError } from '../../../domain/errors/payable-error';
+import type { InvoicePdfDTO } from '../../../domain/dtos/invoice.dto';
+import type { BillingDependencies } from '../../builders/billing-dependencies';
 
-// TODO: Phase 10
 export class DownloadInvoicePdfAction {
-  async handle(): Promise<never> {
-    throw PayableError.notImplemented('DownloadInvoicePdfAction (Phase 10)');
+  constructor(private readonly deps: BillingDependencies) {}
+
+  handle(providerInvoiceId: string): Promise<InvoicePdfDTO> {
+    return this.deps.provider.downloadInvoicePdf(providerInvoiceId);
   }
 }

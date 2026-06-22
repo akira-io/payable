@@ -109,6 +109,6 @@ describe('StripeProvider', () => {
 
   it('throws NOT_IMPLEMENTED for later-phase capabilities', async () => {
     const { client } = fakeStripe();
-    await expect(provider(client).charge()).rejects.toBeInstanceOf(PayableError);
+    await expect(provider(client).billingPortal()).rejects.toBeInstanceOf(PayableError);
   });
 });

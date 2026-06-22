@@ -1,12 +1,36 @@
 import type Stripe from 'stripe';
+import type { ChargeResultDTO } from '../../../domain/dtos/charge.dto';
 import type { CheckoutSessionDTO } from '../../../domain/dtos/checkout.dto';
 import type { CustomerDTO } from '../../../domain/dtos/customer.dto';
+import type { InvoiceDTO } from '../../../domain/dtos/invoice.dto';
 import type { PriceDTO } from '../../../domain/dtos/price.dto';
 import type { ProductDTO } from '../../../domain/dtos/product.dto';
+import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import type { RecurringInterval } from '../../../domain/entities/common';
+import type { InvoiceStatus } from '../../../domain/value-objects/invoice-status';
 import { Money } from '../../../domain/value-objects/money';
+import type { PaymentStatus } from '../../../domain/value-objects/payment-status';
+import type { RefundStatus } from '../../../domain/value-objects/refund-status';
 import type { SubscriptionStatus } from '../../../domain/value-objects/subscription-status';
+
+const PAYMENT_STATUS: Record<string, PaymentStatus> = {
+  succeeded: 'succeeded',
+  processing: 'processing',
+  canceled: 'canceled',
+  requires_payment_method: 'pending',
+  requires_confirmation: 'pending',
+  requires_action: 'pending',
+  requires_capture: 'pending',
+};
+
+const REFUND_STATUS: Record<string, RefundStatus> = {
+  succeeded: 'succeeded',
+  pending: 'pending',
+  failed: 'failed',
+  canceled: 'canceled',
+  requires_action: 'pending',
+};
 
 function fromUnixSeconds(value: number | null | undefined): Date | null {
   return value === null || value === undefined ? null : new Date(value * 1000);
@@ -50,5 +74,31 @@ export function toSubscriptionDTO(subscription: Stripe.Subscription): Subscripti
     status: subscription.status as SubscriptionStatus,
     currentPeriodEnd: fromUnixSeconds(subscription.items.data[0]?.current_period_end),
     trialEndsAt: fromUnixSeconds(subscription.trial_end),
+  };
+}
+
+export function toChargeResultDTO(intent: Stripe.PaymentIntent): ChargeResultDTO {
+  return {
+    providerPaymentId: intent.id,
+    status: PAYMENT_STATUS[intent.status] ?? 'pending',
+    amount: Money.of(intent.amount, intent.currency.toUpperCase()),
+  };
+}
+
+export function toRefundResultDTO(refund: Stripe.Refund): RefundResultDTO {
+  return {
+    providerRefundId: refund.id,
+    status: refund.status ? (REFUND_STATUS[refund.status] ?? 'pending') : 'pending',
+    amount: Money.of(refund.amount, refund.currency.toUpperCase()),
+  };
+}
+
+export function toInvoiceDTO(invoice: Stripe.Invoice): InvoiceDTO {
+  return {
+    providerInvoiceId: invoice.id ?? '',
+    status: (invoice.status as InvoiceStatus | null) ?? 'draft',
+    total: Money.of(invoice.total, invoice.currency.toUpperCase()),
+    hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
+    invoicePdf: invoice.invoice_pdf ?? null,
   };
 }
