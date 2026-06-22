@@ -1,5 +1,5 @@
 import type { WebhookDependencies } from '../../builders/webhook-dependencies';
-import { ProcessWebhookPipeline } from '../../pipelines/webhooks/process-webhook.pipeline';
+import { DispatchWebhookJobAction } from './dispatch-webhook-job.action';
 import { StoreWebhookEventAction } from './store-webhook-event.action';
 
 export interface ReceiveWebhookInput {
@@ -30,10 +30,11 @@ export class ReceiveWebhookAction {
     if (stored.duplicate) {
       return { webhookEventId: stored.id, duplicate: true };
     }
-    await new ProcessWebhookPipeline(this.deps).handle({
-      verified,
+    await new DispatchWebhookJobAction(this.deps.queue).handle({
+      providerName: this.deps.providerName,
       webhookEventId: stored.id,
       correlationId: stored.correlationId,
+      verified,
     });
     return { webhookEventId: stored.id, duplicate: false };
   }

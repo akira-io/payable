@@ -1,4 +1,9 @@
 import {
+  PROCESS_WEBHOOK_JOB,
+  ProcessWebhookAction,
+  type ProcessWebhookJobPayload,
+} from './application/actions/webhooks/process-webhook.action';
+import {
   ReceiveWebhookAction,
   type ReceiveWebhookInput,
   type ReceiveWebhookResult,
@@ -11,6 +16,7 @@ import type { Clock } from './domain/contracts/clock.contract';
 import type { EventBus } from './domain/contracts/event-bus.contract';
 import type { Logger } from './domain/contracts/logger.contract';
 import type { PaymentProvider } from './domain/contracts/payment-provider.contract';
+import type { QueueJob } from './domain/contracts/queue-driver.contract';
 import type { RefundResultDTO } from './domain/dtos/refund.dto';
 import { PayableError } from './domain/errors/payable-error';
 import { ProviderNotFoundError } from './domain/errors/provider-not-found.error';
@@ -52,6 +58,9 @@ export class Payable {
 
   constructor(private readonly resolved: ResolvedConfig) {
     this.registry = new ProviderRegistry(resolved.providers);
+    this.resolved.queue.process(PROCESS_WEBHOOK_JOB, (job: QueueJob) =>
+      this.processWebhookJob(job),
+    );
   }
 
   providers(): ProviderRegistry {
@@ -97,6 +106,11 @@ export class Payable {
     };
   }
 
+  private async processWebhookJob(job: QueueJob): Promise<void> {
+    const payload = job.payload as ProcessWebhookJobPayload;
+    await new ProcessWebhookAction(this.webhookDependencies(payload.providerName)).handle(payload);
+  }
+
   private webhookDependencies(providerName?: string): WebhookDependencies {
     const name = providerName ?? this.registry.names()[0];
     if (!name) {
@@ -111,6 +125,7 @@ export class Payable {
       provider: this.registry.get(name),
       providerName: name,
       storage: this.resolved.storage,
+      queue: this.resolved.queue,
       events: this.resolved.events,
       clock: this.resolved.clock,
     };

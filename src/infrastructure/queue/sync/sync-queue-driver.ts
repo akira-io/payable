@@ -1,17 +1,20 @@
-import type { QueueDriver } from '../../../domain/contracts/queue-driver.contract';
-import { PayableError } from '../../../domain/errors/payable-error';
+import type {
+  JobHandler,
+  QueueDriver,
+  QueueJob,
+} from '../../../domain/contracts/queue-driver.contract';
 
-// TODO: Phase 7
 export class SyncQueueDriver implements QueueDriver {
-  dispatch(): Promise<void> {
-    return this.unsupported('dispatch');
+  private readonly handlers = new Map<string, JobHandler>();
+
+  async dispatch<T>(job: QueueJob<T>): Promise<void> {
+    const handler = this.handlers.get(job.name);
+    if (handler) {
+      await handler(job as QueueJob);
+    }
   }
 
-  process(): void {
-    this.unsupported('process');
-  }
-
-  private unsupported(op: string): never {
-    throw PayableError.notImplemented(`SyncQueueDriver.${op} (Phase 7)`);
+  process<T>(name: string, handler: JobHandler<T>): void {
+    this.handlers.set(name, handler as JobHandler);
   }
 }

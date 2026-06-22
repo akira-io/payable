@@ -11,6 +11,7 @@ import type { PaymentProvider } from '../../domain/contracts/payment-provider.co
 import type { QueueDriver } from '../../domain/contracts/queue-driver.contract';
 import type { StorageDriver } from '../../domain/contracts/storage-driver.contract';
 import { InMemoryEventBus } from '../../infrastructure/event-bus/in-memory-event-bus';
+import { SyncQueueDriver } from '../../infrastructure/queue/sync/sync-queue-driver';
 import { SystemClock } from '../clock/system-clock';
 import { NullLogger } from '../logger/null-logger';
 
@@ -48,9 +49,9 @@ export interface ResolvedConfig {
   tenantEnabled: boolean;
   providers: Map<string, PaymentProvider>;
   storage?: StorageDriver;
-  queue?: QueueDriver;
   cache?: CacheDriver;
   locks?: LockDriver;
+  queue: QueueDriver;
   clock: Clock;
   logger: Logger;
   events: EventBus;
@@ -78,9 +79,9 @@ export function resolveConfig(config: PayableConfig): ResolvedConfig {
     tenantEnabled: config.tenant?.enabled ?? false,
     providers: new Map(entries),
     storage: config.storage,
-    queue: config.queue,
     cache: config.cache,
     locks: config.locks,
+    queue: config.queue ?? new SyncQueueDriver(),
     clock: config.clock ?? new SystemClock(),
     logger: config.logger ?? new NullLogger(),
     events: config.events ?? new InMemoryEventBus(),

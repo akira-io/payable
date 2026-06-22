@@ -1,8 +1,19 @@
-import { PayableError } from '../../../domain/errors/payable-error';
+import type { QueueDriver } from '../../../domain/contracts/queue-driver.contract';
+import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
+import { PROCESS_WEBHOOK_JOB, type ProcessWebhookJobPayload } from './process-webhook.action';
 
-// TODO: Phase 6
 export class DispatchWebhookJobAction {
-  async handle(): Promise<never> {
-    throw PayableError.notImplemented('DispatchWebhookJobAction (Phase 6)');
+  constructor(private readonly queue: QueueDriver) {}
+
+  async handle(payload: ProcessWebhookJobPayload): Promise<void> {
+    await this.queue.dispatch({
+      name: PROCESS_WEBHOOK_JOB,
+      payload,
+      correlationId: payload.correlationId,
+      idempotencyKey: IdempotencyKey.forWebhook({
+        provider: payload.providerName,
+        providerEventId: payload.verified.providerEventId,
+      }).toString(),
+    });
   }
 }
