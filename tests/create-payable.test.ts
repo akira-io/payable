@@ -46,18 +46,14 @@ describe('createPayable', () => {
     ).toThrow();
   });
 
-  it('returns not-implemented for unbuilt fluent terminals', async () => {
+  it('returns not-implemented for later-phase fluent terminals', async () => {
     const payable = createPayable({ providers: { stripe: provider() } });
-    await expect(
-      payable
-        .customer(billable)
-        .newSubscription('default')
-        .price('price_pro')
-        .checkout({ successUrl: 'https://a.test/s', cancelUrl: 'https://a.test/c' }),
-    ).rejects.toThrow('Not implemented');
     await expect(
       payable.customer(billable).charge({ amount: Money.of(9900, 'USD') }),
     ).rejects.toThrow('Not implemented');
+    await expect(payable.customer(billable).subscription('default').cancel()).rejects.toThrow(
+      'Not implemented',
+    );
     await expect(payable.refund({ paymentId: 'pay_1' })).rejects.toThrow('Not implemented');
   });
 });

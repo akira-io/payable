@@ -1,6 +1,9 @@
 import type { CheckoutSessionDTO } from '../../domain/dtos/checkout.dto';
 import type { SubscriptionDTO } from '../../domain/dtos/subscription.dto';
 import { PayableError } from '../../domain/errors/payable-error';
+import { CreateCheckoutPipeline } from '../pipelines/checkout/create-checkout.pipeline';
+import type { Billable } from './billable';
+import type { BillingDependencies } from './billing-dependencies';
 import type { CheckoutRequest } from './checkout-builder';
 
 export class SubscriptionBuilder {
@@ -12,7 +15,11 @@ export class SubscriptionBuilder {
     coupon?: string;
   };
 
-  constructor(name: string) {
+  constructor(
+    name: string,
+    private readonly billable: Billable,
+    private readonly deps: BillingDependencies,
+  ) {
     this.state = { name, quantity: 1 };
   }
 
@@ -36,14 +43,24 @@ export class SubscriptionBuilder {
     return this;
   }
 
-  // TODO: Phase 5 - start hosted checkout for this subscription.
   async checkout(request: CheckoutRequest): Promise<CheckoutSessionDTO> {
-    throw PayableError.notImplemented(
-      `SubscriptionBuilder.checkout (${this.state.name} -> ${request.successUrl})`,
-    );
+    if (!this.state.priceId) {
+      throw new PayableError('A price is required before checkout', {
+        code: 'CHECKOUT_PRICE_REQUIRED',
+      });
+    }
+    return new CreateCheckoutPipeline(this.deps).handle({
+      billable: this.billable,
+      mode: 'subscription',
+      lineItems: [{ priceId: this.state.priceId, quantity: this.state.quantity }],
+      successUrl: request.successUrl,
+      cancelUrl: request.cancelUrl,
+      subscriptionName: this.state.name,
+      trialDays: this.state.trialDays,
+      coupon: this.state.coupon,
+    });
   }
 
-  // TODO: Phase 9 - create the subscription directly via provider.
   async create(): Promise<SubscriptionDTO> {
     throw PayableError.notImplemented(`SubscriptionBuilder.create (${this.state.name})`);
   }

@@ -1,4 +1,5 @@
 import type { Billable } from './application/builders/billable';
+import type { BillingDependencies } from './application/builders/billing-dependencies';
 import { CustomerContext } from './application/builders/customer-context';
 import type { Clock } from './domain/contracts/clock.contract';
 import type { EventBus } from './domain/contracts/event-bus.contract';
@@ -68,10 +69,22 @@ export class Payable {
   }
 
   customer(billable: Billable): CustomerContext {
-    return new CustomerContext(billable);
+    return new CustomerContext(billable, this.dependencies());
   }
 
-  // TODO: Phase 10 - issue a refund through the provider.
+  private dependencies(): BillingDependencies {
+    const [providerName] = this.registry.names();
+    if (!providerName) {
+      throw new ProviderNotFoundError('default');
+    }
+    return {
+      provider: this.registry.get(providerName),
+      providerName,
+      clock: this.resolved.clock,
+      storage: this.resolved.storage,
+    };
+  }
+
   async refund(request: RefundRequest): Promise<RefundResultDTO> {
     throw PayableError.notImplemented(`Payable.refund (${request.paymentId})`);
   }

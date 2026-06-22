@@ -1,8 +1,22 @@
-import { PayableError } from '../../../domain/errors/payable-error';
+import type {
+  CheckoutSessionDTO,
+  CreateCheckoutSessionInput,
+} from '../../../domain/dtos/checkout.dto';
+import { CorrelationId } from '../../../domain/value-objects/correlation-id';
+import type { BillingDependencies } from '../../builders/billing-dependencies';
 
-// TODO: Phase 4
+export interface CreateCheckoutSessionRequest {
+  input: CreateCheckoutSessionInput;
+  idempotencyKey: string;
+}
+
 export class CreateCheckoutSessionAction {
-  async handle(): Promise<never> {
-    throw PayableError.notImplemented('CreateCheckoutSessionAction (Phase 4)');
+  constructor(private readonly deps: BillingDependencies) {}
+
+  async handle(request: CreateCheckoutSessionRequest): Promise<CheckoutSessionDTO> {
+    return this.deps.provider.createCheckoutSession(request.input, {
+      correlationId: CorrelationId.generate().toString(),
+      idempotencyKey: request.idempotencyKey,
+    });
   }
 }
