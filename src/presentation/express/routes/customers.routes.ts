@@ -1,6 +1,13 @@
+import type { Router } from 'express';
 import { PayableError } from '../../../domain/errors/payable-error';
+import type { Payable } from '../../../payable';
+import { asyncHandler } from '../helpers';
 
-// TODO: Phase 8
-export function registerCustomerRoutes(): unknown {
-  throw PayableError.notImplemented('registerCustomerRoutes (Phase 8)');
+export function registerCustomerRoutes(router: Router, _payable: Payable): void {
+  router.post(
+    '/customers',
+    asyncHandler(async () => {
+      throw PayableError.notImplemented('POST /customers');
+    }),
+  );
 }
