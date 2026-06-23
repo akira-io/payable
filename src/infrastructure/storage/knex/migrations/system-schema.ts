@@ -31,6 +31,7 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.text('response').nullable();
     table.string('status').notNullable();
     table.timestamp('locked_until').nullable();
+    table.string('lock_token').nullable();
     table.timestamp('expires_at').nullable();
     table.timestamp('created_at').notNullable();
     table.timestamp('updated_at').notNullable();

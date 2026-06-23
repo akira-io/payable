@@ -102,6 +102,32 @@ describe('IdempotencyService', () => {
     expect(attempts).toBe(2);
   });
 
+  it('does not let a stale lock holder clobber the record (fencing token)', async () => {
+    const store = new InMemoryIdempotencyStore();
+    const base = {
+      key: 'charge:fence',
+      scope: 'charge',
+      operation: 'charge',
+      resourceType: null,
+      resourceId: null,
+      requestHash: await hashRequest({ amount: 100 }),
+      response: null,
+      status: 'processing' as const,
+      lockedUntil: null,
+      expiresAt: null,
+    };
+    await store.acquire({ ...base, lockToken: 'owner-a' });
+    await store.takeOver({ ...base, lockToken: 'owner-b' });
+
+    await store.markCompleted('charge:fence', { from: 'a' }, null, 'owner-a');
+    expect((await store.find('charge:fence'))?.status).toBe('processing');
+
+    await store.markCompleted('charge:fence', { from: 'b' }, null, 'owner-b');
+    const record = await store.find('charge:fence');
+    expect(record?.status).toBe('completed');
+    expect(record?.response).toEqual({ from: 'b' });
+  });
+
   it('refuses to retry a failed record when retryFailed is overridden to false', async () => {
     const service = new IdempotencyService(new InMemoryIdempotencyStore(), new FakeClock());
     let attempts = 0;

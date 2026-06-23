@@ -22,6 +22,9 @@ export async function alterExistingTables(knex: Knex): Promise<void> {
     { name: 'normalized_type', apply: (table) => table.string('normalized_type').nullable() },
     { name: 'data', apply: (table) => table.text('data').notNullable().defaultTo('{}') },
   ]);
+  await ensureColumns(knex, 'payable_idempotency_keys', [
+    { name: 'lock_token', apply: (table) => table.string('lock_token').nullable() },
+  ]);
   await ensureIndexes(knex, [
     {
       table: 'payable_subscriptions',

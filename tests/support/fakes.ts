@@ -44,20 +44,33 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
     this.records.set(this.id(record.key, tenantId), record);
   }
 
-  async markCompleted(key: string, response: unknown, tenantId?: string | null): Promise<void> {
+  async markCompleted(
+    key: string,
+    response: unknown,
+    tenantId?: string | null,
+    lockToken?: string | null,
+  ): Promise<void> {
     const id = this.id(key, tenantId);
     const record = this.records.get(id);
-    if (record) {
+    if (record && this.owns(record, lockToken)) {
       this.records.set(id, { ...record, status: 'completed', response, lockedUntil: null });
     }
   }
 
-  async markFailed(key: string, tenantId?: string | null): Promise<void> {
+  async markFailed(
+    key: string,
+    tenantId?: string | null,
+    lockToken?: string | null,
+  ): Promise<void> {
     const id = this.id(key, tenantId);
     const record = this.records.get(id);
-    if (record) {
+    if (record && this.owns(record, lockToken)) {
       this.records.set(id, { ...record, status: 'failed', lockedUntil: null });
     }
+  }
+
+  private owns(record: IdempotencyRecord, lockToken?: string | null): boolean {
+    return lockToken === undefined || lockToken === null || record.lockToken === lockToken;
   }
 }
 

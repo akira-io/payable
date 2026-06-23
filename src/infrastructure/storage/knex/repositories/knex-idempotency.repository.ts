@@ -56,6 +56,7 @@ export class KnexIdempotencyRepository implements IdempotencyStore {
         request_hash: record.requestHash,
         response: null,
         locked_until: record.lockedUntil ? record.lockedUntil.toISOString() : null,
+        lock_token: record.lockToken ?? null,
         updated_at: now,
       });
     return affected > 0;
@@ -83,21 +84,35 @@ export class KnexIdempotencyRepository implements IdempotencyStore {
     key: string,
     response: unknown,
     tenantId: string | null = null,
+    lockToken: string | null = null,
   ): Promise<void> {
-    await this.knex(this.table)
-      .where({ key, tenant_id: this.tenant(tenantId) })
-      .update({
-        status: 'completed',
-        response: JSON.stringify(response ?? null),
-        locked_until: null,
-        updated_at: this.clock.now().toISOString(),
-      });
+    await this.scopedToOwner(key, tenantId, lockToken).update({
+      status: 'completed',
+      response: JSON.stringify(response ?? null),
+      locked_until: null,
+      updated_at: this.clock.now().toISOString(),
+    });
   }
 
-  async markFailed(key: string, tenantId: string | null = null): Promise<void> {
-    await this.knex(this.table)
-      .where({ key, tenant_id: this.tenant(tenantId) })
-      .update({ status: 'failed', locked_until: null, updated_at: this.clock.now().toISOString() });
+  async markFailed(
+    key: string,
+    tenantId: string | null = null,
+    lockToken: string | null = null,
+  ): Promise<void> {
+    await this.scopedToOwner(key, tenantId, lockToken).update({
+      status: 'failed',
+      locked_until: null,
+      updated_at: this.clock.now().toISOString(),
+    });
+  }
+
+  private scopedToOwner(
+    key: string,
+    tenantId: string | null,
+    lockToken: string | null,
+  ): Knex.QueryBuilder {
+    const query = this.knex(this.table).where({ key, tenant_id: this.tenant(tenantId) });
+    return lockToken === null ? query : query.where({ lock_token: lockToken });
   }
 
   private tenant(tenantId: string | null): string {
@@ -115,6 +130,7 @@ export class KnexIdempotencyRepository implements IdempotencyStore {
       response: fromJson(record.response) ?? null,
       status: record.status,
       locked_until: record.lockedUntil ? record.lockedUntil.toISOString() : null,
+      lock_token: record.lockToken ?? null,
       expires_at: record.expiresAt ? record.expiresAt.toISOString() : null,
       updated_at: timestamp,
     };
@@ -132,6 +148,7 @@ export class KnexIdempotencyRepository implements IdempotencyStore {
       status: row.status as IdempotencyStatus,
       lockedUntil: toNullableDate(row.locked_until),
       expiresAt: toNullableDate(row.expires_at),
+      lockToken: (row.lock_token as string | null) ?? null,
     };
   }
 }
