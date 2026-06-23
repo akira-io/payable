@@ -105,9 +105,11 @@ subscription management require one too.
 
 ## Webhooks and HTTP adapters
 
-Each adapter ships on its own subpath. They mount the same routes: `POST /webhooks` and
-`POST /webhooks/:provider`, `POST /checkout`, `POST /subscriptions/:name/{cancel,cancel-now,resume,swap}`,
-and reserved (501) `customers` / `invoices` / `payments` / `refunds` endpoints.
+Each adapter ships on its own subpath. All three mount the core routes: `POST /webhooks` and
+`POST /webhooks/:provider`, `POST /checkout`, and `POST /subscriptions/:name/{cancel,cancel-now,resume,swap}`.
+Adapter coverage is not yet at parity: Express also implements `POST /refunds`, while
+`customers` / `invoices` / `payments` (and `refunds` on Fastify/NestJS) are reserved and respond `501`.
+See [docs/adapters](docs/adapters/22-express.md) for the exact route table per adapter.
 
 > **Raw body required.** Webhook signature verification needs the exact unparsed request body. Mount
 > the webhook route before any global JSON body parser, and for NestJS create the app with
@@ -160,6 +162,20 @@ codes to HTTP status with a `{ error, message }` body.
 - `src/support` - config, logger, result, clock.
 
 The public surface is exported from the package root; the fluent entry point is `createPayable(...)`.
+
+## Documentation
+
+Full documentation lives in [docs/](docs/00-index.md). Start with the
+[index](docs/00-index.md), then:
+
+- [Overview](docs/01-overview.md) and [Architecture](docs/02-architecture.md)
+- [Getting started](docs/03-getting-started.md) and [Configuration reference](docs/04-configuration.md)
+- Domain: [model](docs/domain/05-domain-model.md), [value objects](docs/domain/06-value-objects.md), [state machines](docs/domain/07-state-machines.md)
+- Features: [subscriptions](docs/features/10-subscriptions.md), [charges and refunds](docs/features/11-charges-refunds.md), [webhooks](docs/features/13-webhooks.md), [idempotency](docs/features/14-idempotency.md), [reliability](docs/features/15-reliability.md), [multi-tenancy](docs/features/16-multi-tenancy.md)
+- Integrations: [providers](docs/integrations/17-providers.md), [Stripe](docs/integrations/18-stripe.md), [Paddle](docs/integrations/19-paddle.md)
+- Persistence: [Knex storage](docs/persistence/20-storage-knex.md), [queue](docs/persistence/21-queue.md)
+- Adapters: [Express](docs/adapters/22-express.md), [Fastify](docs/adapters/23-fastify.md), [NestJS](docs/adapters/24-nestjs.md)
+- Cross-cutting: [data flows](docs/25-data-flows.md), [security](docs/26-security.md), [development](docs/27-development.md), [operations](docs/28-operations.md), [troubleshooting](docs/29-troubleshooting.md), [FAQ](docs/30-faq.md)
 
 ## Testing
 

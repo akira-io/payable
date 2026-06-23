@@ -21,9 +21,9 @@ Open an issue at https://github.com/akira-io/payable/issues. Include:
 5. Open the PR against `main`. Keep the diff focused: refactors,
    feature work, and dependency bumps belong in separate PRs.
 
-One phase per PR. The architecture document is the source of truth - do
-not introduce structure outside it, and do not move to the next phase
-until tests, types, and lint pass.
+One phase per PR. The [architecture document](docs/02-architecture.md) is
+the source of truth - do not introduce structure outside it, and do not
+move to the next phase until tests, types, and lint pass.
 
 ## Style
 
