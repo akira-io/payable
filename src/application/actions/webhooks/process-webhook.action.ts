@@ -33,11 +33,16 @@ export class ProcessWebhookAction {
       normalizedType: event.normalizedType as NormalizedEventName | null,
       data: event.data,
     };
-    await new ProcessWebhookPipeline(this.deps).handle({
-      verified,
-      webhookEventId: payload.webhookEventId,
-      correlationId: payload.correlationId,
-      tenantId: payload.tenantId,
-    });
+    try {
+      await new ProcessWebhookPipeline(this.deps).handle({
+        verified,
+        webhookEventId: payload.webhookEventId,
+        correlationId: payload.correlationId,
+        tenantId: payload.tenantId,
+      });
+    } catch (error) {
+      await this.deps.storage.webhookEvents.markStatus(payload.webhookEventId, 'failed', null);
+      throw error;
+    }
   }
 }

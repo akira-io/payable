@@ -1,5 +1,7 @@
 import type Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
+import { ProcessWebhookAction } from '../src/application/actions/webhooks/process-webhook.action';
+import type { WebhookDependencies } from '../src/application/builders/webhook-dependencies';
 import { createPayable } from '../src/create-payable';
 import type { QueueJob } from '../src/domain/contracts/queue-driver.contract';
 import { InvalidWebhookSignatureError } from '../src/domain/errors/invalid-webhook-signature.error';
@@ -100,6 +102,53 @@ describe('payable.receiveWebhook', () => {
     const second = await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
     expect(second.duplicate).toBe(true);
     expect(await countDuePendingOutbox(db, clock)).toBe(1);
+    await db.destroy();
+  });
+
+  it('marks the event failed when processing throws', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock();
+    const storage = new KnexStorageDriver(db, clock);
+    const provider = new FakeProvider();
+
+    const event = await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_fail',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      payload: '{}',
+      data: {},
+      headers: {},
+      status: 'pending',
+      correlationId: 'corr_fail',
+      receivedAt: clock.now(),
+    });
+
+    const failing = Object.create(storage) as KnexStorageDriver;
+    failing.transaction = () => Promise.reject(new Error('processing boom'));
+
+    const deps: WebhookDependencies = {
+      provider,
+      providerName: 'stripe',
+      storage: failing,
+      queue: new SyncQueueDriver(),
+      events: new InMemoryEventBus(),
+      clock,
+    };
+
+    await expect(
+      new ProcessWebhookAction(deps).handle({
+        providerName: 'stripe',
+        webhookEventId: event.id,
+        providerEventId: 'evt_fail',
+        correlationId: 'corr_fail',
+        tenantId: null,
+      }),
+    ).rejects.toThrow('processing boom');
+
+    expect((await storage.webhookEvents.findById(event.id))?.status).toBe('failed');
     await db.destroy();
   });
 
