@@ -1,5 +1,14 @@
 # Security Policy
 
+## Operational hardening
+
+The HTTP adapters do not bundle CORS or rate limiting. The host application
+must mount its own CORS policy and rate limiting in front of the router,
+especially for the `/refunds` and `/webhooks` routes. Authentication is
+opt-in via the adapter `authenticate` hook; identity and tenant should be
+derived from the authenticated principal rather than the request body. The
+Express adapter caps non-webhook JSON bodies at 64kb and webhooks at 1mb.
+
 ## Reporting a vulnerability
 
 Please report security vulnerabilities by email to

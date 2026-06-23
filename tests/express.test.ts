@@ -169,6 +169,14 @@ describe('express adapter', () => {
     expect(res.body.error).toBe('VALIDATION_FAILED');
   });
 
+  it('rejects an oversized request body', async () => {
+    const app = makeApp(createPayable({ providers: { stripe: new FakeProvider() } }));
+    const res = await request(app)
+      .post('/payable/checkout')
+      .send({ billable, note: 'x'.repeat(70 * 1024) });
+    expect(res.status).toBe(413);
+  });
+
   it('rejects a refund body with a non-positive amount', async () => {
     const app = makeApp(createPayable({ providers: { stripe: new FakeProvider() } }));
     const res = await request(app)
