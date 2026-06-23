@@ -41,6 +41,7 @@ export class FakeProvider implements PaymentProvider {
   lastVerifyInput?: WebhookVerificationInput;
   createdSubscriptions = 0;
   lastSubscriptionUpdate?: UpdateSubscriptionInput;
+  lastSubscriptionUpdateCtx?: OperationContext;
   lastCreateSubscription?: CreateSubscriptionInput;
   lastChargeCtx?: OperationContext;
   lastRefundInput?: RefundInput;
@@ -99,8 +100,12 @@ export class FakeProvider implements PaymentProvider {
     };
   }
 
-  async updateSubscription(input: UpdateSubscriptionInput): Promise<SubscriptionDTO> {
+  async updateSubscription(
+    input: UpdateSubscriptionInput,
+    ctx?: OperationContext,
+  ): Promise<SubscriptionDTO> {
     this.lastSubscriptionUpdate = input;
+    this.lastSubscriptionUpdateCtx = ctx;
     return {
       providerSubscriptionId: input.providerSubscriptionId,
       status: 'active',
