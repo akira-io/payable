@@ -142,10 +142,7 @@ export class Payable {
   }
 
   private webhookDependencies(providerName?: string): WebhookDependencies {
-    const name = providerName ?? this.registry.names()[0];
-    if (!name) {
-      throw new ProviderNotFoundError('default');
-    }
+    const name = providerName ?? this.defaultWebhookProvider();
     if (!this.resolved.storage) {
       throw new PayableError('Webhook processing requires a storage driver', {
         code: 'WEBHOOK_STORAGE_REQUIRED',
@@ -160,6 +157,21 @@ export class Payable {
       clock: this.resolved.clock,
       tenantResolver: this.resolved.tenantResolver,
     };
+  }
+
+  private defaultWebhookProvider(): string {
+    const names = this.registry.names();
+    if (names.length > 1) {
+      throw new PayableError(
+        'Multiple providers are registered; route the webhook to /webhooks/:provider',
+        { code: 'WEBHOOK_PROVIDER_AMBIGUOUS' },
+      );
+    }
+    const name = names[0];
+    if (!name) {
+      throw new ProviderNotFoundError('default');
+    }
+    return name;
   }
 
   refund(request: RefundRequest): Promise<Refund> {
