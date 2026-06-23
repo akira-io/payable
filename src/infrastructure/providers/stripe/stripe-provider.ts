@@ -56,6 +56,8 @@ import { StripeWebhookVerifier } from './stripe-webhook-verifier';
 
 export const STRIPE_API_VERSION = '2026-05-27.dahlia' as const;
 
+const DEFAULT_INVOICE_LIMIT = 100;
+
 export interface StripeProviderOptions {
   secretKey: string;
   webhookSecret: string;
@@ -261,7 +263,7 @@ export class StripeProvider
 
   async listInvoices(input: ListInvoicesInput): Promise<InvoiceDTO[]> {
     const stripe = await this.stripe();
-    const cap = input.limit ?? 1000;
+    const cap = input.limit ?? DEFAULT_INVOICE_LIMIT;
     const invoices = await stripe.invoices
       .list({ customer: input.providerCustomerId, limit: Math.min(cap, 100) })
       .autoPagingToArray({ limit: cap });

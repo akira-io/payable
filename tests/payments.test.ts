@@ -156,9 +156,29 @@ describe('StripeProvider payments', () => {
       },
     } as unknown as Stripe;
 
-    const invoices = await stripeProvider(stripe).listInvoices({ providerCustomerId: 'cus_1' });
+    const invoices = await stripeProvider(stripe).listInvoices({
+      providerCustomerId: 'cus_1',
+      limit: 1000,
+    });
     expect(invoices).toHaveLength(150);
     expect(requestedLimit).toBe(1000);
+  });
+
+  it('defaults to a conservative invoice limit when none is given', async () => {
+    let requestedLimit = 0;
+    const stripe = {
+      invoices: {
+        list: () => ({
+          autoPagingToArray: async ({ limit }: { limit: number }) => {
+            requestedLimit = limit;
+            return [];
+          },
+        }),
+      },
+    } as unknown as Stripe;
+
+    await stripeProvider(stripe).listInvoices({ providerCustomerId: 'cus_1' });
+    expect(requestedLimit).toBe(100);
   });
 
   it('throws when the invoice PDF download fails', async () => {
