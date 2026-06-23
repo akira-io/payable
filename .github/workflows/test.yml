@@ -52,7 +52,10 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck on Node ${{ matrix.node-version }}
+        run: npx tsc --noEmit
 
       - name: Test on Node ${{ matrix.node-version }}
         run: npx vitest run
