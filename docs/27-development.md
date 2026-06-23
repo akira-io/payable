@@ -16,7 +16,7 @@ The codebase follows clean-architecture layers under `src/`:
 `src/payable.ts` is the facade adapters call; `src/create-payable.ts` resolves config into a
 `Payable`. See `docs/02-architecture.md` for the dependency rule and patterns.
 
-## Dev workflow (from CONTRIBUTING.md)
+## Dev workflow
 
 - One phase per PR. The architecture document is the source of truth; do not introduce structure
   outside it, and do not advance to the next phase until tests, types, and lint pass.
@@ -28,30 +28,27 @@ The codebase follows clean-architecture layers under `src/`:
 
 ## Coding standards
 
-- Biome and `tsc` outputs are the source of truth for style and types (`biome.json`,
-  `tsconfig.json`).
+- Biome and `tsc` outputs are the source of truth for style and types.
 - Self-documenting code; no narrative comments.
 - No emojis in code, copy, commit messages, or PR descriptions.
 - Match existing sibling-file conventions.
 
 ## Testing strategy
 
-Tests live in `tests/` and run on Vitest (`vitest.config.ts` includes `tests/**/*.test.ts`).
+Tests live in `tests/` and run on Vitest, which includes `tests/**/*.test.ts`.
 
 - Real container and database, no mocks. The Knex tests run against an in-memory `better-sqlite3`
-  database created by `tests/support/knex.ts` (`createTestDb()` with `filename: ':memory:'`).
-- External services are represented by fakes, not mocks: `tests/support/fake-provider.ts`
-  (`FakeProvider`) and `tests/support/fakes.ts`. Time is controlled with `FakeClock`
-  (`src/support/clock/fake-clock.ts`).
+  database created by `createTestDb()` with `filename: ':memory:'`.
+- External services are represented by fakes, not mocks: `FakeProvider` and the fakes in
+  `tests/support/`. Time is controlled with `FakeClock`.
 - Adapter tests drive the real adapters: `tests/express.test.ts` uses Supertest against an Express
   app, `tests/fastify.test.ts` uses `app.inject`, `tests/nest.test.ts` instantiates the controller
   and exception filter directly.
-- Coverage thresholds are enforced at 78% for statements, branches, functions, and lines
-  (`vitest.config.ts`).
+- Coverage thresholds are enforced at 78% for statements, branches, functions, and lines.
 
 ## How to run
 
-The package scripts (`package.json`) are run with Bun in CI; locally either Bun or npm works.
+The package scripts are run with Bun in CI; locally either Bun or npm works.
 
 | Task | Command |
 | --- | --- |

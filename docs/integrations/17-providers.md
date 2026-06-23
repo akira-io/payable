@@ -6,7 +6,7 @@ translate domain DTOs into provider SDK calls and provider webhooks back into do
 the application and domain layers provider-agnostic and makes a new integration a matter of implementing
 one interface.
 
-Source: `src/domain/contracts/payment-provider.contract.ts`.
+The contract lives in `src/domain/contracts/payment-provider.contract.ts`.
 
 ## The `PaymentProvider` contract
 
@@ -115,7 +115,7 @@ The registry is built from the resolved config and exposed via `payable.provider
 
 ### Provider selection and ambiguity
 
-Selection rules, verified by `tests/provider-selection.test.ts`:
+Selection rules:
 
 - Passing a name targets it explicitly: `payable.customer(billable, 'secondary')` routes to the
   `secondary` provider.

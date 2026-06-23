@@ -123,8 +123,8 @@ It runs three steps in order:
    `payable_refunds_payment_created_id_index`, and `payable_outbox_events_status_locked_index`.
 
 `migrate` is **idempotent and safe to re-run**: it creates nothing that exists and adds only missing
-columns/indexes. `tests/forward-migration.test.ts` asserts a second `migrate` resolves cleanly and that
-a table created before the additive columns gets them back-filled.
+columns/indexes. A second `migrate` resolves cleanly, and a table created before the additive columns
+gets them back-filled.
 
 ```ts
 import knex from 'knex';
@@ -174,25 +174,24 @@ export interface ListOptions {
 Behavior and guarantees:
 
 - **Ordering** is always `created_at DESC, id DESC` - newest first, with `id` as a deterministic
-  tiebreaker. `tests/storage-ordering.test.ts` verifies rows come back newest-first.
+  tiebreaker. Rows come back newest-first.
 - **Cursor semantics**: `before` is the last row of the previous page. The query fetches rows strictly
   *older* than the cursor using a compound predicate:
   `created_at < cursor.createdAt OR (created_at = cursor.createdAt AND id < cursor.id)`. The tie clause
   on `id` is what prevents skipping or duplicating rows that share the same `created_at`.
 - **Limit**: `limit` caps page size; omit it to fetch all matching rows.
 
-`tests/keyset-pagination.test.ts` confirms both the happy path (paging backwards through a list) and the
-boundary case: paging one row at a time through four rows with identical `created_at` returns all four
-exactly once, no skips.
+Both the happy path (paging backwards through a list) and the boundary case hold: paging one row at a
+time through four rows with identical `created_at` returns all four exactly once, no skips.
 
 ## Supported database clients
 
 `KnexStorageDriver` is client-agnostic; it relies only on standard Knex schema and query building plus
-`.returning('*')`. The test suite runs against **`better-sqlite3`** (`tests/support/knex.ts` configures
-`client: 'better-sqlite3'`), which is the verified dev/test client and ships in `devDependencies`.
-`knex` is an optional peer (`>=3`). Any Knex-supported SQL client (for example PostgreSQL via `pg`)
-works; install the matching driver in your application. Note: `pg` is not bundled as a dependency of
-this package - add it yourself when targeting PostgreSQL.
+`.returning('*')`. The dev/test client is **`better-sqlite3`**, configured with
+`client: 'better-sqlite3'` and shipped in `devDependencies`. `knex` is an optional peer (`>=3`). Any
+Knex-supported SQL client (for example PostgreSQL via `pg`) works; install the matching driver in your
+application. `pg` is not bundled as a dependency of this package - add it yourself when targeting
+PostgreSQL.
 
 ---
 

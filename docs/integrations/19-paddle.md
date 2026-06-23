@@ -43,7 +43,7 @@ capabilities(): ProviderCapabilities {
 
 ### Capability gaps versus Stripe
 
-Grounded in source, the differences are:
+The differences are:
 
 - **`invoicePdf: false`** (Stripe is `true`). Paddle does not implement `InvoiceCapable`, so there is no
   `listInvoices` / `downloadInvoicePdf`. `isInvoiceCapable(paddleProvider)` returns `false`.

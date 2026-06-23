@@ -1,15 +1,14 @@
 # Security
 
-This page states the security boundaries the library does and does not enforce. The short version:
-`@akira-io/payable` performs no request authentication and only minimal authorization. The caller
-owns authentication and ownership checks.
+This page describes the security boundaries the library does and does not enforce. The short
+version: `@akira-io/payable` performs no request authentication and only minimal authorization. The
+caller owns authentication and ownership checks.
 
 ## Authentication: none built in
 
 No adapter installs authentication middleware or guards. The Express router, the Fastify plugin,
-and the NestJS controller all mount their routes without any auth layer
-(`src/presentation/express/*`, `fastify/*`, `nest/*`). The README's "no built-in auth" statement is
-accurate: identifying and authenticating the caller is entirely your responsibility.
+and the NestJS controller all mount their routes without any auth layer. Identifying and
+authenticating the caller is entirely your responsibility.
 
 The only route protected by a cryptographic check is the webhook route, and that check is signature
 verification of the provider payload - not authentication of an end user. See "Webhook signature
@@ -27,7 +26,7 @@ verification" below.
 - `can-replay-webhook.policy.ts`
 
 These enforce business rules, not HTTP request authentication. Each evaluates an
-`AuthorizationContext` (`authorization-context.ts`):
+`AuthorizationContext`:
 
 ```ts
 export interface AuthorizationContext {
@@ -47,8 +46,7 @@ export function isAuthorized(context: AuthorizationContext = {}): boolean {
 A policy passes only when the caller passes an explicit `allowed: true` plus a non-empty `actorId`.
 The policy does not derive identity from the request; it trusts the context you supply.
 
-What is wired today: only `CanReplayWebhookPolicy` is invoked inside an action.
-`ReplayWebhookAction` (`src/application/actions/webhooks/replay-webhook.action.ts`) calls
+Only `CanReplayWebhookPolicy` is wired into an action. `ReplayWebhookAction` calls
 `this.policy.authorize(context)` and throws `PayableError` with code `WEBHOOK_REPLAY_DENIED` (HTTP
 403) when it returns false. It additionally rejects a tenant mismatch with the same code:
 
@@ -59,15 +57,14 @@ if (!this.policy.authorize(context)) {
 ```
 
 The other policies (`can-create-checkout`, `can-create-subscription`, `can-cancel-subscription`,
-`can-resume-subscription`, `can-refund-payment`) are exported from the package but are not currently
-invoked by the checkout, subscription, or refund actions. Do not rely on them to gate HTTP requests;
-they are building blocks you can call yourself, and they do not run automatically on the adapter
-routes.
+`can-resume-subscription`, `can-refund-payment`) are exported from the package but are not invoked
+by the checkout, subscription, or refund actions. Do not rely on them to gate HTTP requests; they
+are building blocks you can call yourself, and they do not run automatically on the adapter routes.
 
-Reconciling with "no built-in auth": the policy layer is authorization for business operations
-(notably webhook replay), driven by an explicit context. It is not request authentication, and it is
-not applied to checkout/subscription/refund routes by default. Request authentication and
-ownership-of-billable checks remain entirely on you.
+The policy layer is authorization for business operations (notably webhook replay), driven by an
+explicit context. It is not request authentication, and it is not applied to
+checkout/subscription/refund routes by default. Request authentication and ownership-of-billable
+checks remain entirely on you.
 
 ## Webhook signature verification
 
@@ -75,8 +72,7 @@ The webhook route is the only route protected by a cryptographic check. Verifica
 the provider before any storage write (`ReceiveWebhookAction` ->
 `provider.verifyWebhook({ payload, signature, headers })`). The Stripe and Paddle verifiers live in
 `src/infrastructure/providers/*/`-`*-webhook-verifier.ts`. A bad signature surfaces as
-`InvalidWebhookSignatureError` (code `INVALID_WEBHOOK_SIGNATURE`, HTTP 400), confirmed by
-`tests/fastify.test.ts`.
+`InvalidWebhookSignatureError` (code `INVALID_WEBHOOK_SIGNATURE`, HTTP 400).
 
 The signature is read from a configurable header (`webhookSignatureHeader`, default
 `stripe-signature`) and the raw, unparsed body must reach the verifier. See the adapter docs for
@@ -94,12 +90,10 @@ AES-256-GCM:
 - `decrypt` rejects malformed ciphertext (missing parts) with `ENCRYPTION_INVALID_CIPHERTEXT` and
   verifies the GCM auth tag.
 
-When an `encryption` driver is configured (`PayableConfig.encryption`,
-`src/support/config/payable-config.ts`), the Knex webhook-event repository seals the stored headers
-before writing and opens them on read
-(`src/infrastructure/storage/knex/repositories/knex-webhook-event.repository.ts`). Webhook headers
-are JSON-stringified, redacted, then encrypted at rest. Without an encryption driver, the same
-fields are stored in plaintext.
+When an `encryption` driver is configured (`PayableConfig.encryption`), the Knex webhook-event
+repository seals the stored headers before writing and opens them on read. Webhook headers are
+JSON-stringified, redacted, then encrypted at rest. Without an encryption driver, the same fields
+are stored in plaintext.
 
 ## Header redaction for logging and storage
 
@@ -113,9 +107,8 @@ const SENSITIVE_HEADERS = new Set([
 ]);
 ```
 
-`StoreWebhookEventAction` applies it to incoming webhook headers before they are stored
-(`src/application/actions/webhooks/store-webhook-event.action.ts`), so the signature header and any
-auth cookies never land in storage even when encryption is off.
+`StoreWebhookEventAction` applies it to incoming webhook headers before they are stored, so the
+signature header and any auth cookies never land in storage even when encryption is off.
 
 ## Security assumptions and boundaries
 

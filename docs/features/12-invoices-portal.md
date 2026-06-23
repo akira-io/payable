@@ -6,8 +6,7 @@ fail explicitly when the provider does not support them.
 
 ## Listing invoices
 
-`ListInvoicesAction` (`src/application/actions/invoices/list-invoices.action.ts`) returns the
-customer's invoices from the provider.
+`ListInvoicesAction` returns the customer's invoices from the provider.
 
 ```ts
 const invoices = await new ListInvoicesAction(deps).handle(billable, 50);
@@ -22,7 +21,7 @@ const invoices = await new ListInvoicesAction(deps).handle(billable, 50);
 3. Loads the local customer row; if it is missing or has no `providerCustomerId`, returns `[]`.
 4. Calls `provider.listInvoices({ providerCustomerId, limit })`.
 
-Output: `InvoiceDTO[]` (`src/domain/dtos/invoice.dto.ts`):
+Output: `InvoiceDTO[]`:
 
 ```ts
 export interface InvoiceDTO {
@@ -39,8 +38,7 @@ available.
 
 ## Downloading an invoice PDF
 
-`DownloadInvoicePdfAction` (`src/application/actions/invoices/download-invoice-pdf.action.ts`) fetches
-the raw PDF bytes for one invoice.
+`DownloadInvoicePdfAction` fetches the raw PDF bytes for one invoice.
 
 ```ts
 const pdf = await new DownloadInvoicePdfAction(deps).handle('in_1');
@@ -66,8 +64,7 @@ responsible for confirming the invoice belongs to the right customer before serv
 
 ## Billing portal
 
-`payable.customer(billable).billingPortal(returnUrl)`
-(`src/application/builders/customer-context.ts`) returns a provider-hosted portal URL where the
+`payable.customer(billable).billingPortal(returnUrl)` returns a provider-hosted portal URL where the
 customer can manage payment methods, invoices, and subscriptions.
 
 ```ts
@@ -86,7 +83,7 @@ return redirect(url);
 3. Builds an idempotency key `portal:${providerName}:${billableType}:${billableId}`.
 4. Calls `provider.billingPortal({ providerCustomerId, returnUrl }, ctx)`.
 
-Output: `BillingPortalDTO` (`src/domain/dtos/billing-portal.dto.ts`):
+Output: `BillingPortalDTO`:
 
 ```ts
 export interface BillingPortalDTO {
@@ -110,12 +107,11 @@ sequenceDiagram
 
 ## Provider dependency and capabilities
 
-These features ride on optional provider methods declared as capability interfaces in
-`src/domain/contracts/payment-provider.contract.ts`:
+These features ride on optional provider methods declared as capability interfaces on the
+`PaymentProvider` contract:
 
 - **Invoices.** `InvoiceCapable` (`listInvoices`, `downloadInvoicePdf`). Detected with
-  `isInvoiceCapable`. The capability surfaced in errors is `invoicePdf`
-  (`src/domain/dtos/capabilities.dto.ts`).
+  `isInvoiceCapable`. The capability surfaced in errors is `invoicePdf`.
 - **Billing portal.** `billingPortal` is a required method on the `PaymentProvider` contract, but its
   availability is gated by the `billingPortal` capability flag, asserted before use.
 

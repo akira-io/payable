@@ -77,8 +77,7 @@ sequenceDiagram
   end
 ```
 
-Key points (`src/application/actions/webhooks/receive-webhook.action.ts`,
-`store-webhook-event.action.ts`):
+Key points:
 
 - The adapter forwards the raw body string; the provider verifier validates the signature before
   anything is stored.
@@ -162,12 +161,12 @@ flowchart TD
 ```
 
 - The `Payable` constructor registers the handler:
-  `queue.process(PROCESS_WEBHOOK_JOB, job => this.processWebhookJob(job))` (`src/payable.ts`).
-- `SyncQueueDriver` (`src/infrastructure/queue/sync/sync-queue-driver.ts`) invokes the registered
-  handler immediately on `dispatch`, in the same process and request. No Redis, no retries.
-- `BullMQQueueDriver` (`src/infrastructure/queue/bullmq/bullmq-queue-driver.ts`) adds the job to a
-  Redis-backed queue and runs it on a BullMQ `Worker`, with configurable attempts and exponential
-  backoff. The worker is started lazily when `process` is called.
+  `queue.process(PROCESS_WEBHOOK_JOB, job => this.processWebhookJob(job))`.
+- `SyncQueueDriver` invokes the registered handler immediately on `dispatch`, in the same process
+  and request. No Redis, no retries.
+- `BullMQQueueDriver` adds the job to a Redis-backed queue and runs it on a BullMQ `Worker`, with
+  configurable attempts and exponential backoff. The worker is started lazily when `process` is
+  called.
 - Both paths converge on `ProcessWebhookAction` -> `ProcessWebhookPipeline`, which reconciles
   subscription state, writes an audit log, writes the outbox row, marks the event `processed`, and
   emits `WebhookProcessedEvent`.

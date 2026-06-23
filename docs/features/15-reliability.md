@@ -47,8 +47,7 @@ async publishPending(deliver: OutboxDelivery, limit = 50): Promise<OutboxPublish
   backoff: `nextRetry = now + backoffMs * 2 ** (attempts - 1)` (default `backoffMs` `1000`).
 
 **Inputs/outputs.** Input is a `deliver` callback and an optional `limit`. Output is
-`{ published, retried, deadLettered }` counts (test: `tests/outbox.test.ts` - *"publishes pending
-events"*, *"retries with backoff then dead-letters"*).
+`{ published, retried, deadLettered }` counts.
 
 **Failure modes.** A delivery that keeps throwing is retried with growing backoff until the attempt
 ceiling, then dead-lettered (status `failed`, no further retry). Delivery is at-least-once: a worker
@@ -81,8 +80,7 @@ async record(input: AuditEntryInput): Promise<AuditLog> {
 (see [Webhooks](13-webhooks.md)) logs every processed event as `action: webhook.<type>`,
 `actorType: 'provider'`, `actorId: <providerName>`, `resourceType: 'webhook_event'`, with
 `before: null` and `after: <event data>`. The correlation id ties the audit entry back to the
-originating request (test: `tests/audit-service.test.ts` - *"records an immutable entry with
-correlation id and mapped fields"*).
+originating request.
 
 **Failure modes.** `record` resolves to the persisted entry or rejects if the repository write
 fails; there is no swallow. Reads are filtered through `ListAuditLogsQuery`.
@@ -111,8 +109,7 @@ constructor(options: { key: string }) {
 **What it encrypts.** When an encryption driver is configured, the Knex webhook-event repository
 (`src/infrastructure/storage/knex/repositories/knex-webhook-event.repository.ts`) seals the
 `payload`, `data`, and `headers` columns on write and opens them on read. The columns then contain
-ciphertext, not plaintext (test: `tests/encryption-at-rest.test.ts` - asserts the stored row does
-not contain the event id, email, or header secret).
+ciphertext, not plaintext - the stored row does not contain the event id, email, or header secret.
 
 **Failure modes.** An empty key throws `ENCRYPTION_KEY_REQUIRED` at construction. Malformed
 ciphertext (missing IV/tag/data parts) throws `ENCRYPTION_INVALID_CIPHERTEXT` on decrypt. The GCM
@@ -198,7 +195,7 @@ carries `name`, `payload`, `correlationId`, and `occurredAt`. Event names are dr
 
 The full `NormalizedEventName` union also includes `customer.updated`, `refund.succeeded`, and
 `refund.failed` as valid names. Events carry value objects intact - `InvoicePaidEvent`, for example,
-holds a `Money` total rather than a primitive (test: `tests/events.test.ts`).
+holds a `Money` total rather than a primitive.
 
 **Failure modes.** `emit` is sequential and `await`s each listener; a listener that throws rejects
 the `emit` call. The in-memory bus is synchronous within the process and is not durable - for

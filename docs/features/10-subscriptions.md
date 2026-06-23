@@ -17,8 +17,7 @@ customer: `FindSubscriptionQuery` looks it up with `storage.subscriptions.findBy
 
 ## Creating a subscription
 
-`SubscriptionBuilder` (`src/application/builders/subscription-builder.ts`) collects state fluently,
-then `create()` runs `CreateSubscriptionAction`.
+`SubscriptionBuilder` collects state fluently, then `create()` runs `CreateSubscriptionAction`.
 
 | Method | Effect |
 | --- | --- |
@@ -39,7 +38,7 @@ const subscription = await payable
   .create();
 ```
 
-`CreateSubscriptionAction` (`src/application/actions/subscriptions/create-subscription.action.ts`):
+`CreateSubscriptionAction`:
 
 1. Requires the provider to be **direct-subscription capable** (`isDirectSubscriptionCapable`,
    i.e. it implements `createSubscription`); otherwise throws
@@ -83,9 +82,7 @@ provider-hosted page instead of creating it directly - see [09-checkout.md](09-c
 
 ## Managing a subscription
 
-`SubscriptionManager` (`src/application/builders/subscription-manager.ts`) wraps one action per
-operation. They all extend `SubscriptionAction`
-(`src/application/actions/subscriptions/subscription-action.ts`), which:
+`SubscriptionManager` wraps one action per operation. They all extend `SubscriptionAction`, which:
 
 - requires a storage driver (`SUBSCRIPTION_STORAGE_REQUIRED`),
 - asserts the provider's `subscriptions` capability via `assertProviderCapability`,
@@ -109,22 +106,21 @@ includes the quantity as a discriminator, so each distinct quantity gets its own
 
 `CancelSubscriptionAction` calls `provider.cancelSubscription({ providerSubscriptionId, immediately: false })`,
 then sets the local `status` and `endsAt = dto.currentPeriodEnd`. The subscription stays usable until
-that date - this is the **grace period**. `onGracePeriod(subscription, now)`
-(`src/domain/entities/subscription-state.ts`) returns `true` while `endsAt` is in the future.
+that date - this is the **grace period**. `onGracePeriod(subscription, now)` returns `true` while
+`endsAt` is in the future.
 
 ### Cancel now - `subscription(name).cancelNow()`
 
 `CancelSubscriptionNowAction` calls `cancelSubscription({ ..., immediately: true })`, then sets
-`status` and `endsAt = clock.now()`. There is no grace period; the subscription ends immediately. In
-the lifecycle test the canceled-now subscription has `status: 'canceled'` and `endsAt` equal to the
-current clock time.
+`status` and `endsAt = clock.now()`. There is no grace period; the subscription ends immediately. The
+canceled-now subscription has `status: 'canceled'` and `endsAt` equal to the current clock time.
 
 ### Resume - `subscription(name).resume()`
 
 `ResumeSubscriptionAction` calls `provider.resumeSubscription({ providerSubscriptionId })`, then sets
 `status` and clears `endsAt = null`. Resuming is meaningful for a subscription that was canceled with
-grace (still within its period); clearing `endsAt` takes it back off the grace period. The lifecycle
-test resumes a grace-period subscription and asserts `endsAt` becomes `null`.
+grace (still within its period); clearing `endsAt` takes it back off the grace period. Resuming a
+grace-period subscription sets `endsAt` back to `null`.
 
 ```ts
 const manager = payable.customer(billable).subscription('default');
@@ -146,7 +142,7 @@ await manager.cancelNow();   // ends immediately
 
 ## State helpers
 
-`src/domain/entities/subscription-state.ts` provides pure predicates over a stored subscription:
+Pure predicates over a stored subscription:
 
 - `onTrial(subscription, now)` - `trialEndsAt` in the future.
 - `onGracePeriod(subscription, now)` - `endsAt` in the future.
@@ -158,17 +154,16 @@ For the underlying status transitions (`trialing`, `active`, `canceled`, …) se
 ## Policies
 
 `CanCreateSubscriptionPolicy`, `CanCancelSubscriptionPolicy`, and `CanResumeSubscriptionPolicy`
-(`src/application/policies/*.ts`) authorize against an `AuthorizationContext`. As of this version they
-are **not wired into the subscription actions** - no action references them. They are available
-building blocks; integrators enforce authorization in their own layer. (Only
-`CanReplayWebhookPolicy` is actually used by an action - see [13-webhooks.md](13-webhooks.md).)
+authorize against an `AuthorizationContext`. As of this version they are **not wired into the
+subscription actions** - no action references them. They are available building blocks; integrators
+enforce authorization in their own layer. Only `CanReplayWebhookPolicy` is used by an action - see
+[13-webhooks.md](13-webhooks.md).
 
 ## Edge cases
 
 - **No storage driver.** Any management operation throws `PayableError` (`...requires a storage driver`).
-  Verified by the "rejects management without storage" test.
 - **Provider lacks `subscriptions` capability.** `assertProviderCapability` throws
-  `ProviderCapabilityNotSupportedError`. Verified by the capability test.
+  `ProviderCapabilityNotSupportedError`.
 - **Provider not direct-subscription capable on create.** `CreateSubscriptionAction` throws before any
   provider call.
 - **Unknown subscription name.** `resolve()` throws `SubscriptionNotFoundError`.

@@ -1,7 +1,7 @@
 # Architecture
 
 Payable is organized into four layers plus a support layer, matching the top-level directories
-under `src/`. The README summarizes them, and the directory tree confirms the split.
+under `src/`.
 
 ## The dependency rule
 
@@ -52,7 +52,7 @@ application meet, by design - it is the composition root.
   (idempotency, webhook delivery, provider-capability assertion).
 - **May depend on.** The domain and the support layer. It depends on contracts, never concrete
   infrastructure classes - concrete drivers arrive via injected dependency objects such as
-  `BillingDependencies` (`src/application/builders/billing-dependencies.ts`).
+  `BillingDependencies`.
 
 ### Infrastructure (`src/infrastructure`)
 
@@ -80,49 +80,11 @@ application meet, by design - it is the composition root.
 - **May depend on.** The domain and a small number of infrastructure defaults it instantiates as
   fallbacks (`SyncQueueDriver`, `InMemoryEventBus`) inside `resolveConfig`.
 
-## Directory-to-layer map
-
-| Directory | Layer |
-| --- | --- |
-| `src/domain/contracts` | Domain |
-| `src/domain/entities` | Domain |
-| `src/domain/dtos` | Domain |
-| `src/domain/value-objects` | Domain |
-| `src/domain/events` | Domain |
-| `src/domain/states` | Domain |
-| `src/domain/errors` | Domain |
-| `src/application/actions` | Application |
-| `src/application/builders` | Application |
-| `src/application/pipelines` | Application |
-| `src/application/policies` | Application |
-| `src/application/queries` | Application |
-| `src/application/services` | Application |
-| `src/infrastructure/providers` | Infrastructure |
-| `src/infrastructure/storage` | Infrastructure |
-| `src/infrastructure/queue` | Infrastructure |
-| `src/infrastructure/cache` | Infrastructure |
-| `src/infrastructure/locks` | Infrastructure |
-| `src/infrastructure/encryption` | Infrastructure |
-| `src/infrastructure/event-bus` | Infrastructure |
-| `src/infrastructure/audit` | Infrastructure |
-| `src/infrastructure/outbox` | Infrastructure |
-| `src/presentation/express` | Presentation |
-| `src/presentation/fastify` | Presentation |
-| `src/presentation/nest` | Presentation |
-| `src/presentation/shared` | Presentation |
-| `src/support/config` | Support |
-| `src/support/clock` | Support |
-| `src/support/logger` | Support |
-| `src/support/result` | Support |
-| `src/support/hash` | Support |
-| `src/payable.ts`, `src/create-payable.ts`, `src/index.ts` | Composition root / public surface |
-
 ## The zero-peer-dependency core guarantee
 
-Every provider, storage, queue, and framework dependency is an optional peer
-(`package.json` `peerDependenciesMeta` marks all eight as `optional: true`). The core runtime bundle
-must import none of them statically, so an application that uses only the core never needs them
-installed.
+Every provider, storage, queue, and framework dependency is an optional peer; all eight are marked
+`optional: true`. The core runtime bundle must import none of them statically, so an application
+that uses only the core never needs them installed.
 
 This is enforced by `scripts/check-core-bundle.mjs` (run via `npm run verify:bundle`). It:
 
@@ -140,7 +102,7 @@ through dynamic `import()` so the symbol never appears as a static dependency of
 
 - **Actions with `handle()`.** Domain operations are classes with a `handle()` method, e.g.
   `ReceiveWebhookAction.handle(...)`, `RefundPaymentAction.handle(...)`. The subscription actions
-  share an abstract `SubscriptionAction` base (`src/application/actions/subscriptions/subscription-action.ts`).
+  share an abstract `SubscriptionAction` base.
 - **Builders.** The fluent API (`SubscriptionBuilder`, `CheckoutBuilder`, `SubscriptionManager`,
   `CustomerContext`) under `src/application/builders`.
 - **Pipelines.** Multi-step flows under `src/application/pipelines` (checkout, subscription
