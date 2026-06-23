@@ -4,7 +4,7 @@ import { createIfMissing } from './create-if-missing';
 export async function createSystemTables(knex: Knex): Promise<void> {
   await createIfMissing(knex, 'payable_webhook_events', (table) => {
     table.uuid('id').primary();
-    table.string('tenant_id').nullable();
+    table.string('tenant_id').notNullable().defaultTo('');
     table.string('provider').notNullable();
     table.string('provider_event_id').notNullable();
     table.string('type').notNullable();
@@ -16,7 +16,7 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.string('correlation_id').notNullable();
     table.timestamp('received_at').notNullable();
     table.timestamp('processed_at').nullable();
-    table.unique(['provider', 'provider_event_id']);
+    table.unique(['tenant_id', 'provider', 'provider_event_id']);
   });
 
   await createIfMissing(knex, 'payable_idempotency_keys', (table) => {

@@ -57,6 +57,10 @@ export {
 } from './application/services/idempotency/idempotency-service';
 export { createPayable } from './create-payable';
 export * from './domain/contracts';
+export type {
+  TenantResolutionContext,
+  TenantResolver,
+} from './domain/contracts/tenant-resolver.contract';
 export * from './domain/dtos';
 export * from './domain/entities';
 export {
@@ -110,6 +114,7 @@ export {
   type ResolvedConfig,
   type ResolvedIdempotency,
   resolveConfig,
+  type TenantConfig,
 } from './support/config/payable-config';
 export { hashRequest } from './support/hash/request-hash';
 export { ConsoleLogger } from './support/logger/console-logger';

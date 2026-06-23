@@ -8,6 +8,7 @@ export interface ProcessWebhookJobPayload {
   providerName: string;
   webhookEventId: string;
   correlationId: string;
+  tenantId: string | null;
   verified: VerifiedWebhook;
 }
 
@@ -19,6 +20,7 @@ export class ProcessWebhookAction {
       verified: payload.verified,
       webhookEventId: payload.webhookEventId,
       correlationId: payload.correlationId,
+      tenantId: payload.tenantId,
     });
   }
 }
