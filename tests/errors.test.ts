@@ -18,6 +18,14 @@ describe('PayableError', () => {
     expect(error.message).toContain('Foo.bar');
   });
 
+  it('serializes message and code via toJSON without leaking the cause', () => {
+    const cause = new Error('provider secret abc123');
+    const error = new PayableError('boom', { code: 'X', context: { a: 1 }, cause });
+    const json = JSON.parse(JSON.stringify(error));
+    expect(json).toEqual({ name: 'PayableError', code: 'X', message: 'boom', context: { a: 1 } });
+    expect(JSON.stringify(error)).not.toContain('abc123');
+  });
+
   it('subclasses keep their name and code', () => {
     const error = new ProviderNotFoundError('stripe');
     expect(error).toBeInstanceOf(PayableError);

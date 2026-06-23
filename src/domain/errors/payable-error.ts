@@ -22,4 +22,20 @@ export class PayableError extends Error {
   static notImplemented(symbol: string): PayableError {
     return new PayableError(`Not implemented: ${symbol}`, { code: 'NOT_IMPLEMENTED' });
   }
+
+  toJSON(): {
+    name: string;
+    code: string;
+    message: string;
+    correlationId?: string;
+    context?: Record<string, unknown>;
+  } {
+    return {
+      name: this.name,
+      code: this.code,
+      message: this.message,
+      correlationId: this.correlationId,
+      context: this.context,
+    };
+  }
 }
