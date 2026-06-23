@@ -126,6 +126,17 @@ describe('nest adapter', () => {
     }
   });
 
+  it('rejects checkout with an invalid body', () => {
+    const controller = controllerFor(createPayable({ providers: { stripe: new FakeProvider() } }));
+    try {
+      controller.checkout({ billable: { billableType: '', billableId: '', email: 'nope' } });
+      throw new Error('expected checkout to reject an invalid body');
+    } catch (error) {
+      expect(error).toBeInstanceOf(PayableError);
+      expect((error as PayableError).code).toBe('VALIDATION_FAILED');
+    }
+  });
+
   it('allows requests when no authenticate guard is configured', async () => {
     const moduleRef = { create: () => Promise.reject(new Error('unused')) } as unknown as ModuleRef;
     const guard = new PayableAuthGuard({}, moduleRef);
