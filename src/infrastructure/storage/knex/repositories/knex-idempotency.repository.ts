@@ -44,6 +44,23 @@ export class KnexIdempotencyRepository implements IdempotencyStore {
     }
   }
 
+  async takeOver(record: IdempotencyRecord, tenantId: string | null = null): Promise<boolean> {
+    const tenant = this.tenant(tenantId);
+    const now = this.clock.now().toISOString();
+    const affected = await this.knex(this.table)
+      .where({ key: record.key, tenant_id: tenant })
+      .whereIn('status', ['processing', 'failed'])
+      .where((qb) => qb.whereNull('locked_until').orWhere('locked_until', '<', now))
+      .update({
+        status: 'processing',
+        request_hash: record.requestHash,
+        response: null,
+        locked_until: record.lockedUntil ? record.lockedUntil.toISOString() : null,
+        updated_at: now,
+      });
+    return affected > 0;
+  }
+
   async put(record: IdempotencyRecord, tenantId: string | null = null): Promise<void> {
     const tenant = this.tenant(tenantId);
     const timestamp = this.clock.now().toISOString();

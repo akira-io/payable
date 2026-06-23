@@ -82,7 +82,10 @@ export class IdempotencyService {
       if (replay.handled) {
         return replay.value as T;
       }
-      await this.store.put(record, execution.tenantId);
+      const claimed = await this.store.takeOver(record, execution.tenantId);
+      if (!claimed) {
+        throw new IdempotencyInProgressError(execution.key);
+      }
     }
     try {
       const result = await execution.run();

@@ -2,10 +2,12 @@ import type { Knex } from 'knex';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { IdempotencyService } from '../src/application/services/idempotency/idempotency-service';
 import type { IdempotencyRecord } from '../src/domain/contracts/idempotency-store.contract';
+import { IdempotencyInProgressError } from '../src/domain/errors/idempotency-in-progress.error';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { KnexIdempotencyRepository } from '../src/infrastructure/storage/knex/repositories/knex-idempotency.repository';
 import { KnexOutboxEventRepository } from '../src/infrastructure/storage/knex/repositories/knex-outbox-event.repository';
 import { FakeClock } from '../src/support/clock/fake-clock';
+import { hashRequest } from '../src/support/hash/request-hash';
 import { createTestDb } from './support/knex';
 
 let db: Knex;
@@ -65,6 +67,43 @@ describe('idempotency lock acquisition (C2)', () => {
     expect(runs).toBe(1);
     const fulfilled = settled.filter((r) => r.status === 'fulfilled');
     expect(fulfilled.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('does not double-execute when taking over an expired lock', async () => {
+    const store = new KnexIdempotencyRepository(db, clock);
+    const requestHash = await hashRequest({ amount: 9900 });
+    await store.acquire({
+      ...processing('charge:3'),
+      requestHash,
+      lockedUntil: new Date(clock.now().getTime() - 1),
+    });
+    const service = new IdempotencyService(store, clock);
+    let runs = 0;
+    const execution = () => ({
+      key: 'charge:3',
+      scope: 'charge',
+      operation: 'charge',
+      request: { amount: 9900 },
+      run: async () => {
+        runs += 1;
+        await Promise.resolve();
+        return { paymentId: 'pay_3' };
+      },
+    });
+
+    const settled = await Promise.allSettled([
+      service.execute(execution()),
+      service.execute(execution()),
+    ]);
+
+    expect(runs).toBe(1);
+    for (const result of settled) {
+      if (result.status === 'fulfilled') {
+        expect(result.value).toEqual({ paymentId: 'pay_3' });
+      } else {
+        expect(result.reason).toBeInstanceOf(IdempotencyInProgressError);
+      }
+    }
   });
 });
 
