@@ -1,4 +1,5 @@
 import type { Clock } from '../../domain/contracts/clock.contract';
+import type { Logger } from '../../domain/contracts/logger.contract';
 import type {
   OutboxEvent,
   OutboxEventRepository,
@@ -9,6 +10,9 @@ export type OutboxDelivery = (event: OutboxEvent) => Promise<void>;
 export interface OutboxServiceOptions {
   maxAttempts?: number;
   backoffMs?: number;
+  maxBackoffMs?: number;
+  logger?: Logger;
+  random?: () => number;
 }
 
 export interface OutboxPublishResult {
@@ -20,6 +24,9 @@ export interface OutboxPublishResult {
 export class OutboxService {
   private readonly maxAttempts: number;
   private readonly backoffMs: number;
+  private readonly maxBackoffMs: number;
+  private readonly logger?: Logger;
+  private readonly random: () => number;
 
   constructor(
     private readonly repository: OutboxEventRepository,
@@ -28,6 +35,9 @@ export class OutboxService {
   ) {
     this.maxAttempts = options.maxAttempts ?? 5;
     this.backoffMs = options.backoffMs ?? 1000;
+    this.maxBackoffMs = options.maxBackoffMs ?? 60_000;
+    this.logger = options.logger;
+    this.random = options.random ?? Math.random;
   }
 
   async publishPending(deliver: OutboxDelivery, limit = 50): Promise<OutboxPublishResult> {
@@ -48,19 +58,34 @@ export class OutboxService {
       await deliver(event);
       await this.repository.markPublished(event.id);
       result.published += 1;
-    } catch {
+    } catch (error) {
       const attempts = event.attempts + 1;
+      const message = error instanceof Error ? error.message : String(error);
       if (attempts >= this.maxAttempts) {
+        this.logger?.error('Outbox event dead-lettered', {
+          eventId: event.id,
+          eventType: event.eventType,
+          attempts,
+          error: message,
+        });
         await this.repository.markFailed(event.id, null);
         result.deadLettered += 1;
         return;
       }
+      this.logger?.warn('Outbox delivery failed, scheduling retry', {
+        eventId: event.id,
+        eventType: event.eventType,
+        attempts,
+        error: message,
+      });
       await this.repository.markFailed(event.id, this.nextRetry(attempts));
       result.retried += 1;
     }
   }
 
   private nextRetry(attempts: number): Date {
-    return new Date(this.clock.now().getTime() + this.backoffMs * 2 ** (attempts - 1));
+    const base = Math.min(this.backoffMs * 2 ** (attempts - 1), this.maxBackoffMs);
+    const jitter = Math.floor(base * 0.1 * this.random());
+    return new Date(this.clock.now().getTime() + base + jitter);
   }
 }
