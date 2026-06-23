@@ -1,8 +1,17 @@
 import type Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
-import { toSubscriptionDTO as toPaddleSubscriptionDTO } from '../src/infrastructure/providers/paddle/paddle-mappers';
-import type { PaddleSubscriptionEntity } from '../src/infrastructure/providers/paddle/paddle-types';
 import {
+  toPriceDTO as toPaddlePriceDTO,
+  toRefundResultDTO as toPaddleRefundDTO,
+  toSubscriptionDTO as toPaddleSubscriptionDTO,
+} from '../src/infrastructure/providers/paddle/paddle-mappers';
+import type {
+  PaddleAdjustment,
+  PaddlePriceEntity,
+  PaddleSubscriptionEntity,
+} from '../src/infrastructure/providers/paddle/paddle-types';
+import {
+  toInvoiceDTO as toStripeInvoiceDTO,
   toPriceDTO as toStripePriceDTO,
   toSubscriptionDTO as toStripeSubscriptionDTO,
 } from '../src/infrastructure/providers/stripe/stripe-mappers';
@@ -108,5 +117,38 @@ describe('paddle subscription mapping', () => {
       currentBillingPeriod: { endsAt: '2026-07-22T00:00:00.000Z' },
     } as unknown as PaddleSubscriptionEntity);
     expect(dto.status).toBe('past_due');
+  });
+});
+
+describe('paddle amount parsing', () => {
+  it('parses an integer minor-unit price amount', () => {
+    const dto = toPaddlePriceDTO({
+      id: 'pri_1',
+      productId: 'pro_1',
+      unitPrice: { amount: '1999', currencyCode: 'usd' },
+    } as unknown as PaddlePriceEntity);
+    expect(dto.unitAmount.amount()).toBe(1999);
+  });
+
+  it('throws on a non-integer amount instead of corrupting it', () => {
+    expect(() =>
+      toPaddleRefundDTO({
+        id: 'adj_1',
+        status: 'approved',
+        totals: { total: '12.5', currencyCode: 'usd' },
+      } as unknown as PaddleAdjustment),
+    ).toThrowError(/integer minor-unit/);
+  });
+});
+
+describe('stripe invoice mapping', () => {
+  it('treats a missing total as zero rather than throwing', () => {
+    const dto = toStripeInvoiceDTO({
+      id: 'in_1',
+      status: 'draft',
+      total: null,
+      currency: 'usd',
+    } as unknown as Stripe.Invoice);
+    expect(dto.total.amount()).toBe(0);
   });
 });
