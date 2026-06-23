@@ -36,9 +36,9 @@ export class ReceiveWebhookAction {
     await new DispatchWebhookJobAction(this.deps.queue).handle({
       providerName: this.deps.providerName,
       webhookEventId: stored.id,
+      providerEventId: verified.providerEventId,
       correlationId: stored.correlationId,
       tenantId,
-      verified,
     });
     return { webhookEventId: stored.id, duplicate: false };
   }
