@@ -122,4 +122,40 @@ describe('subscription lifecycle', () => {
     );
     await db.destroy();
   });
+
+  it('scopes findByName to the owning tenant', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const customer = await storage.customers.create({
+      tenantId: 'tenant-a',
+      billableType: 'User',
+      billableId: '1',
+      provider: 'stripe',
+      providerCustomerId: 'cus_a',
+      email: 'a@example.com',
+      name: 'A',
+      metadata: null,
+    });
+    await storage.subscriptions.create({
+      tenantId: 'tenant-a',
+      customerId: customer.id,
+      name: 'default',
+      provider: 'stripe',
+      providerSubscriptionId: 'sub_a',
+      status: 'active',
+      priceId: 'price_pro',
+      quantity: 1,
+      trialEndsAt: null,
+      endsAt: null,
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+    });
+
+    expect(
+      await storage.subscriptions.findByName(customer.id, 'default', 'tenant-a'),
+    ).not.toBeNull();
+    expect(await storage.subscriptions.findByName(customer.id, 'default', 'tenant-b')).toBeNull();
+    await db.destroy();
+  });
 });

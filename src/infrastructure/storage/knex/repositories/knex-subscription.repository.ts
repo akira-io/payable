@@ -14,12 +14,22 @@ export class KnexSubscriptionRepository
 {
   protected readonly table = 'payable_subscriptions';
 
-  findByName(customerId: string, name: string): Promise<Subscription | null> {
-    return this.firstWhere({ customer_id: customerId, name });
+  findByName(
+    customerId: string,
+    name: string,
+    tenantId?: string | null,
+  ): Promise<Subscription | null> {
+    const where = { customer_id: customerId, name };
+    return this.firstWhere(tenantId == null ? where : { ...where, tenant_id: tenantId });
   }
 
-  findByProviderId(provider: string, providerSubscriptionId: string): Promise<Subscription | null> {
-    return this.firstWhere({ provider, provider_subscription_id: providerSubscriptionId });
+  findByProviderId(
+    provider: string,
+    providerSubscriptionId: string,
+    tenantId?: string | null,
+  ): Promise<Subscription | null> {
+    const where = { provider, provider_subscription_id: providerSubscriptionId };
+    return this.firstWhere(tenantId == null ? where : { ...where, tenant_id: tenantId });
   }
 
   listByCustomer(customerId: string, options?: ListOptions): Promise<Subscription[]> {

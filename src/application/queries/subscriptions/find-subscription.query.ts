@@ -18,6 +18,6 @@ export class FindSubscriptionQuery {
     if (!customer) {
       return null;
     }
-    return storage.subscriptions.findByName(customer.id, name);
+    return storage.subscriptions.findByName(customer.id, name, this.deps.tenantId ?? null);
   }
 }
