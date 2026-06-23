@@ -56,7 +56,7 @@ function resolvePriceUnitAmount(price: Stripe.Price): number {
 export function toCustomerDTO(customer: Stripe.Customer): CustomerDTO {
   return {
     providerCustomerId: customer.id,
-    email: customer.email ?? '',
+    email: customer.email ?? null,
     name: customer.name ?? null,
   };
 }

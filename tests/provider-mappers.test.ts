@@ -11,10 +11,18 @@ import type {
   PaddleSubscriptionEntity,
 } from '../src/infrastructure/providers/paddle/paddle-types';
 import {
+  toCustomerDTO as toStripeCustomerDTO,
   toInvoiceDTO as toStripeInvoiceDTO,
   toPriceDTO as toStripePriceDTO,
   toSubscriptionDTO as toStripeSubscriptionDTO,
 } from '../src/infrastructure/providers/stripe/stripe-mappers';
+
+describe('stripe customer mapping', () => {
+  it('maps a missing email to null rather than an empty string', () => {
+    const dto = toStripeCustomerDTO({ id: 'cus_1', email: null, name: null } as Stripe.Customer);
+    expect(dto.email).toBeNull();
+  });
+});
 
 describe('stripe price mapping', () => {
   it('maps an integer unit amount', () => {

@@ -17,6 +17,6 @@ export interface UpdateCustomerInput {
 
 export interface CustomerDTO {
   providerCustomerId: string;
-  email: string;
+  email: string | null;
   name: string | null;
 }
