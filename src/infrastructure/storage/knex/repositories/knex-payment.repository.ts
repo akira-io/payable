@@ -4,6 +4,7 @@ import type {
   PaymentRepository,
 } from '../../../../domain/contracts/payment-repository.contract';
 import type { Payment } from '../../../../domain/entities/payment.entity';
+import { CurrencyManager } from '../../../../domain/value-objects/currency';
 import type { PaymentStatus } from '../../../../domain/value-objects/payment-status';
 import { KnexRepository } from '../knex-repository';
 import { toDate } from '../mappers';
@@ -30,7 +31,7 @@ export class KnexPaymentRepository
       provider: row.provider as string,
       providerPaymentId: (row.provider_payment_id as string | null) ?? null,
       status: row.status as PaymentStatus,
-      currency: row.currency as string,
+      currency: CurrencyManager.normalize(row.currency as string),
       amount: row.amount as number,
       refundedAmount: row.refunded_amount as number,
       reference: (row.reference as string | null) ?? null,
