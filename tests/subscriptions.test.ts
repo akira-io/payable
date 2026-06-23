@@ -44,6 +44,20 @@ describe('StripeProvider.createSubscription', () => {
       items: [{ price: 'price_1', quantity: 2 }],
     });
   });
+
+  it('throws instead of sending an undefined item id when none exists', async () => {
+    const stripe = {
+      subscriptions: {
+        retrieve: () => Promise.resolve({ items: { data: [] } }),
+        update: () => Promise.resolve({ id: 'sub_1', status: 'active', items: { data: [] } }),
+      },
+    } as unknown as Stripe;
+    const provider = new StripeProvider({ secretKey: 'sk', webhookSecret: 'wh' }, stripe);
+
+    await expect(
+      provider.updateSubscription({ providerSubscriptionId: 'sub_1', priceId: 'price_x' }, ctx),
+    ).rejects.toMatchObject({ code: 'PROVIDER_SUBSCRIPTION_ITEM_MISSING' });
+  });
 });
 
 describe('subscription lifecycle', () => {

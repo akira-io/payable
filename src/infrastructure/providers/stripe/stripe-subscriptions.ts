@@ -7,6 +7,7 @@ import type {
   SubscriptionDTO,
   UpdateSubscriptionInput,
 } from '../../../domain/dtos/subscription.dto';
+import { PayableError } from '../../../domain/errors/payable-error';
 import { withStripeErrors } from './stripe-errors';
 import { toSubscriptionDTO } from './stripe-mappers';
 
@@ -42,9 +43,14 @@ export class StripeSubscriptions {
       const current = await withStripeErrors(() =>
         stripe.subscriptions.retrieve(input.providerSubscriptionId),
       );
-      params.items = [
-        { id: current.items.data[0]?.id, price: input.priceId, quantity: input.quantity },
-      ];
+      const itemId = current.items.data[0]?.id;
+      if (!itemId) {
+        throw new PayableError(
+          `Stripe subscription ${input.providerSubscriptionId} has no item to update`,
+          { code: 'PROVIDER_SUBSCRIPTION_ITEM_MISSING' },
+        );
+      }
+      params.items = [{ id: itemId, price: input.priceId, quantity: input.quantity }];
     }
     const subscription = await withStripeErrors(() =>
       stripe.subscriptions.update(input.providerSubscriptionId, params, {

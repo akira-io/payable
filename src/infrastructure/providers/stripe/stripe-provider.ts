@@ -61,6 +61,13 @@ export const STRIPE_API_VERSION = '2026-05-27.dahlia' as const;
 const DEFAULT_INVOICE_LIMIT = 100;
 const INVOICE_PDF_TIMEOUT_MS = 10_000;
 const INVOICE_PDF_MAX_BYTES = 10 * 1024 * 1024;
+const STRIPE_REFUND_REASONS = new Set(['duplicate', 'fraudulent', 'requested_by_customer']);
+
+function stripeRefundReason(reason?: string): Stripe.RefundCreateParams.Reason | undefined {
+  return reason && STRIPE_REFUND_REASONS.has(reason)
+    ? (reason as Stripe.RefundCreateParams.Reason)
+    : undefined;
+}
 
 export interface StripeProviderOptions {
   secretKey: string;
@@ -242,7 +249,7 @@ export class StripeProvider
         {
           payment_intent: input.providerPaymentId,
           amount: input.amount?.amount(),
-          reason: input.reason as Stripe.RefundCreateParams.Reason | undefined,
+          reason: stripeRefundReason(input.reason),
         },
         { idempotencyKey: ctx.idempotencyKey },
       ),
