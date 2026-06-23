@@ -100,6 +100,24 @@ describe('StripeProvider payments', () => {
     expect(calls.get('re')?.params).toMatchObject({ payment_intent: 'pi_1', amount: 9900 });
   });
 
+  it('drops an unrecognized refund reason instead of forwarding it', async () => {
+    const calls = new Map<string, { params: { reason?: string } }>();
+    const stripe = {
+      refunds: {
+        create: (params: { reason?: string }) => {
+          calls.set('re', { params });
+          return Promise.resolve({ id: 're_2', status: 'succeeded', amount: 100, currency: 'usd' });
+        },
+      },
+    } as unknown as Stripe;
+
+    await stripeProvider(stripe).refund(
+      { providerPaymentId: 'pi_1', amount: Money.of(100, 'USD'), reason: 'not-a-stripe-reason' },
+      ctx,
+    );
+    expect(calls.get('re')?.params.reason).toBeUndefined();
+  });
+
   it('lists invoices and downloads a PDF', async () => {
     const stripe = {
       invoices: {
