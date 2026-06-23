@@ -5,6 +5,7 @@ import {
   parseBody,
   swapSubscriptionBodySchema,
 } from '../../shared/schemas';
+import { DEFAULT_BODY_LIMIT } from '../limits';
 
 type ManageAction = 'cancel' | 'cancelNow' | 'resume';
 
@@ -19,10 +20,11 @@ export async function registerSubscriptionRoutes(
     reply.status(200).send(await manager[action]());
   };
 
-  scope.post('/subscriptions/:name/cancel', manage('cancel'));
-  scope.post('/subscriptions/:name/cancel-now', manage('cancelNow'));
-  scope.post('/subscriptions/:name/resume', manage('resume'));
-  scope.post('/subscriptions/:name/swap', async (request, reply) => {
+  const routeOptions = { bodyLimit: DEFAULT_BODY_LIMIT };
+  scope.post('/subscriptions/:name/cancel', routeOptions, manage('cancel'));
+  scope.post('/subscriptions/:name/cancel-now', routeOptions, manage('cancelNow'));
+  scope.post('/subscriptions/:name/resume', routeOptions, manage('resume'));
+  scope.post('/subscriptions/:name/swap', routeOptions, async (request, reply) => {
     const body = parseBody(swapSubscriptionBodySchema, request.body);
     const params = request.params as { name: string };
     const manager = payable.customer(body.billable).subscription(params.name);

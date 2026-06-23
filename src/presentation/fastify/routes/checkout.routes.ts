@@ -1,12 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import type { Payable } from '../../../payable';
 import { checkoutBodySchema, parseBody } from '../../shared/schemas';
+import { DEFAULT_BODY_LIMIT } from '../limits';
 
 export async function registerCheckoutRoutes(
   scope: FastifyInstance,
   payable: Payable,
 ): Promise<void> {
-  scope.post('/checkout', async (request, reply) => {
+  scope.post('/checkout', { bodyLimit: DEFAULT_BODY_LIMIT }, async (request, reply) => {
     const body = parseBody(checkoutBodySchema, request.body);
     const builder = payable
       .customer(body.billable)

@@ -13,5 +13,10 @@ export function payableErrorReply(
   _request: FastifyRequest,
   reply: FastifyReply,
 ): void {
-  reply.status(payableErrorStatus(error)).send(payableErrorBody(error));
+  reply.status(frameworkStatus(error) ?? payableErrorStatus(error)).send(payableErrorBody(error));
+}
+
+function frameworkStatus(error: unknown): number | undefined {
+  const status = (error as { statusCode?: unknown }).statusCode;
+  return typeof status === 'number' && status >= 400 ? status : undefined;
 }
