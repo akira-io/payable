@@ -265,6 +265,27 @@ describe('charge and refund lifecycle', () => {
     await db.destroy();
   });
 
+  it('recomputes the refunded amount from the persisted value across refunds', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
+    const storage = new KnexStorageDriver(db, clock);
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage, clock });
+
+    const payment = await payable.customer(billable).charge({
+      amount: Money.of(9900, 'USD'),
+      reference: 'inv_tx',
+    });
+
+    await payable.refund({ paymentId: payment.id, amount: Money.of(4000, 'USD') });
+    await payable.refund({ paymentId: payment.id, amount: Money.of(3000, 'USD') });
+
+    const updated = await storage.payments.findById(payment.id);
+    expect(updated?.refundedAmount).toBe(7000);
+    expect(updated?.status).toBe('partially_refunded');
+    await db.destroy();
+  });
+
   it('rejects a refund whose currency differs from the payment currency', async () => {
     const db = createTestDb();
     await migrate(db);

@@ -73,24 +73,32 @@ export class RefundPaymentAction {
         { code: 'REFUND_CURRENCY_MISMATCH', context: { paymentId: payment.id } },
       );
     }
-    const refund = await storage.refunds.create({
-      tenantId: this.deps.tenantId ?? null,
-      paymentId: payment.id,
-      provider: this.deps.providerName,
-      providerRefundId: dto.providerRefundId,
-      status: dto.status,
-      currency: dto.amount.currency(),
-      amount: dto.amount.amount(),
-      reason: input.reason ?? null,
+    return storage.transaction(async (repos) => {
+      const fresh = await repos.payments.findById(payment.id, this.deps.tenantId);
+      if (!fresh) {
+        throw new PayableError(`Payment not found: ${input.paymentId}`, {
+          code: 'PAYMENT_NOT_FOUND',
+        });
+      }
+      const refund = await repos.refunds.create({
+        tenantId: this.deps.tenantId ?? null,
+        paymentId: fresh.id,
+        provider: this.deps.providerName,
+        providerRefundId: dto.providerRefundId,
+        status: dto.status,
+        currency: dto.amount.currency(),
+        amount: dto.amount.amount(),
+        reason: input.reason ?? null,
+      });
+      const refundedAmount = fresh.refundedAmount + dto.amount.amount();
+      const machine = new PaymentStateMachine(fresh.status);
+      const updated = refundedAmount >= fresh.amount ? machine.refund() : machine.partiallyRefund();
+      await repos.payments.update(
+        fresh.id,
+        { refundedAmount, status: updated.current() },
+        this.deps.tenantId,
+      );
+      return refund;
     });
-    const refundedAmount = payment.refundedAmount + dto.amount.amount();
-    const machine = new PaymentStateMachine(payment.status);
-    const updated = refundedAmount >= payment.amount ? machine.refund() : machine.partiallyRefund();
-    await storage.payments.update(
-      payment.id,
-      { refundedAmount, status: updated.current() },
-      this.deps.tenantId,
-    );
-    return refund;
   }
 }
