@@ -81,5 +81,9 @@ export function isDirectSubscriptionCapable(
 export function isInvoiceCapable(
   provider: PaymentProvider,
 ): provider is PaymentProvider & InvoiceCapable {
-  return typeof (provider as Partial<InvoiceCapable>).listInvoices === 'function';
+  const candidate = provider as Partial<InvoiceCapable>;
+  return (
+    typeof candidate.listInvoices === 'function' &&
+    typeof candidate.downloadInvoicePdf === 'function'
+  );
 }

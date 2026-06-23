@@ -8,6 +8,10 @@ export class ListInvoicesAction {
   constructor(private readonly deps: BillingDependencies) {}
 
   async handle(billable: Billable, limit?: number): Promise<InvoiceDTO[]> {
+    const provider = this.deps.provider;
+    if (!isInvoiceCapable(provider)) {
+      throw new ProviderCapabilityNotSupportedError(provider.name, 'invoicePdf');
+    }
     const storage = this.deps.storage;
     if (!storage) {
       return [];
@@ -18,10 +22,6 @@ export class ListInvoicesAction {
     );
     if (!customer?.providerCustomerId) {
       return [];
-    }
-    const provider = this.deps.provider;
-    if (!isInvoiceCapable(provider)) {
-      throw new ProviderCapabilityNotSupportedError(provider.name, 'invoicePdf');
     }
     return provider.listInvoices({
       providerCustomerId: customer.providerCustomerId,
