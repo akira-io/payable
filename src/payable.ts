@@ -87,8 +87,8 @@ export class Payable {
     return this.resolved.tenantEnabled;
   }
 
-  customer(billable: Billable): CustomerContext {
-    return new CustomerContext(billable, this.dependencies());
+  customer(billable: Billable, providerName?: string): CustomerContext {
+    return new CustomerContext(billable, this.dependencies(providerName));
   }
 
   async receiveWebhook(
@@ -117,14 +117,14 @@ export class Payable {
     return new OutboxService(this.resolved.storage.outboxEvents, this.resolved.clock, options);
   }
 
-  private dependencies(): BillingDependencies {
-    const [providerName] = this.registry.names();
-    if (!providerName) {
-      throw new ProviderNotFoundError('default');
+  private dependencies(providerName?: string): BillingDependencies {
+    const name = providerName ?? this.registry.names()[0];
+    if (!name) {
+      throw new ProviderNotFoundError(providerName ?? 'default');
     }
     return {
-      provider: this.registry.get(providerName),
-      providerName,
+      provider: this.registry.get(name),
+      providerName: name,
       clock: this.resolved.clock,
       storage: this.resolved.storage,
     };
