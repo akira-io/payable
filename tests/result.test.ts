@@ -14,4 +14,15 @@ describe('Result', () => {
     expect(isErr(result)).toBe(true);
     expect(() => unwrap(result)).toThrow('nope');
   });
+
+  it('preserves a non-Error value as the thrown error cause', () => {
+    const original = { code: 'CUSTOM', detail: 'x' };
+    try {
+      unwrap(err(original));
+      throw new Error('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).cause).toBe(original);
+    }
+  });
 });
