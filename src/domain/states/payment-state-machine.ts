@@ -11,7 +11,7 @@ export type PaymentEvent =
 
 const MAP: TransitionMap<PaymentStatus, PaymentEvent> = {
   pending: { process: 'processing', succeed: 'succeeded', fail: 'failed', cancel: 'canceled' },
-  processing: { succeed: 'succeeded', fail: 'failed' },
+  processing: { succeed: 'succeeded', fail: 'failed', cancel: 'canceled' },
   succeeded: { refund: 'refunded', partially_refund: 'partially_refunded' },
   partially_refunded: { refund: 'refunded', partially_refund: 'partially_refunded' },
 };

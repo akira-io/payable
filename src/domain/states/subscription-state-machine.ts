@@ -18,7 +18,7 @@ const MAP: TransitionMap<SubscriptionStatus, SubscriptionEvent> = {
     expire: 'incomplete_expired',
     cancel: 'canceled',
   },
-  trialing: { activate: 'active', pause: 'paused', cancel: 'canceled' },
+  trialing: { activate: 'active', mark_past_due: 'past_due', pause: 'paused', cancel: 'canceled' },
   active: { mark_past_due: 'past_due', pause: 'paused', cancel: 'canceled' },
   past_due: { activate: 'active', mark_unpaid: 'unpaid', cancel: 'canceled' },
   unpaid: { activate: 'active', cancel: 'canceled' },
