@@ -159,4 +159,21 @@ describe('StripeProvider', () => {
       ),
     ).rejects.toMatchObject({ code: 'PROVIDER_CARD_DECLINED' });
   });
+
+  it('translates errors on non-charge operations into typed PayableErrors', async () => {
+    const stripe = {
+      customers: {
+        create: () => {
+          throw { type: 'StripeInvalidRequestError', code: 'parameter_invalid', message: 'bad' };
+        },
+      },
+    } as unknown as Stripe;
+
+    await expect(
+      new StripeProvider({ secretKey: 'sk', webhookSecret: 'wh' }, stripe).createCustomer(
+        { billableType: 'User', billableId: '1', email: 'user@example.com' },
+        { correlationId: 'c', idempotencyKey: 'i' },
+      ),
+    ).rejects.toMatchObject({ code: 'PROVIDER_REQUEST_INVALID' });
+  });
 });
