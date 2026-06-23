@@ -19,6 +19,22 @@ export abstract class KnexRepository<Entity, New> {
     return this.findByIdOrFail(id);
   }
 
+  async createMany(data: New[]): Promise<void> {
+    if (data.length === 0) {
+      return;
+    }
+    const timestamp = this.clock.now().toISOString();
+    const rows = data.map((item) =>
+      stripUndefined({
+        id: globalThis.crypto.randomUUID(),
+        ...this.toRow(item),
+        created_at: timestamp,
+        updated_at: timestamp,
+      }),
+    );
+    await this.knex(this.table).insert(rows);
+  }
+
   async update(id: string, patch: Partial<New>): Promise<Entity> {
     await this.knex(this.table)
       .where({ id })
@@ -36,7 +52,7 @@ export abstract class KnexRepository<Entity, New> {
   }
 
   protected async manyWhere(where: Record<string, unknown>, limit?: number): Promise<Entity[]> {
-    const query = this.knex(this.table).where(where);
+    const query = this.knex(this.table).where(where).orderBy('created_at', 'desc');
     const rows = (await (limit ? query.limit(limit) : query)) as Record<string, unknown>[];
     return rows.map((row) => this.toEntity(row));
   }
