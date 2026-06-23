@@ -32,6 +32,18 @@ describe('IdempotencyService', () => {
     expect(runs).toBe(1);
   });
 
+  it('sets an expiry on the completed record', async () => {
+    const store = new InMemoryIdempotencyStore();
+    const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
+    const service = new IdempotencyService(store, clock, { completedTtlMs: 60_000 });
+
+    await service.execute(execution('charge:ttl', { amount: 100 }, async () => 'ok'));
+
+    const record = await store.find('charge:ttl');
+    expect(record?.status).toBe('completed');
+    expect(record?.expiresAt?.toISOString()).toBe('2026-06-22T00:01:00.000Z');
+  });
+
   it('throws on a reused key with a different request', async () => {
     const service = new IdempotencyService(new InMemoryIdempotencyStore(), new FakeClock());
     await service.execute(execution('charge:2', { amount: 100 }, async () => 'ok'));

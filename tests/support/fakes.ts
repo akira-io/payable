@@ -54,11 +54,18 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
     response: unknown,
     tenantId?: string | null,
     lockToken?: string | null,
+    expiresAt?: Date | null,
   ): Promise<void> {
     const id = this.id(key, tenantId);
     const record = this.records.get(id);
     if (record && this.owns(record, lockToken)) {
-      this.records.set(id, { ...record, status: 'completed', response, lockedUntil: null });
+      this.records.set(id, {
+        ...record,
+        status: 'completed',
+        response,
+        lockedUntil: null,
+        expiresAt: expiresAt ?? null,
+      });
     }
   }
 

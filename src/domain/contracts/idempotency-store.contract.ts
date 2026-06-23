@@ -24,6 +24,7 @@ export interface IdempotencyStore {
     response: unknown,
     tenantId?: string | null,
     lockToken?: string | null,
+    expiresAt?: Date | null,
   ): Promise<void>;
   markFailed(key: string, tenantId?: string | null, lockToken?: string | null): Promise<void>;
 }

@@ -88,11 +88,13 @@ export class KnexIdempotencyRepository implements IdempotencyStore {
     response: unknown,
     tenantId: string | null = null,
     lockToken: string | null = null,
+    expiresAt: Date | null = null,
   ): Promise<void> {
     await this.scopedToOwner(key, tenantId, lockToken).update({
       status: 'completed',
       response: JSON.stringify(response ?? null),
       locked_until: null,
+      expires_at: expiresAt ? expiresAt.toISOString() : null,
       updated_at: this.clock.now().toISOString(),
     });
   }
