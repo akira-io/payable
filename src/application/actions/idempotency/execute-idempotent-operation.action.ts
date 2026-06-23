@@ -14,6 +14,7 @@ export interface ExecuteIdempotentOperationInput<T> {
   entityResolver?: IdempotencyKeyResolver;
   globalResolver?: IdempotencyKeyResolver;
   tenantId?: string | null;
+  retryFailed?: boolean;
 }
 
 export class ExecuteIdempotentOperationAction {
@@ -37,6 +38,7 @@ export class ExecuteIdempotentOperationAction {
       resourceType: input.context.resourceType ?? null,
       resourceId: input.context.resourceId ?? null,
       tenantId: input.tenantId,
+      retryFailed: input.retryFailed,
       run: input.run,
     });
   }

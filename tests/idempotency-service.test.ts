@@ -101,4 +101,22 @@ describe('IdempotencyService', () => {
     expect(await service.execute(execution('charge:4', request, run))).toBe('recovered');
     expect(attempts).toBe(2);
   });
+
+  it('refuses to retry a failed record when retryFailed is overridden to false', async () => {
+    const service = new IdempotencyService(new InMemoryIdempotencyStore(), new FakeClock());
+    let attempts = 0;
+    const request = { amount: 100 };
+    const run = async () => {
+      attempts += 1;
+      throw new Error('provider down');
+    };
+
+    await expect(
+      service.execute({ ...execution('charge:5', request, run), retryFailed: false }),
+    ).rejects.toThrow('provider down');
+    await expect(
+      service.execute({ ...execution('charge:5', request, run), retryFailed: false }),
+    ).rejects.toBeInstanceOf(IdempotencyConflictError);
+    expect(attempts).toBe(1);
+  });
 });
