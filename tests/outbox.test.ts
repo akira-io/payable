@@ -66,6 +66,22 @@ describe('OutboxService', () => {
     expect(row?.attempts).toBe(2);
   });
 
+  it('never schedules a retry beyond maxBackoffMs', async () => {
+    await storage.outboxEvents.create(newOutbox('subscription.created.v1'));
+    const service = new OutboxService(storage.outboxEvents, clock, {
+      maxAttempts: 5,
+      backoffMs: 100_000,
+      maxBackoffMs: 1000,
+      random: () => 1,
+    });
+
+    await service.publishPending(async () => {
+      throw new Error('boom');
+    });
+    clock.advance(1000);
+    expect(await countDuePendingOutbox(db, clock)).toBe(1);
+  });
+
   it('logs the failure cause and caps the backoff with jitter', async () => {
     await storage.outboxEvents.create(newOutbox('subscription.created.v1'));
     const errors: string[] = [];
