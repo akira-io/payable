@@ -4,6 +4,7 @@ import type {
   RefundRepository,
 } from '../../../../domain/contracts/refund-repository.contract';
 import type { Refund } from '../../../../domain/entities/refund.entity';
+import { CurrencyManager } from '../../../../domain/value-objects/currency';
 import type { RefundStatus } from '../../../../domain/value-objects/refund-status';
 import { KnexRepository } from '../knex-repository';
 import { toDate } from '../mappers';
@@ -30,7 +31,7 @@ export class KnexRefundRepository
       provider: row.provider as string,
       providerRefundId: (row.provider_refund_id as string | null) ?? null,
       status: row.status as RefundStatus,
-      currency: row.currency as string,
+      currency: CurrencyManager.normalize(row.currency as string),
       amount: row.amount as number,
       reason: (row.reason as string | null) ?? null,
       createdAt: toDate(row.created_at),

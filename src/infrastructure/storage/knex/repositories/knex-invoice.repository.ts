@@ -4,6 +4,7 @@ import type {
 } from '../../../../domain/contracts/invoice-repository.contract';
 import type { ListOptions } from '../../../../domain/contracts/list-options.contract';
 import type { Invoice } from '../../../../domain/entities/invoice.entity';
+import { CurrencyManager } from '../../../../domain/value-objects/currency';
 import type { InvoiceStatus } from '../../../../domain/value-objects/invoice-status';
 import { KnexRepository } from '../knex-repository';
 import { toDate } from '../mappers';
@@ -31,7 +32,7 @@ export class KnexInvoiceRepository
       provider: row.provider as string,
       providerInvoiceId: (row.provider_invoice_id as string | null) ?? null,
       status: row.status as InvoiceStatus,
-      currency: row.currency as string,
+      currency: CurrencyManager.normalize(row.currency as string),
       total: row.total as number,
       amountPaid: row.amount_paid as number,
       amountDue: row.amount_due as number,

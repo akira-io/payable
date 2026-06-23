@@ -94,6 +94,23 @@ describe('KnexStorageDriver catalog', () => {
     );
     expect(await storage.subscriptions.listByCustomer(customer.id)).toHaveLength(1);
   });
+
+  it('normalizes a stored currency code on read', async () => {
+    const payment = await storage.payments.create({
+      tenantId: null,
+      customerId: null,
+      provider: 'stripe',
+      providerPaymentId: 'pi_norm',
+      status: 'succeeded',
+      currency: 'usd',
+      amount: 100,
+      refundedAmount: 0,
+      reference: null,
+      description: null,
+    });
+    expect(payment.currency).toBe('USD');
+    expect((await storage.payments.findById(payment.id))?.currency).toBe('USD');
+  });
 });
 
 describe('KnexStorageDriver transactions', () => {
