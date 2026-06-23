@@ -123,6 +123,27 @@ describe('subscription lifecycle', () => {
     await db.destroy();
   });
 
+  it('writes an audit log atomically when swapping a plan', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
+
+    const created = await payable
+      .customer(billable)
+      .newSubscription('default')
+      .price('price_pro')
+      .create();
+    await payable.customer(billable).subscription('default').swap('price_business');
+
+    const logs = await storage.auditLogs.list({
+      resourceType: 'subscription',
+      resourceId: created.id,
+    });
+    expect(logs.some((log) => log.action === 'subscription.swapped')).toBe(true);
+    await db.destroy();
+  });
+
   it('scopes findByName to the owning tenant', async () => {
     const db = createTestDb();
     await migrate(db);

@@ -15,8 +15,13 @@ export class SubscriptionManager {
     private readonly deps: BillingDependencies,
   ) {}
 
-  swap(priceId: string): Promise<Subscription> {
-    return new SwapSubscriptionAction(this.deps).handle(this.billable, this.name, priceId);
+  swap(priceId: string, authorization?: AuthorizationContext): Promise<Subscription> {
+    return new SwapSubscriptionAction(this.deps).handle(
+      this.billable,
+      this.name,
+      priceId,
+      authorization,
+    );
   }
 
   cancel(authorization?: AuthorizationContext): Promise<Subscription> {
@@ -35,11 +40,12 @@ export class SubscriptionManager {
     return new ResumeSubscriptionAction(this.deps).handle(this.billable, this.name, authorization);
   }
 
-  updateQuantity(quantity: number): Promise<Subscription> {
+  updateQuantity(quantity: number, authorization?: AuthorizationContext): Promise<Subscription> {
     return new UpdateSubscriptionQuantityAction(this.deps).handle(
       this.billable,
       this.name,
       quantity,
+      authorization,
     );
   }
 }
