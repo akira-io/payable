@@ -39,6 +39,7 @@ import type {
 } from '../../../domain/dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
+import { withStripeErrors } from './stripe-errors';
 import { StripeEventNormalizer } from './stripe-event-normalizer';
 import {
   toChargeResultDTO,
@@ -201,28 +202,32 @@ export class StripeProvider
 
   async charge(input: ChargeInput, ctx: OperationContext): Promise<ChargeResultDTO> {
     const stripe = await this.stripe();
-    const intent = await stripe.paymentIntents.create(
-      {
-        amount: input.amount.amount(),
-        currency: input.amount.currency().toLowerCase(),
-        customer: input.providerCustomerId,
-        description: input.description,
-        metadata: input.reference ? { reference: input.reference } : undefined,
-      },
-      { idempotencyKey: ctx.idempotencyKey },
+    const intent = await withStripeErrors(() =>
+      stripe.paymentIntents.create(
+        {
+          amount: input.amount.amount(),
+          currency: input.amount.currency().toLowerCase(),
+          customer: input.providerCustomerId,
+          description: input.description,
+          metadata: input.reference ? { reference: input.reference } : undefined,
+        },
+        { idempotencyKey: ctx.idempotencyKey },
+      ),
     );
     return toChargeResultDTO(intent);
   }
 
   async refund(input: RefundInput, ctx: OperationContext): Promise<RefundResultDTO> {
     const stripe = await this.stripe();
-    const refund = await stripe.refunds.create(
-      {
-        payment_intent: input.providerPaymentId,
-        amount: input.amount?.amount(),
-        reason: input.reason as Stripe.RefundCreateParams.Reason | undefined,
-      },
-      { idempotencyKey: ctx.idempotencyKey },
+    const refund = await withStripeErrors(() =>
+      stripe.refunds.create(
+        {
+          payment_intent: input.providerPaymentId,
+          amount: input.amount?.amount(),
+          reason: input.reason as Stripe.RefundCreateParams.Reason | undefined,
+        },
+        { idempotencyKey: ctx.idempotencyKey },
+      ),
     );
     return toRefundResultDTO(refund);
   }
