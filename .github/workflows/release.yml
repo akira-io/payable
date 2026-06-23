@@ -40,7 +40,7 @@ jobs:
           DEFAULT_BRANCH="$(git remote show origin | sed -n 's/.*HEAD branch: //p')"
           git add package.json CHANGELOG.md
           git diff --cached --quiet || git commit -m "chore(release): ${{ github.ref_name }}"
-          git push origin "HEAD:${DEFAULT_BRANCH}" || true
+          git push origin "HEAD:${DEFAULT_BRANCH}"
 
       - name: Extract release notes
         id: notes
