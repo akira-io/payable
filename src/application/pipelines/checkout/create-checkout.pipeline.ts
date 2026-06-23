@@ -31,7 +31,7 @@ export class CreateCheckoutPipeline {
       provider: this.deps.providerName,
       billableType: input.billable.billableType,
       billableId: input.billable.billableId,
-      price: input.lineItems[0]?.priceId ?? '',
+      price: input.lineItems.map((item) => `${item.priceId}:${item.quantity}`).join(','),
       subscriptionName: input.subscriptionName,
     });
     return this.createSession.handle({

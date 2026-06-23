@@ -36,7 +36,7 @@ describe('fluent subscription checkout', () => {
       trialDays: 14,
     });
     expect(provider.lastCheckout?.ctx.idempotencyKey).toBe(
-      'checkout:stripe:User:1:price_pro:default',
+      'checkout:stripe:User:1:price_pro%3A1:default',
     );
   });
 
@@ -78,5 +78,30 @@ describe('payment-mode checkout builder', () => {
     expect(session).toEqual({ id: 'cs_fake', url: 'https://fake.test/cs' });
     expect(provider.lastCheckout?.input.mode).toBe('payment');
     expect(provider.lastCheckout?.input.lineItems).toEqual([{ priceId: 'price_one', quantity: 1 }]);
+  });
+
+  it('keys distinct line-item sets distinctly', async () => {
+    const provider = new FakeProvider();
+    const payable = createPayable({ providers: { stripe: provider } });
+
+    await payable
+      .customer(billable)
+      .checkout()
+      .mode('payment')
+      .addPrice('price_a')
+      .addPrice('price_b')
+      .create(urls);
+    const first = provider.lastCheckout?.ctx.idempotencyKey;
+
+    await payable
+      .customer(billable)
+      .checkout()
+      .mode('payment')
+      .addPrice('price_a')
+      .addPrice('price_c')
+      .create(urls);
+    const second = provider.lastCheckout?.ctx.idempotencyKey;
+
+    expect(first).not.toBe(second);
   });
 });
