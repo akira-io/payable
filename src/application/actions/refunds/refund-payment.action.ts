@@ -5,6 +5,7 @@ import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { Money } from '../../../domain/value-objects/money';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
+import { assertProviderCapability } from '../../services/provider-capabilities/assert-provider-capability';
 
 export interface RefundPaymentActionInput {
   paymentId: string;
@@ -28,6 +29,7 @@ export class RefundPaymentAction {
         code: 'PAYMENT_NOT_FOUND',
       });
     }
+    assertProviderCapability(this.deps.provider, 'refunds');
     const key = IdempotencyKey.forRefund({
       provider: this.deps.providerName,
       paymentId: payment.providerPaymentId,

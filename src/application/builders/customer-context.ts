@@ -3,6 +3,7 @@ import type { Payment } from '../../domain/entities/payment.entity';
 import { CorrelationId } from '../../domain/value-objects/correlation-id';
 import { SyncCustomerWithProviderAction } from '../actions/customers/sync-customer-with-provider.action';
 import { ChargeAction } from '../actions/payments/charge.action';
+import { assertProviderCapability } from '../services/provider-capabilities/assert-provider-capability';
 import type { Billable } from './billable';
 import type { BillingDependencies } from './billing-dependencies';
 import type { ChargeRequest } from './charge-request';
@@ -38,6 +39,7 @@ export class CustomerContext {
   }
 
   async billingPortal(returnUrl: string): Promise<BillingPortalDTO> {
+    assertProviderCapability(this.deps.provider, 'billingPortal');
     const providerCustomerId = await new SyncCustomerWithProviderAction(this.deps).handle(
       this.billable,
     );
