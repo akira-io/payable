@@ -53,6 +53,55 @@ describe('AuditService', () => {
     repository.entries[1] = { ...second, after: { amount: 999999 } };
     expect(await service.verify()).toBe(false);
   });
+
+  it('detects a deleted middle entry', async () => {
+    const repository = new InMemoryAuditLogRepository(new FakeClock());
+    const service = new AuditService(repository);
+    for (let index = 0; index < 3; index += 1) {
+      await service.record({
+        action: 'payment.charged',
+        resourceType: 'payment',
+        resourceId: `pay_${index}`,
+        correlationId: `c${index}`,
+      });
+    }
+
+    expect(await service.verify()).toBe(true);
+    repository.entries.splice(1, 1);
+    expect(await service.verify()).toBe(false);
+  });
+
+  it('verifies each tenant chain independently', async () => {
+    const repository = new InMemoryAuditLogRepository(new FakeClock());
+    const service = new AuditService(repository);
+    for (const tenantId of ['tenant-a', 'tenant-b']) {
+      await service.record({
+        action: 'payment.charged',
+        resourceType: 'payment',
+        resourceId: 'pay_1',
+        correlationId: 'c1',
+        tenantId,
+      });
+      await service.record({
+        action: 'payment.refunded',
+        resourceType: 'payment',
+        resourceId: 'pay_1',
+        correlationId: 'c2',
+        tenantId,
+      });
+    }
+
+    expect(await service.verify('tenant-a')).toBe(true);
+    expect(await service.verify('tenant-b')).toBe(true);
+
+    const index = repository.entries.findIndex((entry) => entry.tenantId === 'tenant-a');
+    const target = repository.entries[index];
+    if (target) {
+      repository.entries[index] = { ...target, after: { amount: 999999 } };
+    }
+    expect(await service.verify('tenant-a')).toBe(false);
+    expect(await service.verify('tenant-b')).toBe(true);
+  });
 });
 
 describe('ListAuditLogsQuery', () => {
