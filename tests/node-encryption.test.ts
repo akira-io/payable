@@ -33,4 +33,20 @@ describe('NodeEncryptionDriver', () => {
     expect(() => new NodeEncryptionDriver({ key: '' })).toThrow('non-empty');
     expect(() => new NodeEncryptionDriver({ key: '   ' })).toThrow('non-empty');
   });
+
+  it('derives the same key deterministically across instances', async () => {
+    const token = await new NodeEncryptionDriver({ key: 'shared-passphrase' }).encrypt('secret');
+    const other = new NodeEncryptionDriver({ key: 'shared-passphrase' });
+    expect(await other.decrypt(token)).toBe('secret');
+  });
+
+  it('derives a distinct key per configured salt', async () => {
+    const token = await new NodeEncryptionDriver({ key: 'k', salt: 'tenant-a' }).encrypt('secret');
+    expect(await new NodeEncryptionDriver({ key: 'k', salt: 'tenant-a' }).decrypt(token)).toBe(
+      'secret',
+    );
+    await expect(
+      new NodeEncryptionDriver({ key: 'k', salt: 'tenant-b' }).decrypt(token),
+    ).rejects.toThrow();
+  });
 });

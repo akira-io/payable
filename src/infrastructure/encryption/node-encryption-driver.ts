@@ -1,20 +1,27 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
 import type { Encryption } from '../../domain/contracts/encryption.contract';
 import { PayableError } from '../../domain/errors/payable-error';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_BYTES = 12;
+const KEY_BYTES = 32;
+const DEFAULT_KEY_SALT = 'payable.encryption.kdf.v1';
+
+export interface NodeEncryptionOptions {
+  key: string;
+  salt?: string;
+}
 
 export class NodeEncryptionDriver implements Encryption {
   private readonly key: Buffer;
 
-  constructor(options: { key: string }) {
+  constructor(options: NodeEncryptionOptions) {
     if (options.key.trim().length === 0) {
       throw new PayableError('Encryption key must be a non-empty high-entropy secret', {
         code: 'ENCRYPTION_KEY_REQUIRED',
       });
     }
-    this.key = createHash('sha256').update(options.key).digest();
+    this.key = scryptSync(options.key, options.salt ?? DEFAULT_KEY_SALT, KEY_BYTES);
   }
 
   async encrypt(plaintext: string): Promise<string> {
