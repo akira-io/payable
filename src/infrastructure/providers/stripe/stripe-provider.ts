@@ -265,6 +265,12 @@ export class StripeProvider implements PaymentProvider {
       });
     }
     const response = await globalThis.fetch(invoice.invoice_pdf);
+    if (!response.ok) {
+      throw new PayableError(`Failed to download invoice ${providerInvoiceId} PDF`, {
+        code: 'INVOICE_PDF_DOWNLOAD_FAILED',
+        context: { status: response.status },
+      });
+    }
     const content = new Uint8Array(await response.arrayBuffer());
     return { filename: `${providerInvoiceId}.pdf`, content };
   }
