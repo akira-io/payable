@@ -120,6 +120,25 @@ describe('KnexStorageDriver catalog', () => {
     expect((await storage.payments.findById(payment.id))?.currency).toBe('USD');
   });
 
+  it('caps an unbounded list at the default limit', async () => {
+    for (let i = 0; i < 105; i += 1) {
+      await storage.payments.create({
+        tenantId: null,
+        customerId: 'cus_cap',
+        provider: 'stripe',
+        providerPaymentId: `pi_cap_${i}`,
+        status: 'succeeded',
+        currency: 'USD',
+        amount: 100,
+        refundedAmount: 0,
+        reference: null,
+        description: null,
+      });
+    }
+    expect(await storage.payments.listByCustomer('cus_cap')).toHaveLength(100);
+    expect(await storage.payments.listByCustomer('cus_cap', { limit: 5 })).toHaveLength(5);
+  });
+
   it('stores money amounts beyond the 32-bit integer range', async () => {
     const large = 5_000_000_000;
     const payment = await storage.payments.create({
