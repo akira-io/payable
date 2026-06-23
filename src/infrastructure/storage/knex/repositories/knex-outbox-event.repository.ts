@@ -80,8 +80,8 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
     return dialect === 'postgresql' || dialect === 'mysql' || dialect === 'mariadb';
   }
 
-  async markPublished(id: string): Promise<void> {
-    await this.knex(this.table).where({ id }).update({
+  async markPublished(id: string, lockToken: string | null = null): Promise<void> {
+    await this.owned(id, lockToken).update({
       status: 'published',
       locked_by: null,
       locked_until: null,
@@ -89,17 +89,24 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
     });
   }
 
-  async markFailed(id: string, nextRetryAt: Date | null): Promise<void> {
-    await this.knex(this.table)
-      .where({ id })
-      .update({
-        status: nextRetryAt ? 'pending' : 'failed',
-        attempts: this.knex.raw('attempts + 1'),
-        next_retry_at: nextRetryAt ? nextRetryAt.toISOString() : null,
-        locked_by: null,
-        locked_until: null,
-        updated_at: this.clock.now().toISOString(),
-      });
+  async markFailed(
+    id: string,
+    nextRetryAt: Date | null,
+    lockToken: string | null = null,
+  ): Promise<void> {
+    await this.owned(id, lockToken).update({
+      status: nextRetryAt ? 'pending' : 'failed',
+      attempts: this.knex.raw('attempts + 1'),
+      next_retry_at: nextRetryAt ? nextRetryAt.toISOString() : null,
+      locked_by: null,
+      locked_until: null,
+      updated_at: this.clock.now().toISOString(),
+    });
+  }
+
+  private owned(id: string, lockToken: string | null): Knex.QueryBuilder {
+    const query = this.knex(this.table).where({ id });
+    return lockToken === null ? query : query.where({ locked_by: lockToken });
   }
 
   private claimable(builder: Knex.QueryBuilder, nowIso: string): void {
@@ -127,6 +134,7 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
       status: row.status as OutboxStatus,
       attempts: row.attempts as number,
       nextRetryAt: toNullableDate(row.next_retry_at),
+      lockToken: (row.locked_by as string | null) ?? null,
       createdAt: toDate(row.created_at),
       updatedAt: toDate(row.updated_at),
     };
