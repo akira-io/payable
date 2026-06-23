@@ -57,9 +57,9 @@ export class PaddleProvider implements PaymentProvider {
     return {
       checkout: true,
       subscriptions: true,
-      trials: true,
+      trials: false,
       refunds: true,
-      coupons: true,
+      coupons: false,
       billingPortal: true,
       meteredBilling: false,
       invoicePdf: false,
