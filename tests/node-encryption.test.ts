@@ -10,6 +10,15 @@ describe('NodeEncryptionDriver', () => {
     expect(await driver.decrypt(token)).toBe('customer@example.com');
   });
 
+  it('tags the envelope with a version and still reads legacy tokens', async () => {
+    const driver = new NodeEncryptionDriver({ key: 'a-secret-key' });
+    const token = await driver.encrypt('secret');
+
+    expect(token.startsWith('v1:')).toBe(true);
+    const legacy = token.slice('v1:'.length);
+    expect(await driver.decrypt(legacy)).toBe('secret');
+  });
+
   it('produces a fresh ciphertext per call', async () => {
     const driver = new NodeEncryptionDriver({ key: 'a-secret-key' });
     const a = await driver.encrypt('same');

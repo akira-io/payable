@@ -5,6 +5,7 @@ import { PayableError } from '../../domain/errors/payable-error';
 const ALGORITHM = 'aes-256-gcm';
 const IV_BYTES = 12;
 const KEY_BYTES = 32;
+const ENVELOPE_VERSION = 'v1';
 
 export interface NodeEncryptionOptions {
   key: string;
@@ -32,12 +33,14 @@ export class NodeEncryptionDriver implements Encryption {
     const cipher = createCipheriv(ALGORITHM, this.key, iv);
     const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
     const tag = cipher.getAuthTag();
-    return `${iv.toString('base64')}:${tag.toString('base64')}:${ciphertext.toString('base64')}`;
+    return `${ENVELOPE_VERSION}:${iv.toString('base64')}:${tag.toString('base64')}:${ciphertext.toString('base64')}`;
   }
 
   async decrypt(ciphertext: string): Promise<string> {
-    const [ivPart, tagPart, dataPart] = ciphertext.split(':');
-    if (!ivPart || !tagPart || !dataPart) {
+    const parts = ciphertext.split(':');
+    const versioned = parts.length === 4 && parts[0] === ENVELOPE_VERSION;
+    const [ivPart, tagPart, dataPart] = versioned ? parts.slice(1) : parts;
+    if ((!versioned && parts.length !== 3) || !ivPart || !tagPart || !dataPart) {
       throw new PayableError('Malformed ciphertext', { code: 'ENCRYPTION_INVALID_CIPHERTEXT' });
     }
     const decipher = createDecipheriv(ALGORITHM, this.key, Buffer.from(ivPart, 'base64'));
