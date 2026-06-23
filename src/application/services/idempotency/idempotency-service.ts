@@ -54,7 +54,7 @@ export class IdempotencyService {
     if (!existing) {
       return { handled: false };
     }
-    if (existing.requestHash !== requestHash && existing.status !== 'expired') {
+    if (existing.requestHash !== requestHash) {
       throw new IdempotencyConflictError(key);
     }
     if (existing.status === 'completed') {

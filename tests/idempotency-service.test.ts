@@ -40,6 +40,27 @@ describe('IdempotencyService', () => {
     ).rejects.toBeInstanceOf(IdempotencyConflictError);
   });
 
+  it('does not let an expired record bypass the request-hash check', async () => {
+    const store = new InMemoryIdempotencyStore();
+    const clock = new FakeClock();
+    await store.put({
+      key: 'charge:expired',
+      scope: 'charge',
+      operation: 'charge',
+      resourceType: null,
+      resourceId: null,
+      requestHash: await hashRequest({ amount: 100 }),
+      response: null,
+      status: 'expired',
+      lockedUntil: null,
+      expiresAt: null,
+    });
+    const service = new IdempotencyService(store, clock);
+    await expect(
+      service.execute(execution('charge:expired', { amount: 999 }, async () => 'ok')),
+    ).rejects.toBeInstanceOf(IdempotencyConflictError);
+  });
+
   it('throws while another run holds the lock', async () => {
     const store = new InMemoryIdempotencyStore();
     const clock = new FakeClock();
