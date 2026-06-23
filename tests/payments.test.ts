@@ -79,8 +79,8 @@ describe('StripeProvider payments', () => {
   it('lists invoices and downloads a PDF', async () => {
     const stripe = {
       invoices: {
-        list: async () => ({
-          data: [
+        list: () => ({
+          autoPagingToArray: async () => [
             {
               id: 'in_1',
               status: 'paid',
@@ -112,6 +112,30 @@ describe('StripeProvider payments', () => {
     } finally {
       globalThis.fetch = original;
     }
+  });
+
+  it('auto-paginates invoices beyond a single Stripe page', async () => {
+    let requestedLimit = 0;
+    const page = Array.from({ length: 150 }, (_, index) => ({
+      id: `in_${index}`,
+      status: 'paid',
+      total: 100,
+      currency: 'usd',
+    }));
+    const stripe = {
+      invoices: {
+        list: () => ({
+          autoPagingToArray: async ({ limit }: { limit: number }) => {
+            requestedLimit = limit;
+            return page.slice(0, limit);
+          },
+        }),
+      },
+    } as unknown as Stripe;
+
+    const invoices = await stripeProvider(stripe).listInvoices({ providerCustomerId: 'cus_1' });
+    expect(invoices).toHaveLength(150);
+    expect(requestedLimit).toBe(1000);
   });
 
   it('throws when the invoice PDF download fails', async () => {
