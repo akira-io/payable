@@ -19,6 +19,19 @@ describe('forward migrations (C5)', () => {
     await expect(migrate(db)).resolves.toBeUndefined();
   });
 
+  it('creates the composite list-access indexes', async () => {
+    await migrate(db);
+    const names = (await db
+      .from('sqlite_master')
+      .where({ type: 'index' })
+      .pluck('name')) as string[];
+    expect(names).toContain('payable_payments_customer_created_id_index');
+    expect(names).toContain('payable_invoices_customer_created_id_index');
+    expect(names).toContain('payable_subscriptions_customer_created_id_index');
+    expect(names).toContain('payable_refunds_payment_created_id_index');
+    expect(names).toContain('payable_outbox_events_status_locked_index');
+  });
+
   it('back-fills columns added after a table was first created', async () => {
     await db.schema.createTable('payable_webhook_events', (table) => {
       table.uuid('id').primary();
