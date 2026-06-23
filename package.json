@@ -9,6 +9,7 @@
     "url": "git+https://github.com/akira-io/payable.git"
   },
   "type": "module",
+  "sideEffects": false,
   "engines": {
     "node": ">=20"
   },
