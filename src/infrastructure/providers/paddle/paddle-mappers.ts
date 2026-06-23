@@ -70,14 +70,25 @@ export function toSubscriptionDTO(subscription: PaddleSubscriptionEntity): Subsc
   };
 }
 
+const REFUND_STATUS_BY_ADJUSTMENT: Record<string, RefundStatus> = {
+  approved: 'succeeded',
+  rejected: 'failed',
+  pending_approval: 'pending',
+};
+
 export function toRefundResultDTO(adjustment: PaddleAdjustment): RefundResultDTO {
-  const status: RefundStatus = adjustment.status === 'approved' ? 'succeeded' : 'pending';
+  if (!adjustment.totals) {
+    throw new PayableError('Paddle adjustment is missing totals', {
+      code: 'PROVIDER_RESPONSE_INVALID',
+      context: { adjustmentId: adjustment.id },
+    });
+  }
   return {
     providerRefundId: adjustment.id,
-    status,
+    status: REFUND_STATUS_BY_ADJUSTMENT[adjustment.status] ?? 'pending',
     amount: Money.of(
-      toMinorUnits(adjustment.totals?.total ?? 0),
-      (adjustment.totals?.currencyCode ?? 'USD').toUpperCase(),
+      toMinorUnits(adjustment.totals.total),
+      adjustment.totals.currencyCode.toUpperCase(),
     ),
   };
 }

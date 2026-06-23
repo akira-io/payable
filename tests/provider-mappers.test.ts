@@ -139,6 +139,25 @@ describe('paddle amount parsing', () => {
       } as unknown as PaddleAdjustment),
     ).toThrowError(/integer minor-unit/);
   });
+
+  it('maps adjustment statuses including rejected and pending_approval', () => {
+    const make = (status: string) =>
+      toPaddleRefundDTO({
+        id: 'adj_1',
+        status,
+        totals: { total: '9900', currencyCode: 'usd' },
+      } as unknown as PaddleAdjustment);
+    expect(make('approved').status).toBe('succeeded');
+    expect(make('rejected').status).toBe('failed');
+    expect(make('pending_approval').status).toBe('pending');
+    expect(make('something_new').status).toBe('pending');
+  });
+
+  it('throws when adjustment totals are missing instead of fabricating zero USD', () => {
+    expect(() =>
+      toPaddleRefundDTO({ id: 'adj_1', status: 'approved' } as unknown as PaddleAdjustment),
+    ).toThrowError(/missing totals/);
+  });
 });
 
 describe('stripe invoice mapping', () => {
