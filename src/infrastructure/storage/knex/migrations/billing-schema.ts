@@ -71,7 +71,12 @@ export async function createBillingTables(knex: Knex): Promise<void> {
 
   await createIfMissing(knex, 'payable_subscription_items', (table) => {
     table.uuid('id').primary();
-    table.uuid('subscription_id').notNullable();
+    table
+      .uuid('subscription_id')
+      .notNullable()
+      .references('id')
+      .inTable('payable_subscriptions')
+      .onDelete('CASCADE');
     table.uuid('price_id').notNullable();
     table.string('provider_item_id').nullable();
     table.integer('quantity').notNullable();
@@ -122,7 +127,12 @@ export async function createBillingTables(knex: Knex): Promise<void> {
   await createIfMissing(knex, 'payable_refunds', (table) => {
     table.uuid('id').primary();
     table.string('tenant_id').nullable();
-    table.uuid('payment_id').notNullable();
+    table
+      .uuid('payment_id')
+      .notNullable()
+      .references('id')
+      .inTable('payable_payments')
+      .onDelete('CASCADE');
     table.string('provider').notNullable();
     table.string('provider_refund_id').nullable();
     table.string('status').notNullable();

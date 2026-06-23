@@ -42,14 +42,43 @@ describe('storage list ordering and batch insert (perf)', () => {
   });
 
   it('batch-inserts subscription items in a single call', async () => {
+    const subscription = await storage.subscriptions.create({
+      tenantId: null,
+      customerId: 'cus_x',
+      name: 'default',
+      provider: 'stripe',
+      providerSubscriptionId: 'sub_x',
+      status: 'active',
+      priceId: null,
+      quantity: 1,
+      trialEndsAt: null,
+      endsAt: null,
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+    });
     await storage.subscriptionItems.createMany([
-      { subscriptionId: 'sub_x', priceId: 'p1', providerItemId: null, quantity: 1 },
-      { subscriptionId: 'sub_x', priceId: 'p2', providerItemId: null, quantity: 2 },
-      { subscriptionId: 'sub_x', priceId: 'p3', providerItemId: null, quantity: 3 },
+      { subscriptionId: subscription.id, priceId: 'p1', providerItemId: null, quantity: 1 },
+      { subscriptionId: subscription.id, priceId: 'p2', providerItemId: null, quantity: 2 },
+      { subscriptionId: subscription.id, priceId: 'p3', providerItemId: null, quantity: 3 },
     ]);
 
-    const items = await storage.subscriptionItems.listBySubscription('sub_x');
+    const items = await storage.subscriptionItems.listBySubscription(subscription.id);
     expect(items).toHaveLength(3);
     expect(items.map((item) => item.priceId).sort()).toEqual(['p1', 'p2', 'p3']);
+  });
+
+  it('rejects a refund that references a missing payment', async () => {
+    await expect(
+      storage.refunds.create({
+        tenantId: null,
+        paymentId: 'missing_payment',
+        provider: 'stripe',
+        providerRefundId: 're_x',
+        status: 'succeeded',
+        currency: 'USD',
+        amount: 100,
+        reason: null,
+      }),
+    ).rejects.toThrow(/FOREIGN KEY/);
   });
 });
