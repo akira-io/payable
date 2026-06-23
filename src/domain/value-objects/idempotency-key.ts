@@ -37,6 +37,10 @@ export interface WebhookKeyParts {
   providerEventId: string;
 }
 
+function segment(value: string | number): string {
+  return encodeURIComponent(String(value));
+}
+
 export class IdempotencyKey {
   private constructor(private readonly value: string) {}
 
@@ -50,30 +54,32 @@ export class IdempotencyKey {
 
   static forCheckout(parts: CheckoutKeyParts): IdempotencyKey {
     return IdempotencyKey.of(
-      `checkout:${parts.provider}:${parts.billableType}:${parts.billableId}:${parts.price}:${parts.subscriptionName}`,
+      `checkout:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}:${segment(parts.price)}:${segment(parts.subscriptionName)}`,
     );
   }
 
   static forCharge(parts: ChargeKeyParts): IdempotencyKey {
     return IdempotencyKey.of(
-      `charge:${parts.provider}:${parts.billableType}:${parts.billableId}:${parts.reference}:${parts.amount}:${parts.currency}`,
+      `charge:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}:${segment(parts.reference)}:${segment(parts.amount)}:${segment(parts.currency)}`,
     );
   }
 
   static forSubscription(parts: SubscriptionKeyParts): IdempotencyKey {
     return IdempotencyKey.of(
-      `subscription:${parts.provider}:${parts.billableType}:${parts.billableId}:${parts.subscriptionName}:${parts.price}`,
+      `subscription:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}:${segment(parts.subscriptionName)}:${segment(parts.price)}`,
     );
   }
 
   static forRefund(parts: RefundKeyParts): IdempotencyKey {
     return IdempotencyKey.of(
-      `refund:${parts.provider}:${parts.paymentId}:${parts.amount}:${parts.currency}`,
+      `refund:${segment(parts.provider)}:${segment(parts.paymentId)}:${segment(parts.amount)}:${segment(parts.currency)}`,
     );
   }
 
   static forWebhook(parts: WebhookKeyParts): IdempotencyKey {
-    return IdempotencyKey.of(`webhook:${parts.provider}:${parts.providerEventId}`);
+    return IdempotencyKey.of(
+      `webhook:${segment(parts.provider)}:${segment(parts.providerEventId)}`,
+    );
   }
 
   toString(): string {
