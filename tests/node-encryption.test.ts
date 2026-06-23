@@ -1,0 +1,31 @@
+import { describe, expect, it } from 'vitest';
+import { NodeEncryptionDriver } from '../src/infrastructure/encryption/node-encryption-driver';
+
+describe('NodeEncryptionDriver', () => {
+  it('round-trips a value without exposing the plaintext', async () => {
+    const driver = new NodeEncryptionDriver({ key: 'a-secret-key' });
+    const token = await driver.encrypt('customer@example.com');
+
+    expect(token).not.toContain('customer@example.com');
+    expect(await driver.decrypt(token)).toBe('customer@example.com');
+  });
+
+  it('produces a fresh ciphertext per call', async () => {
+    const driver = new NodeEncryptionDriver({ key: 'a-secret-key' });
+    const a = await driver.encrypt('same');
+    const b = await driver.encrypt('same');
+    expect(a).not.toBe(b);
+    expect(await driver.decrypt(a)).toBe('same');
+    expect(await driver.decrypt(b)).toBe('same');
+  });
+
+  it('fails to decrypt with the wrong key', async () => {
+    const token = await new NodeEncryptionDriver({ key: 'right' }).encrypt('secret');
+    await expect(new NodeEncryptionDriver({ key: 'wrong' }).decrypt(token)).rejects.toThrow();
+  });
+
+  it('rejects malformed ciphertext', async () => {
+    const driver = new NodeEncryptionDriver({ key: 'k' });
+    await expect(driver.decrypt('not-a-token')).rejects.toThrow('Malformed ciphertext');
+  });
+});
