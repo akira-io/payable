@@ -163,6 +163,9 @@ export class PaddleProvider implements PaymentProvider {
   }
 
   async refund(input: RefundInput): Promise<RefundResultDTO> {
+    if (input.amount) {
+      throw new ProviderCapabilityNotSupportedError('paddle', 'partial refund');
+    }
     const paddle = await this.paddle();
     const adjustment = await paddle.adjustments.create({
       action: 'refund',

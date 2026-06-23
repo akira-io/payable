@@ -144,6 +144,13 @@ describe('PaddleProvider', () => {
     expect(dto.amount.amount()).toBe(9900);
   });
 
+  it('rejects a partial refund instead of silently refunding in full', async () => {
+    const { client } = fakePaddle();
+    await expect(
+      provider(client).refund({ providerPaymentId: 'txn_1', amount: Money.of(500, 'USD') }, ctx),
+    ).rejects.toBeInstanceOf(ProviderCapabilityNotSupportedError);
+  });
+
   it('opens a billing portal session', async () => {
     const { client, calls } = fakePaddle();
     const dto = await provider(client).billingPortal(
