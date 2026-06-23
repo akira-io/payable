@@ -18,5 +18,5 @@ jobs:
             echo "VERCEL_DEPLOY_HOOK_URL secret is not set" >&2
             exit 1
           fi
-          curl -fsS -X POST "$DEPLOY_HOOK"
+          curl -fsS -o /dev/null -X POST "$DEPLOY_HOOK"
           echo "docs site rebuild triggered"
