@@ -69,11 +69,13 @@ export class PayableController {
   }
 
   @Post('subscriptions/:name/cancel')
+  @HttpCode(200)
   cancel(@Param('name') name: string, @Body() body: { billable: Billable }): Promise<Subscription> {
     return this.manage('cancel', name, body.billable);
   }
 
   @Post('subscriptions/:name/cancel-now')
+  @HttpCode(200)
   cancelNow(
     @Param('name') name: string,
     @Body() body: { billable: Billable },
@@ -82,11 +84,13 @@ export class PayableController {
   }
 
   @Post('subscriptions/:name/resume')
+  @HttpCode(200)
   resume(@Param('name') name: string, @Body() body: { billable: Billable }): Promise<Subscription> {
     return this.manage('resume', name, body.billable);
   }
 
   @Post('subscriptions/:name/swap')
+  @HttpCode(200)
   swap(
     @Param('name') name: string,
     @Body() body: { billable: Billable; price: string },

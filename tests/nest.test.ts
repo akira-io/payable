@@ -87,6 +87,27 @@ describe('nest adapter', () => {
     expect(captured.body?.error).toBe('INVALID_WEBHOOK_SIGNATURE');
   });
 
+  it('normalizes a non-Payable error to 500 through the exception filter', () => {
+    const captured: { status?: number; body?: { error?: string } } = {};
+    const host = {
+      switchToHttp: () => ({
+        getResponse: () => ({
+          status: (code: number) => ({
+            json: (body: { error?: string }) => {
+              captured.status = code;
+              captured.body = body;
+            },
+          }),
+        }),
+      }),
+    } as unknown as ArgumentsHost;
+
+    new PayableExceptionFilter().catch(new TypeError('boom'), host);
+
+    expect(captured.status).toBe(500);
+    expect(captured.body?.error).toBe('INTERNAL_ERROR');
+  });
+
   it('throws not-implemented for placeholder routes', () => {
     const controller = controllerFor(createPayable({ providers: { stripe: new FakeProvider() } }));
     expect(() => controller.invoices()).toThrowError(PayableError);
