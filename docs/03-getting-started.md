@@ -2,10 +2,9 @@
 
 ## Requirements
 
-- **Node.js >= 20.** `package.json` `engines` declares `"node": ">=20"`, and `tsup.config.ts`
-  targets `node20`.
-- The core has two runtime dependencies only: `dinero.js` and `zod` (`package.json`
-  `dependencies`). Everything else is an optional peer.
+- **Node.js >= 20.** The package targets `node20`.
+- The core has two runtime dependencies only: `dinero.js` and `zod`. Everything else is an optional
+  peer.
 
 ## Install
 
@@ -15,8 +14,7 @@ npm install @akira-io/payable   # or: pnpm add / bun add
 
 ## Optional peers
 
-Install only the peers for the features you use. From `package.json` `peerDependencies` and the
-README install table:
+Install only the peers for the features you use:
 
 | Feature | Install | Peer range |
 | --- | --- | --- |
@@ -28,8 +26,7 @@ README install table:
 | Fastify adapter | `npm i fastify` | `>=4` |
 | NestJS adapter | `npm i @nestjs/common reflect-metadata` | `@nestjs/common >=10`, `reflect-metadata >=0.2` |
 
-All eight are marked `optional: true` in `peerDependenciesMeta`, so package managers do not require
-them at install time.
+All eight are marked optional, so package managers do not require them at install time.
 
 ## Minimal example
 
@@ -115,16 +112,15 @@ const session = await payable
 // session is a CheckoutSessionDTO; redirect the user to its provider checkout URL.
 ```
 
-A `Billable` is `{ billableType: string; billableId: string; email: string; name?: string }`
-(`src/application/builders/billable.ts`). `CustomerContext` also exposes `checkout()` (payment
+A `Billable` is `{ billableType: string; billableId: string; email: string; name?: string }`.
+`CustomerContext` also exposes `checkout()` (payment
 mode), `charge(...)`, `billingPortal(returnUrl)`, and `subscription(name)` for
 `swap`/`cancel`/`cancelNow`/`resume`/`updateQuantity`.
 
 ## Nothing is read from the environment
 
-The library never reads `process.env` itself. In every example the application reads its own
-secrets and passes them into the provider constructor and `createPayable`. Configuration is fully
-explicit and injected.
+The library never reads `process.env` itself. The application reads its own secrets and passes them
+into the provider constructor and `createPayable`. Configuration is fully explicit and injected.
 
 ---
 

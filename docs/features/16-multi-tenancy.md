@@ -43,7 +43,7 @@ export interface TenantResolver {
 ```
 
 A resolver inspects the provider name, request headers, or raw payload and returns a tenant id (or
-`null`). A header-based resolver is the simplest form (from `tests/webhook-tenancy.test.ts`):
+`null`). A header-based resolver is the simplest form:
 
 ```ts
 const headerResolver: TenantResolver = {
@@ -84,10 +84,9 @@ if (this.resolved.tenantEnabled && (tenantId === undefined || tenantId === null)
 ```
 
 The resolved `tenantId` (or `null` when disabled) is placed on the dependencies and persisted with
-every customer and payment. `tests/billable-tenancy.test.ts` shows the isolation:
+every customer and payment. The isolation works as follows:
 
-- Calling `payable.customer(billable)` with tenancy enabled and no tenant id throws *"A tenant id is
-  required"* (`TENANT_REQUIRED`).
+- Calling `payable.customer(billable)` with tenancy enabled and no tenant id throws `TENANT_REQUIRED`.
 - `payable.customer(billable, undefined, 'tenant-a').charge(...)` and the same billable under
   `'tenant-b'` create **distinct** customer rows (`customerA.id !== customerB.id`), each tagged with
   its tenant.
@@ -119,8 +118,7 @@ otherwise the tenant is `null`.
 
 The resolved tenant participates in deduplication. `StoreWebhookEventAction` looks up existing events
 by `(provider, providerEventId, tenantId)`, so **the same provider event id is dedup-isolated across
-tenants** (`tests/webhook-tenancy.test.ts` - *"resolves the tenant per consumer and isolates dedup
-across tenants"*): event `evt_1` received for `acme` and for `globex` both record as new
+tenants**: event `evt_1` received for `acme` and for `globex` both record as new
 (`duplicate: false`), while a second `acme` delivery is a duplicate.
 
 The audit log and outbox rows written by the processing pipeline also carry the resolved tenant id
@@ -138,8 +136,7 @@ if (context.tenantId !== undefined && (event.tenantId ?? null) !== (context.tena
 }
 ```
 
-So replaying an `acme` event with `tenantId: 'globex'` is denied, while `tenantId: 'acme'` succeeds
-(`tests/webhook-tenancy.test.ts` - *"blocks cross-tenant replay"*).
+So replaying an `acme` event with `tenantId: 'globex'` is denied, while `tenantId: 'acme'` succeeds.
 
 ## When tenancy is disabled (default)
 
@@ -148,8 +145,7 @@ With no `tenant` block, `tenantEnabled` is `false`:
 - `payable.customer(billable)` does **not** require a tenant id; records persist with `tenantId:
   null`.
 - Webhooks with no resolver default to a `null` tenant, and dedup operates on the `null` partition.
-  `tests/webhook-tenancy.test.ts` (*"defaults to a null tenant when no resolver is configured"*)
-  shows the first delivery as new and the second as a duplicate, both with `tenantId: null`.
+  The first delivery is new and the second is a duplicate, both with `tenantId: null`.
 
 ## Edge cases
 

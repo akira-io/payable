@@ -7,8 +7,6 @@ same provider customer is reused across operations.
 
 ## The `Billable` shape
 
-Defined in `src/application/builders/billable.ts`:
-
 ```ts
 export interface Billable {
   billableType: string;
@@ -24,15 +22,14 @@ export interface Billable {
 - `email` is forwarded to the provider when the provider customer is created.
 - `name` is optional and forwarded when present.
 
-Payable performs **no ownership check** on the `Billable`. As the overview states, the HTTP adapters
-take `billable` straight from the request body; the integrating application is responsible for
-authentication and for verifying that the caller owns the `Billable`.
+Payable performs **no ownership check** on the `Billable`. The HTTP adapters take `billable` straight
+from the request body; the integrating application is responsible for authentication and for verifying
+that the caller owns the `Billable`.
 
 ## `CustomerContext` - the entry point
 
-`payable.customer(billable, providerName?, tenantId?)` returns a `CustomerContext`
-(`src/application/builders/customer-context.ts`). This is the root of the fluent API: every
-customer-scoped operation hangs off it.
+`payable.customer(billable, providerName?, tenantId?)` returns a `CustomerContext`. This is the root
+of the fluent API: every customer-scoped operation hangs off it.
 
 ```ts
 const customer = payable.customer({
@@ -54,8 +51,7 @@ const customer = payable.customer({
 
 ### Provider and tenant resolution
 
-`payable.customer(...)` builds a `BillingDependencies` bundle through `Payable.dependencies()`
-(`src/payable.ts`):
+`payable.customer(...)` builds a `BillingDependencies` bundle through `Payable.dependencies()`:
 
 - **Provider.** If `providerName` is omitted, the first registered provider is used
   (`this.registry.names()[0]`). If no provider is registered, a `ProviderNotFoundError` is thrown.
@@ -65,7 +61,7 @@ const customer = payable.customer({
   `null`, a `PayableError` with code `TENANT_REQUIRED` is thrown. When tenancy is disabled, the
   resolved `tenantId` is `null`. See [16-multi-tenancy.md](16-multi-tenancy.md).
 
-`BillingDependencies` (`src/application/builders/billing-dependencies.ts`):
+`BillingDependencies`:
 
 ```ts
 export interface BillingDependencies {
@@ -83,16 +79,15 @@ absent.
 
 ## Mapping a local customer to a provider customer
 
-`SyncCustomerWithProviderAction` (`src/application/actions/customers/sync-customer-with-provider.action.ts`)
-is the action that turns a `Billable` into a provider customer id. It is invoked internally by
-checkout, charge, subscription creation, and the billing portal - never called directly by
-application code.
+`SyncCustomerWithProviderAction` turns a `Billable` into a provider customer id. It is invoked
+internally by checkout, charge, subscription creation, and the billing portal - never called directly
+by application code.
 
 Behavior:
 
 1. If storage is present and a local customer row already exists with a `providerCustomerId`, that id
-   is returned immediately. No provider call is made. (The builders test confirms a second checkout
-   for the same `Billable` results in only one `createCustomer` call.)
+   is returned immediately. No provider call is made. A second checkout for the same `Billable`
+   results in only one `createCustomer` call.
 2. Otherwise it calls `provider.createCustomer({ email, name, billableType, billableId }, ctx)` with a
    deterministic idempotency key: `customer:${providerName}:${billableType}:${billableId}`.
 3. The returned `providerCustomerId` is persisted: if a local row exists it is updated, otherwise a
@@ -123,7 +118,7 @@ Without a storage driver the action skips both lookups and the persist step: it 
 
 ## `CreateCustomerAction`
 
-`src/application/actions/customers/create-customer.action.ts` is a stub. Its `handle()` throws
+`CreateCustomerAction` is a Phase 4 stub. Its `handle()` throws
 `PayableError.notImplemented('CreateCustomerAction (Phase 4)')`. Customer creation today happens
 implicitly through `SyncCustomerWithProviderAction`; there is no standalone "create customer" path
 yet.

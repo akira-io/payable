@@ -4,9 +4,6 @@
 an Express `Router` wired to a `Payable` instance. The router is mounted under a base path of your
 choosing; every route is relative to that mount point.
 
-Source: `src/presentation/express/create-express-payable-routes.ts`, `helpers.ts`, and
-`routes/*.ts`.
-
 ## Purpose
 
 Translate HTTP requests into `Payable` facade calls and `PayableError` instances into HTTP
@@ -27,7 +24,7 @@ interface ExpressPayableOptions {
 ```
 
 `createExpressPayableRoutes` registers the route groups in this order, then attaches the error
-handler last (`create-express-payable-routes.ts`):
+handler last:
 
 1. `registerWebhookRoutes` - raw-body routes, registered first.
 2. `registerCheckoutRoutes`
@@ -42,23 +39,23 @@ handler last (`create-express-payable-routes.ts`):
 
 Every method and path below is registered by the adapter. Paths are relative to the mount point.
 
-| Method | Path | Status (success) | Source | Behavior |
-| --- | --- | --- | --- | --- |
-| POST | `/webhooks` | 200 | `routes/webhooks.routes.ts` | Default-provider webhook receipt |
-| POST | `/webhooks/:provider` | 200 | `routes/webhooks.routes.ts` | Provider-scoped webhook receipt |
-| POST | `/checkout` | 201 | `routes/checkout.routes.ts` | Create a subscription checkout session |
-| POST | `/subscriptions/:name/cancel` | 200 | `routes/subscriptions.routes.ts` | Cancel at period end |
-| POST | `/subscriptions/:name/cancel-now` | 200 | `routes/subscriptions.routes.ts` | Cancel immediately |
-| POST | `/subscriptions/:name/resume` | 200 | `routes/subscriptions.routes.ts` | Resume a canceled subscription |
-| POST | `/subscriptions/:name/swap` | 200 | `routes/subscriptions.routes.ts` | Swap to a new price |
-| POST | `/refunds` | 201 | `routes/refunds.routes.ts` | Refund a payment |
-| POST | `/customers` | 501 | `routes/customers.routes.ts` | Reserved; throws `NOT_IMPLEMENTED` |
-| GET | `/invoices` | 501 | `routes/invoices.routes.ts` | Reserved; throws `NOT_IMPLEMENTED` |
-| GET | `/payments` | 501 | `routes/payments.routes.ts` | Reserved; throws `NOT_IMPLEMENTED` |
+| Method | Path | Status (success) | Behavior |
+| --- | --- | --- | --- |
+| POST | `/webhooks` | 200 | Default-provider webhook receipt |
+| POST | `/webhooks/:provider` | 200 | Provider-scoped webhook receipt |
+| POST | `/checkout` | 201 | Create a subscription checkout session |
+| POST | `/subscriptions/:name/cancel` | 200 | Cancel at period end |
+| POST | `/subscriptions/:name/cancel-now` | 200 | Cancel immediately |
+| POST | `/subscriptions/:name/resume` | 200 | Resume a canceled subscription |
+| POST | `/subscriptions/:name/swap` | 200 | Swap to a new price |
+| POST | `/refunds` | 201 | Refund a payment |
+| POST | `/customers` | 501 | Reserved; throws `NOT_IMPLEMENTED` |
+| GET | `/invoices` | 501 | Reserved; throws `NOT_IMPLEMENTED` |
+| GET | `/payments` | 501 | Reserved; throws `NOT_IMPLEMENTED` |
 
-Express is the only adapter that wires `POST /refunds` to a working implementation. The
-`/customers`, `/invoices`, and `/payments` handlers exist as reserved endpoints - each immediately
-throws `PayableError.notImplemented(...)`, which the error handler maps to HTTP 501.
+Express wires `POST /refunds` to a working implementation. The `/customers`, `/invoices`, and
+`/payments` handlers are reserved endpoints - each immediately throws
+`PayableError.notImplemented(...)`, which the error handler maps to HTTP 501.
 
 ## Request bodies
 
@@ -67,16 +64,15 @@ in `src/presentation/shared/schemas.ts` (`checkoutBodySchema`, `manageSubscripti
 `swapSubscriptionBodySchema`). A validation failure throws `PayableError` with code
 `VALIDATION_FAILED`, mapped to HTTP 422.
 
-The refund route uses a manual check rather than a Zod schema (`routes/refunds.routes.ts`): a
-missing or empty `paymentId` throws `VALIDATION_FAILED` (422). The body shape is
+The refund route uses a manual check rather than a Zod schema: a missing or empty `paymentId`
+throws `VALIDATION_FAILED` (422). The body shape is
 `{ paymentId: string, amount?: { amount: number, currency: string }, reason?: string }`; `amount`
 is converted to a `Money` value object before reaching `payable.refund(...)`.
 
 ## Raw-body handling for webhooks
 
 The webhook routes install their own body parser; you do not add one. Each route uses
-`express.raw({ type: '*/*', limit: '1mb' })` so the handler receives the unparsed request `Buffer`
-(`routes/webhooks.routes.ts`):
+`express.raw({ type: '*/*', limit: '1mb' })` so the handler receives the unparsed request `Buffer`:
 
 ```ts
 router.post('/webhooks', raw({ type: '*/*', limit: WEBHOOK_BODY_LIMIT }), handler);
@@ -98,8 +94,7 @@ if (!Buffer.isBuffer(req.body)) {
 
 Because the webhook routes are registered first inside the router, and the router installs its own
 raw parser, the raw body survives as long as no upstream parser consumes it. Mount the Payable
-router before any global JSON parser. This ordering rule is exercised by
-`tests/express.test.ts` ("rejects a webhook whose body was parsed by an upstream JSON parser").
+router before any global JSON parser.
 
 The signature is read from the header named by `options.webhookSignatureHeader`, defaulting to
 `stripe-signature`. Headers are flattened to `Record<string, string>` via `flattenHeaders` and
@@ -107,8 +102,8 @@ forwarded to `payable.receiveWebhook(...)`.
 
 ## Error mapping
 
-The router's final middleware is `payableErrorHandler` (`helpers.ts`), which delegates to the
-shared mappers in `src/presentation/shared/payable-http.ts`:
+The router's final middleware is `payableErrorHandler`, which delegates to the shared mappers in
+`src/presentation/shared/payable-http.ts`:
 
 ```ts
 export function payableErrorHandler(error, _req, res, _next): void {
@@ -122,7 +117,7 @@ export function payableErrorHandler(error, _req, res, _next): void {
   `message` is the error message. A non-`PayableError` returns
   `{ error: 'INTERNAL_ERROR', message: 'Unexpected error' }`.
 
-Code-to-status table (`payable-http.ts`):
+Code-to-status table:
 
 | Code | Status |
 | --- | --- |

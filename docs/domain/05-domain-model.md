@@ -1,6 +1,6 @@
 # Domain Model
 
-The domain model is the set of TypeScript interfaces in `src/domain/entities/`. Entities are plain, fully `readonly` data contracts: they hold no methods and no behavior. Behavior lives in value objects (`src/domain/value-objects/`), state machines (`src/domain/states/`), and the application layer. Persisted shapes and provider identifiers are part of the entity; invariants and transitions are enforced elsewhere.
+The domain model is the set of TypeScript interfaces in `src/domain/entities/`. Entities are plain, fully `readonly` data contracts: they hold no methods and no behavior. Behavior lives in value objects, state machines, and the application layer. Persisted shapes and provider identifiers are part of the entity; invariants and transitions are enforced elsewhere.
 
 Every entity field is declared `readonly`, so an entity instance is never mutated in place; state changes produce new records.
 

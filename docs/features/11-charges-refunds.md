@@ -6,9 +6,7 @@ payment state machine.
 
 ## One-off charge
 
-`payable.customer(billable).charge(request)` runs `ChargeAction`
-(`src/application/actions/payments/charge.action.ts`). The request is a `ChargeRequest`
-(`src/application/builders/charge-request.ts`):
+`payable.customer(billable).charge(request)` runs `ChargeAction`. The request is a `ChargeRequest`:
 
 ```ts
 export interface ChargeRequest {
@@ -38,7 +36,7 @@ const payment = await payable.customer(billable).charge({
 3. Syncs the customer to the provider and loads the local customer row; throws `CustomerNotFoundError`
    if missing.
 4. Builds a deterministic key with `IdempotencyKey.forCharge` keyed by provider, billable,
-   `reference`, amount, and currency - in the test this is `charge:stripe:User:1:inv_1:9900:USD`.
+   `reference`, amount, and currency - for example `charge:stripe:User:1:inv_1:9900:USD`.
 5. Calls `provider.charge({ providerCustomerId, amount, reference, description }, ctx)`.
 6. Persists a `payments` row with `status`, `currency`, `amount`, `refundedAmount: 0`, and the
    `reference`/`description`.
@@ -64,14 +62,11 @@ sequenceDiagram
     Storage-->>App: Payment
 ```
 
-The provider returns a `ChargeResultDTO` (`src/domain/dtos/charge.dto.ts`):
-`{ providerPaymentId, status, amount }`.
+The provider returns a `ChargeResultDTO`: `{ providerPaymentId, status, amount }`.
 
 ## Refund
 
-`payable.refund(request)` runs `RefundPaymentAction`
-(`src/application/actions/refunds/refund-payment.action.ts`). The request is `RefundRequest`
-(`src/payable.ts`):
+`payable.refund(request)` runs `RefundPaymentAction`. The request is `RefundRequest`:
 
 ```ts
 export interface RefundRequest {
@@ -112,10 +107,10 @@ Output: the persisted `Refund` entity.
 
 ### Partial vs full refund
 
-Refunds accumulate. The test "records a partial refund then completes it" charges 9900, refunds 4000
-(status becomes `partially_refunded`, `refundedAmount` = 4000), then refunds 5900 (status becomes
-`refunded`, `refundedAmount` = 9900). The full/partial decision is purely `refundedAmount` vs
-`payment.amount` - there is no separate "full refund" flag.
+Refunds accumulate. Charging 9900 then refunding 4000 leaves the payment `partially_refunded` with
+`refundedAmount` = 4000; a further refund of 5900 makes the status `refunded` with `refundedAmount`
+= 9900. The full/partial decision is purely `refundedAmount` vs `payment.amount` - there is no separate
+"full refund" flag.
 
 ```mermaid
 flowchart TD
@@ -134,16 +129,15 @@ flowchart TD
 
 ## Policies
 
-`CanRefundPaymentPolicy`, `CanCreateCheckoutPolicy`, and `CanCreateSubscriptionPolicy`
-(`src/application/policies/*.ts`) all authorize against an `AuthorizationContext`
-(`src/application/policies/authorization-context.ts`): `isAuthorized` returns `true` only when
-`allowed === true` and `actorId` is a non-empty string.
+`CanRefundPaymentPolicy`, `CanCreateCheckoutPolicy`, and `CanCreateSubscriptionPolicy` all authorize
+against an `AuthorizationContext`: `isAuthorized` returns `true` only when `allowed === true` and
+`actorId` is a non-empty string.
 
 These policies are **defined but not yet wired** into `ChargeAction`, `RefundPaymentAction`, or the
-checkout pipeline - a grep over the actions and pipelines finds no references to them (only
-`CanReplayWebhookPolicy` is consumed, by `ReplayWebhookAction`). They are reusable authorization
-helpers for integrators to call in their own controllers; today the charge and refund paths perform
-no actor-level authorization of their own.
+checkout pipeline - none of the actions or pipelines reference them, and only `CanReplayWebhookPolicy`
+is consumed (by `ReplayWebhookAction`). They are reusable authorization helpers for integrators to call
+in their own controllers; today the charge and refund paths perform no actor-level authorization of
+their own.
 
 ## Edge cases
 
@@ -151,8 +145,7 @@ no actor-level authorization of their own.
 - **Provider not charge capable.** `ChargeAction` throws `ProviderCapabilityNotSupportedError`.
 - **Provider lacks `refunds` capability.** `RefundPaymentAction` throws via `assertProviderCapability`.
 - **Unknown payment id / no provider payment id.** `PAYMENT_NOT_FOUND`.
-- **Refund currency differs from payment.** `REFUND_CURRENCY_MISMATCH` (verified by the
-  "rejects a refund whose currency differs" test).
+- **Refund currency differs from payment.** `REFUND_CURRENCY_MISMATCH`.
 - **Refund exceeding the remaining balance.** Not blocked by a dedicated guard in this version: the
   action forwards `amount` to the provider and, after persisting, marks the payment `refunded` once
   `refundedAmount >= payment.amount`. Enforcement of an over-refund relies on the provider rejecting

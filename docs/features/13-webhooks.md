@@ -50,8 +50,8 @@ sequenceDiagram
 
 ## HTTP entry point
 
-Two routes are registered (Express shown - Fastify and Nest mirror it):
-`src/presentation/express/routes/webhooks.routes.ts`.
+Two routes are registered. Express is shown below; Fastify and Nest mirror it
+(`src/presentation/express/routes/webhooks.routes.ts`).
 
 ```ts
 router.post('/webhooks', raw({ type: '*/*', limit: WEBHOOK_BODY_LIMIT }), handler);

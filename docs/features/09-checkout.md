@@ -8,10 +8,9 @@ and **payment** checkout (a one-time payment). Both run through one pipeline and
 
 ### Subscription-mode checkout - `newSubscription(name).checkout(urls)`
 
-`SubscriptionBuilder` (`src/application/builders/subscription-builder.ts`) is reached via
-`payable.customer(billable).newSubscription(name)`. Its `checkout()` method builds a
-`subscription`-mode session. The same builder can instead `create()` a subscription directly without
-a hosted page - see [10-subscriptions.md](10-subscriptions.md).
+`SubscriptionBuilder` is reached via `payable.customer(billable).newSubscription(name)`. Its
+`checkout()` method builds a `subscription`-mode session. The same builder can instead `create()` a
+subscription directly without a hosted page - see [10-subscriptions.md](10-subscriptions.md).
 
 Fluent options on `SubscriptionBuilder`:
 
@@ -48,8 +47,8 @@ return redirect(session.url);
 
 ### Payment-mode checkout - `checkout()`
 
-`CheckoutBuilder` (`src/application/builders/checkout-builder.ts`) is reached via
-`payable.customer(billable).checkout()`. It defaults to `mode: 'payment'`.
+`CheckoutBuilder` is reached via `payable.customer(billable).checkout()`. It defaults to
+`mode: 'payment'`.
 
 | Method | Effect |
 | --- | --- |
@@ -74,19 +73,16 @@ const session = await payable
 
 ## The pipeline and action
 
-`CreateCheckoutPipeline` (`src/application/pipelines/checkout/create-checkout.pipeline.ts`) composes
-two steps:
+`CreateCheckoutPipeline` composes two steps:
 
 1. **Sync the customer.** `SyncCustomerWithProviderAction` resolves (and persists) the
    `providerCustomerId` for the `Billable` - see [08-customers-billable.md](08-customers-billable.md).
-2. **Create the session.** `CreateCheckoutSessionAction`
-   (`src/application/actions/checkout/create-checkout-session.action.ts`) calls
+2. **Create the session.** `CreateCheckoutSessionAction` calls
    `provider.createCheckoutSession(input, ctx)`.
 
 The pipeline builds a deterministic idempotency key with `IdempotencyKey.forCheckout`:
 `checkout:${providerName}:${billableType}:${billableId}:${firstPriceId}:${subscriptionName}`. Repeated
-calls with the same `Billable`, first price, and subscription name reuse the key (confirmed by the
-builders test).
+calls with the same `Billable`, first price, and subscription name reuse the key.
 
 ```mermaid
 sequenceDiagram
@@ -107,7 +103,7 @@ sequenceDiagram
 
 ## Inputs and outputs
 
-The provider receives `CreateCheckoutSessionInput` (`src/domain/dtos/checkout.dto.ts`):
+The provider receives `CreateCheckoutSessionInput`:
 
 ```ts
 export interface CreateCheckoutSessionInput {
@@ -147,10 +143,9 @@ locally later, when the provider's webhook is received and reconciled - see
 
 ## Policy
 
-`CanCreateCheckoutPolicy` (`src/application/policies/can-create-checkout.policy.ts`) exists and
-authorizes against an `AuthorizationContext` (`allowed === true` and a non-empty `actorId`). It is
-**not yet wired into the checkout pipeline or builders** - no checkout code references it. Treat it as
-an available building block for integrators, not an enforced gate. See
+`CanCreateCheckoutPolicy` authorizes against an `AuthorizationContext` (`allowed === true` and a
+non-empty `actorId`). It is **not yet wired into the checkout pipeline or builders** - no checkout code
+references it. Treat it as an available building block for integrators, not an enforced gate. See
 [11-charges-refunds.md](11-charges-refunds.md) for the same status across the other CRUD policies.
 
 ## Edge cases

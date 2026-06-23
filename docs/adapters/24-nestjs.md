@@ -3,9 +3,6 @@
 `@akira-io/payable/nest` exposes a NestJS dynamic module, a controller, an exception filter, and DI
 tokens. Import the module with `PayableModule.forRoot(payable, options?)`.
 
-Source: `src/presentation/nest/payable.module.ts`, `payable.controller.ts`,
-`payable.exception-filter.ts`, `payable.constants.ts`, and `index.ts`.
-
 ## Purpose
 
 Expose the Payable facade as a single NestJS controller, mapping route handlers to facade calls and
@@ -21,7 +18,7 @@ export class PayableModule {
 }
 ```
 
-`forRoot` returns a `DynamicModule` that registers (`payable.module.ts`):
+`forRoot` returns a `DynamicModule` that registers:
 
 - `controllers: [PayableController]`
 - `providers`:
@@ -37,7 +34,7 @@ interface NestPayableOptions {
 
 ## DI tokens
 
-`payable.constants.ts` defines the injection tokens and the request shape:
+The injection tokens and the request shape:
 
 ```ts
 export const PAYABLE_INSTANCE = Symbol('payable.instance');
@@ -94,9 +91,8 @@ refunds(): never {
 }
 ```
 
-Despite the README claiming the adapters mount the same routes, only Express implements
-`POST /refunds`. In NestJS (as in Fastify) `/refunds` returns 501. To process refunds, use the
-Express adapter or call `payable.refund(...)` directly.
+Only Express implements `POST /refunds`. In NestJS (as in Fastify) `/refunds` returns 501. To
+process refunds, use the Express adapter or call `payable.refund(...)` directly.
 
 Like Fastify, the controller casts request bodies to TypeScript interfaces rather than validating
 with the shared Zod schemas, so malformed bodies are not rejected with `VALIDATION_FAILED`.
@@ -104,7 +100,7 @@ with the shared Zod schemas, so malformed bodies are not rejected with `VALIDATI
 ## Raw body requirement
 
 Webhook signature verification needs the raw request body. The controller reads it from
-`request.rawBody`, falling back to a string body, then an empty string (`payable.controller.ts`):
+`request.rawBody`, falling back to a string body, then an empty string:
 
 ```ts
 private extractPayload(request: PayableHttpRequest): string {
@@ -133,8 +129,7 @@ are flattened with `flattenHeaders` before reaching `payable.receiveWebhook(...)
 
 ## Exception filter and error mapping
 
-`PayableExceptionFilter` is `@Catch()`-all and delegates to the shared mappers
-(`payable.exception-filter.ts`):
+`PayableExceptionFilter` is `@Catch()`-all and delegates to the shared mappers:
 
 ```ts
 @Catch()
@@ -147,8 +142,8 @@ export class PayableExceptionFilter implements ExceptionFilter {
 ```
 
 It uses the same `STATUS_BY_CODE` table and `{ error, message }` body shape documented in
-`docs/adapters/22-express.md`. `tests/nest.test.ts` confirms an `InvalidWebhookSignatureError` maps
-to 400 with `error: 'INVALID_WEBHOOK_SIGNATURE'`, and a plain `TypeError` maps to 500 with
+`docs/adapters/22-express.md`. An `InvalidWebhookSignatureError` maps to 400 with
+`error: 'INVALID_WEBHOOK_SIGNATURE'`, and a plain `TypeError` maps to 500 with
 `error: 'INTERNAL_ERROR'`.
 
 ## No built-in authentication

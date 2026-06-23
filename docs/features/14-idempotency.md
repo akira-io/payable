@@ -75,8 +75,7 @@ resolve(context: IdempotencyKeyResolverContext): string {
 ```
 
 So `{ operation: 'charge', provider: 'stripe', resourceType: 'User', resourceId: '1' }` yields
-`op:charge:stripe:User:1`, and `{ operation: 'charge' }` yields `op:charge:na:na:na`
-(tests: `tests/idempotency-resolver.test.ts`).
+`op:charge:stripe:User:1`, and `{ operation: 'charge' }` yields `op:charge:na:na:na`.
 
 ### Typed operation keys
 
@@ -157,7 +156,7 @@ return { handled: false };
 
 - **Different request hash** → `IdempotencyConflictError`. This is the "same key, different body"
   guard, and it is checked **before** anything else - even an `expired` record cannot bypass the
-  hash check (test: *"does not let an expired record bypass the request-hash check"*).
+  hash check.
 - **Completed** → the cached `response` is replayed; the operation does **not** run again.
 - **Processing and still locked** → `IdempotencyInProgressError`. A concurrent run holds the lock.
 - **Failed with `retryFailed: false`** → `IdempotencyConflictError`.
@@ -190,8 +189,7 @@ try {
 ```
 
 - `acquire` atomically inserts the `processing` record with `lockedUntil = now + lockTtlMs`. Only
-  one acquirer wins (test `tests/concurrency.test.ts`: *"lets only one acquirer win, even with a
-  null tenant"*).
+  one acquirer wins, even with a null tenant.
 - If acquisition fails, the service re-checks: the winner may already have completed (replay), or
   its lock may have expired, in which case `takeOver` claims the stale lock. If neither, the caller
   gets `IdempotencyInProgressError`.
@@ -226,8 +224,7 @@ return this.service.execute({
 
 ## Example
 
-From `tests/idempotency-service.test.ts` - the operation runs once and the second call replays the
-cached response:
+The operation runs once and the second call replays the cached response:
 
 ```ts
 const service = new IdempotencyService(new InMemoryIdempotencyStore(), new FakeClock());

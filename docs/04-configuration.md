@@ -1,8 +1,8 @@
 # Configuration
 
-All configuration is passed to `createPayable(config)`, which calls `resolveConfig(config)`
-(`src/support/config/payable-config.ts`) to produce a `ResolvedConfig`. This page documents every
-field of `PayableConfig`, the default `resolveConfig` applies, and what each field unlocks.
+All configuration is passed to `createPayable(config)`, which calls `resolveConfig(config)` to
+produce a `ResolvedConfig`. This page documents every field of `PayableConfig`, the default
+`resolveConfig` applies, and what each field unlocks.
 
 ## Validation and the provider requirement
 
@@ -36,8 +36,8 @@ if (entries.length === 0) {
 - **Type.** Map of provider name to a `PaymentProvider` implementation.
 - **Required.** Yes. At least one entry, or `resolveConfig` throws `TypeError`.
 - **Default.** None.
-- **Behavior.** Stored as a `Map` and wrapped by `ProviderRegistry` (`src/payable.ts`). When no
-  provider name is passed to `customer(...)`, the first registered provider is used. Webhook routing
+- **Behavior.** Stored as a `Map` and wrapped by `ProviderRegistry`. When no provider name is
+  passed to `customer(...)`, the first registered provider is used. Webhook routing
   with more than one provider registered requires `/webhooks/:provider`; otherwise `Payable` throws
   `PayableError` code `WEBHOOK_PROVIDER_AMBIGUOUS`.
 
@@ -49,9 +49,8 @@ if (entries.length === 0) {
 - **Behavior.** Persists customers, products, prices, subscriptions, subscription items, invoices,
   payments, refunds, webhook events, audit logs, and the outbox. When omitted, the features that
   need it throw a `PayableError`: outbox (`OUTBOX_STORAGE_REQUIRED`), webhook processing
-  (`WEBHOOK_STORAGE_REQUIRED`), and subscription management (`SUBSCRIPTION_STORAGE_REQUIRED`). The
-  README also notes charges and refunds require storage. The bundled implementation is
-  `KnexStorageDriver`.
+  (`WEBHOOK_STORAGE_REQUIRED`), and subscription management (`SUBSCRIPTION_STORAGE_REQUIRED`).
+  Charges and refunds also require storage. The bundled implementation is `KnexStorageDriver`.
 
 ### `queue?: QueueDriver`
 
@@ -128,7 +127,7 @@ if (entries.length === 0) {
 | `resolver` | `IdempotencyKeyResolver?` | `undefined` | Derives an idempotency key from `{ operation, provider?, resourceType?, resourceId? }`. The bundled default is `DefaultIdempotencyKeyResolver`. |
 | `store` | `IdempotencyStore?` | `undefined` | Persists idempotency records (`find`/`acquire`/`takeOver`/`put`/`markCompleted`/`markFailed`). The bundled Knex-backed store is `KnexIdempotencyRepository`. |
 
-`IdempotencyStrategy` is exported as a type. The `IdempotencyStore` record status is one of
+`IdempotencyStrategy` is available as a type. The `IdempotencyStore` record status is one of
 `'processing' | 'completed' | 'failed' | 'expired'`. See [features/14-idempotency.md](features/14-idempotency.md).
 
 ## `TenantConfig`

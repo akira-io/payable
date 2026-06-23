@@ -1,8 +1,10 @@
 # Overview
 
-`@akira-io/payable` is a Laravel Cashier-inspired billing engine for Node.js. Per `package.json`,
-its description is "Laravel Cashier-inspired, framework/provider/storage/queue-agnostic billing
-engine for Node.js." The current version is `0.1.0`.
+`@akira-io/payable` is a billing engine for Node.js that stays out of your stack's way. It is
+framework, provider, storage, and queue agnostic: the core depends only on contracts, DTOs,
+actions, value objects, and state machines, never on a provider SDK, HTTP framework, or database
+client. You bring Stripe or Paddle, your storage, and your framework; the engine owns the billing
+logic.
 
 ## The problem it solves
 
@@ -16,9 +18,8 @@ Adding billing to a Node.js backend usually forces three problems at once:
   behind a single `PaymentProvider` contract (`src/domain/contracts/payment-provider.contract.ts`),
   so application code does not import a provider SDK directly.
 - **Float money bugs.** Money is always handled in minor units through a `Money` value object
-  (`src/domain/value-objects/money.ts`) backed by Dinero.js. The README states monetary logic
-  "never touches floats." `dinero.js` is a runtime dependency (`package.json` `dependencies`), and
-  `tsup.config.ts` bundles it via `noExternal: ['dinero.js']`.
+  backed by Dinero.js, so monetary logic never touches floats. `dinero.js` is the engine's only
+  runtime dependency and ships inside the published bundle.
 
 ## Target users
 
@@ -28,44 +29,41 @@ itself (see System boundaries below); the integrating application injects every 
 
 ## Key capabilities
 
-The README lists the following features. Each is backed by exports in `src/index.ts`:
-
-- **Providers**: Stripe and Paddle behind one `PaymentProvider` contract. Exported as
-  `StripeProvider` and `PaddleProvider`.
+- **Providers**: Stripe and Paddle behind one `PaymentProvider` contract, via `StripeProvider` and
+  `PaddleProvider`.
 - **Billing**: checkout, subscriptions (trials, coupons, multiple items, swap/cancel/resume),
-  one-off charges, refunds, invoices, and the customer billing portal. Surfaced through the fluent
-  builders (`src/application/builders`) and the actions exported from `src/index.ts`
-  (`CreateSubscriptionAction`, `SwapSubscriptionAction`, `CancelSubscriptionAction`,
-  `CancelSubscriptionNowAction`, `ResumeSubscriptionAction`, `UpdateSubscriptionQuantityAction`,
-  `ChargeAction`, `RefundPaymentAction`, `ListInvoicesAction`, `DownloadInvoicePdfAction`).
+  one-off charges, refunds, invoices, and the customer billing portal. Available through the fluent
+  builders and the actions `CreateSubscriptionAction`, `SwapSubscriptionAction`,
+  `CancelSubscriptionAction`, `CancelSubscriptionNowAction`, `ResumeSubscriptionAction`,
+  `UpdateSubscriptionQuantityAction`, `ChargeAction`, `RefundPaymentAction`, `ListInvoicesAction`,
+  and `DownloadInvoicePdfAction`.
 - **Webhooks**: signature verification, event normalization, deduplication, async processing,
-  local state reconciliation, and replay. Surfaced via `ReceiveWebhookAction`,
+  local state reconciliation, and replay. Available through `ReceiveWebhookAction`,
   `ProcessWebhookAction`, `ProcessWebhookPipeline`, `ReplayWebhookAction`, `StoreWebhookEventAction`,
   and `StripeEventNormalizer` / `StripeWebhookVerifier`.
 - **Reliability**: idempotency by default, an immutable audit log, and a transactional outbox.
-  Surfaced via `IdempotencyService`, `ExecuteIdempotentOperationAction`, `AuditService`, and
+  Available through `IdempotencyService`, `ExecuteIdempotentOperationAction`, `AuditService`, and
   `OutboxService`.
 - **Storage / queue**: Knex storage driver (`KnexStorageDriver`, `migrate`); synchronous
   (`SyncQueueDriver`) or BullMQ (`BullMQQueueDriver`) queue driver.
 - **HTTP adapters**: Express, Fastify, and NestJS, each on its own subpath export
-  (`./express`, `./fastify`, `./nest` in `package.json` `exports`).
+  (`./express`, `./fastify`, `./nest`).
 
 ## System boundaries - what it does NOT do
 
 - **No UI.** The package ships only library code and HTTP route adapters. There are no view or
   template files.
-- **No authentication or authorization of HTTP callers.** The README states: "No built-in auth.
-  Only the webhook routes are protected (by signature). The checkout and subscription-management
-  routes take `billable` from the request body with no ownership check." Integrators must add their
-  own auth and verify ownership of the `billable`.
-- **No environment reading.** The library never calls `process.env`. The README's quick-start
-  passes `process.env.STRIPE_SECRET_KEY` from the application into `new StripeProvider(...)`; the
-  reading happens in user code, not the library. Configuration is supplied entirely through
+- **No authentication or authorization of HTTP callers.** There is no built-in auth. Only the
+  webhook routes are protected (by signature). The checkout and subscription-management routes take
+  `billable` from the request body with no ownership check. Integrators must add their own auth and
+  verify ownership of the `billable`.
+- **No environment reading.** The library never calls `process.env`. The application reads its own
+  secrets (such as `process.env.STRIPE_SECRET_KEY`) and passes them into `new StripeProvider(...)`;
+  the reading happens in user code, not the library. Configuration is supplied entirely through
   `createPayable(config)` and injected drivers.
 - **No bundled provider SDK, HTTP framework, or database client in the core.** Every such
-  dependency is an optional peer (`package.json` `peerDependencies` + `peerDependenciesMeta`),
-  and the core runtime bundle imports none of them (enforced by `scripts/check-core-bundle.mjs`;
-  see [02-architecture.md](02-architecture.md)).
+  dependency is an optional peer, and the core runtime bundle imports none of them (see
+  [02-architecture.md](02-architecture.md)).
 
 ---
 
