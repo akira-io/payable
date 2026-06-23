@@ -102,12 +102,30 @@ describe('StripeProvider payments', () => {
 
     const original = globalThis.fetch;
     globalThis.fetch = (async () => ({
+      ok: true,
       arrayBuffer: async () => new Uint8Array([4, 5, 6]).buffer,
     })) as unknown as typeof fetch;
     try {
       const pdf = await provider.downloadInvoicePdf('in_1');
       expect(pdf.filename).toBe('in_1.pdf');
       expect(Array.from(pdf.content)).toEqual([4, 5, 6]);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('throws when the invoice PDF download fails', async () => {
+    const stripe = {
+      invoices: { retrieve: async () => ({ invoice_pdf: 'https://pdf.test' }) },
+    } as unknown as Stripe;
+    const provider = stripeProvider(stripe);
+
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => ({ ok: false, status: 404 })) as unknown as typeof fetch;
+    try {
+      await expect(provider.downloadInvoicePdf('in_1')).rejects.toThrow(
+        'Failed to download invoice in_1 PDF',
+      );
     } finally {
       globalThis.fetch = original;
     }

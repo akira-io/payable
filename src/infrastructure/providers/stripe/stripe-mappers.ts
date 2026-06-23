@@ -12,7 +12,7 @@ import type { InvoiceStatus } from '../../../domain/value-objects/invoice-status
 import { Money } from '../../../domain/value-objects/money';
 import type { PaymentStatus } from '../../../domain/value-objects/payment-status';
 import type { RefundStatus } from '../../../domain/value-objects/refund-status';
-import type { SubscriptionStatus } from '../../../domain/value-objects/subscription-status';
+import { isSubscriptionStatus } from '../../../domain/value-objects/subscription-status';
 
 const PAYMENT_STATUS: Record<string, PaymentStatus> = {
   succeeded: 'succeeded',
@@ -71,7 +71,7 @@ export function toCheckoutSessionDTO(session: Stripe.Checkout.Session): Checkout
 export function toSubscriptionDTO(subscription: Stripe.Subscription): SubscriptionDTO {
   return {
     providerSubscriptionId: subscription.id,
-    status: subscription.status as SubscriptionStatus,
+    status: isSubscriptionStatus(subscription.status) ? subscription.status : 'incomplete',
     currentPeriodEnd: fromUnixSeconds(subscription.items.data[0]?.current_period_end),
     trialEndsAt: fromUnixSeconds(subscription.trial_end),
   };
