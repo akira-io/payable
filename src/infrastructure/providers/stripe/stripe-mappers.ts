@@ -10,10 +10,10 @@ import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import type { RecurringInterval } from '../../../domain/entities/common';
 import { PayableError } from '../../../domain/errors/payable-error';
 import type { InvoiceStatus } from '../../../domain/value-objects/invoice-status';
-import { Money } from '../../../domain/value-objects/money';
 import type { PaymentStatus } from '../../../domain/value-objects/payment-status';
 import type { RefundStatus } from '../../../domain/value-objects/refund-status';
 import { isSubscriptionStatus } from '../../../domain/value-objects/subscription-status';
+import { stripeMoney } from './stripe-amounts';
 
 const PAYMENT_STATUS: Record<string, PaymentStatus> = {
   succeeded: 'succeeded',
@@ -73,7 +73,7 @@ export function toPriceDTO(price: Stripe.Price): PriceDTO {
   return {
     providerPriceId: price.id,
     providerProductId: typeof price.product === 'string' ? price.product : price.product.id,
-    unitAmount: Money.of(resolvePriceUnitAmount(price), price.currency.toUpperCase()),
+    unitAmount: stripeMoney(resolvePriceUnitAmount(price), price.currency),
     interval: (price.recurring?.interval as RecurringInterval | undefined) ?? null,
   };
 }
@@ -101,7 +101,7 @@ export function toChargeResultDTO(intent: Stripe.PaymentIntent): ChargeResultDTO
   return {
     providerPaymentId: intent.id,
     status: PAYMENT_STATUS[intent.status] ?? 'pending',
-    amount: Money.of(intent.amount, intent.currency.toUpperCase()),
+    amount: stripeMoney(intent.amount, intent.currency),
   };
 }
 
@@ -109,7 +109,7 @@ export function toRefundResultDTO(refund: Stripe.Refund): RefundResultDTO {
   return {
     providerRefundId: refund.id,
     status: refund.status ? (REFUND_STATUS[refund.status] ?? 'pending') : 'pending',
-    amount: Money.of(refund.amount, refund.currency.toUpperCase()),
+    amount: stripeMoney(refund.amount, refund.currency),
   };
 }
 
@@ -117,7 +117,7 @@ export function toInvoiceDTO(invoice: Stripe.Invoice): InvoiceDTO {
   return {
     providerInvoiceId: invoice.id ?? '',
     status: (invoice.status as InvoiceStatus | null) ?? 'draft',
-    total: Money.of(invoice.total ?? 0, invoice.currency.toUpperCase()),
+    total: stripeMoney(invoice.total ?? 0, invoice.currency),
     hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
     invoicePdf: invoice.invoice_pdf ?? null,
   };
