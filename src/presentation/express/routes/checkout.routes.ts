@@ -1,12 +1,12 @@
-import { json, type Router } from 'express';
+import type { Router } from 'express';
 import type { Payable } from '../../../payable';
 import { checkoutBodySchema, parseBody } from '../../shared/schemas';
-import { asyncHandler } from '../helpers';
+import { asyncHandler, jsonBody } from '../helpers';
 
 export function registerCheckoutRoutes(router: Router, payable: Payable): void {
   router.post(
     '/checkout',
-    json(),
+    jsonBody(),
     asyncHandler(async (req, res) => {
       const body = parseBody(checkoutBodySchema, req.body);
       const builder = payable

@@ -1,13 +1,13 @@
-import { json, type Router } from 'express';
+import type { Router } from 'express';
 import { Money } from '../../../domain/value-objects/money';
 import type { Payable } from '../../../payable';
 import { parseBody, refundBodySchema } from '../../shared/schemas';
-import { asyncHandler } from '../helpers';
+import { asyncHandler, jsonBody } from '../helpers';
 
 export function registerRefundRoutes(router: Router, payable: Payable): void {
   router.post(
     '/refunds',
-    json(),
+    jsonBody(),
     asyncHandler(async (req, res) => {
       const body = parseBody(refundBodySchema, req.body);
       const amount = body.amount ? Money.of(body.amount.amount, body.amount.currency) : undefined;
