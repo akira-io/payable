@@ -21,7 +21,7 @@ export async function createSystemTables(knex: Knex): Promise<void> {
 
   await createIfMissing(knex, 'payable_idempotency_keys', (table) => {
     table.uuid('id').primary();
-    table.string('tenant_id').nullable();
+    table.string('tenant_id').notNullable().defaultTo('');
     table.string('key').notNullable();
     table.string('scope').notNullable();
     table.string('operation').notNullable();
@@ -66,9 +66,11 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.string('status').notNullable();
     table.integer('attempts').notNullable();
     table.timestamp('next_retry_at').nullable();
+    table.string('locked_by').nullable();
+    table.timestamp('locked_until').nullable();
     table.timestamp('created_at').notNullable();
     table.timestamp('updated_at').notNullable();
-    table.index('status');
+    table.index(['status', 'next_retry_at', 'created_at']);
   });
 
   await createIfMissing(knex, 'payable_webhook_endpoints', (table) => {

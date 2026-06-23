@@ -16,15 +16,80 @@ export class KnexIdempotencyRepository implements IdempotencyStore {
   ) {}
 
   async find(key: string, tenantId: string | null = null): Promise<IdempotencyRecord | null> {
-    const row = await this.knex(this.table).where({ key, tenant_id: tenantId }).first();
+    const row = await this.knex(this.table)
+      .where({ key, tenant_id: this.tenant(tenantId) })
+      .first();
     return row ? this.toRecord(row) : null;
   }
 
-  async put(record: IdempotencyRecord, tenantId: string | null = null): Promise<void> {
+  async acquire(record: IdempotencyRecord, tenantId: string | null = null): Promise<boolean> {
+    const tenant = this.tenant(tenantId);
     const timestamp = this.clock.now().toISOString();
-    const data = {
+    try {
+      await this.knex(this.table).insert({
+        id: globalThis.crypto.randomUUID(),
+        tenant_id: tenant,
+        created_at: timestamp,
+        ...this.row(record, timestamp),
+      });
+      return true;
+    } catch (error) {
+      const existing = await this.knex(this.table)
+        .where({ key: record.key, tenant_id: tenant })
+        .first();
+      if (existing) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  async put(record: IdempotencyRecord, tenantId: string | null = null): Promise<void> {
+    const tenant = this.tenant(tenantId);
+    const timestamp = this.clock.now().toISOString();
+    const existing = await this.knex(this.table)
+      .where({ key: record.key, tenant_id: tenant })
+      .first();
+    if (existing) {
+      await this.knex(this.table).where({ id: existing.id }).update(this.row(record, timestamp));
+      return;
+    }
+    await this.knex(this.table).insert({
+      id: globalThis.crypto.randomUUID(),
+      tenant_id: tenant,
+      created_at: timestamp,
+      ...this.row(record, timestamp),
+    });
+  }
+
+  async markCompleted(
+    key: string,
+    response: unknown,
+    tenantId: string | null = null,
+  ): Promise<void> {
+    await this.knex(this.table)
+      .where({ key, tenant_id: this.tenant(tenantId) })
+      .update({
+        status: 'completed',
+        response: JSON.stringify(response ?? null),
+        locked_until: null,
+        updated_at: this.clock.now().toISOString(),
+      });
+  }
+
+  async markFailed(key: string, tenantId: string | null = null): Promise<void> {
+    await this.knex(this.table)
+      .where({ key, tenant_id: this.tenant(tenantId) })
+      .update({ status: 'failed', locked_until: null, updated_at: this.clock.now().toISOString() });
+  }
+
+  private tenant(tenantId: string | null): string {
+    return tenantId ?? '';
+  }
+
+  private row(record: IdempotencyRecord, timestamp: string): Record<string, unknown> {
+    return {
       key: record.key,
-      tenant_id: tenantId,
       scope: record.scope,
       operation: record.operation,
       resource_type: record.resourceType,
@@ -36,39 +101,6 @@ export class KnexIdempotencyRepository implements IdempotencyStore {
       expires_at: record.expiresAt ? record.expiresAt.toISOString() : null,
       updated_at: timestamp,
     };
-    const existing = await this.knex(this.table)
-      .where({ key: record.key, tenant_id: tenantId })
-      .first();
-    if (existing) {
-      await this.knex(this.table).where({ id: existing.id }).update(data);
-      return;
-    }
-    await this.knex(this.table).insert({
-      id: globalThis.crypto.randomUUID(),
-      ...data,
-      created_at: timestamp,
-    });
-  }
-
-  async markCompleted(
-    key: string,
-    response: unknown,
-    tenantId: string | null = null,
-  ): Promise<void> {
-    await this.knex(this.table)
-      .where({ key, tenant_id: tenantId })
-      .update({
-        status: 'completed',
-        response: JSON.stringify(response ?? null),
-        locked_until: null,
-        updated_at: this.clock.now().toISOString(),
-      });
-  }
-
-  async markFailed(key: string, tenantId: string | null = null): Promise<void> {
-    await this.knex(this.table)
-      .where({ key, tenant_id: tenantId })
-      .update({ status: 'failed', locked_until: null, updated_at: this.clock.now().toISOString() });
   }
 
   private toRecord(row: Record<string, unknown>): IdempotencyRecord {
