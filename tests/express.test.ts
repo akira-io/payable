@@ -90,4 +90,13 @@ describe('express adapter', () => {
     expect(res.body.error).toBe('INVALID_WEBHOOK_PAYLOAD');
     expect(provider.lastVerifyInput).toBeUndefined();
   });
+
+  it('returns 422 for a malformed checkout body instead of a 500', async () => {
+    const app = makeApp(createPayable({ providers: { stripe: new FakeProvider() } }));
+    const res = await request(app)
+      .post('/payable/checkout')
+      .send({ successUrl: 'https://app.test' });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBe('VALIDATION_FAILED');
+  });
 });

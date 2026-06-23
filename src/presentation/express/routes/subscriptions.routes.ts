@@ -1,6 +1,10 @@
 import { json, type Router } from 'express';
-import type { Billable } from '../../../application/builders/billable';
 import type { Payable } from '../../../payable';
+import {
+  manageSubscriptionBodySchema,
+  parseBody,
+  swapSubscriptionBodySchema,
+} from '../../shared/schemas';
 import { asyncHandler } from '../helpers';
 
 type ManageAction = 'cancel' | 'cancelNow' | 'resume';
@@ -8,7 +12,7 @@ type ManageAction = 'cancel' | 'cancelNow' | 'resume';
 export function registerSubscriptionRoutes(router: Router, payable: Payable): void {
   const manage = (action: ManageAction) =>
     asyncHandler(async (req, res) => {
-      const body = req.body as { billable: Billable };
+      const body = parseBody(manageSubscriptionBodySchema, req.body);
       const manager = payable.customer(body.billable).subscription(String(req.params.name));
       res.status(200).json(await manager[action]());
     });
@@ -20,7 +24,7 @@ export function registerSubscriptionRoutes(router: Router, payable: Payable): vo
     '/subscriptions/:name/swap',
     json(),
     asyncHandler(async (req, res) => {
-      const body = req.body as { billable: Billable; price: string };
+      const body = parseBody(swapSubscriptionBodySchema, req.body);
       const manager = payable.customer(body.billable).subscription(String(req.params.name));
       res.status(200).json(await manager.swap(body.price));
     }),
