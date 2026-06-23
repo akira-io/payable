@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { CurrencyManager } from '../src/domain/value-objects/currency';
+import { CurrencyManager, type KnownCurrencyCode } from '../src/domain/value-objects/currency';
 import { Money } from '../src/domain/value-objects/money';
 
 describe('Money', () => {
+  it('accepts a statically known currency code', () => {
+    const code: KnownCurrencyCode = 'USD';
+    expect(Money.of(100, code).currency()).toBe('USD');
+  });
+
   it('stores amounts in minor units', () => {
     expect(Money.of(1099, 'USD').amount()).toBe(1099);
     expect(Money.of(2550, 'EUR').amount()).toBe(2550);

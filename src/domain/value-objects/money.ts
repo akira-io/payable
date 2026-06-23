@@ -10,7 +10,7 @@ import {
   toDecimal,
   toSnapshot,
 } from 'dinero.js';
-import { type CurrencyCode, CurrencyManager } from './currency';
+import { type CurrencyCode, type CurrencyInput, CurrencyManager } from './currency';
 
 function assertSafeMinor(amount: number, context: string): void {
   if (!Number.isSafeInteger(amount)) {
@@ -39,7 +39,7 @@ export class Money {
     private readonly code: CurrencyCode,
   ) {}
 
-  static of(minorAmount: number, currency: CurrencyCode): Money {
+  static of(minorAmount: number, currency: CurrencyInput): Money {
     if (!Number.isInteger(minorAmount)) {
       throw new TypeError(`Money amount must be an integer in minor units, got ${minorAmount}`);
     }
