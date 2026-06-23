@@ -46,6 +46,24 @@ describe('KnexIdempotencyRepository', () => {
     expect(completed?.status).toBe('completed');
     expect(completed?.response).toEqual({ paymentId: 'pay_1' });
   });
+
+  it('acquires once and reports a duplicate without masking real errors', async () => {
+    const store = new KnexIdempotencyRepository(db, clock);
+    const record = {
+      key: 'charge:acquire',
+      scope: 'charge',
+      operation: 'charge',
+      resourceType: null,
+      resourceId: null,
+      requestHash: 'hash-a',
+      response: null,
+      status: 'processing' as const,
+      lockedUntil: null,
+      expiresAt: null,
+    };
+    expect(await store.acquire(record)).toBe(true);
+    expect(await store.acquire(record)).toBe(false);
+  });
 });
 
 describe('KnexAuditLogRepository', () => {
