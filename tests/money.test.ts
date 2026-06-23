@@ -81,6 +81,13 @@ describe('Money', () => {
     expect(() => Money.of(100, 'USD').allocate([1, -1])).toThrow(RangeError);
   });
 
+  it('keeps the snapshot scale aligned with the currency exponent through operations', () => {
+    expect(Money.of(1000, 'USD').multiply(3).amount()).toBe(3000);
+    expect(Money.of(1000, 'USD').divide(3).amount()).toBe(333);
+    const shares = Money.of(1000, 'USD').allocate([1, 1, 1]);
+    expect(shares.reduce((sum, m) => sum + m.amount(), 0)).toBe(1000);
+  });
+
   it('computes a percentage in basis points with half-up rounding', () => {
     expect(Money.of(10_000, 'USD').percentage(1200).amount()).toBe(1200);
     expect(Money.of(105, 'USD').percentage(1000).amount()).toBe(11);
