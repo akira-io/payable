@@ -2,7 +2,59 @@ import type Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
 import { toSubscriptionDTO as toPaddleSubscriptionDTO } from '../src/infrastructure/providers/paddle/paddle-mappers';
 import type { PaddleSubscriptionEntity } from '../src/infrastructure/providers/paddle/paddle-types';
-import { toSubscriptionDTO as toStripeSubscriptionDTO } from '../src/infrastructure/providers/stripe/stripe-mappers';
+import {
+  toPriceDTO as toStripePriceDTO,
+  toSubscriptionDTO as toStripeSubscriptionDTO,
+} from '../src/infrastructure/providers/stripe/stripe-mappers';
+
+describe('stripe price mapping', () => {
+  it('maps an integer unit amount', () => {
+    const dto = toStripePriceDTO({
+      id: 'price_1',
+      product: 'prod_1',
+      unit_amount: 1999,
+      unit_amount_decimal: '1999',
+      currency: 'usd',
+      recurring: { interval: 'month' },
+    } as unknown as Stripe.Price);
+    expect(dto.unitAmount.amount()).toBe(1999);
+  });
+
+  it('falls back to an integer unit_amount_decimal when unit_amount is null', () => {
+    const dto = toStripePriceDTO({
+      id: 'price_2',
+      product: 'prod_1',
+      unit_amount: null,
+      unit_amount_decimal: '500',
+      currency: 'usd',
+    } as unknown as Stripe.Price);
+    expect(dto.unitAmount.amount()).toBe(500);
+  });
+
+  it('throws instead of defaulting to zero when no integer amount is resolvable', () => {
+    expect(() =>
+      toStripePriceDTO({
+        id: 'price_3',
+        product: 'prod_1',
+        unit_amount: null,
+        unit_amount_decimal: null,
+        currency: 'usd',
+      } as unknown as Stripe.Price),
+    ).toThrowError(/no integer unit amount/);
+  });
+
+  it('throws when unit_amount_decimal has sub-minor-unit precision', () => {
+    expect(() =>
+      toStripePriceDTO({
+        id: 'price_4',
+        product: 'prod_1',
+        unit_amount: null,
+        unit_amount_decimal: '0.5',
+        currency: 'usd',
+      } as unknown as Stripe.Price),
+    ).toThrowError(/no integer unit amount/);
+  });
+});
 
 describe('stripe subscription mapping', () => {
   it('falls back to a non-granting status for an unknown provider status', () => {

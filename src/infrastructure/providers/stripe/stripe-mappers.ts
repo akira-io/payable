@@ -8,6 +8,7 @@ import type { ProductDTO } from '../../../domain/dtos/product.dto';
 import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import type { RecurringInterval } from '../../../domain/entities/common';
+import { PayableError } from '../../../domain/errors/payable-error';
 import type { InvoiceStatus } from '../../../domain/value-objects/invoice-status';
 import { Money } from '../../../domain/value-objects/money';
 import type { PaymentStatus } from '../../../domain/value-objects/payment-status';
@@ -36,6 +37,22 @@ function fromUnixSeconds(value: number | null | undefined): Date | null {
   return value === null || value === undefined ? null : new Date(value * 1000);
 }
 
+function resolvePriceUnitAmount(price: Stripe.Price): number {
+  if (price.unit_amount !== null && price.unit_amount !== undefined) {
+    return price.unit_amount;
+  }
+  if (price.unit_amount_decimal !== null && price.unit_amount_decimal !== undefined) {
+    const parsed = Number(price.unit_amount_decimal);
+    if (Number.isInteger(parsed)) {
+      return parsed;
+    }
+  }
+  throw new PayableError(`Stripe price ${price.id} has no integer unit amount`, {
+    code: 'PROVIDER_PRICE_AMOUNT_UNRESOLVABLE',
+    context: { priceId: price.id },
+  });
+}
+
 export function toCustomerDTO(customer: Stripe.Customer): CustomerDTO {
   return {
     providerCustomerId: customer.id,
@@ -56,7 +73,7 @@ export function toPriceDTO(price: Stripe.Price): PriceDTO {
   return {
     providerPriceId: price.id,
     providerProductId: typeof price.product === 'string' ? price.product : price.product.id,
-    unitAmount: Money.of(price.unit_amount ?? 0, price.currency.toUpperCase()),
+    unitAmount: Money.of(resolvePriceUnitAmount(price), price.currency.toUpperCase()),
     interval: (price.recurring?.interval as RecurringInterval | undefined) ?? null,
   };
 }
