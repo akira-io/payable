@@ -23,7 +23,7 @@ const MAP: TransitionMap<SubscriptionStatus, SubscriptionEvent> = {
   past_due: { activate: 'active', mark_unpaid: 'unpaid', cancel: 'canceled' },
   unpaid: { activate: 'active', cancel: 'canceled' },
   paused: { resume: 'active', cancel: 'canceled' },
-  canceled: { resume: 'active' },
+  canceled: {},
 };
 
 export class SubscriptionStateMachine {

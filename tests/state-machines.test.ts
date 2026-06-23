@@ -13,11 +13,14 @@ describe('SubscriptionStateMachine', () => {
     expect(machine.cancel().current()).toBe('canceled');
   });
 
-  it('resumes from the grace period', () => {
-    expect(new SubscriptionStateMachine('canceled').resume().current()).toBe('active');
+  it('resumes from a paused subscription', () => {
+    expect(new SubscriptionStateMachine('paused').resume().current()).toBe('active');
   });
 
-  it('throws on an invalid transition', () => {
+  it('treats canceled as terminal', () => {
+    expect(() => new SubscriptionStateMachine('canceled').resume()).toThrow(
+      InvalidStateTransitionError,
+    );
     expect(() => new SubscriptionStateMachine('canceled').activate()).toThrow(
       InvalidStateTransitionError,
     );
