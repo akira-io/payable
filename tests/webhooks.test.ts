@@ -11,7 +11,7 @@ import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-stora
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
-import { createTestDb } from './support/knex';
+import { countDuePendingOutbox, createTestDb } from './support/knex';
 
 class RecordingQueue extends SyncQueueDriver {
   readonly dispatched: Array<Record<string, unknown>> = [];
@@ -84,7 +84,8 @@ describe('payable.receiveWebhook', () => {
     events.listen('webhook.processed', (event) => {
       processed.push(event.name);
     });
-    const storage = new KnexStorageDriver(db, new FakeClock());
+    const clock = new FakeClock();
+    const storage = new KnexStorageDriver(db, clock);
     const payable = createPayable({ providers: { stripe: provider }, storage, events });
 
     const first = await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
@@ -93,12 +94,12 @@ describe('payable.receiveWebhook', () => {
       'processed',
     );
     expect(await storage.auditLogs.list({ resourceType: 'webhook_event' })).toHaveLength(1);
-    expect(await storage.outboxEvents.pullPending(10)).toHaveLength(1);
+    expect(await countDuePendingOutbox(db, clock)).toBe(1);
     expect(processed).toEqual(['webhook.processed']);
 
     const second = await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
     expect(second.duplicate).toBe(true);
-    expect(await storage.outboxEvents.pullPending(10)).toHaveLength(1);
+    expect(await countDuePendingOutbox(db, clock)).toBe(1);
     await db.destroy();
   });
 

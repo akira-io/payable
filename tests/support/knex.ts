@@ -1,4 +1,5 @@
 import { knex as createKnex, type Knex } from 'knex';
+import type { Clock } from '../../src/domain/contracts/clock.contract';
 import type { NewCustomer } from '../../src/domain/contracts/customer-repository.contract';
 
 export function createTestDb(): Knex {
@@ -8,6 +9,14 @@ export function createTestDb(): Knex {
     useNullAsDefault: true,
     pool: { min: 1, max: 1 },
   });
+}
+
+export async function countDuePendingOutbox(db: Knex, clock: Clock): Promise<number> {
+  const now = clock.now().toISOString();
+  const rows = await db('payable_outbox_events')
+    .where({ status: 'pending' })
+    .where((builder) => builder.whereNull('next_retry_at').orWhere('next_retry_at', '<=', now));
+  return rows.length;
 }
 
 export function makeCustomer(overrides: Partial<NewCustomer> = {}): NewCustomer {

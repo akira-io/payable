@@ -11,7 +11,7 @@ import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-stora
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
-import { createTestDb } from './support/knex';
+import { countDuePendingOutbox, createTestDb } from './support/knex';
 
 class RecordingQueue implements QueueDriver {
   readonly jobs: QueueJob[] = [];
@@ -89,7 +89,8 @@ describe('async webhook processing', () => {
       data: { id: 'in_1' },
     };
     const queue = new RecordingQueue();
-    const storage = new KnexStorageDriver(db, new FakeClock());
+    const clock = new FakeClock();
+    const storage = new KnexStorageDriver(db, clock);
     const payable = createPayable({ providers: { stripe: provider }, storage, queue });
 
     await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
@@ -103,7 +104,7 @@ describe('async webhook processing', () => {
     expect((await storage.webhookEvents.findByProviderEvent('stripe', 'evt_1'))?.status).toBe(
       'processed',
     );
-    expect(await storage.outboxEvents.pullPending(10)).toHaveLength(1);
+    expect(await countDuePendingOutbox(db, clock)).toBe(1);
     await db.destroy();
   });
 });

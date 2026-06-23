@@ -4,7 +4,7 @@ import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-stora
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { KnexIdempotencyRepository } from '../src/infrastructure/storage/knex/repositories/knex-idempotency.repository';
 import { FakeClock } from '../src/support/clock/fake-clock';
-import { createTestDb } from './support/knex';
+import { countDuePendingOutbox, createTestDb } from './support/knex';
 
 let db: Knex;
 let clock: FakeClock;
@@ -84,10 +84,10 @@ describe('KnexOutboxEventRepository', () => {
     expect(event.status).toBe('pending');
     expect(event.attempts).toBe(0);
 
-    expect(await storage.outboxEvents.pullPending(10)).toHaveLength(1);
+    expect(await countDuePendingOutbox(db, clock)).toBe(1);
 
     await storage.outboxEvents.markFailed(event.id, null);
-    expect(await storage.outboxEvents.pullPending(10)).toHaveLength(0);
+    expect(await countDuePendingOutbox(db, clock)).toBe(0);
     const row = await db('payable_outbox_events').where({ id: event.id }).first();
     expect(row?.attempts).toBe(1);
 

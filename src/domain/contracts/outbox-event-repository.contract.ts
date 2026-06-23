@@ -21,7 +21,6 @@ export type NewOutboxEvent = Omit<
 
 export interface OutboxEventRepository {
   create(data: NewOutboxEvent): Promise<OutboxEvent>;
-  pullPending(limit: number): Promise<OutboxEvent[]>;
   claimPending(limit: number): Promise<OutboxEvent[]>;
   markPublished(id: string): Promise<void>;
   markFailed(id: string, nextRetryAt: Date | null): Promise<void>;
