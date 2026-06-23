@@ -5,7 +5,7 @@ import { SyncCustomerWithProviderAction } from '../actions/customers/sync-custom
 import { ChargeAction } from '../actions/payments/charge.action';
 import type { Billable } from './billable';
 import type { BillingDependencies } from './billing-dependencies';
-import type { ChargeRequest } from './charge-builder';
+import type { ChargeRequest } from './charge-request';
 import { CheckoutBuilder } from './checkout-builder';
 import { SubscriptionBuilder } from './subscription-builder';
 import { SubscriptionManager } from './subscription-manager';
