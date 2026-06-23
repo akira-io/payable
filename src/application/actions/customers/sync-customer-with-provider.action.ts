@@ -19,7 +19,11 @@ export class SyncCustomerWithProviderAction {
         return existing.providerCustomerId;
       }
     }
-    const key = `customer:${providerName}:${billable.billableType}:${billable.billableId}`;
+    const key = IdempotencyKey.forCustomer({
+      provider: providerName,
+      billableType: billable.billableType,
+      billableId: billable.billableId,
+    });
     const dto = await provider.createCustomer(
       {
         email: billable.email,
@@ -29,7 +33,7 @@ export class SyncCustomerWithProviderAction {
       },
       {
         correlationId: CorrelationId.generate().toString(),
-        idempotencyKey: IdempotencyKey.of(key).toString(),
+        idempotencyKey: key.toString(),
       },
     );
     await this.persist(billable, dto.providerCustomerId);

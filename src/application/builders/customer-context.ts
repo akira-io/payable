@@ -1,6 +1,7 @@
 import type { BillingPortalDTO } from '../../domain/dtos/billing-portal.dto';
 import type { Payment } from '../../domain/entities/payment.entity';
 import { CorrelationId } from '../../domain/value-objects/correlation-id';
+import { IdempotencyKey } from '../../domain/value-objects/idempotency-key';
 import { SyncCustomerWithProviderAction } from '../actions/customers/sync-customer-with-provider.action';
 import { ChargeAction } from '../actions/payments/charge.action';
 import { assertProviderCapability } from '../services/provider-capabilities/assert-provider-capability';
@@ -43,10 +44,14 @@ export class CustomerContext {
     const providerCustomerId = await new SyncCustomerWithProviderAction(this.deps).handle(
       this.billable,
     );
-    const key = `portal:${this.deps.providerName}:${this.billable.billableType}:${this.billable.billableId}`;
+    const key = IdempotencyKey.forBillingPortal({
+      provider: this.deps.providerName,
+      billableType: this.billable.billableType,
+      billableId: this.billable.billableId,
+    });
     return this.deps.provider.billingPortal(
       { providerCustomerId, returnUrl },
-      { correlationId: CorrelationId.generate().toString(), idempotencyKey: key },
+      { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
     );
   }
 }
