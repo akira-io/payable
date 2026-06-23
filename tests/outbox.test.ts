@@ -65,6 +65,28 @@ describe('OutboxService', () => {
     expect(row?.status).toBe('failed');
     expect(row?.attempts).toBe(2);
   });
+
+  it('logs the failure cause and caps the backoff with jitter', async () => {
+    await storage.outboxEvents.create(newOutbox('subscription.created.v1'));
+    const errors: string[] = [];
+    const service = new OutboxService(storage.outboxEvents, clock, {
+      maxAttempts: 2,
+      backoffMs: 1000,
+      maxBackoffMs: 1500,
+      random: () => 1,
+      logger: { debug() {}, info() {}, warn() {}, error: (m) => errors.push(m) },
+    });
+
+    await service.publishPending(async () => {
+      throw new Error('delivery boom');
+    });
+    clock.advance(5000);
+    await service.publishPending(async () => {
+      throw new Error('delivery boom');
+    });
+
+    expect(errors).toContain('Outbox event dead-lettered');
+  });
 });
 
 describe('webhook replay', () => {
