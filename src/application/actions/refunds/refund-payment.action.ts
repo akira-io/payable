@@ -40,6 +40,12 @@ export class RefundPaymentAction {
       { providerPaymentId: payment.providerPaymentId, amount: input.amount, reason: input.reason },
       { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
     );
+    if (dto.amount.currency() !== payment.currency) {
+      throw new PayableError(
+        `Refund currency ${dto.amount.currency()} does not match payment currency ${payment.currency}`,
+        { code: 'REFUND_CURRENCY_MISMATCH', context: { paymentId: payment.id } },
+      );
+    }
     const refund = await storage.refunds.create({
       tenantId: null,
       paymentId: payment.id,

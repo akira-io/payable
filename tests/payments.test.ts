@@ -193,6 +193,28 @@ describe('charge and refund lifecycle', () => {
     await db.destroy();
   });
 
+  it('rejects a refund whose currency differs from the payment currency', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
+    const storage = new KnexStorageDriver(db, clock);
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage, clock });
+
+    const payment = await payable.customer(billable).charge({
+      amount: Money.of(9900, 'USD'),
+      reference: 'inv_mismatch',
+    });
+
+    await expect(
+      payable.refund({ paymentId: payment.id, amount: Money.of(9900, 'EUR') }),
+    ).rejects.toThrow('does not match payment currency');
+
+    const untouched = await storage.payments.findById(payment.id);
+    expect(untouched?.refundedAmount).toBe(0);
+    expect(untouched?.status).toBe('succeeded');
+    await db.destroy();
+  });
+
   it('rejects a refund without a storage driver', async () => {
     const payable = createPayable({ providers: { stripe: new FakeProvider() } });
     await expect(payable.refund({ paymentId: 'pay_x' })).rejects.toThrow(
