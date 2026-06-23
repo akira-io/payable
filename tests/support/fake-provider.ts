@@ -46,6 +46,7 @@ export class FakeProvider implements PaymentProvider {
   lastCreateSubscription?: CreateSubscriptionInput;
   lastChargeCtx?: OperationContext;
   lastRefundInput?: RefundInput;
+  lastRefundCtx?: OperationContext;
   chargeCalls = 0;
   refundCalls = 0;
 
@@ -141,8 +142,9 @@ export class FakeProvider implements PaymentProvider {
     return { providerPaymentId: 'pi_fake', status: 'succeeded', amount: input.amount };
   }
 
-  async refund(input: RefundInput): Promise<RefundResultDTO> {
+  async refund(input: RefundInput, ctx: OperationContext): Promise<RefundResultDTO> {
     this.lastRefundInput = input;
+    this.lastRefundCtx = ctx;
     this.refundCalls += 1;
     return {
       providerRefundId: `re_fake_${this.refundCalls}`,
