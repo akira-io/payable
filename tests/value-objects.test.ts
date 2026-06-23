@@ -44,6 +44,12 @@ describe('IdempotencyKey', () => {
     expect(a).not.toBe(b);
     expect(a).toContain('a%3A100');
   });
+
+  it('escapes the separator in customer and billing-portal keys', () => {
+    const parts = { provider: 'stripe', billableType: 'User', billableId: 'a:b' };
+    expect(IdempotencyKey.forCustomer(parts).toString()).toBe('customer:stripe:User:a%3Ab');
+    expect(IdempotencyKey.forBillingPortal(parts).toString()).toBe('portal:stripe:User:a%3Ab');
+  });
 });
 
 describe('CorrelationId', () => {

@@ -1,5 +1,11 @@
 import type { CurrencyCode } from './currency';
 
+export interface BillableKeyParts {
+  provider: string;
+  billableType: string;
+  billableId: string;
+}
+
 export interface ChargeKeyParts {
   provider: string;
   billableType: string;
@@ -79,6 +85,18 @@ export class IdempotencyKey {
   static forWebhook(parts: WebhookKeyParts): IdempotencyKey {
     return IdempotencyKey.of(
       `webhook:${segment(parts.provider)}:${segment(parts.providerEventId)}`,
+    );
+  }
+
+  static forCustomer(parts: BillableKeyParts): IdempotencyKey {
+    return IdempotencyKey.of(
+      `customer:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}`,
+    );
+  }
+
+  static forBillingPortal(parts: BillableKeyParts): IdempotencyKey {
+    return IdempotencyKey.of(
+      `portal:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}`,
     );
   }
 
