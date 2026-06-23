@@ -1,0 +1,169 @@
+# Stripe Provider
+
+`StripeProvider` (`src/infrastructure/providers/stripe/stripe-provider.ts`) is the reference
+implementation of `PaymentProvider`. It implements the base contract plus all three optional
+interfaces: `ChargeCapable`, `DirectSubscriptionCapable`, and `InvoiceCapable`. Its registry `name` is
+`'stripe'`.
+
+## Construction and options
+
+```ts
+export interface StripeProviderOptions {
+  secretKey: string;
+  webhookSecret: string;
+}
+
+new StripeProvider(options: StripeProviderOptions, client?: Stripe);
+```
+
+- `secretKey` - the Stripe API key used to lazily construct the SDK client.
+- `webhookSecret` - the signing secret passed to `StripeWebhookVerifier`.
+- `client` (optional) - an injected `Stripe` instance, used in tests. When omitted, the client is
+  created on first use via a dynamic `import('stripe')`, so the `stripe` package is only loaded when the
+  provider is actually exercised (zero-peer-dependency guarantee).
+
+```ts
+const stripe = new StripeProvider({
+  secretKey: process.env.STRIPE_SECRET_KEY!,
+  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
+});
+
+const payable = createPayable({ providers: { stripe }, /* storage, queue, ... */ });
+```
+
+## Declared capabilities
+
+```ts
+capabilities(): ProviderCapabilities {
+  return {
+    checkout: true,
+    subscriptions: true,
+    trials: true,
+    refunds: true,
+    coupons: true,
+    billingPortal: true,
+    meteredBilling: false,
+    invoicePdf: true,
+  };
+}
+```
+
+Stripe supports everything except `meteredBilling`. It is the only built-in provider that implements
+`InvoiceCapable` (`listInvoices`, `downloadInvoicePdf`) and exposes `invoicePdf: true`.
+
+## Subscription handling
+
+Subscription operations are delegated to `StripeSubscriptions`
+(`src/infrastructure/providers/stripe/stripe-subscriptions.ts`), constructed with a lazy client getter
+so it shares the provider's single SDK instance.
+
+| Operation | Stripe call | Behavior |
+| --- | --- | --- |
+| `create` | `subscriptions.create` | Uses `input.items` when present, otherwise a single item from `priceId` with `quantity ?? 1`. Applies `trial_period_days` and `discounts` (coupon) when provided. |
+| `update` | `subscriptions.retrieve` then `subscriptions.update` | When `priceId` or `quantity` change, it retrieves the subscription to find the first item id and swaps it. |
+| `cancel` | `subscriptions.cancel` or `subscriptions.update` | `immediately: true` cancels now; otherwise sets `cancel_at_period_end: true`. |
+| `resume` | `subscriptions.update` | Clears the pending cancellation with `cancel_at_period_end: false`. |
+
+`createSubscription` (from `DirectSubscriptionCapable`) routes to `StripeSubscriptions.create`; the
+contract's `updateSubscription`, `cancelSubscription`, and `resumeSubscription` route to the matching
+methods. Every call forwards `ctx.idempotencyKey` to Stripe's `idempotencyKey` request option.
+
+## Entity mapping
+
+`stripe-mappers.ts` converts Stripe SDK objects into domain DTOs. Key behaviors:
+
+- Money is always reconstructed via `Money.of(amount, currency.toUpperCase())`. Stripe currencies are
+  lower-cased on the wire; the engine normalizes to upper-case currency codes.
+- `toPriceDTO` resolves the unit amount from `unit_amount`, falling back to an integer
+  `unit_amount_decimal`. A non-integer decimal throws `PayableError`
+  (`PROVIDER_PRICE_AMOUNT_UNRESOLVABLE`).
+- `toSubscriptionDTO` maps the Stripe status through `isSubscriptionStatus`, defaulting unknown values
+  to `incomplete`. `currentPeriodEnd` is read from the first item's `current_period_end` (falling back
+  to the subscription-level field) and converted from Unix seconds. `trialEndsAt` comes from
+  `trial_end`.
+- `PAYMENT_STATUS` and `REFUND_STATUS` lookup tables translate Stripe states into the domain
+  `PaymentStatus` / `RefundStatus` value objects; unmapped states default to `pending`.
+
+## Event normalization
+
+`StripeEventNormalizer` (`stripe-event-normalizer.ts`) maps raw Stripe event types to the engine's
+`NormalizedEventName`. The full map:
+
+| Stripe event type | Normalized name |
+| --- | --- |
+| `checkout.session.completed` | `checkout.completed` |
+| `payment_intent.succeeded` | `payment.succeeded` |
+| `payment_intent.payment_failed` | `payment.failed` |
+| `customer.created` | `customer.created` |
+| `customer.updated` | `customer.updated` |
+| `customer.subscription.created` | `subscription.created` |
+| `customer.subscription.updated` | `subscription.updated` |
+| `customer.subscription.deleted` | `subscription.cancelled` |
+| `customer.subscription.resumed` | `subscription.resumed` |
+| `invoice.created` | `invoice.created` |
+| `invoice.paid` | `invoice.paid` |
+| `invoice.payment_failed` | `invoice.payment_failed` |
+| `charge.refunded` | `refund.succeeded` |
+| `refund.created` | `refund.created` |
+| `refund.failed` | `refund.failed` |
+
+Unmapped types normalize to `null`. The provider keeps the raw `type` alongside `normalizedType`, so an
+unrecognized event is still persisted, just not reconciled.
+
+## Webhook verification
+
+`StripeWebhookVerifier` (`stripe-webhook-verifier.ts`) wraps the SDK's async signature check:
+
+```ts
+async verify(stripe: Stripe, payload: string, signature: string): Promise<Stripe.Event> {
+  try {
+    return await stripe.webhooks.constructEventAsync(payload, signature, this.secret);
+  } catch (error) {
+    throw new InvalidWebhookSignatureError('stripe', { cause: error });
+  }
+}
+```
+
+The raw request body (string `payload`) and the `Stripe-Signature` header value are passed to
+`constructEventAsync` with the configured `webhookSecret`. The signature must be computed over the exact
+raw bytes, so the adapter must hand over the unparsed body. On any failure the verifier throws
+`InvalidWebhookSignatureError` with `provider: 'stripe'` and the original error as `cause`.
+
+`verifyWebhook` then returns a `VerifiedWebhook` with `providerEventId` (`event.id`), the raw `type`,
+the `normalizedType`, and `event.data.object` as `data`.
+
+## Failure scenarios and recovery
+
+| Scenario | Symptom | Recovery |
+| --- | --- | --- |
+| Invalid webhook signature | `InvalidWebhookSignatureError` (`provider: 'stripe'`) from `verifyWebhook` | Confirm `webhookSecret` matches the Stripe endpoint's secret and that the adapter forwards the raw, unmodified body. Stripe retries the delivery. |
+| Stripe API error | The underlying SDK error propagates from the called method | Calls are idempotent via `ctx.idempotencyKey`; safe to retry the same operation with the same key. |
+| Price has no integer amount | `PayableError` `PROVIDER_PRICE_AMOUNT_UNRESOLVABLE` from `toPriceDTO` | Use integer minor-unit prices; non-integer `unit_amount_decimal` is rejected. |
+| Invoice has no PDF | `PayableError` `INVOICE_PDF_UNAVAILABLE` from `downloadInvoicePdf` | Wait until Stripe finalizes the invoice; draft invoices have no `invoice_pdf`. |
+| Invoice PDF download fails | `PayableError` `INVOICE_PDF_DOWNLOAD_FAILED` with `{ status }` | Transient; retry the download. The status code is in the error context. |
+
+## Configuration example
+
+```ts
+import { createPayable } from '@akira-io/payable';
+import { StripeProvider } from '@akira-io/payable';
+
+const stripe = new StripeProvider({
+  secretKey: process.env.STRIPE_SECRET_KEY!,
+  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
+});
+
+const payable = createPayable({
+  providers: { stripe },
+  // storage, queue, events, clock ...
+});
+
+// Charge a customer (ChargeCapable):
+await payable
+  .customer({ billableType: 'User', billableId: '1', email: 'jane@example.com' })
+  .charge(Money.of(1500, 'USD'));
+```
+
+---
+
+[Previous: Providers](17-providers.md) · [Index](../00-index.md) · [Next: Paddle](19-paddle.md)
