@@ -1,5 +1,6 @@
 import type { VerifiedWebhook } from '../../../domain/dtos/webhook.dto';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
+import { redactHeaders } from '../../../support/redact-headers';
 import type { WebhookDependencies } from '../../builders/webhook-dependencies';
 
 export interface StoreWebhookEventInput {
@@ -36,7 +37,7 @@ export class StoreWebhookEventAction {
         normalizedType: input.verified.normalizedType,
         payload: input.payload,
         data: input.verified.data,
-        headers: input.headers ?? {},
+        headers: redactHeaders(input.headers ?? {}),
         status: 'pending',
         correlationId,
         receivedAt: clock.now(),
