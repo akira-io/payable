@@ -75,11 +75,25 @@ export class RefundPaymentAction {
       );
     }
     return storage.transaction(async (repos) => {
-      const fresh = await repos.payments.findById(payment.id, this.deps.tenantId);
+      const fresh = await repos.payments.findByIdForUpdate(payment.id, this.deps.tenantId);
       if (!fresh) {
         throw new PayableError(`Payment not found: ${input.paymentId}`, {
           code: 'PAYMENT_NOT_FOUND',
         });
+      }
+      const freshRemaining = fresh.amount - fresh.refundedAmount;
+      if (freshRemaining <= 0 || dto.amount.amount() > freshRemaining) {
+        throw new PayableError(
+          `Refund of ${dto.amount.amount()} exceeds remaining ${freshRemaining}`,
+          {
+            code: 'REFUND_EXCEEDS_REMAINING',
+            context: {
+              paymentId: fresh.id,
+              requested: dto.amount.amount(),
+              remaining: freshRemaining,
+            },
+          },
+        );
       }
       const refund = await repos.refunds.create({
         tenantId: this.deps.tenantId ?? null,

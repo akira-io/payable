@@ -55,6 +55,20 @@ export abstract class KnexRepository<Entity, New> {
     return this.firstWhere(this.scopedWhere(id, tenantId));
   }
 
+  async findByIdForUpdate(id: string, tenantId?: string | null): Promise<Entity | null> {
+    const query = this.knex(this.table).where(this.scopedWhere(id, tenantId));
+    if (this.supportsRowLocking()) {
+      query.forUpdate();
+    }
+    const row = await query.first();
+    return row ? this.toEntity(row as Record<string, unknown>) : null;
+  }
+
+  protected supportsRowLocking(): boolean {
+    const dialect = (this.knex.client as { dialect?: string }).dialect;
+    return dialect === 'postgresql' || dialect === 'mysql' || dialect === 'mariadb';
+  }
+
   protected scopedWhere(id: string, tenantId?: string | null): Record<string, unknown> {
     return tenantId === undefined || tenantId === null ? { id } : { id, tenant_id: tenantId };
   }
