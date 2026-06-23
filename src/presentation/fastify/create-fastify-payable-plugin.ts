@@ -15,8 +15,13 @@ export function createFastifyPayablePlugin(
     await fastify.register(async (webhookScope) => {
       await registerWebhookRoutes(webhookScope, payable, options);
     });
-    await registerCheckoutRoutes(fastify, payable);
-    await registerSubscriptionRoutes(fastify, payable);
-    await registerPlaceholderRoutes(fastify, payable);
+    await fastify.register(async (authenticatedScope) => {
+      if (options.authenticate) {
+        authenticatedScope.addHook('onRequest', options.authenticate);
+      }
+      await registerCheckoutRoutes(authenticatedScope, payable);
+      await registerSubscriptionRoutes(authenticatedScope, payable);
+      await registerPlaceholderRoutes(authenticatedScope, payable);
+    });
   };
 }

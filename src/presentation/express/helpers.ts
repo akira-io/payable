@@ -5,6 +5,7 @@ export { flattenHeaders } from '../shared/payable-http';
 
 export interface ExpressPayableOptions {
   webhookSignatureHeader?: string;
+  authenticate?: RequestHandler;
 }
 
 export type AsyncRouteHandler = (req: Request, res: Response) => Promise<void>;

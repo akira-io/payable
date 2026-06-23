@@ -65,6 +65,61 @@ describe('express adapter', () => {
     await db.destroy();
   });
 
+  it('runs the authenticate hook on state-changing routes but not on webhooks', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new FakeProvider();
+    provider.verifyResult = {
+      providerEventId: 'evt_auth',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      data: { id: 'in_1' },
+    };
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const app = express();
+    app.use(
+      '/payable',
+      createExpressPayableRoutes(createPayable({ providers: { stripe: provider }, storage }), {
+        authenticate: (req, res, next) => {
+          if (req.headers.authorization === 'Bearer ok') {
+            next();
+            return;
+          }
+          res.status(401).json({ error: 'UNAUTHENTICATED' });
+        },
+      }),
+    );
+
+    const blocked = await request(app)
+      .post('/payable/checkout')
+      .send({
+        billable,
+        subscription: { name: 'default', price: 'price_pro' },
+        successUrl: 'https://app.test/s',
+        cancelUrl: 'https://app.test/c',
+      });
+    expect(blocked.status).toBe(401);
+
+    const webhook = await request(app)
+      .post('/payable/webhooks')
+      .set('stripe-signature', 'sig')
+      .set('Content-Type', 'application/json')
+      .send('{"id":"evt_auth"}');
+    expect(webhook.status).toBe(200);
+
+    const allowed = await request(app)
+      .post('/payable/checkout')
+      .set('Authorization', 'Bearer ok')
+      .send({
+        billable,
+        subscription: { name: 'default', price: 'price_pro' },
+        successUrl: 'https://app.test/s',
+        cancelUrl: 'https://app.test/c',
+      });
+    expect(allowed.status).toBe(201);
+    await db.destroy();
+  });
+
   it('maps not-implemented operations to 501', async () => {
     const app = makeApp(createPayable({ providers: { stripe: new FakeProvider() } }));
     const res = await request(app).get('/payable/invoices');
