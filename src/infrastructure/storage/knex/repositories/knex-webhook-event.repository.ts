@@ -18,7 +18,7 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
     const id = globalThis.crypto.randomUUID();
     await this.knex(this.table).insert({
       id,
-      tenant_id: data.tenantId,
+      tenant_id: this.tenant(data.tenantId),
       provider: data.provider,
       provider_event_id: data.providerEventId,
       type: data.type,
@@ -42,11 +42,16 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
   async findByProviderEvent(
     provider: string,
     providerEventId: string,
+    tenantId: string | null = null,
   ): Promise<WebhookEvent | null> {
     const row = await this.knex(this.table)
-      .where({ provider, provider_event_id: providerEventId })
+      .where({ provider, provider_event_id: providerEventId, tenant_id: this.tenant(tenantId) })
       .first();
     return row ? this.toEntity(row) : null;
+  }
+
+  private tenant(tenantId: string | null): string {
+    return tenantId ?? '';
   }
 
   async markStatus(
@@ -63,7 +68,7 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
   private toEntity(row: Record<string, unknown>): WebhookEvent {
     return {
       id: row.id as string,
-      tenantId: (row.tenant_id as string | null) ?? null,
+      tenantId: (row.tenant_id as string) || null,
       provider: row.provider as string,
       providerEventId: row.provider_event_id as string,
       type: row.type as string,

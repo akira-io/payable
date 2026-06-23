@@ -7,6 +7,7 @@ export interface StoreWebhookEventInput {
   verified: VerifiedWebhook;
   payload: string;
   headers?: Record<string, string>;
+  tenantId?: string | null;
 }
 
 export interface StoredWebhookEvent {
@@ -20,9 +21,11 @@ export class StoreWebhookEventAction {
 
   async handle(input: StoreWebhookEventInput): Promise<StoredWebhookEvent> {
     const { storage, providerName, clock } = this.deps;
+    const tenantId = input.tenantId ?? null;
     const existing = await storage.webhookEvents.findByProviderEvent(
       providerName,
       input.verified.providerEventId,
+      tenantId,
     );
     if (existing) {
       return { id: existing.id, correlationId: existing.correlationId, duplicate: true };
@@ -30,7 +33,7 @@ export class StoreWebhookEventAction {
     const correlationId = CorrelationId.generate().toString();
     try {
       const created = await storage.webhookEvents.create({
-        tenantId: null,
+        tenantId,
         provider: providerName,
         providerEventId: input.verified.providerEventId,
         type: input.verified.type,
@@ -47,6 +50,7 @@ export class StoreWebhookEventAction {
       const raced = await storage.webhookEvents.findByProviderEvent(
         providerName,
         input.verified.providerEventId,
+        tenantId,
       );
       if (raced) {
         return { id: raced.id, correlationId: raced.correlationId, duplicate: true };

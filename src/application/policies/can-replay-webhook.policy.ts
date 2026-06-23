@@ -2,6 +2,7 @@ export interface ReplayWebhookContext {
   actorType?: string;
   actorId?: string;
   allowed?: boolean;
+  tenantId?: string | null;
 }
 
 export class CanReplayWebhookPolicy {

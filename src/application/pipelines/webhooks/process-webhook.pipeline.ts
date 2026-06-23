@@ -7,6 +7,7 @@ export interface ProcessWebhookInput {
   verified: VerifiedWebhook;
   webhookEventId: string;
   correlationId: string;
+  tenantId?: string | null;
 }
 
 export class ProcessWebhookPipeline {
@@ -15,11 +16,12 @@ export class ProcessWebhookPipeline {
   async handle(input: ProcessWebhookInput): Promise<void> {
     const { storage, events, clock, providerName } = this.deps;
     const occurredAt = clock.now();
+    const tenantId = input.tenantId ?? null;
 
     await this.reconcile(input.verified, occurredAt);
 
     await storage.auditLogs.create({
-      tenantId: null,
+      tenantId,
       correlationId: input.correlationId,
       actorType: 'provider',
       actorId: providerName,
@@ -35,7 +37,7 @@ export class ProcessWebhookPipeline {
 
     if (input.verified.normalizedType) {
       await storage.outboxEvents.create({
-        tenantId: null,
+        tenantId,
         correlationId: input.correlationId,
         eventType: `${input.verified.normalizedType}.v1`,
         eventVersion: 1,

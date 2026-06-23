@@ -152,6 +152,7 @@ export class Payable {
       queue: this.resolved.queue,
       events: this.resolved.events,
       clock: this.resolved.clock,
+      tenantResolver: this.resolved.tenantResolver,
     };
   }
 

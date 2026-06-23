@@ -10,6 +10,7 @@ import type { Logger } from '../../domain/contracts/logger.contract';
 import type { PaymentProvider } from '../../domain/contracts/payment-provider.contract';
 import type { QueueDriver } from '../../domain/contracts/queue-driver.contract';
 import type { StorageDriver } from '../../domain/contracts/storage-driver.contract';
+import type { TenantResolver } from '../../domain/contracts/tenant-resolver.contract';
 import { InMemoryEventBus } from '../../infrastructure/event-bus/in-memory-event-bus';
 import { SyncQueueDriver } from '../../infrastructure/queue/sync/sync-queue-driver';
 import { SystemClock } from '../clock/system-clock';
@@ -24,8 +25,13 @@ export interface IdempotencyConfig {
   store?: IdempotencyStore;
 }
 
+export interface TenantConfig {
+  enabled: boolean;
+  resolver?: TenantResolver;
+}
+
 export interface PayableConfig {
-  tenant?: { enabled: boolean };
+  tenant?: TenantConfig;
   providers: Record<string, PaymentProvider>;
   storage?: StorageDriver;
   queue?: QueueDriver;
@@ -47,6 +53,7 @@ export interface ResolvedIdempotency {
 
 export interface ResolvedConfig {
   tenantEnabled: boolean;
+  tenantResolver?: TenantResolver;
   providers: Map<string, PaymentProvider>;
   storage?: StorageDriver;
   cache?: CacheDriver;
@@ -77,6 +84,7 @@ export function resolveConfig(config: PayableConfig): ResolvedConfig {
   }
   return {
     tenantEnabled: config.tenant?.enabled ?? false,
+    tenantResolver: config.tenant?.resolver,
     providers: new Map(entries),
     storage: config.storage,
     cache: config.cache,
