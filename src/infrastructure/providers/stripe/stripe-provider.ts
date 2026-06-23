@@ -59,6 +59,8 @@ import { StripeWebhookVerifier } from './stripe-webhook-verifier';
 export const STRIPE_API_VERSION = '2026-05-27.dahlia' as const;
 
 const DEFAULT_INVOICE_LIMIT = 100;
+const INVOICE_PDF_TIMEOUT_MS = 10_000;
+const INVOICE_PDF_MAX_BYTES = 10 * 1024 * 1024;
 
 export interface StripeProviderOptions {
   secretKey: string;
@@ -297,15 +299,35 @@ export class StripeProvider
         code: 'INVOICE_PDF_UNAVAILABLE',
       });
     }
-    const response = await globalThis.fetch(invoice.invoice_pdf);
+    if (!invoice.invoice_pdf.startsWith('https://')) {
+      throw new PayableError(`Invoice ${providerInvoiceId} PDF URL is not https`, {
+        code: 'INVOICE_PDF_UNTRUSTED_URL',
+      });
+    }
+    const response = await globalThis.fetch(invoice.invoice_pdf, {
+      signal: AbortSignal.timeout(INVOICE_PDF_TIMEOUT_MS),
+    });
     if (!response.ok) {
       throw new PayableError(`Failed to download invoice ${providerInvoiceId} PDF`, {
         code: 'INVOICE_PDF_DOWNLOAD_FAILED',
         context: { status: response.status },
       });
     }
-    const content = new Uint8Array(await response.arrayBuffer());
-    return { filename: `${providerInvoiceId}.pdf`, content };
+    const declaredLength = Number(response.headers?.get('content-length'));
+    if (Number.isFinite(declaredLength) && declaredLength > INVOICE_PDF_MAX_BYTES) {
+      throw new PayableError(`Invoice ${providerInvoiceId} PDF exceeds the size limit`, {
+        code: 'INVOICE_PDF_TOO_LARGE',
+        context: { bytes: declaredLength },
+      });
+    }
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength > INVOICE_PDF_MAX_BYTES) {
+      throw new PayableError(`Invoice ${providerInvoiceId} PDF exceeds the size limit`, {
+        code: 'INVOICE_PDF_TOO_LARGE',
+        context: { bytes: buffer.byteLength },
+      });
+    }
+    return { filename: `${providerInvoiceId}.pdf`, content: new Uint8Array(buffer) };
   }
 
   private async stripe(): Promise<Stripe> {
