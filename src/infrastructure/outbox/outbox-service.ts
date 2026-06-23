@@ -56,7 +56,7 @@ export class OutboxService {
   ): Promise<void> {
     try {
       await deliver(event);
-      await this.repository.markPublished(event.id);
+      await this.repository.markPublished(event.id, event.lockToken);
       result.published += 1;
     } catch (error) {
       const attempts = event.attempts + 1;
@@ -68,7 +68,7 @@ export class OutboxService {
           attempts,
           error: message,
         });
-        await this.repository.markFailed(event.id, null);
+        await this.repository.markFailed(event.id, null, event.lockToken);
         result.deadLettered += 1;
         return;
       }
@@ -78,7 +78,7 @@ export class OutboxService {
         attempts,
         error: message,
       });
-      await this.repository.markFailed(event.id, this.nextRetry(attempts));
+      await this.repository.markFailed(event.id, this.nextRetry(attempts), event.lockToken);
       result.retried += 1;
     }
   }
