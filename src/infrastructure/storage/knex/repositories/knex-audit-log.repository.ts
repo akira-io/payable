@@ -9,6 +9,9 @@ import type { AuditLog } from '../../../../domain/entities/audit-log.entity';
 import { auditEntryHash } from '../../../audit/audit-chain';
 import { fromJson, toDate, toJson } from '../mappers';
 
+const DEFAULT_AUDIT_LIST_LIMIT = 100;
+const MAX_AUDIT_LIST_LIMIT = 1000;
+
 export class KnexAuditLogRepository implements AuditLogRepository {
   private readonly table = 'payable_audit_logs';
 
@@ -75,9 +78,8 @@ export class KnexAuditLogRepository implements AuditLogRepository {
     if (query.correlationId) {
       builder = builder.where('correlation_id', query.correlationId);
     }
-    if (query.limit) {
-      builder = builder.limit(query.limit);
-    }
+    const limit = Math.min(query.limit ?? DEFAULT_AUDIT_LIST_LIMIT, MAX_AUDIT_LIST_LIMIT);
+    builder = builder.limit(limit);
     const rows = (await builder) as Record<string, unknown>[];
     return rows.map((row) => this.toEntity(row));
   }

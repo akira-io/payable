@@ -28,8 +28,10 @@ export class AuditService {
   }
 
   async verify(tenantId: string | null = null): Promise<boolean> {
-    const entries = (await this.repository.list({ tenantId })).slice().reverse();
-    let previousHash: string | null = null;
+    const entries = (await this.repository.list({ tenantId, limit: Number.MAX_SAFE_INTEGER }))
+      .slice()
+      .reverse();
+    let previousHash: string | null = entries[0]?.previousHash ?? null;
     for (const entry of entries) {
       const expected = await auditEntryHash(previousHash, entry);
       if (entry.previousHash !== previousHash || entry.hash !== expected) {
