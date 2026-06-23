@@ -63,6 +63,18 @@ describe('BullMQQueueDriver', () => {
       new BullMQQueueDriver({ connection, attempts: 3, backoffMs: 500 }).retryOptions(),
     ).toEqual({ attempts: 3, backoff: { type: 'exponential', delay: 500 } });
   });
+
+  it('retains a bounded number of failed jobs instead of forever', () => {
+    const connection = { host: 'localhost', port: 6379 };
+    expect(new BullMQQueueDriver({ connection }).jobOptions('job_1')).toMatchObject({
+      jobId: 'job_1',
+      removeOnComplete: true,
+      removeOnFail: { count: 1000 },
+    });
+    expect(
+      new BullMQQueueDriver({ connection, removeOnFailCount: 50 }).jobOptions().removeOnFail,
+    ).toEqual({ count: 50 });
+  });
 });
 
 describe('async webhook processing', () => {
