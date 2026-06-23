@@ -71,4 +71,23 @@ describe('express adapter', () => {
     expect(res.status).toBe(501);
     expect(res.body.error).toBe('NOT_IMPLEMENTED');
   });
+
+  it('rejects a webhook whose body was parsed by an upstream JSON parser', async () => {
+    const provider = new FakeProvider();
+    const app = express();
+    app.use(express.json());
+    app.use(
+      '/payable',
+      createExpressPayableRoutes(createPayable({ providers: { stripe: provider } })),
+    );
+
+    const res = await request(app)
+      .post('/payable/webhooks')
+      .set('stripe-signature', 'sig')
+      .send({ id: 'evt_1' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('INVALID_WEBHOOK_PAYLOAD');
+    expect(provider.lastVerifyInput).toBeUndefined();
+  });
 });

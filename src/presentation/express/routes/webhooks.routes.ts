@@ -1,6 +1,9 @@
 import { type Router, raw } from 'express';
+import { PayableError } from '../../../domain/errors/payable-error';
 import type { Payable } from '../../../payable';
 import { asyncHandler, type ExpressPayableOptions, flattenHeaders } from '../helpers';
+
+const WEBHOOK_BODY_LIMIT = '1mb';
 
 export function registerWebhookRoutes(
   router: Router,
@@ -9,17 +12,22 @@ export function registerWebhookRoutes(
 ): void {
   const header = options.webhookSignatureHeader ?? 'stripe-signature';
   const handler = asyncHandler(async (req, res) => {
-    const payload = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : '';
+    if (!Buffer.isBuffer(req.body)) {
+      throw new PayableError(
+        'Webhook body must be the raw request buffer; mount the webhook router before any JSON body parser',
+        { code: 'INVALID_WEBHOOK_PAYLOAD' },
+      );
+    }
     const provider = typeof req.params.provider === 'string' ? req.params.provider : undefined;
     const result = await payable.receiveWebhook({
       provider,
-      payload,
+      payload: req.body.toString('utf8'),
       signature: req.header(header) ?? '',
       headers: flattenHeaders(req.headers),
     });
     res.status(200).json(result);
   });
 
-  router.post('/webhooks', raw({ type: '*/*' }), handler);
-  router.post('/webhooks/:provider', raw({ type: '*/*' }), handler);
+  router.post('/webhooks', raw({ type: '*/*', limit: WEBHOOK_BODY_LIMIT }), handler);
+  router.post('/webhooks/:provider', raw({ type: '*/*', limit: WEBHOOK_BODY_LIMIT }), handler);
 }

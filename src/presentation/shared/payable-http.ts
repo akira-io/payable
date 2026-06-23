@@ -4,6 +4,7 @@ import { PayableError } from '../../domain/errors/payable-error';
 const STATUS_BY_CODE: Record<string, number> = {
   NOT_IMPLEMENTED: 501,
   INVALID_WEBHOOK_SIGNATURE: 400,
+  INVALID_WEBHOOK_PAYLOAD: 400,
   PROVIDER_NOT_FOUND: 404,
   CUSTOMER_NOT_FOUND: 404,
   SUBSCRIPTION_NOT_FOUND: 404,
