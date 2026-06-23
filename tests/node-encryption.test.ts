@@ -33,4 +33,10 @@ describe('NodeEncryptionDriver', () => {
     expect(() => new NodeEncryptionDriver({ key: '' })).toThrow('non-empty');
     expect(() => new NodeEncryptionDriver({ key: '   ' })).toThrow('non-empty');
   });
+
+  it('derives the same key deterministically across instances', async () => {
+    const token = await new NodeEncryptionDriver({ key: 'shared-passphrase' }).encrypt('secret');
+    const other = new NodeEncryptionDriver({ key: 'shared-passphrase' });
+    expect(await other.decrypt(token)).toBe('secret');
+  });
 });
