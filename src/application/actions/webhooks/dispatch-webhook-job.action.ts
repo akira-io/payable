@@ -12,7 +12,7 @@ export class DispatchWebhookJobAction {
       correlationId: payload.correlationId,
       idempotencyKey: IdempotencyKey.forWebhook({
         provider: payload.providerName,
-        providerEventId: payload.verified.providerEventId,
+        providerEventId: payload.providerEventId,
       }).toString(),
     });
   }

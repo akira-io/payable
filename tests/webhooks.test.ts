@@ -1,15 +1,26 @@
 import type Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
+import type { QueueJob } from '../src/domain/contracts/queue-driver.contract';
 import { InvalidWebhookSignatureError } from '../src/domain/errors/invalid-webhook-signature.error';
 import { InMemoryEventBus } from '../src/infrastructure/event-bus/in-memory-event-bus';
 import { StripeEventNormalizer } from '../src/infrastructure/providers/stripe/stripe-event-normalizer';
 import { StripeProvider } from '../src/infrastructure/providers/stripe/stripe-provider';
+import { SyncQueueDriver } from '../src/infrastructure/queue/sync/sync-queue-driver';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
+
+class RecordingQueue extends SyncQueueDriver {
+  readonly dispatched: Array<Record<string, unknown>> = [];
+
+  override async dispatch<T>(job: QueueJob<T>): Promise<void> {
+    this.dispatched.push(job.payload as Record<string, unknown>);
+    await super.dispatch(job);
+  }
+}
 
 const stripeWith = (event: unknown): Stripe =>
   ({ webhooks: { constructEventAsync: async () => event } }) as unknown as Stripe;
@@ -88,6 +99,39 @@ describe('payable.receiveWebhook', () => {
     const second = await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
     expect(second.duplicate).toBe(true);
     expect(await storage.outboxEvents.pullPending(10)).toHaveLength(1);
+    await db.destroy();
+  });
+
+  it('keeps decrypted webhook data out of the queue payload', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new FakeProvider();
+    provider.verifyResult = {
+      providerEventId: 'evt_pii',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      data: { id: 'in_1', customerEmail: 'secret@example.com' },
+    };
+    const queue = new RecordingQueue();
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({ providers: { stripe: provider }, storage, queue });
+
+    const result = await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
+
+    expect(queue.dispatched).toHaveLength(1);
+    const payload = queue.dispatched[0] ?? {};
+    expect(payload).not.toHaveProperty('verified');
+    expect(payload).not.toHaveProperty('data');
+    expect(JSON.stringify(payload)).not.toContain('secret@example.com');
+    expect(payload).toMatchObject({
+      webhookEventId: result.webhookEventId,
+      providerEventId: 'evt_pii',
+      providerName: 'stripe',
+    });
+
+    expect((await storage.webhookEvents.findByProviderEvent('stripe', 'evt_pii'))?.status).toBe(
+      'processed',
+    );
     await db.destroy();
   });
 
