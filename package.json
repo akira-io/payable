@@ -47,6 +47,7 @@
     "lint:fix": "biome check --write .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "verify:bundle": "node scripts/check-core-bundle.mjs",
     "prepublishOnly": "bun run build"
   },
   "keywords": [
