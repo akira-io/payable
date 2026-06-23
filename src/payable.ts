@@ -159,6 +159,7 @@ export class Payable {
       events: this.resolved.events,
       clock: this.resolved.clock,
       tenantResolver: this.resolved.tenantResolver,
+      tenantEnabled: this.resolved.tenantEnabled,
     };
   }
 

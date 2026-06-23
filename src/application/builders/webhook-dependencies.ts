@@ -13,4 +13,5 @@ export interface WebhookDependencies {
   events: EventBus;
   clock: Clock;
   tenantResolver?: TenantResolver;
+  tenantEnabled?: boolean;
 }
