@@ -6,6 +6,10 @@ export interface ReplayWebhookContext {
 
 export class CanReplayWebhookPolicy {
   authorize(context: ReplayWebhookContext = {}): boolean {
-    return context.allowed !== false;
+    return context.allowed === true && this.hasActor(context);
+  }
+
+  private hasActor(context: ReplayWebhookContext): boolean {
+    return typeof context.actorId === 'string' && context.actorId.length > 0;
   }
 }
