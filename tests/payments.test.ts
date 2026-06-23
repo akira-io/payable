@@ -10,6 +10,7 @@ import { Money } from '../src/domain/value-objects/money';
 import { StripeProvider } from '../src/infrastructure/providers/stripe/stripe-provider';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
+import { KnexIdempotencyRepository } from '../src/infrastructure/storage/knex/repositories/knex-idempotency.repository';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
@@ -196,6 +197,33 @@ describe('StripeProvider payments', () => {
     } finally {
       globalThis.fetch = original;
     }
+  });
+});
+
+describe('idempotent charge', () => {
+  it('replays a duplicate charge without calling the provider again', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new FakeProvider();
+    const clock = new FakeClock();
+    const storage = new KnexStorageDriver(db, clock);
+    const payable = createPayable({
+      providers: { stripe: provider },
+      storage,
+      clock,
+      idempotency: { store: new KnexIdempotencyRepository(db, clock) },
+    });
+
+    const first = await payable
+      .customer(billable)
+      .charge({ amount: Money.of(9900, 'USD'), reference: 'inv_dup' });
+    const second = await payable
+      .customer(billable)
+      .charge({ amount: Money.of(9900, 'USD'), reference: 'inv_dup' });
+
+    expect(provider.chargeCalls).toBe(1);
+    expect(second.providerPaymentId).toBe(first.providerPaymentId);
+    await db.destroy();
   });
 });
 

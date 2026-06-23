@@ -16,6 +16,7 @@ import { CustomerContext } from './application/builders/customer-context';
 import type { WebhookDependencies } from './application/builders/webhook-dependencies';
 import type { AuthorizationContext } from './application/policies/authorization-context';
 import type { ReplayWebhookContext } from './application/policies/can-replay-webhook.policy';
+import { IdempotencyService } from './application/services/idempotency/idempotency-service';
 import type { Clock } from './domain/contracts/clock.contract';
 import type { EventBus } from './domain/contracts/event-bus.contract';
 import type { Logger } from './domain/contracts/logger.contract';
@@ -136,7 +137,16 @@ export class Payable {
       storage: this.resolved.storage,
       tenantId: tenantId ?? null,
       authorizationEnabled: this.resolved.authorizationEnabled,
+      idempotency: this.idempotencyService(),
     };
+  }
+
+  private idempotencyService(): IdempotencyService | undefined {
+    const { enabled, store } = this.resolved.idempotency;
+    if (!enabled || !store) {
+      return undefined;
+    }
+    return new IdempotencyService(store, this.resolved.clock);
   }
 
   private async processWebhookJob(job: QueueJob): Promise<void> {

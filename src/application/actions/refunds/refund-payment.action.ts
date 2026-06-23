@@ -64,6 +64,34 @@ export class RefundPaymentAction {
       currency: payment.currency,
     });
     const correlationId = CorrelationId.generate().toString();
+    const refundable = {
+      id: payment.id,
+      providerPaymentId: payment.providerPaymentId,
+      currency: payment.currency,
+      amount: payment.amount,
+    };
+    const run = (): Promise<Refund> => this.settle(storage, refundable, input, key, correlationId);
+    if (!this.deps.idempotency) {
+      return run();
+    }
+    return this.deps.idempotency.execute({
+      key: key.toString(),
+      scope: 'refund',
+      operation: 'refund',
+      request: { paymentId: payment.id, amount: requested, currency: payment.currency },
+      resourceType: 'refund',
+      tenantId: this.deps.tenantId,
+      run,
+    });
+  }
+
+  private async settle(
+    storage: NonNullable<BillingDependencies['storage']>,
+    payment: { id: string; providerPaymentId: string; currency: string; amount: number },
+    input: RefundPaymentActionInput,
+    key: IdempotencyKey,
+    correlationId: string,
+  ): Promise<Refund> {
     const dto = await this.deps.provider.refund(
       { providerPaymentId: payment.providerPaymentId, amount: input.amount, reason: input.reason },
       { correlationId, idempotencyKey: key.toString() },
