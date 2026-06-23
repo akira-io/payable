@@ -6,6 +6,7 @@ import type {
   CheckoutSessionDTO,
   CreateCheckoutSessionInput,
 } from '../../../domain/dtos/checkout.dto';
+import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type {
   CreateCustomerInput,
   CustomerDTO,
@@ -25,6 +26,7 @@ import type {
 } from '../../../domain/dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
+import { buildPaddleClientOptions } from './paddle-client-options';
 import { PaddleEventNormalizer } from './paddle-event-normalizer';
 import {
   toCheckoutSessionDTO,
@@ -47,11 +49,13 @@ export class PaddleProvider implements PaymentProvider {
   readonly name = 'paddle';
   private readonly normalizer: PaddleEventNormalizer;
   private readonly verifier: PaddleWebhookVerifier;
+  private readonly injected: boolean;
 
   constructor(
     private readonly options: PaddleProviderOptions,
     private client?: PaddleClient,
   ) {
+    this.injected = client !== undefined;
     this.normalizer = new PaddleEventNormalizer(options.logger);
     this.verifier = new PaddleWebhookVerifier(options.webhookSecret);
   }
@@ -119,8 +123,11 @@ export class PaddleProvider implements PaymentProvider {
     return toPriceDTO(price);
   }
 
-  async createCheckoutSession(input: CreateCheckoutSessionInput): Promise<CheckoutSessionDTO> {
-    const paddle = await this.paddle();
+  async createCheckoutSession(
+    input: CreateCheckoutSessionInput,
+    ctx: OperationContext,
+  ): Promise<CheckoutSessionDTO> {
+    const paddle = await this.paddle(ctx.idempotencyKey);
     const transaction = await paddle.transactions.create({
       items: input.lineItems.map((item) => ({ priceId: item.priceId, quantity: item.quantity })),
       customerId: input.providerCustomerId,
@@ -153,11 +160,11 @@ export class PaddleProvider implements PaymentProvider {
     return toSubscriptionDTO(subscription);
   }
 
-  async refund(input: RefundInput): Promise<RefundResultDTO> {
+  async refund(input: RefundInput, ctx: OperationContext): Promise<RefundResultDTO> {
     if (input.amount) {
       throw new ProviderCapabilityNotSupportedError('paddle', 'partial refund');
     }
-    const paddle = await this.paddle();
+    const paddle = await this.paddle(ctx.idempotencyKey);
     const adjustment = await paddle.adjustments.create({
       action: 'refund',
       transactionId: input.providerPaymentId,
@@ -191,12 +198,21 @@ export class PaddleProvider implements PaymentProvider {
     return { url: session.urls.general.overview };
   }
 
-  private async paddle(): Promise<PaddleClient> {
-    if (this.client) {
+  private async paddle(idempotencyKey?: string): Promise<PaddleClient> {
+    if (this.injected && this.client) {
+      return this.client;
+    }
+    if (!idempotencyKey && this.client) {
       return this.client;
     }
     const { Paddle } = await import('@paddle/paddle-node-sdk');
-    this.client = new Paddle(this.options.apiKey) as unknown as PaddleClient;
-    return this.client;
+    const client = new Paddle(
+      this.options.apiKey,
+      buildPaddleClientOptions(idempotencyKey),
+    ) as unknown as PaddleClient;
+    if (!idempotencyKey) {
+      this.client = client;
+    }
+    return client;
   }
 }
