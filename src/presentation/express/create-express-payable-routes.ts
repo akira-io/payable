@@ -15,6 +15,9 @@ export function createExpressPayableRoutes(
 ): Router {
   const router = Router();
   registerWebhookRoutes(router, payable, options);
+  if (options.authenticate) {
+    router.use(options.authenticate);
+  }
   registerCheckoutRoutes(router, payable);
   registerSubscriptionRoutes(router, payable);
   registerCustomerRoutes(router, payable);
