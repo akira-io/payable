@@ -20,9 +20,17 @@ export class ResumeSubscriptionAction extends SubscriptionAction {
       { providerSubscriptionId: subscription.providerSubscriptionId },
       this.context('resume', subscription.providerSubscriptionId),
     );
-    return this.storage().subscriptions.update(subscription.id, {
+    const updated = await this.storage().subscriptions.update(subscription.id, {
       status: dto.status,
       endsAt: null,
     });
+    await this.audit({
+      action: 'subscription.resumed',
+      subscriptionId: subscription.id,
+      before: { status: subscription.status, endsAt: subscription.endsAt ?? null },
+      after: { status: updated.status, endsAt: updated.endsAt ?? null },
+      authorization,
+    });
+    return updated;
   }
 }

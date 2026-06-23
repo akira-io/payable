@@ -186,6 +186,8 @@ describe('charge and refund lifecycle', () => {
     expect(updated?.refundedAmount).toBe(9900);
     expect(updated?.status).toBe('refunded');
     expect(await new ListRefundsQuery(deps).run(payment.id)).toHaveLength(1);
+    const auditEntries = await storage.auditLogs.list({ resourceType: 'payment' });
+    expect(auditEntries.some((entry) => entry.action === 'payment.refunded')).toBe(true);
     expect(await new ListInvoicesAction(deps).handle(billable)).toHaveLength(1);
     expect((await new DownloadInvoicePdfAction(deps).handle('in_fake')).filename).toBe(
       'in_fake.pdf',

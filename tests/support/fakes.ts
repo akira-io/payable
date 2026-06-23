@@ -9,6 +9,7 @@ import type {
   IdempotencyStore,
 } from '../../src/domain/contracts/idempotency-store.contract';
 import type { AuditLog } from '../../src/domain/entities/audit-log.entity';
+import { auditEntryHash } from '../../src/infrastructure/audit/audit-chain';
 
 export class InMemoryIdempotencyStore implements IdempotencyStore {
   private readonly records = new Map<string, IdempotencyRecord>();
@@ -82,7 +83,17 @@ export class InMemoryAuditLogRepository implements AuditLogRepository {
 
   async create(data: NewAuditLog): Promise<AuditLog> {
     this.sequence += 1;
-    const entry: AuditLog = { id: `audit_${this.sequence}`, createdAt: this.clock.now(), ...data };
+    const previousHash =
+      [...this.entries].reverse().find((e) => (e.tenantId ?? null) === (data.tenantId ?? null))
+        ?.hash ?? null;
+    const hash = await auditEntryHash(previousHash, data);
+    const entry: AuditLog = {
+      id: `audit_${this.sequence}`,
+      createdAt: this.clock.now(),
+      previousHash,
+      hash,
+      ...data,
+    };
     this.entries.push(entry);
     return entry;
   }
@@ -98,8 +109,12 @@ export class InMemoryAuditLogRepository implements AuditLogRepository {
       if (query.correlationId && entry.correlationId !== query.correlationId) {
         return false;
       }
+      if (query.tenantId !== undefined && (entry.tenantId ?? null) !== (query.tenantId ?? null)) {
+        return false;
+      }
       return true;
     });
-    return query.limit ? matches.slice(0, query.limit) : matches;
+    const ordered = matches.slice().reverse();
+    return query.limit ? ordered.slice(0, query.limit) : ordered;
   }
 }

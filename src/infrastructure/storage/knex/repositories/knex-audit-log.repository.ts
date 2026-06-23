@@ -6,6 +6,7 @@ import type {
 } from '../../../../domain/contracts/audit-log-repository.contract';
 import type { Clock } from '../../../../domain/contracts/clock.contract';
 import type { AuditLog } from '../../../../domain/entities/audit-log.entity';
+import { auditEntryHash } from '../../../audit/audit-chain';
 import { fromJson, toDate, toJson } from '../mappers';
 
 export class KnexAuditLogRepository implements AuditLogRepository {
@@ -18,6 +19,8 @@ export class KnexAuditLogRepository implements AuditLogRepository {
 
   async create(data: NewAuditLog): Promise<AuditLog> {
     const id = globalThis.crypto.randomUUID();
+    const previousHash = await this.latestHash(data.tenantId ?? null);
+    const hash = await auditEntryHash(previousHash, data);
     await this.knex(this.table).insert({
       id,
       tenant_id: data.tenantId,
@@ -32,10 +35,20 @@ export class KnexAuditLogRepository implements AuditLogRepository {
       metadata: fromJson(data.metadata) ?? null,
       ip_address: data.ipAddress,
       user_agent: data.userAgent,
+      previous_hash: previousHash,
+      hash,
       created_at: this.clock.now().toISOString(),
     });
     const row = await this.knex(this.table).where({ id }).first();
     return this.toEntity(row as Record<string, unknown>);
+  }
+
+  private async latestHash(tenantId: string | null): Promise<string | null> {
+    const query = this.knex(this.table).orderBy('created_at', 'desc').orderBy('id', 'desc');
+    const scoped =
+      tenantId === null ? query.whereNull('tenant_id') : query.where({ tenant_id: tenantId });
+    const row = await scoped.first();
+    return row ? ((row.hash as string | null) ?? null) : null;
   }
 
   async list(query: AuditLogQuery): Promise<AuditLog[]> {
@@ -74,6 +87,8 @@ export class KnexAuditLogRepository implements AuditLogRepository {
       metadata: toJson(row.metadata),
       ipAddress: (row.ip_address as string | null) ?? null,
       userAgent: (row.user_agent as string | null) ?? null,
+      previousHash: (row.previous_hash as string | null) ?? null,
+      hash: row.hash as string,
       createdAt: toDate(row.created_at),
     };
   }
