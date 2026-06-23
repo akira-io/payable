@@ -12,6 +12,14 @@ import {
 } from 'dinero.js';
 import { type CurrencyCode, CurrencyManager } from './currency';
 
+function assertSafeMinor(amount: number, context: string): void {
+  if (!Number.isSafeInteger(amount)) {
+    throw new RangeError(
+      `Money ${context} (${amount}) exceeds the safe integer range; values beyond 2^53-1 lose precision`,
+    );
+  }
+}
+
 function divideMinor(amount: number, divisor: number): number {
   if (divisor === 0) {
     throw new RangeError('Cannot divide money by zero');
@@ -35,6 +43,7 @@ export class Money {
     if (!Number.isInteger(minorAmount)) {
       throw new TypeError(`Money amount must be an integer in minor units, got ${minorAmount}`);
     }
+    assertSafeMinor(minorAmount, 'amount');
     const resolved = CurrencyManager.resolve(currency);
     return new Money(dinero({ amount: minorAmount, currency: resolved }), resolved.code);
   }
@@ -68,6 +77,7 @@ export class Money {
     if (!Number.isInteger(factor)) {
       throw new TypeError(`Money multiplier must be an integer, got ${factor}`);
     }
+    assertSafeMinor(this.amount() * factor, 'product');
     return new Money(multiply(this.value, factor), this.code);
   }
 
@@ -82,6 +92,7 @@ export class Money {
     if (!Number.isInteger(basisPoints)) {
       throw new TypeError(`Basis points must be an integer, got ${basisPoints}`);
     }
+    assertSafeMinor(this.amount() * basisPoints, 'product');
     return Money.of(divideMinor(this.amount() * basisPoints, 10_000), this.code);
   }
 
@@ -97,7 +108,10 @@ export class Money {
       throw new RangeError('allocate ratios must sum to a positive value');
     }
     const amount = this.amount();
-    const shares = ratios.map((ratio) => Math.trunc((amount * ratio) / total));
+    const shares = ratios.map((ratio) => {
+      assertSafeMinor(amount * ratio, 'allocation product');
+      return Math.trunc((amount * ratio) / total);
+    });
     let remainder = amount - shares.reduce((sum, share) => sum + share, 0);
     const step = remainder >= 0 ? 1 : -1;
     let index = 0;
