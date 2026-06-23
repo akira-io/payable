@@ -10,6 +10,7 @@ export interface WebhookEventRepository {
     providerEventId: string,
     tenantId?: string | null,
   ): Promise<WebhookEvent | null>;
+  claim(id: string, tenantId?: string | null): Promise<boolean>;
   markStatus(
     id: string,
     status: WebhookEventStatus,

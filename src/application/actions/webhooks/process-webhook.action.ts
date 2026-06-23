@@ -30,6 +30,13 @@ export class ProcessWebhookAction {
     if (event.status === 'processed') {
       return;
     }
+    const claimed = await this.deps.storage.webhookEvents.claim(
+      payload.webhookEventId,
+      payload.tenantId,
+    );
+    if (!claimed) {
+      return;
+    }
     const verified: VerifiedWebhook = {
       providerEventId: event.providerEventId,
       type: event.type,

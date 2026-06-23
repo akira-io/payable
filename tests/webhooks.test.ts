@@ -165,6 +165,73 @@ describe('payable.receiveWebhook', () => {
     await db.destroy();
   });
 
+  it('claims the event atomically so concurrent workers process it once', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock();
+    const storage = new KnexStorageDriver(db, clock);
+
+    const event = await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_race',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      payload: '{}',
+      data: {},
+      headers: {},
+      status: 'pending',
+      correlationId: 'corr_race',
+      receivedAt: clock.now(),
+    });
+
+    const deps: WebhookDependencies = {
+      provider: new FakeProvider(),
+      providerName: 'stripe',
+      storage,
+      queue: new SyncQueueDriver(),
+      events: new InMemoryEventBus(),
+      clock,
+    };
+    const action = new ProcessWebhookAction(deps);
+    const job = {
+      providerName: 'stripe',
+      webhookEventId: event.id,
+      providerEventId: 'evt_race',
+      correlationId: 'corr_race',
+      tenantId: null,
+    };
+
+    await Promise.all([action.handle(job), action.handle(job)]);
+
+    expect(await countDuePendingOutbox(db, clock)).toBe(1);
+    expect(await storage.auditLogs.list({ resourceType: 'webhook_event' })).toHaveLength(1);
+    await db.destroy();
+  });
+
+  it('only one of two workers wins the claim', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const event = await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_claim',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      payload: '{}',
+      data: {},
+      headers: {},
+      status: 'pending',
+      correlationId: 'corr_claim',
+      receivedAt: new FakeClock().now(),
+    });
+
+    expect(await storage.webhookEvents.claim(event.id)).toBe(true);
+    expect(await storage.webhookEvents.claim(event.id)).toBe(false);
+    await db.destroy();
+  });
+
   it('does not reprocess an already-processed event (idempotent delivery)', async () => {
     const db = createTestDb();
     await migrate(db);

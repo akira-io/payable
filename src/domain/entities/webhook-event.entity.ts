@@ -1,6 +1,6 @@
 import type { TenantScoped } from './common';
 
-export type WebhookEventStatus = 'pending' | 'processed' | 'failed';
+export type WebhookEventStatus = 'pending' | 'processing' | 'processed' | 'failed';
 
 export interface WebhookEvent extends TenantScoped {
   readonly id: string;
