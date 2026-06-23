@@ -141,4 +141,31 @@ describe('payable.receiveWebhook', () => {
       'requires a storage driver',
     );
   });
+
+  it('rejects a provider-less webhook when several providers are registered', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const stripe = new FakeProvider();
+    const paddle = new FakeProvider();
+    stripe.verifyResult = {
+      providerEventId: 'evt_amb',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      data: { id: 'in_1' },
+    };
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({ providers: { stripe, paddle }, storage });
+
+    await expect(payable.receiveWebhook({ payload: '{}', signature: 'sig' })).rejects.toThrow(
+      'Multiple providers are registered',
+    );
+
+    const result = await payable.receiveWebhook({
+      provider: 'stripe',
+      payload: '{}',
+      signature: 'sig',
+    });
+    expect(result.duplicate).toBe(false);
+    await db.destroy();
+  });
 });
