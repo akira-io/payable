@@ -198,6 +198,35 @@ describe('StripeProvider payments', () => {
       globalThis.fetch = original;
     }
   });
+
+  it('rejects a non-https invoice PDF URL', async () => {
+    const stripe = {
+      invoices: { retrieve: async () => ({ invoice_pdf: 'http://insecure.test/in.pdf' }) },
+    } as unknown as Stripe;
+    await expect(stripeProvider(stripe).downloadInvoicePdf('in_1')).rejects.toMatchObject({
+      code: 'INVOICE_PDF_UNTRUSTED_URL',
+    });
+  });
+
+  it('rejects an invoice PDF that exceeds the size limit', async () => {
+    const stripe = {
+      invoices: { retrieve: async () => ({ invoice_pdf: 'https://pdf.test/in.pdf' }) },
+    } as unknown as Stripe;
+    const provider = stripeProvider(stripe);
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => ({
+      ok: true,
+      headers: { get: () => String(50 * 1024 * 1024) },
+      arrayBuffer: async () => new ArrayBuffer(0),
+    })) as unknown as typeof fetch;
+    try {
+      await expect(provider.downloadInvoicePdf('in_1')).rejects.toMatchObject({
+        code: 'INVOICE_PDF_TOO_LARGE',
+      });
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
 });
 
 describe('idempotent charge', () => {
