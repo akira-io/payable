@@ -7,6 +7,7 @@ import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
 import { FindSubscriptionQuery } from '../../queries/subscriptions/find-subscription.query';
+import { assertProviderCapability } from '../../services/provider-capabilities/assert-provider-capability';
 
 export type ManagedSubscription = Subscription & { providerSubscriptionId: string };
 
@@ -23,6 +24,7 @@ export abstract class SubscriptionAction {
   }
 
   protected async resolve(billable: Billable, name: string): Promise<ManagedSubscription> {
+    assertProviderCapability(this.deps.provider, 'subscriptions');
     this.storage();
     const subscription = await new FindSubscriptionQuery(this.deps).run(billable, name);
     if (!subscription?.providerSubscriptionId) {

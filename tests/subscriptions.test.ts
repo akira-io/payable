@@ -103,4 +103,23 @@ describe('subscription lifecycle', () => {
       'requires a storage driver',
     );
   });
+
+  it('rejects management when the provider lacks the subscriptions capability', async () => {
+    class NoSubscriptionsProvider extends FakeProvider {
+      override capabilities() {
+        return { ...super.capabilities(), subscriptions: false };
+      }
+    }
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({
+      providers: { stripe: new NoSubscriptionsProvider() },
+      storage,
+    });
+    await expect(payable.customer(billable).subscription('default').cancel()).rejects.toThrow(
+      'subscriptions',
+    );
+    await db.destroy();
+  });
 });
