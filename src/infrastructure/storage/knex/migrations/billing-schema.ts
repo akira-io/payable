@@ -39,7 +39,7 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.string('provider_price_id').nullable();
     table.uuid('product_id').notNullable();
     table.string('currency').notNullable();
-    table.integer('unit_amount').notNullable();
+    table.bigInteger('unit_amount').notNullable();
     table.string('interval').nullable();
     table.integer('interval_count').nullable();
     table.boolean('active').notNullable();
@@ -89,9 +89,9 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.string('provider_invoice_id').nullable();
     table.string('status').notNullable();
     table.string('currency').notNullable();
-    table.integer('total').notNullable();
-    table.integer('amount_paid').notNullable();
-    table.integer('amount_due').notNullable();
+    table.bigInteger('total').notNullable();
+    table.bigInteger('amount_paid').notNullable();
+    table.bigInteger('amount_due').notNullable();
     table.string('number').nullable();
     table.text('hosted_invoice_url').nullable();
     table.text('invoice_pdf').nullable();
@@ -109,8 +109,8 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.string('provider_payment_id').nullable();
     table.string('status').notNullable();
     table.string('currency').notNullable();
-    table.integer('amount').notNullable();
-    table.integer('refunded_amount').notNullable();
+    table.bigInteger('amount').notNullable();
+    table.bigInteger('refunded_amount').notNullable();
     table.string('reference').nullable();
     table.text('description').nullable();
     table.timestamp('created_at').notNullable();
@@ -127,7 +127,7 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.string('provider_refund_id').nullable();
     table.string('status').notNullable();
     table.string('currency').notNullable();
-    table.integer('amount').notNullable();
+    table.bigInteger('amount').notNullable();
     table.text('reason').nullable();
     table.timestamp('created_at').notNullable();
     table.timestamp('updated_at').notNullable();

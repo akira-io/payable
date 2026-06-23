@@ -119,6 +119,23 @@ describe('KnexStorageDriver catalog', () => {
     expect(payment.currency).toBe('USD');
     expect((await storage.payments.findById(payment.id))?.currency).toBe('USD');
   });
+
+  it('stores money amounts beyond the 32-bit integer range', async () => {
+    const large = 5_000_000_000;
+    const payment = await storage.payments.create({
+      tenantId: null,
+      customerId: null,
+      provider: 'stripe',
+      providerPaymentId: 'pi_big',
+      status: 'succeeded',
+      currency: 'USD',
+      amount: large,
+      refundedAmount: 0,
+      reference: null,
+      description: null,
+    });
+    expect((await storage.payments.findById(payment.id))?.amount).toBe(large);
+  });
 });
 
 describe('KnexStorageDriver transactions', () => {
