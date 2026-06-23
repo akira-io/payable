@@ -9,6 +9,11 @@ export class NodeEncryptionDriver implements Encryption {
   private readonly key: Buffer;
 
   constructor(options: { key: string }) {
+    if (options.key.trim().length === 0) {
+      throw new PayableError('Encryption key must be a non-empty high-entropy secret', {
+        code: 'ENCRYPTION_KEY_REQUIRED',
+      });
+    }
     this.key = createHash('sha256').update(options.key).digest();
   }
 

@@ -28,4 +28,9 @@ describe('NodeEncryptionDriver', () => {
     const driver = new NodeEncryptionDriver({ key: 'k' });
     await expect(driver.decrypt('not-a-token')).rejects.toThrow('Malformed ciphertext');
   });
+
+  it('rejects an empty key at construction', () => {
+    expect(() => new NodeEncryptionDriver({ key: '' })).toThrow('non-empty');
+    expect(() => new NodeEncryptionDriver({ key: '   ' })).toThrow('non-empty');
+  });
 });
