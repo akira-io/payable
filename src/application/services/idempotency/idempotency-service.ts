@@ -15,6 +15,7 @@ export interface IdempotentExecution<T> {
   resourceType?: string | null;
   resourceId?: string | null;
   tenantId?: string | null;
+  retryFailed?: boolean;
   run: () => Promise<T>;
 }
 
@@ -38,18 +39,20 @@ export class IdempotencyService {
 
   async execute<T>(execution: IdempotentExecution<T>): Promise<T> {
     const requestHash = await hashRequest(execution.request);
+    const retryFailed = execution.retryFailed ?? this.retryFailed;
     const existing = await this.store.find(execution.key, execution.tenantId);
-    const replay = this.replay<T>(existing, requestHash, execution.key);
+    const replay = this.replay<T>(existing, requestHash, execution.key, retryFailed);
     if (replay.handled) {
       return replay.value as T;
     }
-    return this.run(execution, requestHash);
+    return this.run(execution, requestHash, retryFailed);
   }
 
   private replay<T>(
     existing: IdempotencyRecord | null,
     requestHash: string,
     key: string,
+    retryFailed: boolean,
   ): { handled: boolean; value?: T } {
     if (!existing) {
       return { handled: false };
@@ -63,7 +66,7 @@ export class IdempotencyService {
     if (existing.status === 'processing' && this.isLocked(existing)) {
       throw new IdempotencyInProgressError(key);
     }
-    if (existing.status === 'failed' && !this.retryFailed) {
+    if (existing.status === 'failed' && !retryFailed) {
       throw new IdempotencyConflictError(key);
     }
     return { handled: false };
@@ -73,12 +76,16 @@ export class IdempotencyService {
     return record.lockedUntil !== null && record.lockedUntil.getTime() > this.clock.now().getTime();
   }
 
-  private async run<T>(execution: IdempotentExecution<T>, requestHash: string): Promise<T> {
+  private async run<T>(
+    execution: IdempotentExecution<T>,
+    requestHash: string,
+    retryFailed: boolean,
+  ): Promise<T> {
     const record = this.processingRecord(execution, requestHash);
     const acquired = await this.store.acquire(record, execution.tenantId);
     if (!acquired) {
       const existing = await this.store.find(execution.key, execution.tenantId);
-      const replay = this.replay<T>(existing, requestHash, execution.key);
+      const replay = this.replay<T>(existing, requestHash, execution.key, retryFailed);
       if (replay.handled) {
         return replay.value as T;
       }
