@@ -48,29 +48,31 @@ export class CreateSubscriptionAction extends SubscriptionAction {
       },
       { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
     );
-    const subscription = await storage.subscriptions.create({
-      tenantId: null,
-      customerId: customer.id,
-      name: input.name,
-      provider: this.deps.providerName,
-      providerSubscriptionId: dto.providerSubscriptionId,
-      status: dto.status,
-      priceId: input.priceId,
-      quantity: input.quantity ?? 1,
-      trialEndsAt: dto.trialEndsAt,
-      endsAt: null,
-      currentPeriodStart: null,
-      currentPeriodEnd: dto.currentPeriodEnd,
-    });
     const items = input.items ?? [{ priceId: input.priceId, quantity: input.quantity ?? 1 }];
-    for (const item of items) {
-      await storage.subscriptionItems.create({
-        subscriptionId: subscription.id,
-        priceId: item.priceId,
-        providerItemId: null,
-        quantity: item.quantity,
+    return storage.transaction(async (repos) => {
+      const subscription = await repos.subscriptions.create({
+        tenantId: null,
+        customerId: customer.id,
+        name: input.name,
+        provider: this.deps.providerName,
+        providerSubscriptionId: dto.providerSubscriptionId,
+        status: dto.status,
+        priceId: input.priceId,
+        quantity: input.quantity ?? 1,
+        trialEndsAt: dto.trialEndsAt,
+        endsAt: null,
+        currentPeriodStart: null,
+        currentPeriodEnd: dto.currentPeriodEnd,
       });
-    }
-    return subscription;
+      await repos.subscriptionItems.createMany(
+        items.map((item) => ({
+          subscriptionId: subscription.id,
+          priceId: item.priceId,
+          providerItemId: null,
+          quantity: item.quantity,
+        })),
+      );
+      return subscription;
+    });
   }
 }

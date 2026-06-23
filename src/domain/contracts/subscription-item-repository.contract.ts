@@ -4,5 +4,6 @@ export type NewSubscriptionItem = Omit<SubscriptionItem, 'id' | 'createdAt' | 'u
 
 export interface SubscriptionItemRepository {
   create(data: NewSubscriptionItem): Promise<SubscriptionItem>;
+  createMany(data: NewSubscriptionItem[]): Promise<void>;
   listBySubscription(subscriptionId: string): Promise<SubscriptionItem[]>;
 }
