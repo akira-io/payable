@@ -94,6 +94,16 @@ describe('Money', () => {
     expect(() => Money.of(100, 'USD').percentage(12.5)).toThrow(TypeError);
   });
 
+  it('rejects amounts beyond the safe integer range', () => {
+    expect(() => Money.of(Number.MAX_SAFE_INTEGER + 1, 'USD')).toThrow(RangeError);
+  });
+
+  it('rejects multiply and percentage products that overflow the safe integer range', () => {
+    const large = Money.of(90_000_000_000, 'JPY');
+    expect(() => large.multiply(1_000_000)).toThrow(RangeError);
+    expect(() => large.percentage(1_000_000)).toThrow(RangeError);
+  });
+
   it('treats minor units correctly for zero-decimal currencies', () => {
     const yen = Money.of(1000, 'JPY');
     expect(yen.amount()).toBe(1000);
