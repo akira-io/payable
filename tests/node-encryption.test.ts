@@ -49,4 +49,11 @@ describe('NodeEncryptionDriver', () => {
       new NodeEncryptionDriver({ key: 'k', salt: 'tenant-b' }).decrypt(token),
     ).rejects.toThrow();
   });
+
+  it('derives a per-key salt by default rather than a shared constant', async () => {
+    const token = await new NodeEncryptionDriver({ key: 'k' }).encrypt('secret');
+    await expect(
+      new NodeEncryptionDriver({ key: 'k', salt: 'explicit' }).decrypt(token),
+    ).rejects.toThrow();
+  });
 });
