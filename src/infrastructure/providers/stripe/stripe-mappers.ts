@@ -72,7 +72,10 @@ export function toSubscriptionDTO(subscription: Stripe.Subscription): Subscripti
   return {
     providerSubscriptionId: subscription.id,
     status: isSubscriptionStatus(subscription.status) ? subscription.status : 'incomplete',
-    currentPeriodEnd: fromUnixSeconds(subscription.items.data[0]?.current_period_end),
+    currentPeriodEnd: fromUnixSeconds(
+      subscription.items.data[0]?.current_period_end ??
+        (subscription as { current_period_end?: number | null }).current_period_end,
+    ),
     trialEndsAt: fromUnixSeconds(subscription.trial_end),
   };
 }
