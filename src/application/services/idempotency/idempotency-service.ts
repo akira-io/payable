@@ -57,6 +57,9 @@ export class IdempotencyService {
     if (!existing) {
       return { handled: false };
     }
+    if (this.isExpired(existing)) {
+      return { handled: false };
+    }
     if (existing.requestHash !== requestHash) {
       throw new IdempotencyConflictError(key);
     }
@@ -74,6 +77,10 @@ export class IdempotencyService {
 
   private isLocked(record: IdempotencyRecord): boolean {
     return record.lockedUntil !== null && record.lockedUntil.getTime() > this.clock.now().getTime();
+  }
+
+  private isExpired(record: IdempotencyRecord): boolean {
+    return record.expiresAt !== null && record.expiresAt.getTime() <= this.clock.now().getTime();
   }
 
   private async run<T>(

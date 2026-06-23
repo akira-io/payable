@@ -102,6 +102,33 @@ describe('IdempotencyService', () => {
     expect(attempts).toBe(2);
   });
 
+  it('re-runs a record whose expiresAt has passed', async () => {
+    const store = new InMemoryIdempotencyStore();
+    const clock = new FakeClock();
+    await store.put({
+      key: 'charge:exp',
+      scope: 'charge',
+      operation: 'charge',
+      resourceType: null,
+      resourceId: null,
+      requestHash: await hashRequest({ amount: 1 }),
+      response: 'old',
+      status: 'completed',
+      lockedUntil: null,
+      expiresAt: new Date('2020-01-01T00:00:00.000Z'),
+    });
+    const service = new IdempotencyService(store, clock);
+    let runs = 0;
+    const result = await service.execute(
+      execution('charge:exp', { amount: 1 }, async () => {
+        runs += 1;
+        return 'new';
+      }),
+    );
+    expect(result).toBe('new');
+    expect(runs).toBe(1);
+  });
+
   it('does not let a stale lock holder clobber the record (fencing token)', async () => {
     const store = new InMemoryIdempotencyStore();
     const base = {

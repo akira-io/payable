@@ -49,8 +49,17 @@ export class KnexIdempotencyRepository implements IdempotencyStore {
     const now = this.clock.now().toISOString();
     const affected = await this.knex(this.table)
       .where({ key: record.key, tenant_id: tenant })
-      .whereIn('status', ['processing', 'failed'])
-      .where((qb) => qb.whereNull('locked_until').orWhere('locked_until', '<', now))
+      .where((claimable) =>
+        claimable
+          .where((live) =>
+            live
+              .whereIn('status', ['processing', 'failed'])
+              .andWhere((lock) => lock.whereNull('locked_until').orWhere('locked_until', '<', now)),
+          )
+          .orWhere((expired) =>
+            expired.whereNotNull('expires_at').andWhere('expires_at', '<', now),
+          ),
+      )
       .update({
         status: 'processing',
         request_hash: record.requestHash,
