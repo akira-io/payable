@@ -20,6 +20,17 @@ async function makeApp(payable: Payable) {
 const billable = { billableType: 'User', billableId: '1', email: 'user@example.com', name: 'User' };
 
 describe('fastify adapter', () => {
+  it('rejects a checkout body larger than the route limit', async () => {
+    const app = await makeApp(createPayable({ providers: { stripe: new FakeProvider() } }));
+    const res = await app.inject({
+      method: 'POST',
+      url: '/payable/checkout',
+      payload: { billable, note: 'x'.repeat(70 * 1024) },
+    });
+    expect(res.statusCode).toBe(413);
+    await app.close();
+  });
+
   it('creates a subscription checkout session', async () => {
     const provider = new FakeProvider();
     const app = await makeApp(createPayable({ providers: { stripe: provider } }));
