@@ -4,6 +4,8 @@ export type CurrencyCode = string;
 
 export type KnownCurrencyCode = Extract<keyof typeof currencies, string>;
 
+export type CurrencyInput = KnownCurrencyCode | (string & {});
+
 export interface DineroCurrency {
   readonly code: string;
   readonly base: number | number[];

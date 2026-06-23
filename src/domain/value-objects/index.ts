@@ -1,5 +1,11 @@
 export { CorrelationId } from './correlation-id';
-export { type CurrencyCode, CurrencyManager, type DineroCurrency } from './currency';
+export {
+  type CurrencyCode,
+  type CurrencyInput,
+  CurrencyManager,
+  type DineroCurrency,
+  type KnownCurrencyCode,
+} from './currency';
 export {
   type ChargeKeyParts,
   type CheckoutKeyParts,
