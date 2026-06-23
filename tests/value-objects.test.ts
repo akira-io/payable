@@ -36,6 +36,14 @@ describe('IdempotencyKey', () => {
   it('rejects empty keys', () => {
     expect(() => IdempotencyKey.of('  ')).toThrow(TypeError);
   });
+
+  it('does not collide when a component contains the separator', () => {
+    const base = { provider: 'stripe', billableType: 'User', billableId: '1', currency: 'USD' };
+    const a = IdempotencyKey.forCharge({ ...base, reference: 'a:100', amount: 5 }).toString();
+    const b = IdempotencyKey.forCharge({ ...base, reference: 'a', amount: 100 }).toString();
+    expect(a).not.toBe(b);
+    expect(a).toContain('a%3A100');
+  });
 });
 
 describe('CorrelationId', () => {
