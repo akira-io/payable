@@ -17,7 +17,13 @@ import type { Subscription } from '../../domain/entities/subscription.entity';
 import { PayableError } from '../../domain/errors/payable-error';
 import { Money } from '../../domain/value-objects/money';
 import type { Payable } from '../../payable';
-import { parseBody, refundBodySchema } from '../shared/schemas';
+import {
+  checkoutBodySchema,
+  manageSubscriptionBodySchema,
+  parseBody,
+  refundBodySchema,
+  swapSubscriptionBodySchema,
+} from '../shared/schemas';
 import {
   flattenHeaders,
   type NestPayableOptions,
@@ -27,13 +33,6 @@ import {
 } from './payable.constants';
 import { PayableExceptionFilter } from './payable.exception-filter';
 import { PayableAuthGuard } from './payable-auth.guard';
-
-interface CheckoutRequestBody {
-  billable: Billable;
-  subscription: { name: string; price: string; trialDays?: number; coupon?: string };
-  successUrl: string;
-  cancelUrl: string;
-}
 
 type ManageAction = 'cancel' | 'cancelNow' | 'resume';
 
@@ -60,7 +59,8 @@ export class PayableController {
   @Post('checkout')
   @HttpCode(201)
   @UseGuards(PayableAuthGuard)
-  checkout(@Body() body: CheckoutRequestBody): Promise<CheckoutSessionDTO> {
+  checkout(@Body() rawBody: unknown): Promise<CheckoutSessionDTO> {
+    const body = parseBody(checkoutBodySchema, rawBody);
     const builder = this.payable
       .customer(body.billable)
       .newSubscription(body.subscription.name)
@@ -77,34 +77,32 @@ export class PayableController {
   @Post('subscriptions/:name/cancel')
   @HttpCode(200)
   @UseGuards(PayableAuthGuard)
-  cancel(@Param('name') name: string, @Body() body: { billable: Billable }): Promise<Subscription> {
+  cancel(@Param('name') name: string, @Body() rawBody: unknown): Promise<Subscription> {
+    const body = parseBody(manageSubscriptionBodySchema, rawBody);
     return this.manage('cancel', name, body.billable);
   }
 
   @Post('subscriptions/:name/cancel-now')
   @HttpCode(200)
   @UseGuards(PayableAuthGuard)
-  cancelNow(
-    @Param('name') name: string,
-    @Body() body: { billable: Billable },
-  ): Promise<Subscription> {
+  cancelNow(@Param('name') name: string, @Body() rawBody: unknown): Promise<Subscription> {
+    const body = parseBody(manageSubscriptionBodySchema, rawBody);
     return this.manage('cancelNow', name, body.billable);
   }
 
   @Post('subscriptions/:name/resume')
   @HttpCode(200)
   @UseGuards(PayableAuthGuard)
-  resume(@Param('name') name: string, @Body() body: { billable: Billable }): Promise<Subscription> {
+  resume(@Param('name') name: string, @Body() rawBody: unknown): Promise<Subscription> {
+    const body = parseBody(manageSubscriptionBodySchema, rawBody);
     return this.manage('resume', name, body.billable);
   }
 
   @Post('subscriptions/:name/swap')
   @HttpCode(200)
   @UseGuards(PayableAuthGuard)
-  swap(
-    @Param('name') name: string,
-    @Body() body: { billable: Billable; price: string },
-  ): Promise<Subscription> {
+  swap(@Param('name') name: string, @Body() rawBody: unknown): Promise<Subscription> {
+    const body = parseBody(swapSubscriptionBodySchema, rawBody);
     return this.payable.customer(body.billable).subscription(name).swap(body.price);
   }
 
