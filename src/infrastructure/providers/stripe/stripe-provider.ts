@@ -98,43 +98,51 @@ export class StripeProvider
 
   async createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
     const stripe = await this.stripe();
-    const customer = await stripe.customers.create(
-      { email: input.email, name: input.name, metadata: input.metadata },
-      { idempotencyKey: ctx.idempotencyKey },
+    const customer = await withStripeErrors(() =>
+      stripe.customers.create(
+        { email: input.email, name: input.name, metadata: input.metadata },
+        { idempotencyKey: ctx.idempotencyKey },
+      ),
     );
     return toCustomerDTO(customer);
   }
 
   async updateCustomer(input: UpdateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
     const stripe = await this.stripe();
-    const customer = await stripe.customers.update(
-      input.providerCustomerId,
-      { email: input.email, name: input.name, metadata: input.metadata },
-      { idempotencyKey: ctx.idempotencyKey },
+    const customer = await withStripeErrors(() =>
+      stripe.customers.update(
+        input.providerCustomerId,
+        { email: input.email, name: input.name, metadata: input.metadata },
+        { idempotencyKey: ctx.idempotencyKey },
+      ),
     );
     return toCustomerDTO(customer);
   }
 
   async createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO> {
     const stripe = await this.stripe();
-    const product = await stripe.products.create(
-      {
-        name: input.name,
-        description: input.description,
-        active: input.active,
-        metadata: input.metadata,
-      },
-      { idempotencyKey: ctx.idempotencyKey },
+    const product = await withStripeErrors(() =>
+      stripe.products.create(
+        {
+          name: input.name,
+          description: input.description,
+          active: input.active,
+          metadata: input.metadata,
+        },
+        { idempotencyKey: ctx.idempotencyKey },
+      ),
     );
     return toProductDTO(product);
   }
 
   async updateProduct(input: UpdateProductInput, ctx: OperationContext): Promise<ProductDTO> {
     const stripe = await this.stripe();
-    const product = await stripe.products.update(
-      input.providerProductId,
-      { name: input.name, description: input.description, active: input.active },
-      { idempotencyKey: ctx.idempotencyKey },
+    const product = await withStripeErrors(() =>
+      stripe.products.update(
+        input.providerProductId,
+        { name: input.name, description: input.description, active: input.active },
+        { idempotencyKey: ctx.idempotencyKey },
+      ),
     );
     return toProductDTO(product);
   }
@@ -149,7 +157,9 @@ export class StripeProvider
     if (input.interval) {
       params.recurring = { interval: input.interval, interval_count: input.intervalCount ?? 1 };
     }
-    const price = await stripe.prices.create(params, { idempotencyKey: ctx.idempotencyKey });
+    const price = await withStripeErrors(() =>
+      stripe.prices.create(params, { idempotencyKey: ctx.idempotencyKey }),
+    );
     return toPriceDTO(price);
   }
 
@@ -171,9 +181,9 @@ export class StripeProvider
     if (input.coupon) {
       params.discounts = [{ coupon: input.coupon }];
     }
-    const session = await stripe.checkout.sessions.create(params, {
-      idempotencyKey: ctx.idempotencyKey,
-    });
+    const session = await withStripeErrors(() =>
+      stripe.checkout.sessions.create(params, { idempotencyKey: ctx.idempotencyKey }),
+    );
     return toCheckoutSessionDTO(session);
   }
 
@@ -257,9 +267,11 @@ export class StripeProvider
 
   async billingPortal(input: BillingPortalInput, ctx: OperationContext): Promise<BillingPortalDTO> {
     const stripe = await this.stripe();
-    const session = await stripe.billingPortal.sessions.create(
-      { customer: input.providerCustomerId, return_url: input.returnUrl },
-      { idempotencyKey: ctx.idempotencyKey },
+    const session = await withStripeErrors(() =>
+      stripe.billingPortal.sessions.create(
+        { customer: input.providerCustomerId, return_url: input.returnUrl },
+        { idempotencyKey: ctx.idempotencyKey },
+      ),
     );
     return { url: session.url };
   }
@@ -267,15 +279,17 @@ export class StripeProvider
   async listInvoices(input: ListInvoicesInput): Promise<InvoiceDTO[]> {
     const stripe = await this.stripe();
     const cap = input.limit ?? DEFAULT_INVOICE_LIMIT;
-    const invoices = await stripe.invoices
-      .list({ customer: input.providerCustomerId, limit: Math.min(cap, 100) })
-      .autoPagingToArray({ limit: cap });
+    const invoices = await withStripeErrors(() =>
+      stripe.invoices
+        .list({ customer: input.providerCustomerId, limit: Math.min(cap, 100) })
+        .autoPagingToArray({ limit: cap }),
+    );
     return invoices.map(toInvoiceDTO);
   }
 
   async downloadInvoicePdf(providerInvoiceId: string): Promise<InvoicePdfDTO> {
     const stripe = await this.stripe();
-    const invoice = await stripe.invoices.retrieve(providerInvoiceId);
+    const invoice = await withStripeErrors(() => stripe.invoices.retrieve(providerInvoiceId));
     if (!invoice.invoice_pdf) {
       throw new PayableError(`Invoice ${providerInvoiceId} has no PDF`, {
         code: 'INVOICE_PDF_UNAVAILABLE',
