@@ -50,26 +50,46 @@ export class ChargeAction {
       amount: input.amount.amount(),
       currency: input.amount.currency(),
     });
-    const dto = await provider.charge(
-      {
-        providerCustomerId,
-        amount: input.amount,
-        reference: input.reference,
-        description: input.description,
+    const run = async (): Promise<Payment> => {
+      const dto = await provider.charge(
+        {
+          providerCustomerId,
+          amount: input.amount,
+          reference: input.reference,
+          description: input.description,
+        },
+        { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
+      );
+      return storage.payments.create({
+        tenantId: this.deps.tenantId ?? null,
+        customerId: customer.id,
+        provider: this.deps.providerName,
+        providerPaymentId: dto.providerPaymentId,
+        status: dto.status,
+        currency: dto.amount.currency(),
+        amount: dto.amount.amount(),
+        refundedAmount: 0,
+        reference: input.reference ?? null,
+        description: input.description ?? null,
+      });
+    };
+    if (!this.deps.idempotency) {
+      return run();
+    }
+    return this.deps.idempotency.execute({
+      key: key.toString(),
+      scope: 'payment',
+      operation: 'charge',
+      request: {
+        billableType: input.billable.billableType,
+        billableId: input.billable.billableId,
+        reference: input.reference ?? '',
+        amount: input.amount.amount(),
+        currency: input.amount.currency(),
       },
-      { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
-    );
-    return storage.payments.create({
-      tenantId: this.deps.tenantId ?? null,
-      customerId: customer.id,
-      provider: this.deps.providerName,
-      providerPaymentId: dto.providerPaymentId,
-      status: dto.status,
-      currency: dto.amount.currency(),
-      amount: dto.amount.amount(),
-      refundedAmount: 0,
-      reference: input.reference ?? null,
-      description: input.description ?? null,
+      resourceType: 'payment',
+      tenantId: this.deps.tenantId,
+      run,
     });
   }
 }

@@ -44,42 +44,61 @@ export class CreateSubscriptionAction extends SubscriptionAction {
       subscriptionName: input.name,
       price: input.priceId,
     });
-    const dto = await provider.createSubscription(
-      {
-        providerCustomerId,
-        priceId: input.priceId,
-        quantity: input.quantity,
-        items: input.items,
-        trialDays: input.trialDays,
-        coupon: input.coupon,
-      },
-      { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
-    );
     const items = input.items ?? [{ priceId: input.priceId, quantity: input.quantity ?? 1 }];
-    return storage.transaction(async (repos) => {
-      const subscription = await repos.subscriptions.create({
-        tenantId: this.deps.tenantId ?? null,
-        customerId: customer.id,
-        name: input.name,
-        provider: this.deps.providerName,
-        providerSubscriptionId: dto.providerSubscriptionId,
-        status: dto.status,
-        priceId: input.priceId,
-        quantity: input.quantity ?? 1,
-        trialEndsAt: dto.trialEndsAt,
-        endsAt: null,
-        currentPeriodStart: null,
-        currentPeriodEnd: dto.currentPeriodEnd,
-      });
-      await repos.subscriptionItems.createMany(
-        items.map((item) => ({
-          subscriptionId: subscription.id,
-          priceId: item.priceId,
-          providerItemId: null,
-          quantity: item.quantity,
-        })),
+    const run = async (): Promise<Subscription> => {
+      const dto = await provider.createSubscription(
+        {
+          providerCustomerId,
+          priceId: input.priceId,
+          quantity: input.quantity,
+          items: input.items,
+          trialDays: input.trialDays,
+          coupon: input.coupon,
+        },
+        { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
       );
-      return subscription;
+      return storage.transaction(async (repos) => {
+        const subscription = await repos.subscriptions.create({
+          tenantId: this.deps.tenantId ?? null,
+          customerId: customer.id,
+          name: input.name,
+          provider: this.deps.providerName,
+          providerSubscriptionId: dto.providerSubscriptionId,
+          status: dto.status,
+          priceId: input.priceId,
+          quantity: input.quantity ?? 1,
+          trialEndsAt: dto.trialEndsAt,
+          endsAt: null,
+          currentPeriodStart: null,
+          currentPeriodEnd: dto.currentPeriodEnd,
+        });
+        await repos.subscriptionItems.createMany(
+          items.map((item) => ({
+            subscriptionId: subscription.id,
+            priceId: item.priceId,
+            providerItemId: null,
+            quantity: item.quantity,
+          })),
+        );
+        return subscription;
+      });
+    };
+    if (!this.deps.idempotency) {
+      return run();
+    }
+    return this.deps.idempotency.execute({
+      key: key.toString(),
+      scope: 'subscription',
+      operation: 'create-subscription',
+      request: {
+        billableType: input.billable.billableType,
+        billableId: input.billable.billableId,
+        subscriptionName: input.name,
+        price: input.priceId,
+      },
+      resourceType: 'subscription',
+      tenantId: this.deps.tenantId,
+      run,
     });
   }
 }
