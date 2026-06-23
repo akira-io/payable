@@ -15,7 +15,4 @@ export async function registerPlaceholderRoutes(
   scope.get('/payments', async () => {
     throw PayableError.notImplemented('GET /payments');
   });
-  scope.post('/refunds', async () => {
-    throw PayableError.notImplemented('POST /refunds');
-  });
 }

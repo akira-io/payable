@@ -99,4 +99,38 @@ describe('fastify adapter', () => {
     expect(res.json().error).toBe('NOT_IMPLEMENTED');
     await app.close();
   });
+
+  it('refunds a payment over HTTP', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payment = await storage.payments.create({
+      tenantId: null,
+      customerId: null,
+      provider: 'stripe',
+      providerPaymentId: 'pi_fastify',
+      status: 'succeeded',
+      currency: 'USD',
+      amount: 4000,
+      refundedAmount: 0,
+      reference: null,
+      description: null,
+    });
+    const app = await makeApp(
+      createPayable({ providers: { stripe: new FakeProvider() }, storage }),
+    );
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/payable/refunds',
+      payload: { paymentId: payment.id, amount: { amount: 4000, currency: 'USD' } },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({ amount: 4000 });
+
+    const missing = await app.inject({ method: 'POST', url: '/payable/refunds', payload: {} });
+    expect(missing.statusCode).toBe(422);
+    await app.close();
+    await db.destroy();
+  });
 });
