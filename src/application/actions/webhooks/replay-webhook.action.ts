@@ -25,7 +25,7 @@ export class ReplayWebhookAction {
         code: 'WEBHOOK_EVENT_NOT_FOUND',
       });
     }
-    if (context.tenantId !== undefined && (event.tenantId ?? null) !== (context.tenantId ?? null)) {
+    if ((event.tenantId ?? null) !== (context.tenantId ?? null)) {
       throw new PayableError('Webhook replay not permitted', { code: 'WEBHOOK_REPLAY_DENIED' });
     }
     const verified: VerifiedWebhook = {
