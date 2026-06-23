@@ -99,6 +99,19 @@ describe('webhook tenancy', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('denies replay of a tenant-owned event when no tenant is supplied', async () => {
+    const payable = payableWithResolver();
+    const received = await payable.receiveWebhook({
+      payload: '{}',
+      signature: 'sig',
+      headers: { 'x-tenant-id': 'acme' },
+    });
+
+    await expect(
+      payable.replayWebhook(received.webhookEventId, { allowed: true, actorId: 'admin' }),
+    ).rejects.toThrow('not permitted');
+  });
+
   it('defaults to a null tenant when no resolver is configured', async () => {
     const provider = new FakeProvider();
     provider.verifyResult = verifyResult;
