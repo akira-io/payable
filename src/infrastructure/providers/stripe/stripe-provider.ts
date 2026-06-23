@@ -254,11 +254,11 @@ export class StripeProvider
 
   async listInvoices(input: ListInvoicesInput): Promise<InvoiceDTO[]> {
     const stripe = await this.stripe();
-    const invoices = await stripe.invoices.list({
-      customer: input.providerCustomerId,
-      limit: input.limit,
-    });
-    return invoices.data.map(toInvoiceDTO);
+    const cap = input.limit ?? 1000;
+    const invoices = await stripe.invoices
+      .list({ customer: input.providerCustomerId, limit: Math.min(cap, 100) })
+      .autoPagingToArray({ limit: cap });
+    return invoices.map(toInvoiceDTO);
   }
 
   async downloadInvoicePdf(providerInvoiceId: string): Promise<InvoicePdfDTO> {
