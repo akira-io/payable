@@ -21,8 +21,10 @@ export class KnexAuditLogRepository implements AuditLogRepository {
     const id = globalThis.crypto.randomUUID();
     const previousHash = await this.latestHash(data.tenantId ?? null);
     const hash = await auditEntryHash(previousHash, data);
+    const sequence = await this.nextSequence(data.tenantId ?? null);
     await this.knex(this.table).insert({
       id,
+      sequence,
       tenant_id: data.tenantId,
       correlation_id: data.correlationId,
       actor_type: data.actorType,
@@ -44,15 +46,23 @@ export class KnexAuditLogRepository implements AuditLogRepository {
   }
 
   private async latestHash(tenantId: string | null): Promise<string | null> {
-    const query = this.knex(this.table).orderBy('created_at', 'desc').orderBy('id', 'desc');
+    const query = this.knex(this.table).orderBy('sequence', 'desc');
     const scoped =
       tenantId === null ? query.whereNull('tenant_id') : query.where({ tenant_id: tenantId });
     const row = await scoped.first();
     return row ? ((row.hash as string | null) ?? null) : null;
   }
 
+  private async nextSequence(tenantId: string | null): Promise<number> {
+    const query = this.knex(this.table);
+    const scoped =
+      tenantId === null ? query.whereNull('tenant_id') : query.where({ tenant_id: tenantId });
+    const row = await scoped.max('sequence as max').first();
+    return ((row?.max as number | null) ?? 0) + 1;
+  }
+
   async list(query: AuditLogQuery): Promise<AuditLog[]> {
-    let builder = this.knex(this.table).orderBy('created_at', 'desc');
+    let builder = this.knex(this.table).orderBy('sequence', 'desc');
     if (query.tenantId !== undefined) {
       builder = builder.where('tenant_id', query.tenantId);
     }

@@ -54,9 +54,11 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.text('user_agent').nullable();
     table.string('previous_hash').nullable();
     table.string('hash').nullable();
+    table.integer('sequence').nullable();
     table.timestamp('created_at').notNullable();
     table.index(['resource_type', 'resource_id']);
     table.index('correlation_id');
+    table.index(['tenant_id', 'sequence']);
   });
 
   await createIfMissing(knex, 'payable_outbox_events', (table) => {
