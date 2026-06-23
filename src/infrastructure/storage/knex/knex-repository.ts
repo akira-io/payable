@@ -3,6 +3,9 @@ import type { Clock } from '../../../domain/contracts/clock.contract';
 import type { ListOptions } from '../../../domain/contracts/list-options.contract';
 import { stripUndefined } from './mappers';
 
+const DEFAULT_LIST_LIMIT = 100;
+const MAX_LIST_LIMIT = 500;
+
 export abstract class KnexRepository<Entity, New> {
   protected abstract readonly table: string;
 
@@ -78,10 +81,8 @@ export abstract class KnexRepository<Entity, New> {
           .orWhere((tie) => tie.where('created_at', cursorAt).andWhere('id', '<', cursorId)),
       );
     }
-    const rows = (await (options.limit ? query.limit(options.limit) : query)) as Record<
-      string,
-      unknown
-    >[];
+    const limit = Math.min(options.limit ?? DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT);
+    const rows = (await query.limit(limit)) as Record<string, unknown>[];
     return rows.map((row) => this.toEntity(row));
   }
 
