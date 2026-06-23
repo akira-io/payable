@@ -351,6 +351,43 @@ describe('charge and refund lifecycle', () => {
     await db.destroy();
   });
 
+  it('scopes ListRefundsQuery by tenant', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
+    const storage = new KnexStorageDriver(db, clock);
+    const provider = new FakeProvider();
+    const payable = createPayable({
+      providers: { stripe: provider },
+      storage,
+      clock,
+      tenant: { enabled: true },
+    });
+
+    const payment = await payable
+      .customer(billable, undefined, 'tenant-a')
+      .charge({ amount: Money.of(4000, 'USD') });
+    await payable.refund({ paymentId: payment.id, amount: Money.of(4000, 'USD') }, 'tenant-a');
+
+    const ownDeps: BillingDependencies = {
+      provider,
+      providerName: 'stripe',
+      clock,
+      storage,
+      tenantId: 'tenant-a',
+    };
+    const otherDeps: BillingDependencies = {
+      provider,
+      providerName: 'stripe',
+      clock,
+      storage,
+      tenantId: 'tenant-b',
+    };
+    expect(await new ListRefundsQuery(ownDeps).run(payment.id)).toHaveLength(1);
+    expect(await new ListRefundsQuery(otherDeps).run(payment.id)).toHaveLength(0);
+    await db.destroy();
+  });
+
   it('refunds under tenancy and blocks cross-tenant refunds', async () => {
     const db = createTestDb();
     await migrate(db);
