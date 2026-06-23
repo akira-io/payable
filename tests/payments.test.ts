@@ -304,4 +304,38 @@ describe('charge and refund lifecycle', () => {
     await expect(payable.refund({ paymentId: 'missing' })).rejects.toThrow('Payment not found');
     await db.destroy();
   });
+
+  it('refunds under tenancy and blocks cross-tenant refunds', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
+    const storage = new KnexStorageDriver(db, clock);
+    const payable = createPayable({
+      providers: { stripe: new FakeProvider() },
+      storage,
+      clock,
+      tenant: { enabled: true },
+    });
+
+    const payment = await payable
+      .customer(billable, undefined, 'tenant-a')
+      .charge({ amount: Money.of(4000, 'USD') });
+
+    expect(() => payable.refund({ paymentId: payment.id, amount: Money.of(4000, 'USD') })).toThrow(
+      'tenant id is required',
+    );
+
+    await expect(
+      payable.refund({ paymentId: payment.id, amount: Money.of(4000, 'USD') }, 'tenant-b'),
+    ).rejects.toThrow('Payment not found');
+
+    const refund = await payable.refund(
+      { paymentId: payment.id, amount: Money.of(4000, 'USD') },
+      'tenant-a',
+    );
+    expect(refund.amount).toBe(4000);
+    const updated = await storage.payments.findById(payment.id, 'tenant-a');
+    expect(updated?.refundedAmount).toBe(4000);
+    await db.destroy();
+  });
 });

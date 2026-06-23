@@ -177,8 +177,8 @@ export class Payable {
     return name;
   }
 
-  refund(request: RefundRequest): Promise<Refund> {
-    return new RefundPaymentAction(this.dependencies()).handle({
+  refund(request: RefundRequest, tenantId?: string | null): Promise<Refund> {
+    return new RefundPaymentAction(this.dependencies(undefined, tenantId)).handle({
       paymentId: request.paymentId,
       amount: request.amount,
       reason: request.reason,
