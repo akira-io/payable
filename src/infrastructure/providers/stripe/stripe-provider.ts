@@ -45,6 +45,7 @@ import {
   toPriceDTO,
   toProductDTO,
   toRefundResultDTO,
+  toSubscriptionDTO,
 } from './stripe-mappers';
 import { StripeSubscriptions } from './stripe-subscriptions';
 import { StripeWebhookVerifier } from './stripe-webhook-verifier';
@@ -228,6 +229,13 @@ export class StripeProvider implements PaymentProvider {
       normalizedType: this.normalizer.normalize(event.type),
       data: (event.data.object ?? {}) as unknown as Record<string, unknown>,
     };
+  }
+
+  reconcileSubscription(verified: VerifiedWebhook): SubscriptionDTO | null {
+    if (!verified.normalizedType?.startsWith('subscription.')) {
+      return null;
+    }
+    return toSubscriptionDTO(verified.data as unknown as Stripe.Subscription);
   }
 
   async billingPortal(input: BillingPortalInput, ctx: OperationContext): Promise<BillingPortalDTO> {

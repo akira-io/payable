@@ -51,6 +51,7 @@ export interface PaymentProvider {
   charge(input: ChargeInput, ctx: OperationContext): Promise<ChargeResultDTO>;
   refund(input: RefundInput, ctx: OperationContext): Promise<RefundResultDTO>;
   verifyWebhook(input: WebhookVerificationInput): Promise<VerifiedWebhook>;
+  reconcileSubscription(verified: VerifiedWebhook): SubscriptionDTO | null;
   billingPortal(input: BillingPortalInput, ctx: OperationContext): Promise<BillingPortalDTO>;
   listInvoices(input: ListInvoicesInput): Promise<InvoiceDTO[]>;
   downloadInvoicePdf(providerInvoiceId: string): Promise<InvoicePdfDTO>;

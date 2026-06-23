@@ -38,6 +38,7 @@ export class FakeProvider implements PaymentProvider {
   lastCheckout?: { input: CreateCheckoutSessionInput; ctx: OperationContext };
   verifyResult?: VerifiedWebhook;
   verifyError?: Error;
+  reconcileResult?: SubscriptionDTO | null;
   lastVerifyInput?: WebhookVerificationInput;
   createdSubscriptions = 0;
   lastSubscriptionUpdate?: UpdateSubscriptionInput;
@@ -150,6 +151,10 @@ export class FakeProvider implements PaymentProvider {
       return this.unused('verifyWebhook');
     }
     return this.verifyResult;
+  }
+
+  reconcileSubscription(): SubscriptionDTO | null {
+    return this.reconcileResult ?? null;
   }
 
   async billingPortal(input: BillingPortalInput): Promise<BillingPortalDTO> {
