@@ -1,4 +1,5 @@
 import type { Knex } from 'knex';
+import type { Encryption } from '../../../../domain/contracts/encryption.contract';
 import type {
   NewWebhookEvent,
   WebhookEventRepository,
@@ -12,7 +13,10 @@ import { toDate, toJson, toNullableDate } from '../mappers';
 export class KnexWebhookEventRepository implements WebhookEventRepository {
   private readonly table = 'payable_webhook_events';
 
-  constructor(private readonly knex: Knex) {}
+  constructor(
+    private readonly knex: Knex,
+    private readonly encryption?: Encryption,
+  ) {}
 
   async create(data: NewWebhookEvent): Promise<WebhookEvent> {
     const id = globalThis.crypto.randomUUID();
@@ -23,8 +27,8 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
       provider_event_id: data.providerEventId,
       type: data.type,
       normalized_type: data.normalizedType,
-      payload: data.payload,
-      data: JSON.stringify(data.data),
+      payload: await this.seal(data.payload),
+      data: await this.seal(JSON.stringify(data.data)),
       headers: JSON.stringify(data.headers),
       status: data.status,
       correlation_id: data.correlationId,
@@ -36,7 +40,7 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
 
   async findById(id: string): Promise<WebhookEvent | null> {
     const row = await this.knex(this.table).where({ id }).first();
-    return row ? this.toEntity(row) : null;
+    return row ? this.hydrate(row) : null;
   }
 
   async findByProviderEvent(
@@ -47,11 +51,27 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
     const row = await this.knex(this.table)
       .where({ provider, provider_event_id: providerEventId, tenant_id: this.tenant(tenantId) })
       .first();
-    return row ? this.toEntity(row) : null;
+    return row ? this.hydrate(row) : null;
   }
 
   private tenant(tenantId: string | null): string {
     return tenantId ?? '';
+  }
+
+  private seal(value: string): Promise<string> | string {
+    return this.encryption ? this.encryption.encrypt(value) : value;
+  }
+
+  private open(value: string): Promise<string> | string {
+    return this.encryption ? this.encryption.decrypt(value) : value;
+  }
+
+  private async hydrate(row: Record<string, unknown>): Promise<WebhookEvent> {
+    return this.toEntity({
+      ...row,
+      payload: await this.open(row.payload as string),
+      data: await this.open(row.data as string),
+    });
   }
 
   async markStatus(
