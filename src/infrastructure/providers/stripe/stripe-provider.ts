@@ -53,6 +53,8 @@ import {
 import { StripeSubscriptions } from './stripe-subscriptions';
 import { StripeWebhookVerifier } from './stripe-webhook-verifier';
 
+export const STRIPE_API_VERSION = '2026-05-27.dahlia' as const;
+
 export interface StripeProviderOptions {
   secretKey: string;
   webhookSecret: string;
@@ -285,7 +287,9 @@ export class StripeProvider
       return this.client;
     }
     const { default: StripeClient } = await import('stripe');
-    this.client = new StripeClient(this.options.secretKey);
+    this.client = new StripeClient(this.options.secretKey, {
+      apiVersion: STRIPE_API_VERSION,
+    });
     return this.client;
   }
 }
