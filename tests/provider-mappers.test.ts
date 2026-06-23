@@ -48,7 +48,7 @@ describe('stripe price mapping', () => {
     expect(dto.unitAmount.amount()).toBe(500);
   });
 
-  it('throws instead of defaulting to zero when no integer amount is resolvable', () => {
+  it('throws instead of defaulting to zero when no amount is resolvable', () => {
     expect(() =>
       toStripePriceDTO({
         id: 'price_3',
@@ -57,19 +57,18 @@ describe('stripe price mapping', () => {
         unit_amount_decimal: null,
         currency: 'usd',
       } as unknown as Stripe.Price),
-    ).toThrowError(/no integer unit amount/);
+    ).toThrowError(/no resolvable unit amount/);
   });
 
-  it('throws when unit_amount_decimal has sub-minor-unit precision', () => {
-    expect(() =>
-      toStripePriceDTO({
-        id: 'price_4',
-        product: 'prod_1',
-        unit_amount: null,
-        unit_amount_decimal: '0.5',
-        currency: 'usd',
-      } as unknown as Stripe.Price),
-    ).toThrowError(/no integer unit amount/);
+  it('rounds a fractional unit_amount_decimal to the nearest minor unit', () => {
+    const dto = toStripePriceDTO({
+      id: 'price_4',
+      product: 'prod_1',
+      unit_amount: null,
+      unit_amount_decimal: '1234.5',
+      currency: 'usd',
+    } as unknown as Stripe.Price);
+    expect(dto.unitAmount.amount()).toBe(1235);
   });
 });
 
