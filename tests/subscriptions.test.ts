@@ -73,9 +73,16 @@ describe('subscription lifecycle', () => {
     const swapped = await subscriptionOf().swap('price_business');
     expect(swapped.priceId).toBe('price_business');
     expect(provider.lastSubscriptionUpdate?.priceId).toBe('price_business');
+    expect(provider.lastSubscriptionUpdateCtx?.idempotencyKey).toContain(':price_business');
 
     const quantity = await subscriptionOf().updateQuantity(3);
     expect(quantity.quantity).toBe(3);
+    const keyAtThree = provider.lastSubscriptionUpdateCtx?.idempotencyKey;
+    expect(keyAtThree).toContain('subscription:quantity:');
+    expect(keyAtThree?.endsWith(':3')).toBe(true);
+
+    await subscriptionOf().updateQuantity(5);
+    expect(provider.lastSubscriptionUpdateCtx?.idempotencyKey).not.toBe(keyAtThree);
 
     const canceled = await subscriptionOf().cancel();
     expect(canceled.endsAt).not.toBeNull();
