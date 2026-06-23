@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CurrencyManager } from '../src/domain/value-objects/currency';
 import { Money } from '../src/domain/value-objects/money';
 
 describe('Money', () => {
@@ -78,5 +79,13 @@ describe('Money', () => {
     expect(() => Money.of(100, 'USD').allocate([])).toThrow(RangeError);
     expect(() => Money.of(100, 'USD').allocate([0, 0])).toThrow(RangeError);
     expect(() => Money.of(100, 'USD').allocate([1, -1])).toThrow(RangeError);
+  });
+
+  it('treats minor units correctly for zero-decimal currencies', () => {
+    const yen = Money.of(1000, 'JPY');
+    expect(yen.amount()).toBe(1000);
+    expect(yen.currency()).toBe('JPY');
+    expect(CurrencyManager.precision('JPY')).toBe(0);
+    expect(yen.add(Money.of(500, 'JPY')).amount()).toBe(1500);
   });
 });

@@ -51,6 +51,29 @@ describe('StripeProvider payments', () => {
     expect(calls.get('pi')?.options.idempotencyKey).toBe('idem-1');
   });
 
+  it('forwards a zero-decimal currency amount without scaling', async () => {
+    const calls = new Map<string, { params: unknown }>();
+    const stripe = {
+      paymentIntents: {
+        create: (params: unknown) => {
+          calls.set('pi', { params });
+          return Promise.resolve({
+            id: 'pi_jpy',
+            status: 'succeeded',
+            amount: 1000,
+            currency: 'jpy',
+          });
+        },
+      },
+    } as unknown as Stripe;
+
+    const dto = await stripeProvider(stripe).charge({ amount: Money.of(1000, 'JPY') }, ctx);
+
+    expect(dto.amount.amount()).toBe(1000);
+    expect(dto.amount.currency()).toBe('JPY');
+    expect(calls.get('pi')?.params).toMatchObject({ amount: 1000, currency: 'jpy' });
+  });
+
   it('refunds a payment intent', async () => {
     const calls = new Map<string, { params: unknown }>();
     const stripe = {
