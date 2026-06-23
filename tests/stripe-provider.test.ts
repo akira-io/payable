@@ -138,4 +138,25 @@ describe('StripeProvider', () => {
   it('pins a fixed Stripe API version', () => {
     expect(STRIPE_API_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}/);
   });
+
+  it('translates a Stripe card error into a typed PayableError', async () => {
+    const stripe = {
+      paymentIntents: {
+        create: () => {
+          throw {
+            type: 'StripeCardError',
+            code: 'card_declined',
+            message: 'Your card was declined',
+          };
+        },
+      },
+    } as unknown as Stripe;
+
+    await expect(
+      new StripeProvider({ secretKey: 'sk', webhookSecret: 'wh' }, stripe).charge(
+        { amount: Money.of(1000, 'USD') },
+        { correlationId: 'c', idempotencyKey: 'i' },
+      ),
+    ).rejects.toMatchObject({ code: 'PROVIDER_CARD_DECLINED' });
+  });
 });
