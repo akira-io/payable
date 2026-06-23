@@ -64,4 +64,32 @@ describe('InMemoryEventBus', () => {
     );
     expect(done).toBe(true);
   });
+
+  it('isolates a failing listener from siblings and the emit', async () => {
+    const errors: string[] = [];
+    const bus = new InMemoryEventBus({
+      debug: () => {},
+      info: () => {},
+      warn: () => {},
+      error: (message) => errors.push(message),
+    });
+    let secondRan = false;
+    bus.listen('customer.created', () => {
+      throw new Error('listener boom');
+    });
+    bus.listen('customer.created', () => {
+      secondRan = true;
+    });
+
+    await expect(
+      bus.emit(
+        new CustomerCreatedEvent(
+          { customerId: 'cus_1', billableType: 'User', billableId: '1' },
+          meta,
+        ),
+      ),
+    ).resolves.toBeUndefined();
+    expect(secondRan).toBe(true);
+    expect(errors).toContain('Event listener failed');
+  });
 });
