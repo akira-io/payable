@@ -117,7 +117,7 @@ export function toInvoiceDTO(invoice: Stripe.Invoice): InvoiceDTO {
   return {
     providerInvoiceId: invoice.id ?? '',
     status: (invoice.status as InvoiceStatus | null) ?? 'draft',
-    total: Money.of(invoice.total, invoice.currency.toUpperCase()),
+    total: Money.of(invoice.total ?? 0, invoice.currency.toUpperCase()),
     hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
     invoicePdf: invoice.invoice_pdf ?? null,
   };

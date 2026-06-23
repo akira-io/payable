@@ -5,6 +5,7 @@ import type { ProductDTO } from '../../../domain/dtos/product.dto';
 import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import type { RecurringInterval } from '../../../domain/entities/common';
+import { PayableError } from '../../../domain/errors/payable-error';
 import { Money } from '../../../domain/value-objects/money';
 import type { RefundStatus } from '../../../domain/value-objects/refund-status';
 import type { SubscriptionStatus } from '../../../domain/value-objects/subscription-status';
@@ -25,6 +26,16 @@ const SUBSCRIPTION_STATUS: Record<string, SubscriptionStatus> = {
   canceled: 'canceled',
 };
 
+function toMinorUnits(value: string | number | null | undefined): number {
+  const text = String(value ?? '').trim();
+  if (!/^-?\d+$/.test(text)) {
+    throw new PayableError(`Paddle amount is not an integer minor-unit value: ${text}`, {
+      code: 'PROVIDER_AMOUNT_INVALID',
+    });
+  }
+  return Number(text);
+}
+
 export function toCustomerDTO(customer: PaddleCustomer): CustomerDTO {
   return { providerCustomerId: customer.id, email: customer.email ?? '', name: customer.name };
 }
@@ -38,7 +49,7 @@ export function toPriceDTO(price: PaddlePriceEntity): PriceDTO {
     providerPriceId: price.id,
     providerProductId: price.productId,
     unitAmount: Money.of(
-      Number(price.unitPrice.amount),
+      toMinorUnits(price.unitPrice.amount),
       price.unitPrice.currencyCode.toUpperCase(),
     ),
     interval: (price.billingCycle?.interval as RecurringInterval | undefined) ?? null,
@@ -65,7 +76,7 @@ export function toRefundResultDTO(adjustment: PaddleAdjustment): RefundResultDTO
     providerRefundId: adjustment.id,
     status,
     amount: Money.of(
-      Number(adjustment.totals?.total ?? 0),
+      toMinorUnits(adjustment.totals?.total ?? 0),
       (adjustment.totals?.currencyCode ?? 'USD').toUpperCase(),
     ),
   };
