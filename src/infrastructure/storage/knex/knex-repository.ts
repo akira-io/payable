@@ -14,10 +14,12 @@ export abstract class KnexRepository<Entity, New> {
   async create(data: New): Promise<Entity> {
     const timestamp = this.clock.now().toISOString();
     const id = globalThis.crypto.randomUUID();
-    await this.knex(this.table).insert(
-      stripUndefined({ id, ...this.toRow(data), created_at: timestamp, updated_at: timestamp }),
-    );
-    return this.findByIdOrFail(id);
+    const [inserted] = await this.knex(this.table)
+      .insert(
+        stripUndefined({ id, ...this.toRow(data), created_at: timestamp, updated_at: timestamp }),
+      )
+      .returning('*');
+    return inserted ? this.toEntity(inserted as Record<string, unknown>) : this.findByIdOrFail(id);
   }
 
   async createMany(data: New[]): Promise<void> {
@@ -37,10 +39,11 @@ export abstract class KnexRepository<Entity, New> {
   }
 
   async update(id: string, patch: Partial<New>): Promise<Entity> {
-    await this.knex(this.table)
+    const [updated] = await this.knex(this.table)
       .where({ id })
-      .update(stripUndefined({ ...this.toRow(patch), updated_at: this.clock.now().toISOString() }));
-    return this.findByIdOrFail(id);
+      .update(stripUndefined({ ...this.toRow(patch), updated_at: this.clock.now().toISOString() }))
+      .returning('*');
+    return updated ? this.toEntity(updated as Record<string, unknown>) : this.findByIdOrFail(id);
   }
 
   async findById(id: string): Promise<Entity | null> {

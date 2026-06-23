@@ -38,6 +38,14 @@ describe('KnexStorageDriver customers', () => {
     expect(updated.email).toBe('user@example.com');
   });
 
+  it('creates a customer in a single round-trip via RETURNING', async () => {
+    const statements: string[] = [];
+    db.on('query', (query: { sql: string }) => statements.push(query.sql));
+    await storage.customers.create(makeCustomer({ providerCustomerId: 'cus_rt' }));
+    expect(statements).toHaveLength(1);
+    expect(statements[0]).toMatch(/insert/i);
+  });
+
   it('enforces the provider id unique constraint', async () => {
     await storage.customers.create(makeCustomer({ providerCustomerId: 'cus_dup' }));
     await expect(
