@@ -50,6 +50,10 @@ describe('Money', () => {
     expect(a.equals(b)).toBe(false);
   });
 
+  it('treats a cross-currency comparison as not equal rather than throwing', () => {
+    expect(Money.of(100, 'USD').equals(Money.of(100, 'EUR'))).toBe(false);
+  });
+
   it('reports zero and negative amounts', () => {
     expect(Money.of(0, 'USD').isZero()).toBe(true);
     expect(Money.of(-1, 'USD').isNegative()).toBe(true);
