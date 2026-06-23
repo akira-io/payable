@@ -1,5 +1,6 @@
 import 'reflect-metadata';
-import type { ArgumentsHost } from '@nestjs/common';
+import type { ArgumentsHost, CanActivate, ExecutionContext } from '@nestjs/common';
+import type { ModuleRef } from '@nestjs/core';
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
 import { InvalidWebhookSignatureError } from '../src/domain/errors/invalid-webhook-signature.error';
@@ -13,6 +14,7 @@ import type {
 } from '../src/presentation/nest/payable.constants';
 import { PayableController } from '../src/presentation/nest/payable.controller';
 import { PayableExceptionFilter } from '../src/presentation/nest/payable.exception-filter';
+import { PayableAuthGuard } from '../src/presentation/nest/payable-auth.guard';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
@@ -122,6 +124,25 @@ describe('nest adapter', () => {
       expect(error).toBeInstanceOf(PayableError);
       expect((error as PayableError).code).toBe('INVALID_WEBHOOK_PAYLOAD');
     }
+  });
+
+  it('allows requests when no authenticate guard is configured', async () => {
+    const moduleRef = { create: () => Promise.reject(new Error('unused')) } as unknown as ModuleRef;
+    const guard = new PayableAuthGuard({}, moduleRef);
+    await expect(guard.canActivate({} as ExecutionContext)).resolves.toBe(true);
+  });
+
+  it('delegates to the configured guard when authenticate is set', async () => {
+    class DenyGuard implements CanActivate {
+      canActivate(): boolean {
+        return false;
+      }
+    }
+    const moduleRef = {
+      create: (cls: new () => CanActivate) => Promise.resolve(new cls()),
+    } as unknown as ModuleRef;
+    const guard = new PayableAuthGuard({ authenticate: DenyGuard }, moduleRef);
+    await expect(guard.canActivate({} as ExecutionContext)).resolves.toBe(false);
   });
 
   it('refunds a payment', async () => {
