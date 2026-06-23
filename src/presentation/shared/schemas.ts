@@ -4,7 +4,7 @@ import { PayableError } from '../../domain/errors/payable-error';
 export const billableSchema = z.object({
   billableType: z.string().min(1),
   billableId: z.string().min(1),
-  email: z.string().min(1),
+  email: z.string().email(),
   name: z.string().optional(),
 });
 
@@ -16,8 +16,8 @@ export const checkoutBodySchema = z.object({
     trialDays: z.number().int().nonnegative().optional(),
     coupon: z.string().min(1).optional(),
   }),
-  successUrl: z.string().min(1),
-  cancelUrl: z.string().min(1),
+  successUrl: z.string().url(),
+  cancelUrl: z.string().url(),
 });
 
 export const manageSubscriptionBodySchema = z.object({ billable: billableSchema });
@@ -25,6 +25,12 @@ export const manageSubscriptionBodySchema = z.object({ billable: billableSchema 
 export const swapSubscriptionBodySchema = z.object({
   billable: billableSchema,
   price: z.string().min(1),
+});
+
+export const refundBodySchema = z.object({
+  paymentId: z.string().min(1),
+  amount: z.object({ amount: z.number().int().positive(), currency: z.string().min(1) }).optional(),
+  reason: z.string().min(1).optional(),
 });
 
 export function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
