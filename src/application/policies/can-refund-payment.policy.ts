@@ -1,8 +1,7 @@
-import { PayableError } from '../../domain/errors/payable-error';
+import { type AuthorizationContext, isAuthorized } from './authorization-context';
 
-// TODO: Phase 6
 export class CanRefundPaymentPolicy {
-  authorize(): boolean {
-    throw PayableError.notImplemented('CanRefundPaymentPolicy (Phase 6)');
+  authorize(context: AuthorizationContext = {}): boolean {
+    return isAuthorized(context);
   }
 }
