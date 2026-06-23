@@ -63,9 +63,10 @@ export class RefundPaymentAction {
       amount: input.amount?.amount() ?? payment.amount,
       currency: payment.currency,
     });
+    const correlationId = CorrelationId.generate().toString();
     const dto = await this.deps.provider.refund(
       { providerPaymentId: payment.providerPaymentId, amount: input.amount, reason: input.reason },
-      { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
+      { correlationId, idempotencyKey: key.toString() },
     );
     if (dto.amount.currency() !== payment.currency) {
       throw new PayableError(
@@ -98,6 +99,20 @@ export class RefundPaymentAction {
         { refundedAmount, status: updated.current() },
         this.deps.tenantId,
       );
+      await repos.auditLogs.create({
+        tenantId: this.deps.tenantId ?? null,
+        correlationId,
+        actorType: input.authorization?.actorType ?? null,
+        actorId: input.authorization?.actorId ?? null,
+        action: 'payment.refunded',
+        resourceType: 'payment',
+        resourceId: fresh.id,
+        before: { refundedAmount: fresh.refundedAmount, status: fresh.status },
+        after: { refundedAmount, status: updated.current() },
+        metadata: { refundId: refund.id, amount: dto.amount.amount() },
+        ipAddress: null,
+        userAgent: null,
+      });
       return refund;
     });
   }

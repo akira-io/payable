@@ -25,6 +25,10 @@ export async function alterExistingTables(knex: Knex): Promise<void> {
   await ensureColumns(knex, 'payable_idempotency_keys', [
     { name: 'lock_token', apply: (table) => table.string('lock_token').nullable() },
   ]);
+  await ensureColumns(knex, 'payable_audit_logs', [
+    { name: 'previous_hash', apply: (table) => table.string('previous_hash').nullable() },
+    { name: 'hash', apply: (table) => table.string('hash').nullable() },
+  ]);
   await ensureIndexes(knex, [
     {
       table: 'payable_subscriptions',

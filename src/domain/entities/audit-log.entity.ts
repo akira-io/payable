@@ -13,5 +13,7 @@ export interface AuditLog extends TenantScoped {
   readonly metadata: Record<string, unknown> | null;
   readonly ipAddress: string | null;
   readonly userAgent: string | null;
+  readonly previousHash: string | null;
+  readonly hash: string;
   readonly createdAt: Date;
 }

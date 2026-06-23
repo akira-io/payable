@@ -20,9 +20,17 @@ export class CancelSubscriptionAction extends SubscriptionAction {
       { providerSubscriptionId: subscription.providerSubscriptionId, immediately: false },
       this.context('cancel', subscription.providerSubscriptionId),
     );
-    return this.storage().subscriptions.update(subscription.id, {
+    const updated = await this.storage().subscriptions.update(subscription.id, {
       status: dto.status,
       endsAt: dto.currentPeriodEnd,
     });
+    await this.audit({
+      action: 'subscription.canceled',
+      subscriptionId: subscription.id,
+      before: { status: subscription.status, endsAt: subscription.endsAt ?? null },
+      after: { status: updated.status, endsAt: updated.endsAt ?? null },
+      authorization,
+    });
+    return updated;
   }
 }

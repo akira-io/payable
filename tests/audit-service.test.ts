@@ -26,6 +26,33 @@ describe('AuditService', () => {
     expect(entry.after).toEqual({ amount: 9900, currency: 'USD' });
     expect(repository.entries).toHaveLength(1);
   });
+
+  it('chains entries and verifies the chain, detecting tampering', async () => {
+    const repository = new InMemoryAuditLogRepository(new FakeClock());
+    const service = new AuditService(repository);
+
+    const first = await service.record({
+      action: 'payment.charged',
+      resourceType: 'payment',
+      resourceId: 'pay_1',
+      correlationId: 'c1',
+      after: { amount: 1000 },
+    });
+    const second = await service.record({
+      action: 'payment.refunded',
+      resourceType: 'payment',
+      resourceId: 'pay_1',
+      correlationId: 'c2',
+      after: { amount: 500 },
+    });
+
+    expect(first.previousHash).toBeNull();
+    expect(second.previousHash).toBe(first.hash);
+    expect(await service.verify()).toBe(true);
+
+    repository.entries[1] = { ...second, after: { amount: 999999 } };
+    expect(await service.verify()).toBe(false);
+  });
 });
 
 describe('ListAuditLogsQuery', () => {

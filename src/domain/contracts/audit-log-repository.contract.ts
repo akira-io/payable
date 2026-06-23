@@ -1,6 +1,6 @@
 import type { AuditLog } from '../entities/audit-log.entity';
 
-export type NewAuditLog = Omit<AuditLog, 'id' | 'createdAt'>;
+export type NewAuditLog = Omit<AuditLog, 'id' | 'createdAt' | 'hash' | 'previousHash'>;
 
 export interface AuditLogQuery {
   tenantId?: string | null;

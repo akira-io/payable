@@ -33,6 +33,29 @@ export abstract class SubscriptionAction {
     return this.deps.storage;
   }
 
+  protected async audit(input: {
+    action: string;
+    subscriptionId: string;
+    before: Record<string, unknown>;
+    after: Record<string, unknown>;
+    authorization?: AuthorizationContext;
+  }): Promise<void> {
+    await this.storage().auditLogs.create({
+      tenantId: this.deps.tenantId ?? null,
+      correlationId: CorrelationId.generate().toString(),
+      actorType: input.authorization?.actorType ?? null,
+      actorId: input.authorization?.actorId ?? null,
+      action: input.action,
+      resourceType: 'subscription',
+      resourceId: input.subscriptionId,
+      before: input.before,
+      after: input.after,
+      metadata: null,
+      ipAddress: null,
+      userAgent: null,
+    });
+  }
+
   protected async resolve(billable: Billable, name: string): Promise<ManagedSubscription> {
     assertProviderCapability(this.deps.provider, 'subscriptions');
     this.storage();
