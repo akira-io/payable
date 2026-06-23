@@ -113,6 +113,17 @@ describe('nest adapter', () => {
     expect(() => controller.invoices()).toThrowError(PayableError);
   });
 
+  it('rejects a webhook whose body is not the raw buffer', () => {
+    const controller = controllerFor(createPayable({ providers: { stripe: new FakeProvider() } }));
+    try {
+      controller.webhook({ headers: { 'stripe-signature': 'sig' }, body: { id: 'evt_1' } });
+      throw new Error('expected webhook to reject a non-buffer body');
+    } catch (error) {
+      expect(error).toBeInstanceOf(PayableError);
+      expect((error as PayableError).code).toBe('INVALID_WEBHOOK_PAYLOAD');
+    }
+  });
+
   it('refunds a payment', async () => {
     const db = createTestDb();
     await migrate(db);

@@ -139,10 +139,10 @@ export class PayableController {
     if (Buffer.isBuffer(request.rawBody)) {
       return request.rawBody.toString('utf8');
     }
-    if (typeof request.body === 'string') {
-      return request.body;
-    }
-    return '';
+    throw new PayableError(
+      'Webhook body must be the raw request buffer; bootstrap Nest with { rawBody: true } and mount no body parser on the webhook route',
+      { code: 'INVALID_WEBHOOK_PAYLOAD' },
+    );
   }
 
   private manage(action: ManageAction, name: string, billable: Billable): Promise<Subscription> {
