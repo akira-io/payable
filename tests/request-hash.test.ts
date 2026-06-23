@@ -23,4 +23,18 @@ describe('hashRequest', () => {
   it('produces a 64-character hex digest', async () => {
     expect(await hashRequest({ a: 1 })).toMatch(/^[0-9a-f]{64}$/);
   });
+
+  it('hashes BigInt values deterministically without throwing', async () => {
+    const a = await hashRequest({ amount: 10n });
+    const b = await hashRequest({ amount: 10n });
+    const c = await hashRequest({ amount: 11n });
+    expect(a).toBe(b);
+    expect(a).not.toBe(c);
+  });
+
+  it('canonicalizes arrays with undefined and null elements stably', async () => {
+    const a = await hashRequest({ items: [1, undefined, null] });
+    const b = await hashRequest({ items: [1, undefined, null] });
+    expect(a).toBe(b);
+  });
 });
