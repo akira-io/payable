@@ -75,6 +75,12 @@ describe('Money', () => {
     expect(shares.map((s) => s.amount())).toEqual([250, 750]);
   });
 
+  it('allocates a negative amount conserving sign and total', () => {
+    const shares = Money.of(-100, 'USD').allocate([1, 1, 1]);
+    expect(shares.map((s) => s.amount())).toEqual([-34, -33, -33]);
+    expect(shares.reduce((sum, s) => sum + s.amount(), 0)).toBe(-100);
+  });
+
   it('rejects invalid allocation ratios', () => {
     expect(() => Money.of(100, 'USD').allocate([])).toThrow(RangeError);
     expect(() => Money.of(100, 'USD').allocate([0, 0])).toThrow(RangeError);
