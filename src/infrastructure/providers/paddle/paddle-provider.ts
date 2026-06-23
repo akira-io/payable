@@ -26,6 +26,7 @@ import type {
 } from '../../../domain/dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
+import { assertSubscriptionPayload } from '../webhook-subscription-payload';
 import { buildPaddleClientOptions } from './paddle-client-options';
 import { PaddleEventNormalizer } from './paddle-event-normalizer';
 import {
@@ -190,6 +191,7 @@ export class PaddleProvider implements PaymentProvider {
     if (!verified.normalizedType?.startsWith('subscription.')) {
       return null;
     }
+    assertSubscriptionPayload(verified.data, 'paddle');
     return toSubscriptionDTO(verified.data as unknown as PaddleSubscriptionEntity);
   }
 

@@ -40,6 +40,7 @@ import type {
 } from '../../../domain/dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
+import { assertSubscriptionPayload } from '../webhook-subscription-payload';
 import { withStripeErrors } from './stripe-errors';
 import { StripeEventNormalizer } from './stripe-event-normalizer';
 import {
@@ -262,6 +263,7 @@ export class StripeProvider
     if (!verified.normalizedType?.startsWith('subscription.')) {
       return null;
     }
+    assertSubscriptionPayload(verified.data, 'stripe');
     return toSubscriptionDTO(verified.data as unknown as Stripe.Subscription);
   }
 
