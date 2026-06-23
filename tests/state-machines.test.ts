@@ -55,6 +55,21 @@ describe('PaymentStateMachine', () => {
   it('rejects refunding a pending payment', () => {
     expect(() => new PaymentStateMachine('pending').refund()).toThrow(InvalidStateTransitionError);
   });
+
+  it('moves through partial refunds to a full refund', () => {
+    const machine = new PaymentStateMachine('succeeded');
+    expect(machine.partiallyRefund().current()).toBe('partially_refunded');
+    expect(machine.partiallyRefund().current()).toBe('partially_refunded');
+    expect(machine.refund().current()).toBe('refunded');
+  });
+
+  it('treats refunded as terminal', () => {
+    expect(() => new PaymentStateMachine('refunded').partiallyRefund()).toThrow(
+      InvalidStateTransitionError,
+    );
+    expect(() => new PaymentStateMachine('refunded').refund()).toThrow(InvalidStateTransitionError);
+    expect(new PaymentStateMachine('partially_refunded').can('refund')).toBe(true);
+  });
 });
 
 describe('RefundStateMachine', () => {
