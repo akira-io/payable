@@ -5,7 +5,10 @@ import type {
   QueueDriver,
   QueueJob,
 } from '../src/domain/contracts/queue-driver.contract';
-import { BullMQQueueDriver } from '../src/infrastructure/queue/bullmq/bullmq-queue-driver';
+import {
+  BullMQQueueDriver,
+  isJobExhausted,
+} from '../src/infrastructure/queue/bullmq/bullmq-queue-driver';
 import { SyncQueueDriver } from '../src/infrastructure/queue/sync/sync-queue-driver';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
@@ -74,6 +77,12 @@ describe('BullMQQueueDriver', () => {
     expect(
       new BullMQQueueDriver({ connection, removeOnFailCount: 50 }).jobOptions().removeOnFail,
     ).toEqual({ count: 50 });
+  });
+
+  it('treats a job as exhausted once attemptsMade reaches the attempt cap', () => {
+    expect(isJobExhausted(5, 5)).toBe(true);
+    expect(isJobExhausted(2, 5)).toBe(false);
+    expect(isJobExhausted(1, 0)).toBe(true);
   });
 });
 
