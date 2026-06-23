@@ -1,15 +1,18 @@
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync } from 'node:crypto';
 import type { Encryption } from '../../domain/contracts/encryption.contract';
 import { PayableError } from '../../domain/errors/payable-error';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_BYTES = 12;
 const KEY_BYTES = 32;
-const DEFAULT_KEY_SALT = 'payable.encryption.kdf.v1';
 
 export interface NodeEncryptionOptions {
   key: string;
   salt?: string;
+}
+
+function deriveSalt(key: string): Buffer {
+  return createHash('sha256').update(`payable.encryption.kdf.v1:${key}`).digest();
 }
 
 export class NodeEncryptionDriver implements Encryption {
@@ -21,7 +24,7 @@ export class NodeEncryptionDriver implements Encryption {
         code: 'ENCRYPTION_KEY_REQUIRED',
       });
     }
-    this.key = scryptSync(options.key, options.salt ?? DEFAULT_KEY_SALT, KEY_BYTES);
+    this.key = scryptSync(options.key, options.salt ?? deriveSalt(options.key), KEY_BYTES);
   }
 
   async encrypt(plaintext: string): Promise<string> {
