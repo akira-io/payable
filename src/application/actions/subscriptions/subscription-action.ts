@@ -1,4 +1,7 @@
-import type { StorageDriver } from '../../../domain/contracts/storage-driver.contract';
+import type {
+  Repositories,
+  StorageDriver,
+} from '../../../domain/contracts/storage-driver.contract';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type { Subscription } from '../../../domain/entities/subscription.entity';
 import { PayableError } from '../../../domain/errors/payable-error';
@@ -40,7 +43,20 @@ export abstract class SubscriptionAction {
     after: Record<string, unknown>;
     authorization?: AuthorizationContext;
   }): Promise<void> {
-    await this.storage().auditLogs.create({
+    await this.auditWith(this.storage(), input);
+  }
+
+  protected async auditWith(
+    repos: Repositories,
+    input: {
+      action: string;
+      subscriptionId: string;
+      before: Record<string, unknown>;
+      after: Record<string, unknown>;
+      authorization?: AuthorizationContext;
+    },
+  ): Promise<void> {
+    await repos.auditLogs.create({
       tenantId: this.deps.tenantId ?? null,
       correlationId: CorrelationId.generate().toString(),
       actorType: input.authorization?.actorType ?? null,
