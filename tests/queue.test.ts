@@ -44,11 +44,11 @@ describe('SyncQueueDriver', () => {
     expect(seen[0]?.payload).toEqual({ x: 1 });
   });
 
-  it('drops jobs with no handler', async () => {
+  it('throws when no handler is registered for the job', async () => {
     const queue = new SyncQueueDriver();
     await expect(
       queue.dispatch({ name: 'job.missing', payload: {}, correlationId: 'c2' }),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow('No handler registered');
   });
 });
 
