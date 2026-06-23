@@ -11,6 +11,7 @@ export interface IdempotencyRecord {
   readonly status: IdempotencyStatus;
   readonly lockedUntil: Date | null;
   readonly expiresAt: Date | null;
+  readonly lockToken?: string | null;
 }
 
 export interface IdempotencyStore {
@@ -18,6 +19,11 @@ export interface IdempotencyStore {
   acquire(record: IdempotencyRecord, tenantId?: string | null): Promise<boolean>;
   takeOver(record: IdempotencyRecord, tenantId?: string | null): Promise<boolean>;
   put(record: IdempotencyRecord, tenantId?: string | null): Promise<void>;
-  markCompleted(key: string, response: unknown, tenantId?: string | null): Promise<void>;
-  markFailed(key: string, tenantId?: string | null): Promise<void>;
+  markCompleted(
+    key: string,
+    response: unknown,
+    tenantId?: string | null,
+    lockToken?: string | null,
+  ): Promise<void>;
+  markFailed(key: string, tenantId?: string | null, lockToken?: string | null): Promise<void>;
 }

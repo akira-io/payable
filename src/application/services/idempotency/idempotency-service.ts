@@ -96,10 +96,10 @@ export class IdempotencyService {
     }
     try {
       const result = await execution.run();
-      await this.store.markCompleted(execution.key, result, execution.tenantId);
+      await this.store.markCompleted(execution.key, result, execution.tenantId, record.lockToken);
       return result;
     } catch (error) {
-      await this.store.markFailed(execution.key, execution.tenantId);
+      await this.store.markFailed(execution.key, execution.tenantId, record.lockToken);
       throw error;
     }
   }
@@ -119,6 +119,7 @@ export class IdempotencyService {
       status: 'processing',
       lockedUntil: new Date(this.clock.now().getTime() + this.lockTtlMs),
       expiresAt: null,
+      lockToken: globalThis.crypto.randomUUID(),
     };
   }
 }
