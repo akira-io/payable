@@ -26,6 +26,17 @@ describe('stripe subscription mapping', () => {
     expect(dto.status).toBe('past_due');
     expect(dto.currentPeriodEnd).not.toBeNull();
   });
+
+  it('falls back to the subscription-level period end when items omit it', () => {
+    const dto = toStripeSubscriptionDTO({
+      id: 'sub_3',
+      status: 'active',
+      items: { data: [] },
+      current_period_end: 1_750_000_000,
+      trial_end: null,
+    } as unknown as Stripe.Subscription);
+    expect(dto.currentPeriodEnd?.toISOString()).toBe(new Date(1_750_000_000 * 1000).toISOString());
+  });
 });
 
 describe('paddle subscription mapping', () => {
