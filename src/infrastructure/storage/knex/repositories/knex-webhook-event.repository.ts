@@ -76,6 +76,15 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
     });
   }
 
+  async claim(id: string, tenantId?: string | null): Promise<boolean> {
+    const where = tenantId === undefined ? { id } : { id, tenant_id: this.tenant(tenantId) };
+    const affected = await this.knex(this.table)
+      .where(where)
+      .whereIn('status', ['pending', 'failed'])
+      .update({ status: 'processing' });
+    return affected > 0;
+  }
+
   async markStatus(
     id: string,
     status: WebhookEventStatus,
