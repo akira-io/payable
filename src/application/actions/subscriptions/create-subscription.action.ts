@@ -21,6 +21,10 @@ export interface CreateSubscriptionInputData {
 
 export class CreateSubscriptionAction extends SubscriptionAction {
   async handle(input: CreateSubscriptionInputData): Promise<Subscription> {
+    const provider = this.deps.provider;
+    if (!isDirectSubscriptionCapable(provider)) {
+      throw new ProviderCapabilityNotSupportedError(provider.name, 'direct subscription creation');
+    }
     const storage = this.storage();
     const providerCustomerId = await new SyncCustomerWithProviderAction(this.deps).handle(
       input.billable,
@@ -31,10 +35,6 @@ export class CreateSubscriptionAction extends SubscriptionAction {
     );
     if (!customer) {
       throw new CustomerNotFoundError(input.billable.billableId);
-    }
-    const provider = this.deps.provider;
-    if (!isDirectSubscriptionCapable(provider)) {
-      throw new ProviderCapabilityNotSupportedError(provider.name, 'direct subscription creation');
     }
     const key = IdempotencyKey.forSubscription({
       provider: this.deps.providerName,

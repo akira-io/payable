@@ -21,6 +21,10 @@ export class ChargeAction {
   constructor(private readonly deps: BillingDependencies) {}
 
   async handle(input: ChargeActionInput): Promise<Payment> {
+    const provider = this.deps.provider;
+    if (!isChargeCapable(provider)) {
+      throw new ProviderCapabilityNotSupportedError(provider.name, 'charge');
+    }
     const storage = this.deps.storage;
     if (!storage) {
       throw new PayableError('Charging requires a storage driver', {
@@ -36,10 +40,6 @@ export class ChargeAction {
     );
     if (!customer) {
       throw new CustomerNotFoundError(input.billable.billableId);
-    }
-    const provider = this.deps.provider;
-    if (!isChargeCapable(provider)) {
-      throw new ProviderCapabilityNotSupportedError(provider.name, 'charge');
     }
     const key = IdempotencyKey.forCharge({
       provider: this.deps.providerName,
