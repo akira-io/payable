@@ -81,6 +81,12 @@ describe('Money', () => {
     expect(() => Money.of(100, 'USD').allocate([1, -1])).toThrow(RangeError);
   });
 
+  it('computes a percentage in basis points with half-up rounding', () => {
+    expect(Money.of(10_000, 'USD').percentage(1200).amount()).toBe(1200);
+    expect(Money.of(105, 'USD').percentage(1000).amount()).toBe(11);
+    expect(() => Money.of(100, 'USD').percentage(12.5)).toThrow(TypeError);
+  });
+
   it('treats minor units correctly for zero-decimal currencies', () => {
     const yen = Money.of(1000, 'JPY');
     expect(yen.amount()).toBe(1000);
