@@ -8,6 +8,7 @@ import {
   Post,
   Req,
   UseFilters,
+  UseGuards,
 } from '@nestjs/common';
 import type { Billable } from '../../application/builders/billable';
 import type { CheckoutSessionDTO } from '../../domain/dtos/checkout.dto';
@@ -25,6 +26,7 @@ import {
   type PayableHttpRequest,
 } from './payable.constants';
 import { PayableExceptionFilter } from './payable.exception-filter';
+import { PayableAuthGuard } from './payable-auth.guard';
 
 interface CheckoutRequestBody {
   billable: Billable;
@@ -57,6 +59,7 @@ export class PayableController {
 
   @Post('checkout')
   @HttpCode(201)
+  @UseGuards(PayableAuthGuard)
   checkout(@Body() body: CheckoutRequestBody): Promise<CheckoutSessionDTO> {
     const builder = this.payable
       .customer(body.billable)
@@ -73,12 +76,14 @@ export class PayableController {
 
   @Post('subscriptions/:name/cancel')
   @HttpCode(200)
+  @UseGuards(PayableAuthGuard)
   cancel(@Param('name') name: string, @Body() body: { billable: Billable }): Promise<Subscription> {
     return this.manage('cancel', name, body.billable);
   }
 
   @Post('subscriptions/:name/cancel-now')
   @HttpCode(200)
+  @UseGuards(PayableAuthGuard)
   cancelNow(
     @Param('name') name: string,
     @Body() body: { billable: Billable },
@@ -88,12 +93,14 @@ export class PayableController {
 
   @Post('subscriptions/:name/resume')
   @HttpCode(200)
+  @UseGuards(PayableAuthGuard)
   resume(@Param('name') name: string, @Body() body: { billable: Billable }): Promise<Subscription> {
     return this.manage('resume', name, body.billable);
   }
 
   @Post('subscriptions/:name/swap')
   @HttpCode(200)
+  @UseGuards(PayableAuthGuard)
   swap(
     @Param('name') name: string,
     @Body() body: { billable: Billable; price: string },
@@ -102,22 +109,26 @@ export class PayableController {
   }
 
   @Post('customers')
+  @UseGuards(PayableAuthGuard)
   customers(): never {
     throw PayableError.notImplemented('POST /customers');
   }
 
   @Get('invoices')
+  @UseGuards(PayableAuthGuard)
   invoices(): never {
     throw PayableError.notImplemented('GET /invoices');
   }
 
   @Get('payments')
+  @UseGuards(PayableAuthGuard)
   payments(): never {
     throw PayableError.notImplemented('GET /payments');
   }
 
   @Post('refunds')
   @HttpCode(201)
+  @UseGuards(PayableAuthGuard)
   refunds(@Body() rawBody: unknown): Promise<Refund> {
     const body = parseBody(refundBodySchema, rawBody);
     const amount = body.amount ? Money.of(body.amount.amount, body.amount.currency) : undefined;
