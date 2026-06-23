@@ -112,4 +112,33 @@ describe('nest adapter', () => {
     const controller = controllerFor(createPayable({ providers: { stripe: new FakeProvider() } }));
     expect(() => controller.invoices()).toThrowError(PayableError);
   });
+
+  it('refunds a payment', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payment = await storage.payments.create({
+      tenantId: null,
+      customerId: null,
+      provider: 'stripe',
+      providerPaymentId: 'pi_nest',
+      status: 'succeeded',
+      currency: 'USD',
+      amount: 4000,
+      refundedAmount: 0,
+      reference: null,
+      description: null,
+    });
+    const controller = controllerFor(
+      createPayable({ providers: { stripe: new FakeProvider() }, storage }),
+    );
+
+    const refund = await controller.refunds({
+      paymentId: payment.id,
+      amount: { amount: 4000, currency: 'USD' },
+    });
+    expect(refund).toMatchObject({ amount: 4000 });
+    expect(() => controller.refunds({})).toThrowError(PayableError);
+    await db.destroy();
+  });
 });

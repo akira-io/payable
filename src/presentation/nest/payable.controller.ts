@@ -11,8 +11,10 @@ import {
 } from '@nestjs/common';
 import type { Billable } from '../../application/builders/billable';
 import type { CheckoutSessionDTO } from '../../domain/dtos/checkout.dto';
+import type { Refund } from '../../domain/entities/refund.entity';
 import type { Subscription } from '../../domain/entities/subscription.entity';
 import { PayableError } from '../../domain/errors/payable-error';
+import { Money } from '../../domain/value-objects/money';
 import type { Payable } from '../../payable';
 import {
   flattenHeaders,
@@ -28,6 +30,12 @@ interface CheckoutRequestBody {
   subscription: { name: string; price: string; trialDays?: number; coupon?: string };
   successUrl: string;
   cancelUrl: string;
+}
+
+interface RefundRequestBody {
+  paymentId?: string;
+  amount?: { amount: number; currency: string };
+  reason?: string;
 }
 
 type ManageAction = 'cancel' | 'cancelNow' | 'resume';
@@ -114,8 +122,13 @@ export class PayableController {
   }
 
   @Post('refunds')
-  refunds(): never {
-    throw PayableError.notImplemented('POST /refunds');
+  @HttpCode(201)
+  refunds(@Body() body: RefundRequestBody): Promise<Refund> {
+    if (typeof body?.paymentId !== 'string' || body.paymentId.length === 0) {
+      throw new PayableError('paymentId is required', { code: 'VALIDATION_FAILED' });
+    }
+    const amount = body.amount ? Money.of(body.amount.amount, body.amount.currency) : undefined;
+    return this.payable.refund({ paymentId: body.paymentId, amount, reason: body.reason });
   }
 
   private receive(request: PayableHttpRequest, provider: string | undefined) {
