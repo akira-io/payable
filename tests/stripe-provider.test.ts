@@ -1,7 +1,10 @@
 import type Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
 import { Money } from '../src/domain/value-objects/money';
-import { StripeProvider } from '../src/infrastructure/providers/stripe/stripe-provider';
+import {
+  STRIPE_API_VERSION,
+  StripeProvider,
+} from '../src/infrastructure/providers/stripe/stripe-provider';
 
 interface RecordedCall {
   params: unknown;
@@ -130,5 +133,9 @@ describe('StripeProvider', () => {
       return_url: 'https://app.test/account',
     });
     expect(calls.get('portal')?.options.idempotencyKey).toBe('idem-1');
+  });
+
+  it('pins a fixed Stripe API version', () => {
+    expect(STRIPE_API_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}/);
   });
 });
