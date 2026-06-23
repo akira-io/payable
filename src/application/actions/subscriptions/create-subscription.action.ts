@@ -32,6 +32,7 @@ export class CreateSubscriptionAction extends SubscriptionAction {
     const customer = await storage.customers.findByBillable(
       input.billable.billableType,
       input.billable.billableId,
+      this.deps.tenantId ?? null,
     );
     if (!customer) {
       throw new CustomerNotFoundError(input.billable.billableId);
@@ -57,7 +58,7 @@ export class CreateSubscriptionAction extends SubscriptionAction {
     const items = input.items ?? [{ priceId: input.priceId, quantity: input.quantity ?? 1 }];
     return storage.transaction(async (repos) => {
       const subscription = await repos.subscriptions.create({
-        tenantId: null,
+        tenantId: this.deps.tenantId ?? null,
         customerId: customer.id,
         name: input.name,
         provider: this.deps.providerName,

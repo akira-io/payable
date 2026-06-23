@@ -7,4 +7,5 @@ export interface BillingDependencies {
   providerName: string;
   clock: Clock;
   storage?: StorageDriver;
+  tenantId?: string | null;
 }

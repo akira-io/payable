@@ -37,6 +37,7 @@ export class ChargeAction {
     const customer = await storage.customers.findByBillable(
       input.billable.billableType,
       input.billable.billableId,
+      this.deps.tenantId ?? null,
     );
     if (!customer) {
       throw new CustomerNotFoundError(input.billable.billableId);
@@ -59,7 +60,7 @@ export class ChargeAction {
       { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
     );
     return storage.payments.create({
-      tenantId: null,
+      tenantId: this.deps.tenantId ?? null,
       customerId: customer.id,
       provider: this.deps.providerName,
       providerPaymentId: dto.providerPaymentId,
