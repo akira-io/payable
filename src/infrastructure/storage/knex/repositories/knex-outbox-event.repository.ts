@@ -40,16 +40,6 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
     return this.toEntity(row as Record<string, unknown>);
   }
 
-  async pullPending(limit: number): Promise<OutboxEvent[]> {
-    const now = this.clock.now().toISOString();
-    const rows = (await this.knex(this.table)
-      .where({ status: 'pending' })
-      .where((builder) => builder.whereNull('next_retry_at').orWhere('next_retry_at', '<=', now))
-      .orderBy('created_at', 'asc')
-      .limit(limit)) as Record<string, unknown>[];
-    return rows.map((row) => this.toEntity(row));
-  }
-
   async claimPending(limit: number): Promise<OutboxEvent[]> {
     const now = this.clock.now();
     const nowIso = now.toISOString();

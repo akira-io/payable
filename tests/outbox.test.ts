@@ -7,7 +7,7 @@ import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-stora
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
-import { createTestDb } from './support/knex';
+import { countDuePendingOutbox, createTestDb } from './support/knex';
 
 let db: Knex;
 let clock: FakeClock;
@@ -39,7 +39,7 @@ describe('OutboxService', () => {
 
     const result = await service.publishPending(async () => {});
     expect(result.published).toBe(1);
-    expect(await storage.outboxEvents.pullPending(10)).toHaveLength(0);
+    expect(await countDuePendingOutbox(db, clock)).toBe(0);
   });
 
   it('retries with backoff then dead-letters', async () => {
@@ -54,10 +54,10 @@ describe('OutboxService', () => {
 
     const first = await service.publishPending(failing);
     expect(first.retried).toBe(1);
-    expect(await storage.outboxEvents.pullPending(10)).toHaveLength(0);
+    expect(await countDuePendingOutbox(db, clock)).toBe(0);
 
     clock.advance(2000);
-    expect(await storage.outboxEvents.pullPending(10)).toHaveLength(1);
+    expect(await countDuePendingOutbox(db, clock)).toBe(1);
 
     const second = await service.publishPending(failing);
     expect(second.deadLettered).toBe(1);
@@ -96,7 +96,7 @@ describe('webhook replay', () => {
     });
     expect(processed).toBe(2);
     expect(await storage.auditLogs.list({ resourceType: 'webhook_event' })).toHaveLength(2);
-    expect(await storage.outboxEvents.pullPending(10)).toHaveLength(2);
+    expect(await countDuePendingOutbox(db, clock)).toBe(2);
 
     await expect(payable.replayWebhook(received.webhookEventId)).rejects.toThrow('not permitted');
     await expect(payable.replayWebhook(received.webhookEventId, { allowed: true })).rejects.toThrow(
