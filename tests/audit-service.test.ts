@@ -83,4 +83,27 @@ describe('ListAuditLogsQuery', () => {
     expect(await query.run({ correlationId: 'c2' })).toHaveLength(1);
     expect(await query.run({ limit: 1 })).toHaveLength(1);
   });
+
+  it('forces the trusted tenant and ignores a tenant supplied in the query', async () => {
+    const repository = new InMemoryAuditLogRepository(new FakeClock());
+    const service = new AuditService(repository);
+    await service.record({
+      action: 'a',
+      resourceType: 'payment',
+      resourceId: 'p1',
+      correlationId: 'c1',
+      tenantId: 'tenant-a',
+    });
+    await service.record({
+      action: 'b',
+      resourceType: 'payment',
+      resourceId: 'p2',
+      correlationId: 'c2',
+      tenantId: 'tenant-b',
+    });
+
+    const scoped = new ListAuditLogsQuery(repository, 'tenant-a');
+    expect(await scoped.run({ tenantId: 'tenant-b' })).toHaveLength(1);
+    expect((await scoped.run())[0]?.tenantId).toBe('tenant-a');
+  });
 });

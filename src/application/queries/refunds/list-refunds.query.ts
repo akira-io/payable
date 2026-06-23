@@ -10,6 +10,10 @@ export class ListRefundsQuery {
     if (!storage) {
       return [];
     }
+    const payment = await storage.payments.findById(paymentId, this.deps.tenantId);
+    if (!payment) {
+      return [];
+    }
     return storage.refunds.listByPayment(paymentId, options);
   }
 }
