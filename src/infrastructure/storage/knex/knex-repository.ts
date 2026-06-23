@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 import type { Clock } from '../../../domain/contracts/clock.contract';
+import type { ListOptions } from '../../../domain/contracts/list-options.contract';
 import { stripUndefined } from './mappers';
 
 export abstract class KnexRepository<Entity, New> {
@@ -51,9 +52,27 @@ export abstract class KnexRepository<Entity, New> {
     return row ? this.toEntity(row as Record<string, unknown>) : null;
   }
 
-  protected async manyWhere(where: Record<string, unknown>, limit?: number): Promise<Entity[]> {
-    const query = this.knex(this.table).where(where).orderBy('created_at', 'desc');
-    const rows = (await (limit ? query.limit(limit) : query)) as Record<string, unknown>[];
+  protected async manyWhere(
+    where: Record<string, unknown>,
+    options: ListOptions = {},
+  ): Promise<Entity[]> {
+    let query = this.knex(this.table)
+      .where(where)
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc');
+    if (options.before) {
+      const cursorAt = options.before.createdAt.toISOString();
+      const cursorId = options.before.id;
+      query = query.where((builder) =>
+        builder
+          .where('created_at', '<', cursorAt)
+          .orWhere((tie) => tie.where('created_at', cursorAt).andWhere('id', '<', cursorId)),
+      );
+    }
+    const rows = (await (options.limit ? query.limit(options.limit) : query)) as Record<
+      string,
+      unknown
+    >[];
     return rows.map((row) => this.toEntity(row));
   }
 

@@ -18,6 +18,7 @@ export type {
   IdempotencyStore,
 } from './idempotency-store.contract';
 export type { InvoiceRepository, NewInvoice } from './invoice-repository.contract';
+export type { ListCursor, ListOptions } from './list-options.contract';
 export type { Lock, LockDriver } from './lock-driver.contract';
 export type { LogContext, Logger, LogLevel } from './logger.contract';
 export type {

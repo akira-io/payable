@@ -1,3 +1,4 @@
+import type { ListOptions } from '../../../domain/contracts/list-options.contract';
 import type { Payment } from '../../../domain/entities/payment.entity';
 import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
@@ -5,7 +6,7 @@ import type { BillingDependencies } from '../../builders/billing-dependencies';
 export class ListPaymentsQuery {
   constructor(private readonly deps: BillingDependencies) {}
 
-  async run(billable: Billable, limit?: number): Promise<Payment[]> {
+  async run(billable: Billable, options?: ListOptions): Promise<Payment[]> {
     const storage = this.deps.storage;
     if (!storage) {
       return [];
@@ -17,6 +18,6 @@ export class ListPaymentsQuery {
     if (!customer) {
       return [];
     }
-    return storage.payments.listByCustomer(customer.id, limit);
+    return storage.payments.listByCustomer(customer.id, options);
   }
 }

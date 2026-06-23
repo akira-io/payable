@@ -2,6 +2,7 @@ import type {
   InvoiceRepository,
   NewInvoice,
 } from '../../../../domain/contracts/invoice-repository.contract';
+import type { ListOptions } from '../../../../domain/contracts/list-options.contract';
 import type { Invoice } from '../../../../domain/entities/invoice.entity';
 import type { InvoiceStatus } from '../../../../domain/value-objects/invoice-status';
 import { KnexRepository } from '../knex-repository';
@@ -17,8 +18,8 @@ export class KnexInvoiceRepository
     return this.firstWhere({ provider, provider_invoice_id: providerInvoiceId });
   }
 
-  listByCustomer(customerId: string, limit?: number): Promise<Invoice[]> {
-    return this.manyWhere({ customer_id: customerId }, limit);
+  listByCustomer(customerId: string, options?: ListOptions): Promise<Invoice[]> {
+    return this.manyWhere({ customer_id: customerId }, options);
   }
 
   protected toEntity(row: Record<string, unknown>): Invoice {
