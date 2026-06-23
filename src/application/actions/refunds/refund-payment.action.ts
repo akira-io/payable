@@ -60,7 +60,7 @@ export class RefundPaymentAction {
     const key = IdempotencyKey.forRefund({
       provider: this.deps.providerName,
       paymentId: payment.providerPaymentId,
-      amount: input.amount?.amount() ?? payment.amount,
+      amount: requested,
       currency: payment.currency,
     });
     const correlationId = CorrelationId.generate().toString();

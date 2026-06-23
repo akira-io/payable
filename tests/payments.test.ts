@@ -227,6 +227,34 @@ describe('idempotent charge', () => {
   });
 });
 
+describe('refund idempotency key', () => {
+  it('keys the remaining balance when the amount is omitted', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock();
+    const storage = new KnexStorageDriver(db, clock);
+    const provider = new FakeProvider();
+    const payable = createPayable({ providers: { stripe: provider }, storage, clock });
+    const payment = await storage.payments.create({
+      tenantId: null,
+      customerId: null,
+      provider: 'stripe',
+      providerPaymentId: 'pi_x',
+      status: 'succeeded',
+      currency: 'USD',
+      amount: 10_000,
+      refundedAmount: 4_000,
+      reference: null,
+      description: null,
+    });
+
+    await payable.refund({ paymentId: payment.id });
+
+    expect(provider.lastRefundCtx?.idempotencyKey).toBe('refund:stripe:pi_x:6000:USD');
+    await db.destroy();
+  });
+});
+
 describe('charge and refund lifecycle', () => {
   it('persists a payment, refunds it, and records history', async () => {
     const db = createTestDb();
