@@ -155,7 +155,7 @@ describe('charge and refund lifecycle', () => {
     expect(await new ListPaymentsQuery(deps).run(billable)).toHaveLength(1);
 
     const refund = await payable.refund({ paymentId: payment.id, amount: Money.of(9900, 'USD') });
-    expect(refund).toMatchObject({ providerRefundId: 're_fake', amount: 9900 });
+    expect(refund).toMatchObject({ providerRefundId: 're_fake_1', amount: 9900 });
     expect(provider.lastRefundInput?.providerPaymentId).toBe('pi_fake');
 
     const updated = await storage.payments.findById(payment.id);
@@ -166,6 +166,48 @@ describe('charge and refund lifecycle', () => {
     expect((await new DownloadInvoicePdfAction(deps).handle('in_fake')).filename).toBe(
       'in_fake.pdf',
     );
+    await db.destroy();
+  });
+
+  it('records a partial refund then completes it', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
+    const storage = new KnexStorageDriver(db, clock);
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage, clock });
+
+    const payment = await payable.customer(billable).charge({
+      amount: Money.of(9900, 'USD'),
+      reference: 'inv_partial',
+    });
+
+    await payable.refund({ paymentId: payment.id, amount: Money.of(4000, 'USD') });
+    let updated = await storage.payments.findById(payment.id);
+    expect(updated?.refundedAmount).toBe(4000);
+    expect(updated?.status).toBe('partially_refunded');
+
+    await payable.refund({ paymentId: payment.id, amount: Money.of(5900, 'USD') });
+    updated = await storage.payments.findById(payment.id);
+    expect(updated?.refundedAmount).toBe(9900);
+    expect(updated?.status).toBe('refunded');
+    await db.destroy();
+  });
+
+  it('rejects a refund without a storage driver', async () => {
+    const payable = createPayable({ providers: { stripe: new FakeProvider() } });
+    await expect(payable.refund({ paymentId: 'pay_x' })).rejects.toThrow(
+      'requires a storage driver',
+    );
+  });
+
+  it('rejects a refund for an unknown payment', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const payable = createPayable({
+      providers: { stripe: new FakeProvider() },
+      storage: new KnexStorageDriver(db, new FakeClock()),
+    });
+    await expect(payable.refund({ paymentId: 'missing' })).rejects.toThrow('Payment not found');
     await db.destroy();
   });
 });

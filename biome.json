@@ -56,7 +56,7 @@
       }
     },
     {
-      "includes": ["src/support/logger/console-logger.ts"],
+      "includes": ["src/support/logger/console-logger.ts", "scripts/**"],
       "linter": {
         "rules": {
           "suspicious": {
