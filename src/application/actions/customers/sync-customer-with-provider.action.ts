@@ -8,10 +8,12 @@ export class SyncCustomerWithProviderAction {
 
   async handle(billable: Billable): Promise<string> {
     const { provider, providerName, storage } = this.deps;
+    const tenantId = this.deps.tenantId ?? null;
     if (storage) {
       const existing = await storage.customers.findByBillable(
         billable.billableType,
         billable.billableId,
+        tenantId,
       );
       if (existing?.providerCustomerId) {
         return existing.providerCustomerId;
@@ -39,16 +41,18 @@ export class SyncCustomerWithProviderAction {
     if (!storage) {
       return;
     }
+    const tenantId = this.deps.tenantId ?? null;
     const existing = await storage.customers.findByBillable(
       billable.billableType,
       billable.billableId,
+      tenantId,
     );
     if (existing) {
       await storage.customers.update(existing.id, { providerCustomerId });
       return;
     }
     await storage.customers.create({
-      tenantId: null,
+      tenantId,
       provider: providerName,
       providerCustomerId,
       billableType: billable.billableType,

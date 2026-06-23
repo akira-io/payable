@@ -41,7 +41,7 @@ export class RefundPaymentAction {
       { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
     );
     const refund = await storage.refunds.create({
-      tenantId: null,
+      tenantId: this.deps.tenantId ?? null,
       paymentId: payment.id,
       provider: this.deps.providerName,
       providerRefundId: dto.providerRefundId,

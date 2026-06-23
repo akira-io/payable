@@ -14,6 +14,7 @@ export class ListPaymentsQuery {
     const customer = await storage.customers.findByBillable(
       billable.billableType,
       billable.billableId,
+      this.deps.tenantId ?? null,
     );
     if (!customer) {
       return [];

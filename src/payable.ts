@@ -87,8 +87,8 @@ export class Payable {
     return this.resolved.tenantEnabled;
   }
 
-  customer(billable: Billable, providerName?: string): CustomerContext {
-    return new CustomerContext(billable, this.dependencies(providerName));
+  customer(billable: Billable, providerName?: string, tenantId?: string | null): CustomerContext {
+    return new CustomerContext(billable, this.dependencies(providerName, tenantId));
   }
 
   async receiveWebhook(
@@ -117,16 +117,22 @@ export class Payable {
     return new OutboxService(this.resolved.storage.outboxEvents, this.resolved.clock, options);
   }
 
-  private dependencies(providerName?: string): BillingDependencies {
+  private dependencies(providerName?: string, tenantId?: string | null): BillingDependencies {
     const name = providerName ?? this.registry.names()[0];
     if (!name) {
       throw new ProviderNotFoundError(providerName ?? 'default');
+    }
+    if (this.resolved.tenantEnabled && (tenantId === undefined || tenantId === null)) {
+      throw new PayableError('A tenant id is required when tenancy is enabled', {
+        code: 'TENANT_REQUIRED',
+      });
     }
     return {
       provider: this.registry.get(name),
       providerName: name,
       clock: this.resolved.clock,
       storage: this.resolved.storage,
+      tenantId: tenantId ?? null,
     };
   }
 
