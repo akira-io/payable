@@ -51,15 +51,27 @@ export class SyncCustomerWithProviderAction {
       await storage.customers.update(existing.id, { providerCustomerId });
       return;
     }
-    await storage.customers.create({
-      tenantId,
-      provider: providerName,
-      providerCustomerId,
-      billableType: billable.billableType,
-      billableId: billable.billableId,
-      email: billable.email,
-      name: billable.name ?? null,
-      metadata: null,
-    });
+    try {
+      await storage.customers.create({
+        tenantId,
+        provider: providerName,
+        providerCustomerId,
+        billableType: billable.billableType,
+        billableId: billable.billableId,
+        email: billable.email,
+        name: billable.name ?? null,
+        metadata: null,
+      });
+    } catch (error) {
+      const raced = await storage.customers.findByBillable(
+        billable.billableType,
+        billable.billableId,
+        tenantId,
+      );
+      if (!raced) {
+        throw error;
+      }
+      await storage.customers.update(raced.id, { providerCustomerId });
+    }
   }
 }

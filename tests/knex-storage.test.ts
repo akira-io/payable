@@ -52,6 +52,17 @@ describe('KnexStorageDriver customers', () => {
       storage.customers.create(makeCustomer({ providerCustomerId: 'cus_dup' })),
     ).rejects.toThrow();
   });
+
+  it('enforces one customer per billable per tenant', async () => {
+    await storage.customers.create(
+      makeCustomer({ tenantId: 'tenant-a', providerCustomerId: 'cus_a1' }),
+    );
+    await expect(
+      storage.customers.create(
+        makeCustomer({ tenantId: 'tenant-a', providerCustomerId: 'cus_a2' }),
+      ),
+    ).rejects.toThrow();
+  });
 });
 
 describe('KnexStorageDriver catalog', () => {

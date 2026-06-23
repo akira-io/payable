@@ -15,7 +15,7 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.timestamp('created_at').notNullable();
     table.timestamp('updated_at').notNullable();
     table.unique(['provider', 'provider_customer_id']);
-    table.index(['tenant_id', 'billable_type', 'billable_id']);
+    table.unique(['tenant_id', 'billable_type', 'billable_id']);
   });
 
   await createIfMissing(knex, 'payable_products', (table) => {
