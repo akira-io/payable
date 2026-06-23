@@ -41,6 +41,18 @@ describe('fastify adapter', () => {
     await app.close();
   });
 
+  it('rejects checkout with an invalid body', async () => {
+    const app = await makeApp(createPayable({ providers: { stripe: new FakeProvider() } }));
+    const res = await app.inject({
+      method: 'POST',
+      url: '/payable/checkout',
+      payload: { billable: { billableType: '', billableId: '', email: 'nope' } },
+    });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error).toBe('VALIDATION_FAILED');
+    await app.close();
+  });
+
   it('processes a webhook from the raw body', async () => {
     const db = createTestDb();
     await migrate(db);
