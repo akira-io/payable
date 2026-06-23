@@ -139,6 +139,18 @@ describe('StripeProvider', () => {
     expect(STRIPE_API_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}/);
   });
 
+  it('rejects a subscription webhook payload missing id or status', () => {
+    const { client } = fakeStripe();
+    expect(() =>
+      provider(client).reconcileSubscription({
+        providerEventId: 'evt_1',
+        type: 'customer.subscription.updated',
+        normalizedType: 'subscription.updated',
+        data: { foo: 'bar' },
+      }),
+    ).toThrow('Webhook subscription payload is missing id or status');
+  });
+
   it('translates a Stripe card error into a typed PayableError', async () => {
     const stripe = {
       paymentIntents: {
