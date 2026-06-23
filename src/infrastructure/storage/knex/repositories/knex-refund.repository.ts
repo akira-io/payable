@@ -1,3 +1,4 @@
+import type { ListOptions } from '../../../../domain/contracts/list-options.contract';
 import type {
   NewRefund,
   RefundRepository,
@@ -17,8 +18,8 @@ export class KnexRefundRepository
     return this.firstWhere({ provider, provider_refund_id: providerRefundId });
   }
 
-  listByPayment(paymentId: string): Promise<Refund[]> {
-    return this.manyWhere({ payment_id: paymentId });
+  listByPayment(paymentId: string, options?: ListOptions): Promise<Refund[]> {
+    return this.manyWhere({ payment_id: paymentId }, options);
   }
 
   protected toEntity(row: Record<string, unknown>): Refund {

@@ -1,4 +1,5 @@
 import type { Refund } from '../entities/refund.entity';
+import type { ListOptions } from './list-options.contract';
 
 export type NewRefund = Omit<Refund, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -7,5 +8,5 @@ export interface RefundRepository {
   update(id: string, patch: Partial<NewRefund>): Promise<Refund>;
   findById(id: string): Promise<Refund | null>;
   findByProviderId(provider: string, providerRefundId: string): Promise<Refund | null>;
-  listByPayment(paymentId: string): Promise<Refund[]>;
+  listByPayment(paymentId: string, options?: ListOptions): Promise<Refund[]>;
 }

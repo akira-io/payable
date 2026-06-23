@@ -1,3 +1,4 @@
+import type { ListOptions } from '../../../../domain/contracts/list-options.contract';
 import type {
   NewSubscription,
   SubscriptionRepository,
@@ -21,8 +22,8 @@ export class KnexSubscriptionRepository
     return this.firstWhere({ provider, provider_subscription_id: providerSubscriptionId });
   }
 
-  listByCustomer(customerId: string): Promise<Subscription[]> {
-    return this.manyWhere({ customer_id: customerId });
+  listByCustomer(customerId: string, options?: ListOptions): Promise<Subscription[]> {
+    return this.manyWhere({ customer_id: customerId }, options);
   }
 
   protected toEntity(row: Record<string, unknown>): Subscription {
