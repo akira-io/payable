@@ -42,6 +42,7 @@ import { PaddleWebhookVerifier } from './paddle-webhook-verifier';
 export interface PaddleProviderOptions {
   apiKey: string;
   webhookSecret: string;
+  environment?: 'sandbox' | 'production';
   logger?: Logger;
 }
 
@@ -205,11 +206,12 @@ export class PaddleProvider implements PaymentProvider {
     if (!idempotencyKey && this.client) {
       return this.client;
     }
-    const { Paddle } = await import('@paddle/paddle-node-sdk');
-    const client = new Paddle(
-      this.options.apiKey,
-      buildPaddleClientOptions(idempotencyKey),
-    ) as unknown as PaddleClient;
+    const { Paddle, Environment } = await import('@paddle/paddle-node-sdk');
+    const options = buildPaddleClientOptions(this.options.environment, idempotencyKey);
+    const client = new Paddle(this.options.apiKey, {
+      environment: options.environment === 'sandbox' ? Environment.sandbox : Environment.production,
+      customHeaders: options.customHeaders,
+    }) as unknown as PaddleClient;
     if (!idempotencyKey) {
       this.client = client;
     }

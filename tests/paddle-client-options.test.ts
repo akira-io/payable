@@ -2,13 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { buildPaddleClientOptions } from '../src/infrastructure/providers/paddle/paddle-client-options';
 
 describe('buildPaddleClientOptions', () => {
-  it('omits headers when no idempotency key is provided', () => {
-    expect(buildPaddleClientOptions()).toEqual({});
+  it('defaults to the production environment and no headers', () => {
+    expect(buildPaddleClientOptions()).toEqual({
+      environment: 'production',
+      customHeaders: undefined,
+    });
+  });
+
+  it('honours the sandbox environment', () => {
+    expect(buildPaddleClientOptions('sandbox').environment).toBe('sandbox');
   });
 
   it('sets the Idempotency-Key header from the operation key', () => {
-    expect(buildPaddleClientOptions('idem-123')).toEqual({
-      customHeaders: { 'Idempotency-Key': 'idem-123' },
+    expect(buildPaddleClientOptions('production', 'idem-123').customHeaders).toEqual({
+      'Idempotency-Key': 'idem-123',
     });
   });
 });
