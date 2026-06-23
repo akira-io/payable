@@ -4,7 +4,7 @@ export type NewWebhookEvent = Omit<WebhookEvent, 'id' | 'processedAt'>;
 
 export interface WebhookEventRepository {
   create(data: NewWebhookEvent): Promise<WebhookEvent>;
-  findById(id: string): Promise<WebhookEvent | null>;
+  findById(id: string, tenantId?: string | null): Promise<WebhookEvent | null>;
   findByProviderEvent(
     provider: string,
     providerEventId: string,

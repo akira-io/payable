@@ -88,7 +88,7 @@ describe('webhook tenancy', () => {
         actorId: 'admin',
         tenantId: 'globex',
       }),
-    ).rejects.toThrow('not permitted');
+    ).rejects.toThrow('not found');
 
     await expect(
       payable.replayWebhook(received.webhookEventId, {

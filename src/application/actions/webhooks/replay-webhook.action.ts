@@ -19,7 +19,7 @@ export class ReplayWebhookAction {
     if (!this.policy.authorize(context)) {
       throw new PayableError('Webhook replay not permitted', { code: 'WEBHOOK_REPLAY_DENIED' });
     }
-    const event = await this.deps.storage.webhookEvents.findById(webhookEventId);
+    const event = await this.deps.storage.webhookEvents.findById(webhookEventId, context.tenantId);
     if (!event) {
       throw new PayableError(`Webhook event not found: ${webhookEventId}`, {
         code: 'WEBHOOK_EVENT_NOT_FOUND',

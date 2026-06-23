@@ -38,8 +38,9 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
     return this.findByIdOrFail(id);
   }
 
-  async findById(id: string): Promise<WebhookEvent | null> {
-    const row = await this.knex(this.table).where({ id }).first();
+  async findById(id: string, tenantId?: string | null): Promise<WebhookEvent | null> {
+    const where = tenantId === undefined ? { id } : { id, tenant_id: this.tenant(tenantId) };
+    const row = await this.knex(this.table).where(where).first();
     return row ? this.hydrate(row) : null;
   }
 

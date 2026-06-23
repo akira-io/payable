@@ -18,7 +18,10 @@ export class ProcessWebhookAction {
   constructor(private readonly deps: WebhookDependencies) {}
 
   async handle(payload: ProcessWebhookJobPayload): Promise<void> {
-    const event = await this.deps.storage.webhookEvents.findById(payload.webhookEventId);
+    const event = await this.deps.storage.webhookEvents.findById(
+      payload.webhookEventId,
+      payload.tenantId,
+    );
     if (!event) {
       throw new PayableError(`Webhook event not found: ${payload.webhookEventId}`, {
         code: 'WEBHOOK_EVENT_NOT_FOUND',
