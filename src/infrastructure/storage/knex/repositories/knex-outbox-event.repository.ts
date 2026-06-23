@@ -54,29 +54,40 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
     const now = this.clock.now();
     const nowIso = now.toISOString();
     const token = globalThis.crypto.randomUUID();
-    const candidates = (await this.knex(this.table)
-      .select('id')
-      .where((builder) => this.claimable(builder, nowIso))
-      .orderBy('created_at', 'asc')
-      .limit(limit)) as Record<string, unknown>[];
-    const ids = candidates.map((row) => row.id as string);
-    if (ids.length === 0) {
-      return [];
-    }
     const lockedUntil = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
-    await this.knex(this.table)
-      .whereIn('id', ids)
-      .where((builder) => this.claimable(builder, nowIso))
-      .update({
-        status: 'processing',
-        locked_by: token,
-        locked_until: lockedUntil,
-        updated_at: nowIso,
-      });
-    const rows = (await this.knex(this.table)
-      .where({ locked_by: token, status: 'processing' })
-      .orderBy('created_at', 'asc')) as Record<string, unknown>[];
-    return rows.map((row) => this.toEntity(row));
+    return this.knex.transaction(async (trx) => {
+      const select = trx(this.table)
+        .select('id')
+        .where((builder) => this.claimable(builder, nowIso))
+        .orderBy('created_at', 'asc')
+        .limit(limit);
+      if (this.supportsRowLocking()) {
+        select.forUpdate().skipLocked();
+      }
+      const candidates = (await select) as Record<string, unknown>[];
+      const ids = candidates.map((row) => row.id as string);
+      if (ids.length === 0) {
+        return [];
+      }
+      await trx(this.table)
+        .whereIn('id', ids)
+        .where((builder) => this.claimable(builder, nowIso))
+        .update({
+          status: 'processing',
+          locked_by: token,
+          locked_until: lockedUntil,
+          updated_at: nowIso,
+        });
+      const rows = (await trx(this.table)
+        .where({ locked_by: token, status: 'processing' })
+        .orderBy('created_at', 'asc')) as Record<string, unknown>[];
+      return rows.map((row) => this.toEntity(row));
+    });
+  }
+
+  private supportsRowLocking(): boolean {
+    const dialect = (this.knex.client as { dialect?: string }).dialect;
+    return dialect === 'postgresql' || dialect === 'mysql' || dialect === 'mariadb';
   }
 
   async markPublished(id: string): Promise<void> {
