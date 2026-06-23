@@ -9,6 +9,11 @@ export class UpdateSubscriptionQuantityAction extends SubscriptionAction {
       { providerSubscriptionId: subscription.providerSubscriptionId, quantity },
       this.context('quantity', subscription.providerSubscriptionId),
     );
-    return this.storage().subscriptions.update(subscription.id, { quantity, status: dto.status });
+    const updated = await this.storage().subscriptions.update(subscription.id, {
+      quantity,
+      status: dto.status,
+    });
+    await this.storage().subscriptionItems.updatePrimary(subscription.id, { quantity });
+    return updated;
   }
 }

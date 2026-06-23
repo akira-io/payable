@@ -9,6 +9,11 @@ export class SwapSubscriptionAction extends SubscriptionAction {
       { providerSubscriptionId: subscription.providerSubscriptionId, priceId },
       this.context('swap', subscription.providerSubscriptionId),
     );
-    return this.storage().subscriptions.update(subscription.id, { priceId, status: dto.status });
+    const updated = await this.storage().subscriptions.update(subscription.id, {
+      priceId,
+      status: dto.status,
+    });
+    await this.storage().subscriptionItems.updatePrimary(subscription.id, { priceId });
+    return updated;
   }
 }
