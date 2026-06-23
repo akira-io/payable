@@ -89,14 +89,24 @@ describe('webhook replay', () => {
     expect(processed).toBe(1);
     expect(await storage.auditLogs.list({ resourceType: 'webhook_event' })).toHaveLength(1);
 
-    await payable.replayWebhook(received.webhookEventId);
+    await payable.replayWebhook(received.webhookEventId, {
+      allowed: true,
+      actorType: 'user',
+      actorId: 'admin-1',
+    });
     expect(processed).toBe(2);
     expect(await storage.auditLogs.list({ resourceType: 'webhook_event' })).toHaveLength(2);
     expect(await storage.outboxEvents.pullPending(10)).toHaveLength(2);
 
+    await expect(payable.replayWebhook(received.webhookEventId)).rejects.toThrow('not permitted');
+    await expect(payable.replayWebhook(received.webhookEventId, { allowed: true })).rejects.toThrow(
+      'not permitted',
+    );
     await expect(
-      payable.replayWebhook(received.webhookEventId, { allowed: false }),
+      payable.replayWebhook(received.webhookEventId, { allowed: false, actorId: 'admin-1' }),
     ).rejects.toThrow('not permitted');
-    await expect(payable.replayWebhook('missing')).rejects.toThrow('not found');
+    await expect(
+      payable.replayWebhook('missing', { allowed: true, actorId: 'admin-1' }),
+    ).rejects.toThrow('not found');
   });
 });

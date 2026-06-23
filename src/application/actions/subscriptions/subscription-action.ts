@@ -31,10 +31,15 @@ export abstract class SubscriptionAction {
     return subscription as ManagedSubscription;
   }
 
-  protected context(operation: string, providerSubscriptionId: string): OperationContext {
+  protected context(
+    operation: string,
+    providerSubscriptionId: string,
+    discriminator?: string,
+  ): OperationContext {
+    const suffix = discriminator ? `:${discriminator}` : '';
     return {
       correlationId: CorrelationId.generate().toString(),
-      idempotencyKey: `subscription:${operation}:${this.deps.providerName}:${providerSubscriptionId}`,
+      idempotencyKey: `subscription:${operation}:${this.deps.providerName}:${providerSubscriptionId}${suffix}`,
     };
   }
 }

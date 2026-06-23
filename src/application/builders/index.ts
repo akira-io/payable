@@ -1,9 +1,8 @@
 export type { Billable } from './billable';
 export type { BillingDependencies } from './billing-dependencies';
-export { ChargeBuilder, type ChargeRequest } from './charge-builder';
+export type { ChargeRequest } from './charge-request';
 export { CheckoutBuilder, type CheckoutRequest } from './checkout-builder';
 export { CustomerContext } from './customer-context';
-export { InvoiceBuilder } from './invoice-builder';
 export { SubscriptionBuilder } from './subscription-builder';
 export { SubscriptionManager } from './subscription-manager';
 export type { WebhookDependencies } from './webhook-dependencies';

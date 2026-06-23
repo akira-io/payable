@@ -53,7 +53,7 @@ export function toSubscriptionDTO(subscription: PaddleSubscriptionEntity): Subsc
   const endsAt = subscription.currentBillingPeriod?.endsAt ?? null;
   return {
     providerSubscriptionId: subscription.id,
-    status: SUBSCRIPTION_STATUS[subscription.status] ?? 'active',
+    status: SUBSCRIPTION_STATUS[subscription.status] ?? 'incomplete',
     currentPeriodEnd: endsAt ? new Date(endsAt) : null,
     trialEndsAt: null,
   };

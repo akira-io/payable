@@ -38,12 +38,15 @@ export class FakeProvider implements PaymentProvider {
   lastCheckout?: { input: CreateCheckoutSessionInput; ctx: OperationContext };
   verifyResult?: VerifiedWebhook;
   verifyError?: Error;
+  reconcileResult?: SubscriptionDTO | null;
   lastVerifyInput?: WebhookVerificationInput;
   createdSubscriptions = 0;
   lastSubscriptionUpdate?: UpdateSubscriptionInput;
+  lastSubscriptionUpdateCtx?: OperationContext;
   lastCreateSubscription?: CreateSubscriptionInput;
   lastChargeCtx?: OperationContext;
   lastRefundInput?: RefundInput;
+  refundCalls = 0;
 
   capabilities(): ProviderCapabilities {
     return {
@@ -99,8 +102,12 @@ export class FakeProvider implements PaymentProvider {
     };
   }
 
-  async updateSubscription(input: UpdateSubscriptionInput): Promise<SubscriptionDTO> {
+  async updateSubscription(
+    input: UpdateSubscriptionInput,
+    ctx?: OperationContext,
+  ): Promise<SubscriptionDTO> {
     this.lastSubscriptionUpdate = input;
+    this.lastSubscriptionUpdateCtx = ctx;
     return {
       providerSubscriptionId: input.providerSubscriptionId,
       status: 'active',
@@ -134,8 +141,9 @@ export class FakeProvider implements PaymentProvider {
 
   async refund(input: RefundInput): Promise<RefundResultDTO> {
     this.lastRefundInput = input;
+    this.refundCalls += 1;
     return {
-      providerRefundId: 're_fake',
+      providerRefundId: `re_fake_${this.refundCalls}`,
       status: 'succeeded',
       amount: input.amount ?? Money.of(0, 'USD'),
     };
@@ -150,6 +158,10 @@ export class FakeProvider implements PaymentProvider {
       return this.unused('verifyWebhook');
     }
     return this.verifyResult;
+  }
+
+  reconcileSubscription(): SubscriptionDTO | null {
+    return this.reconcileResult ?? null;
   }
 
   async billingPortal(input: BillingPortalInput): Promise<BillingPortalDTO> {

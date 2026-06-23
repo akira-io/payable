@@ -7,7 +7,7 @@ export class SwapSubscriptionAction extends SubscriptionAction {
     const subscription = await this.resolve(billable, name);
     const dto = await this.deps.provider.updateSubscription(
       { providerSubscriptionId: subscription.providerSubscriptionId, priceId },
-      this.context('swap', subscription.providerSubscriptionId),
+      this.context('swap', subscription.providerSubscriptionId, priceId),
     );
     const updated = await this.storage().subscriptions.update(subscription.id, {
       priceId,

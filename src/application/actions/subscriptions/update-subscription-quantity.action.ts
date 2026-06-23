@@ -7,7 +7,7 @@ export class UpdateSubscriptionQuantityAction extends SubscriptionAction {
     const subscription = await this.resolve(billable, name);
     const dto = await this.deps.provider.updateSubscription(
       { providerSubscriptionId: subscription.providerSubscriptionId, quantity },
-      this.context('quantity', subscription.providerSubscriptionId),
+      this.context('quantity', subscription.providerSubscriptionId, String(quantity)),
     );
     const updated = await this.storage().subscriptions.update(subscription.id, {
       quantity,

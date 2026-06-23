@@ -13,33 +13,40 @@
 
 Payable is a Laravel Cashier-inspired billing engine for Node.js: framework-agnostic, provider-agnostic,
 storage-agnostic, and queue-agnostic. The core knows only contracts, DTOs, actions, value objects, and
-state machines — never a provider SDK, HTTP framework, or database client. Money is always handled in
+state machines - never a provider SDK, HTTP framework, or database client. Money is always handled in
 minor units through a `Money` value object backed by Dinero.js, so monetary logic never touches floats.
 
-> Status: Phase 1 (Core Foundation) is implemented and tested. Stripe/Paddle providers, Knex storage,
-> BullMQ queue, webhooks, idempotency, audit, outbox, and the Express/Fastify/NestJS adapters ship in
-> later phases. Their files are scaffolded and throw a clear `NOT_IMPLEMENTED` error until then.
+## Features
+
+- **Providers**: Stripe and Paddle, behind one `PaymentProvider` contract.
+- **Billing**: checkout, subscriptions (trials, coupons, multiple items, swap/cancel/resume), one-off
+  charges, refunds, invoices, and the customer billing portal.
+- **Webhooks**: signature verification, event normalization, deduplication, async processing, local
+  state reconciliation, and replay.
+- **Reliability**: idempotency by default, an immutable audit log, and a transactional outbox.
+- **Storage / queue**: Knex storage driver; synchronous or BullMQ queue driver.
+- **HTTP adapters**: Express, Fastify, and NestJS, each on its own subpath export.
+
+Every provider, storage, queue, and framework dependency is an **optional peer** - the core runtime
+bundle imports none of them. You install only what you use.
 
 ## Install
 
 ```sh
-# npm
-npm install @akira-io/payable
-
-# pnpm
-pnpm add @akira-io/payable
-
-# bun
-bun add @akira-io/payable
+npm install @akira-io/payable   # or: pnpm add / bun add
 ```
 
-```json
-{
-  "dependencies": {
-    "@akira-io/payable": "^0.1"
-  }
-}
-```
+Then add the optional peers for the features you use:
+
+| Feature         | Install                                              |
+| --------------- | ---------------------------------------------------- |
+| Stripe provider | `npm i stripe`                                       |
+| Paddle provider | `npm i @paddle/paddle-node-sdk`                      |
+| Knex storage    | `npm i knex` + a driver (`pg`, `better-sqlite3`, …)  |
+| BullMQ queue    | `npm i bullmq`                                        |
+| Express adapter | `npm i express`                                      |
+| Fastify adapter | `npm i fastify`                                      |
+| NestJS adapter  | `npm i @nestjs/common reflect-metadata`              |
 
 ## Quick start
 
@@ -53,30 +60,104 @@ const payable = createPayable({
       webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '',
     }),
   },
+  // storage, queue, events, clock are optional and injected the same way.
 });
 
-// Money is always in minor units — never floats, never toFixed.
-const price = Money.of(9900, 'USD'); // $99.00
-console.log(price.format()); // "$99.00"
+// Money is always in minor units - never floats, never toFixed.
+Money.of(9900, 'USD').format(); // "$99.00"
 
+const billable = { billableType: 'User', billableId: user.id, email: user.email };
 
+// Subscription checkout (returns a provider checkout session to redirect to).
 await payable
-  .customer({ billableType: 'User', billableId: user.id, email: user.email })
+  .customer(billable)
   .newSubscription('default')
   .price('price_pro_monthly')
   .trialDays(14)
   .checkout({ successUrl: 'https://app.com/success', cancelUrl: 'https://app.com/cancel' });
 ```
 
-## Documentation
+`payable.customer(billable)` also exposes `charge(...)`, `billingPortal(returnUrl)`, a payment-mode
+`checkout()` builder, and `subscription(name)` for `swap` / `cancel` / `cancelNow` / `resume`.
+`payable.refund(...)`, `payable.receiveWebhook(...)`, `payable.replayWebhook(...)`, and
+`payable.outbox()` are available on the facade.
 
-The architecture is the source of truth and the package mirrors it one phase at a time:
+## Persistence
 
-- `src/domain` — contracts, entities, DTOs, value objects, events, state machines, errors.
-- `src/application` — actions, queries, builders, pipelines, policies, services.
-- `src/infrastructure` — providers, storage, queue, cache, locks, encryption, event bus, audit, outbox.
-- `src/presentation` — Express, Fastify, and NestJS adapters.
-- `src/support` — config, logger, result, clock.
+Subscriptions, payments, webhooks, idempotency keys, the audit log, and the outbox are persisted
+through a `StorageDriver`. The bundled Knex driver provisions its schema with `migrate(knex)`:
+
+```ts
+import knex from 'knex';
+import { KnexStorageDriver, migrate } from '@akira-io/payable';
+
+const db = knex({ client: 'pg', connection: process.env.DATABASE_URL });
+await migrate(db); // creates tables and applies additive column migrations; safe to run repeatedly
+
+const payable = createPayable({
+  providers: { stripe: /* … */ },
+  storage: new KnexStorageDriver(db),
+});
+```
+
+Webhooks, idempotency, the audit log, and the outbox require a storage driver. Charges, refunds, and
+subscription management require one too.
+
+## Webhooks and HTTP adapters
+
+Each adapter ships on its own subpath. They mount the same routes: `POST /webhooks` and
+`POST /webhooks/:provider`, `POST /checkout`, `POST /subscriptions/:name/{cancel,cancel-now,resume,swap}`,
+and reserved (501) `customers` / `invoices` / `payments` / `refunds` endpoints.
+
+> **Raw body required.** Webhook signature verification needs the exact unparsed request body. Mount
+> the webhook route before any global JSON body parser, and for NestJS create the app with
+> `rawBody: true`.
+
+> **No built-in auth.** Only the webhook routes are protected (by signature). The checkout and
+> subscription-management routes take `billable` from the request body with no ownership check - put
+> them behind your own authentication and authorize that the caller owns the `billable`.
+
+### Express
+
+```ts
+import express from 'express';
+import { createExpressPayableRoutes } from '@akira-io/payable/express';
+
+const app = express();
+app.use('/billing', createExpressPayableRoutes(payable)); // installs raw parsing for /webhooks itself
+```
+
+### Fastify
+
+```ts
+import Fastify from 'fastify';
+import { createFastifyPayablePlugin } from '@akira-io/payable/fastify';
+
+const app = Fastify();
+await app.register(createFastifyPayablePlugin(payable), { prefix: '/billing' });
+```
+
+### NestJS
+
+```ts
+import { PayableModule } from '@akira-io/payable/nest';
+
+@Module({ imports: [PayableModule.forRoot(payable)] })
+export class BillingModule {}
+
+// bootstrap: NestFactory.create(AppModule, { rawBody: true })
+```
+
+All three accept a `webhookSignatureHeader` option (default `stripe-signature`) and map `PayableError`
+codes to HTTP status with a `{ error, message }` body.
+
+## Architecture
+
+- `src/domain` - contracts, entities, DTOs, value objects, events, state machines, errors.
+- `src/application` - actions, queries, builders, pipelines, policies, services.
+- `src/infrastructure` - providers, storage, queue, cache, locks, encryption, event bus, audit, outbox.
+- `src/presentation` - Express, Fastify, and NestJS adapters.
+- `src/support` - config, logger, result, clock.
 
 The public surface is exported from the package root; the fluent entry point is `createPayable(...)`.
 

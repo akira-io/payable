@@ -21,6 +21,15 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
     return this.records.get(this.id(key, tenantId)) ?? null;
   }
 
+  async acquire(record: IdempotencyRecord, tenantId?: string | null): Promise<boolean> {
+    const id = this.id(record.key, tenantId);
+    if (this.records.has(id)) {
+      return false;
+    }
+    this.records.set(id, record);
+    return true;
+  }
+
   async put(record: IdempotencyRecord, tenantId?: string | null): Promise<void> {
     this.records.set(this.id(record.key, tenantId), record);
   }
