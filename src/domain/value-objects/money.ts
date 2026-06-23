@@ -71,6 +71,13 @@ export class Money {
     return Money.of(divideMinor(this.amount(), divisor), this.code);
   }
 
+  percentage(basisPoints: number): Money {
+    if (!Number.isInteger(basisPoints)) {
+      throw new TypeError(`Basis points must be an integer, got ${basisPoints}`);
+    }
+    return Money.of(divideMinor(this.amount() * basisPoints, 10_000), this.code);
+  }
+
   allocate(ratios: number[]): Money[] {
     if (ratios.length === 0) {
       throw new RangeError('allocate requires at least one ratio');
