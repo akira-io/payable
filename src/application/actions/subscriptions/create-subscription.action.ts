@@ -1,6 +1,8 @@
+import { isDirectSubscriptionCapable } from '../../../domain/contracts/payment-provider.contract';
 import type { SubscriptionLineItem } from '../../../domain/dtos/subscription.dto';
 import type { Subscription } from '../../../domain/entities/subscription.entity';
 import { CustomerNotFoundError } from '../../../domain/errors/customer-not-found.error';
+import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { Billable } from '../../builders/billable';
@@ -30,6 +32,10 @@ export class CreateSubscriptionAction extends SubscriptionAction {
     if (!customer) {
       throw new CustomerNotFoundError(input.billable.billableId);
     }
+    const provider = this.deps.provider;
+    if (!isDirectSubscriptionCapable(provider)) {
+      throw new ProviderCapabilityNotSupportedError(provider.name, 'direct subscription creation');
+    }
     const key = IdempotencyKey.forSubscription({
       provider: this.deps.providerName,
       billableType: input.billable.billableType,
@@ -37,7 +43,7 @@ export class CreateSubscriptionAction extends SubscriptionAction {
       subscriptionName: input.name,
       price: input.priceId,
     });
-    const dto = await this.deps.provider.createSubscription(
+    const dto = await provider.createSubscription(
       {
         providerCustomerId,
         priceId: input.priceId,

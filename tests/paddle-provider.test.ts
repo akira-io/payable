@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { PaymentProvider } from '../src/domain/contracts/payment-provider.contract';
+import {
+  isChargeCapable,
+  isDirectSubscriptionCapable,
+  isInvoiceCapable,
+  type PaymentProvider,
+} from '../src/domain/contracts/payment-provider.contract';
 import { InvalidWebhookSignatureError } from '../src/domain/errors/invalid-webhook-signature.error';
 import { ProviderCapabilityNotSupportedError } from '../src/domain/errors/provider-capability-not-supported.error';
 import { Money } from '../src/domain/value-objects/money';
@@ -179,13 +184,11 @@ describe('PaddleProvider', () => {
     ).rejects.toBeInstanceOf(InvalidWebhookSignatureError);
   });
 
-  it('rejects unsupported capabilities', async () => {
+  it('does not implement the optional capability interfaces', () => {
     const { client } = fakePaddle();
-    await expect(
-      provider(client).createSubscription({ providerCustomerId: 'ctm_1', priceId: 'pri_1' }, ctx),
-    ).rejects.toBeInstanceOf(ProviderCapabilityNotSupportedError);
-    await expect(provider(client).downloadInvoicePdf('in_1')).rejects.toBeInstanceOf(
-      ProviderCapabilityNotSupportedError,
-    );
+    const paddle = provider(client);
+    expect(isChargeCapable(paddle)).toBe(false);
+    expect(isDirectSubscriptionCapable(paddle)).toBe(false);
+    expect(isInvoiceCapable(paddle)).toBe(false);
   });
 });

@@ -1,5 +1,8 @@
 import type Stripe from 'stripe';
 import type {
+  ChargeCapable,
+  DirectSubscriptionCapable,
+  InvoiceCapable,
   PaymentProvider,
   ResumeSubscriptionInput,
 } from '../../../domain/contracts/payment-provider.contract';
@@ -55,7 +58,9 @@ export interface StripeProviderOptions {
   webhookSecret: string;
 }
 
-export class StripeProvider implements PaymentProvider {
+export class StripeProvider
+  implements PaymentProvider, ChargeCapable, DirectSubscriptionCapable, InvoiceCapable
+{
   readonly name = 'stripe';
   private client?: Stripe;
   private readonly verifier: StripeWebhookVerifier;
