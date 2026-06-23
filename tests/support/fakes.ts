@@ -30,6 +30,16 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
     return true;
   }
 
+  async takeOver(record: IdempotencyRecord, tenantId?: string | null): Promise<boolean> {
+    const id = this.id(record.key, tenantId);
+    const existing = this.records.get(id);
+    if (!existing || existing.status === 'completed') {
+      return false;
+    }
+    this.records.set(id, record);
+    return true;
+  }
+
   async put(record: IdempotencyRecord, tenantId?: string | null): Promise<void> {
     this.records.set(this.id(record.key, tenantId), record);
   }
