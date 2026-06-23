@@ -36,7 +36,7 @@ export class RefundPaymentAction {
         code: 'PAYMENT_STORAGE_REQUIRED',
       });
     }
-    const payment = await storage.payments.findById(input.paymentId);
+    const payment = await storage.payments.findById(input.paymentId, this.deps.tenantId);
     if (!payment?.providerPaymentId) {
       throw new PayableError(`Payment not found: ${input.paymentId}`, {
         code: 'PAYMENT_NOT_FOUND',
@@ -86,7 +86,11 @@ export class RefundPaymentAction {
     const refundedAmount = payment.refundedAmount + dto.amount.amount();
     const machine = new PaymentStateMachine(payment.status);
     const updated = refundedAmount >= payment.amount ? machine.refund() : machine.partiallyRefund();
-    await storage.payments.update(payment.id, { refundedAmount, status: updated.current() });
+    await storage.payments.update(
+      payment.id,
+      { refundedAmount, status: updated.current() },
+      this.deps.tenantId,
+    );
     return refund;
   }
 }
