@@ -11,7 +11,12 @@ export interface BullMQQueueOptions {
   attempts?: number;
   backoffMs?: number;
   removeOnFailCount?: number;
+  deadLetterSuffix?: string;
   onFailed?: (jobName: string, error: Error) => void;
+}
+
+export function isJobExhausted(attemptsMade: number, attempts: number): boolean {
+  return attemptsMade >= Math.max(attempts, 1);
 }
 
 export interface BullMQJobOptions extends BullMQRetryOptions {
@@ -85,8 +90,26 @@ export class BullMQQueueDriver implements QueueDriver {
     });
     worker.on('failed', (job: Job | undefined, error: Error) => {
       this.options.onFailed?.(job?.name ?? name, error);
+      if (job && isJobExhausted(job.attemptsMade, job.opts.attempts ?? 1)) {
+        void this.deadLetter(name, job, error);
+      }
     });
     this.workers.set(name, worker);
+  }
+
+  private async deadLetter(name: string, job: Job, error: Error): Promise<void> {
+    const queue = await this.queueFor(`${name}${this.options.deadLetterSuffix ?? ':dead'}`);
+    const data = job.data as { payload: unknown; correlationId: string };
+    await queue.add(
+      job.name,
+      {
+        payload: data.payload,
+        correlationId: data.correlationId,
+        originalJobId: job.id,
+        failedReason: error.message,
+      },
+      { removeOnComplete: false, removeOnFail: false },
+    );
   }
 
   private async run(handler: JobHandler, job: Job): Promise<void> {
