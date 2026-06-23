@@ -1,4 +1,7 @@
 function canonicalize(value: unknown): string {
+  if (typeof value === 'bigint') {
+    return `${value}n`;
+  }
   if (value === null || typeof value !== 'object') {
     return JSON.stringify(value) ?? 'null';
   }
