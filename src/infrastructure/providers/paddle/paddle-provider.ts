@@ -1,3 +1,4 @@
+import type { Logger } from '../../../domain/contracts/logger.contract';
 import type { PaymentProvider } from '../../../domain/contracts/payment-provider.contract';
 import type { BillingPortalDTO, BillingPortalInput } from '../../../domain/dtos/billing-portal.dto';
 import type { ProviderCapabilities } from '../../../domain/dtos/capabilities.dto';
@@ -39,17 +40,19 @@ import { PaddleWebhookVerifier } from './paddle-webhook-verifier';
 export interface PaddleProviderOptions {
   apiKey: string;
   webhookSecret: string;
+  logger?: Logger;
 }
 
 export class PaddleProvider implements PaymentProvider {
   readonly name = 'paddle';
-  private readonly normalizer = new PaddleEventNormalizer();
+  private readonly normalizer: PaddleEventNormalizer;
   private readonly verifier: PaddleWebhookVerifier;
 
   constructor(
     private readonly options: PaddleProviderOptions,
     private client?: PaddleClient,
   ) {
+    this.normalizer = new PaddleEventNormalizer(options.logger);
     this.verifier = new PaddleWebhookVerifier(options.webhookSecret);
   }
 
