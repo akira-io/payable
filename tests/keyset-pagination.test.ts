@@ -48,4 +48,37 @@ describe('keyset pagination', () => {
     });
     expect(page2.map((p) => p.reference)).toEqual(['a']);
   });
+
+  it('pages across rows that share the same created_at without skipping the boundary', async () => {
+    const customer = await storage.customers.create(makeCustomer());
+    const base = {
+      tenantId: null,
+      customerId: customer.id,
+      provider: 'stripe',
+      status: 'succeeded' as const,
+      currency: 'USD',
+      amount: 100,
+      refundedAmount: 0,
+      description: null,
+    };
+    for (const reference of ['a', 'b', 'c', 'd']) {
+      await storage.payments.create({ ...base, providerPaymentId: `pi_${reference}`, reference });
+    }
+
+    const collected: string[] = [];
+    let cursor: { createdAt: Date; id: string } | undefined;
+    for (let page = 0; page < 4; page += 1) {
+      const rows = await storage.payments.listByCustomer(customer.id, { limit: 1, before: cursor });
+      const row = rows[0];
+      if (!row) {
+        break;
+      }
+      collected.push(row.reference as string);
+      cursor = { createdAt: row.createdAt, id: row.id };
+    }
+
+    expect(collected).toHaveLength(4);
+    expect(new Set(collected).size).toBe(4);
+    expect([...collected].sort()).toEqual(['a', 'b', 'c', 'd']);
+  });
 });
