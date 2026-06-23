@@ -15,6 +15,7 @@ export interface IdempotencyRecord {
 
 export interface IdempotencyStore {
   find(key: string, tenantId?: string | null): Promise<IdempotencyRecord | null>;
+  acquire(record: IdempotencyRecord, tenantId?: string | null): Promise<boolean>;
   put(record: IdempotencyRecord, tenantId?: string | null): Promise<void>;
   markCompleted(key: string, response: unknown, tenantId?: string | null): Promise<void>;
   markFailed(key: string, tenantId?: string | null): Promise<void>;

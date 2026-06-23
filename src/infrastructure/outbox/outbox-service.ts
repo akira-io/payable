@@ -31,7 +31,7 @@ export class OutboxService {
   }
 
   async publishPending(deliver: OutboxDelivery, limit = 50): Promise<OutboxPublishResult> {
-    const events = await this.repository.pullPending(limit);
+    const events = await this.repository.claimPending(limit);
     const result: OutboxPublishResult = { published: 0, retried: 0, deadLettered: 0 };
     for (const event of events) {
       await this.publishOne(event, deliver, result);

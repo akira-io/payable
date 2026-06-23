@@ -74,7 +74,16 @@ export class IdempotencyService {
   }
 
   private async run<T>(execution: IdempotentExecution<T>, requestHash: string): Promise<T> {
-    await this.store.put(this.processingRecord(execution, requestHash), execution.tenantId);
+    const record = this.processingRecord(execution, requestHash);
+    const acquired = await this.store.acquire(record, execution.tenantId);
+    if (!acquired) {
+      const existing = await this.store.find(execution.key, execution.tenantId);
+      const replay = this.replay<T>(existing, requestHash, execution.key);
+      if (replay.handled) {
+        return replay.value as T;
+      }
+      await this.store.put(record, execution.tenantId);
+    }
     try {
       const result = await execution.run();
       await this.store.markCompleted(execution.key, result, execution.tenantId);
