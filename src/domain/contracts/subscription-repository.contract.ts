@@ -11,7 +11,15 @@ export interface SubscriptionRepository {
     tenantId?: string | null,
   ): Promise<Subscription>;
   findById(id: string, tenantId?: string | null): Promise<Subscription | null>;
-  findByName(customerId: string, name: string): Promise<Subscription | null>;
-  findByProviderId(provider: string, providerSubscriptionId: string): Promise<Subscription | null>;
+  findByName(
+    customerId: string,
+    name: string,
+    tenantId?: string | null,
+  ): Promise<Subscription | null>;
+  findByProviderId(
+    provider: string,
+    providerSubscriptionId: string,
+    tenantId?: string | null,
+  ): Promise<Subscription | null>;
   listByCustomer(customerId: string, options?: ListOptions): Promise<Subscription[]>;
 }
