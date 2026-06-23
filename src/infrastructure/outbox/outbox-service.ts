@@ -84,8 +84,9 @@ export class OutboxService {
   }
 
   private nextRetry(attempts: number): Date {
-    const base = Math.min(this.backoffMs * 2 ** (attempts - 1), this.maxBackoffMs);
-    const jitter = Math.floor(base * 0.1 * this.random());
-    return new Date(this.clock.now().getTime() + base + jitter);
+    const cap = Math.min(this.backoffMs * 2 ** (attempts - 1), this.maxBackoffMs);
+    const half = cap / 2;
+    const delay = Math.min(Math.floor(half + this.random() * half), this.maxBackoffMs);
+    return new Date(this.clock.now().getTime() + delay);
   }
 }
