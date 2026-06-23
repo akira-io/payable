@@ -29,7 +29,7 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
       normalized_type: data.normalizedType,
       payload: await this.seal(data.payload),
       data: await this.seal(JSON.stringify(data.data)),
-      headers: JSON.stringify(data.headers),
+      headers: await this.seal(JSON.stringify(data.headers)),
       status: data.status,
       correlation_id: data.correlationId,
       received_at: data.receivedAt.toISOString(),
@@ -71,6 +71,7 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
       ...row,
       payload: await this.open(row.payload as string),
       data: await this.open(row.data as string),
+      headers: await this.open(row.headers as string),
     });
   }
 

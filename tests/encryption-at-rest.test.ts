@@ -35,16 +35,19 @@ describe('webhook encryption at rest', () => {
     await payable.receiveWebhook({
       payload: '{"id":"evt_1","email":"user@example.com"}',
       signature: 'sig',
+      headers: { 'x-api-key': 'secret-token' },
     });
 
     const raw = await db('payable_webhook_events').where({ provider_event_id: 'evt_1' }).first();
     expect(raw?.payload).not.toContain('user@example.com');
     expect(raw?.payload).not.toContain('evt_1');
     expect(raw?.data).not.toContain('in_1');
+    expect(raw?.headers).not.toContain('secret-token');
 
     const event = await storage.webhookEvents.findByProviderEvent('stripe', 'evt_1');
     expect(event?.payload).toBe('{"id":"evt_1","email":"user@example.com"}');
     expect(event?.data).toEqual({ id: 'in_1', email: 'user@example.com' });
+    expect(event?.headers).toEqual({ 'x-api-key': 'secret-token' });
   });
 
   it('leaves data plaintext when no encryption is configured', async () => {
