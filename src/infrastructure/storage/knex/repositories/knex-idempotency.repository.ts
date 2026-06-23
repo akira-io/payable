@@ -25,23 +25,17 @@ export class KnexIdempotencyRepository implements IdempotencyStore {
   async acquire(record: IdempotencyRecord, tenantId: string | null = null): Promise<boolean> {
     const tenant = this.tenant(tenantId);
     const timestamp = this.clock.now().toISOString();
-    try {
-      await this.knex(this.table).insert({
+    const inserted = await this.knex(this.table)
+      .insert({
         id: globalThis.crypto.randomUUID(),
         tenant_id: tenant,
         created_at: timestamp,
         ...this.row(record, timestamp),
-      });
-      return true;
-    } catch (error) {
-      const existing = await this.knex(this.table)
-        .where({ key: record.key, tenant_id: tenant })
-        .first();
-      if (existing) {
-        return false;
-      }
-      throw error;
-    }
+      })
+      .onConflict(['tenant_id', 'key'])
+      .ignore()
+      .returning('id');
+    return inserted.length > 0;
   }
 
   async takeOver(record: IdempotencyRecord, tenantId: string | null = null): Promise<boolean> {
