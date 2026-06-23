@@ -98,4 +98,17 @@ describe('outbox claim (C3)', () => {
     clock.advance(300_001);
     expect(await repo.claimPending(10)).toHaveLength(1);
   });
+
+  it('claims each event at most once across concurrent claimers', async () => {
+    const repo = new KnexOutboxEventRepository(db, clock);
+    await repo.create(newOutbox());
+    await repo.create(newOutbox());
+    await repo.create(newOutbox());
+
+    const [a, b] = await Promise.all([repo.claimPending(10), repo.claimPending(10)]);
+    const ids = [...a, ...b].map((event) => event.id);
+
+    expect(ids).toHaveLength(3);
+    expect(new Set(ids).size).toBe(3);
+  });
 });
