@@ -99,4 +99,35 @@ describe('express adapter', () => {
     expect(res.status).toBe(422);
     expect(res.body.error).toBe('VALIDATION_FAILED');
   });
+
+  it('refunds a payment over HTTP', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payment = await storage.payments.create({
+      tenantId: null,
+      customerId: null,
+      provider: 'stripe',
+      providerPaymentId: 'pi_http',
+      status: 'succeeded',
+      currency: 'USD',
+      amount: 9900,
+      refundedAmount: 0,
+      reference: null,
+      description: null,
+    });
+    const app = makeApp(createPayable({ providers: { stripe: new FakeProvider() }, storage }));
+
+    const res = await request(app)
+      .post('/payable/refunds')
+      .send({ paymentId: payment.id, amount: { amount: 9900, currency: 'USD' } });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ amount: 9900 });
+
+    const missing = await request(app).post('/payable/refunds').send({});
+    expect(missing.status).toBe(422);
+    expect(missing.body.error).toBe('VALIDATION_FAILED');
+    await db.destroy();
+  });
 });
