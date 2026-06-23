@@ -1,3 +1,4 @@
+import { PayableError } from '../../../domain/errors/payable-error';
 import type { WebhookDependencies } from '../../builders/webhook-dependencies';
 import { DispatchWebhookJobAction } from './dispatch-webhook-job.action';
 import { StoreWebhookEventAction } from './store-webhook-event.action';
@@ -24,6 +25,11 @@ export class ReceiveWebhookAction {
       headers: input.headers,
     });
     const tenantId = await this.resolveTenant(input);
+    if (this.deps.tenantEnabled && (tenantId === undefined || tenantId === null)) {
+      throw new PayableError('A tenant id is required when tenancy is enabled', {
+        code: 'TENANT_REQUIRED',
+      });
+    }
     const stored = await new StoreWebhookEventAction(this.deps).handle({
       verified,
       payload: input.payload,

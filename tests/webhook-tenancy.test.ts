@@ -99,6 +99,13 @@ describe('webhook tenancy', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('rejects a webhook when tenancy is enabled but no tenant resolves', async () => {
+    const payable = payableWithResolver();
+    await expect(
+      payable.receiveWebhook({ payload: '{}', signature: 'sig', headers: {} }),
+    ).rejects.toThrow('tenant id is required');
+  });
+
   it('denies replay of a tenant-owned event when no tenant is supplied', async () => {
     const payable = payableWithResolver();
     const received = await payable.receiveWebhook({
