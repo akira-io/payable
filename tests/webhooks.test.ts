@@ -152,6 +152,52 @@ describe('payable.receiveWebhook', () => {
     await db.destroy();
   });
 
+  it('does not reprocess an already-processed event (idempotent delivery)', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock();
+    const storage = new KnexStorageDriver(db, clock);
+    const provider = new FakeProvider();
+
+    const event = await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_dup',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      payload: '{}',
+      data: {},
+      headers: {},
+      status: 'pending',
+      correlationId: 'corr_dup',
+      receivedAt: clock.now(),
+    });
+
+    const deps: WebhookDependencies = {
+      provider,
+      providerName: 'stripe',
+      storage,
+      queue: new SyncQueueDriver(),
+      events: new InMemoryEventBus(),
+      clock,
+    };
+    const action = new ProcessWebhookAction(deps);
+    const job = {
+      providerName: 'stripe',
+      webhookEventId: event.id,
+      providerEventId: 'evt_dup',
+      correlationId: 'corr_dup',
+      tenantId: null,
+    };
+
+    await action.handle(job);
+    await action.handle(job);
+
+    expect(await countDuePendingOutbox(db, clock)).toBe(1);
+    expect(await storage.auditLogs.list({ resourceType: 'webhook_event' })).toHaveLength(1);
+    await db.destroy();
+  });
+
   it('keeps decrypted webhook data out of the queue payload', async () => {
     const db = createTestDb();
     await migrate(db);
