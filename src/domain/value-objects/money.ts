@@ -40,7 +40,14 @@ export class Money {
   }
 
   amount(): number {
-    return toSnapshot(this.value).amount;
+    const snapshot = toSnapshot(this.value);
+    const exponent = CurrencyManager.precision(this.code);
+    if (snapshot.scale !== exponent) {
+      throw new RangeError(
+        `Money scale ${snapshot.scale} does not match the ${this.code} exponent ${exponent}`,
+      );
+    }
+    return snapshot.amount;
   }
 
   currency(): CurrencyCode {
