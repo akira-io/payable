@@ -32,7 +32,7 @@ export class KnexRefundRepository
       providerRefundId: (row.provider_refund_id as string | null) ?? null,
       status: row.status as RefundStatus,
       currency: CurrencyManager.normalize(row.currency as string),
-      amount: row.amount as number,
+      amount: Number(row.amount),
       reason: (row.reason as string | null) ?? null,
       createdAt: toDate(row.created_at),
       updatedAt: toDate(row.updated_at),

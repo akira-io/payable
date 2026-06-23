@@ -30,7 +30,7 @@ export class KnexPriceRepository
       providerPriceId: (row.provider_price_id as string | null) ?? null,
       productId: row.product_id as string,
       currency: CurrencyManager.normalize(row.currency as string),
-      unitAmount: row.unit_amount as number,
+      unitAmount: Number(row.unit_amount),
       interval: (row.interval as RecurringInterval | null) ?? null,
       intervalCount: (row.interval_count as number | null) ?? null,
       active: toBool(row.active),
