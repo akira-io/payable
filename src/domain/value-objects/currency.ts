@@ -2,6 +2,8 @@ import * as currencies from 'dinero.js/currencies';
 
 export type CurrencyCode = string;
 
+export type KnownCurrencyCode = Extract<keyof typeof currencies, string>;
+
 export interface DineroCurrency {
   readonly code: string;
   readonly base: number | number[];

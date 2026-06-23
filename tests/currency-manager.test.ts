@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CurrencyManager } from '../src/domain/value-objects/currency';
+import { CurrencyManager, type KnownCurrencyCode } from '../src/domain/value-objects/currency';
 
 describe('CurrencyManager', () => {
   it('returns ISO decimal precision per currency', () => {
@@ -19,5 +19,10 @@ describe('CurrencyManager', () => {
 
   it('throws on unsupported currencies', () => {
     expect(() => CurrencyManager.resolve('ZZZ')).toThrow(RangeError);
+  });
+
+  it('exposes a KnownCurrencyCode type covering ISO codes', () => {
+    const code: KnownCurrencyCode = 'USD';
+    expect(CurrencyManager.supports(code)).toBe(true);
   });
 });
