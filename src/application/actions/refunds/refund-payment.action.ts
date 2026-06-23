@@ -5,18 +5,31 @@ import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { Money } from '../../../domain/value-objects/money';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
+import { assertAuthorized } from '../../policies/assert-authorized';
+import type { AuthorizationContext } from '../../policies/authorization-context';
+import { CanRefundPaymentPolicy } from '../../policies/can-refund-payment.policy';
 import { assertProviderCapability } from '../../services/provider-capabilities/assert-provider-capability';
 
 export interface RefundPaymentActionInput {
   paymentId: string;
   amount?: Money;
   reason?: string;
+  authorization?: AuthorizationContext;
 }
 
 export class RefundPaymentAction {
-  constructor(private readonly deps: BillingDependencies) {}
+  constructor(
+    private readonly deps: BillingDependencies,
+    private readonly policy = new CanRefundPaymentPolicy(),
+  ) {}
 
   async handle(input: RefundPaymentActionInput): Promise<Refund> {
+    assertAuthorized(
+      this.deps.authorizationEnabled ?? false,
+      (context) => this.policy.authorize(context),
+      input.authorization,
+      'refund payment',
+    );
     const storage = this.deps.storage;
     if (!storage) {
       throw new PayableError('Refunding requires a storage driver', {

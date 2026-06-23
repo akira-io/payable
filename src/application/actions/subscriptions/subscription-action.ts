@@ -6,6 +6,8 @@ import { SubscriptionNotFoundError } from '../../../domain/errors/subscription-n
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
+import { assertAuthorized } from '../../policies/assert-authorized';
+import type { AuthorizationContext } from '../../policies/authorization-context';
 import { FindSubscriptionQuery } from '../../queries/subscriptions/find-subscription.query';
 import { assertProviderCapability } from '../../services/provider-capabilities/assert-provider-capability';
 
@@ -13,6 +15,14 @@ export type ManagedSubscription = Subscription & { providerSubscriptionId: strin
 
 export abstract class SubscriptionAction {
   constructor(protected readonly deps: BillingDependencies) {}
+
+  protected authorize(
+    authorize: (context: AuthorizationContext) => boolean,
+    context: AuthorizationContext | undefined,
+    action: string,
+  ): void {
+    assertAuthorized(this.deps.authorizationEnabled ?? false, authorize, context, action);
+  }
 
   protected storage(): StorageDriver {
     if (!this.deps.storage) {

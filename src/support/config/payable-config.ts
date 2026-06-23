@@ -30,8 +30,13 @@ export interface TenantConfig {
   resolver?: TenantResolver;
 }
 
+export interface AuthorizationConfig {
+  enabled: boolean;
+}
+
 export interface PayableConfig {
   tenant?: TenantConfig;
+  authorization?: AuthorizationConfig;
   providers: Record<string, PaymentProvider>;
   storage?: StorageDriver;
   queue?: QueueDriver;
@@ -54,6 +59,7 @@ export interface ResolvedIdempotency {
 export interface ResolvedConfig {
   tenantEnabled: boolean;
   tenantResolver?: TenantResolver;
+  authorizationEnabled: boolean;
   providers: Map<string, PaymentProvider>;
   storage?: StorageDriver;
   cache?: CacheDriver;
@@ -68,6 +74,7 @@ export interface ResolvedConfig {
 
 const schema = z.object({
   tenant: z.object({ enabled: z.boolean() }).optional(),
+  authorization: z.object({ enabled: z.boolean() }).optional(),
   idempotency: z
     .object({
       enabled: z.boolean().optional(),
@@ -77,7 +84,11 @@ const schema = z.object({
 });
 
 export function resolveConfig(config: PayableConfig): ResolvedConfig {
-  schema.parse({ tenant: config.tenant, idempotency: config.idempotency });
+  schema.parse({
+    tenant: config.tenant,
+    authorization: config.authorization,
+    idempotency: config.idempotency,
+  });
   const entries = Object.entries(config.providers ?? {});
   if (entries.length === 0) {
     throw new TypeError('Payable requires at least one payment provider');
@@ -85,6 +96,7 @@ export function resolveConfig(config: PayableConfig): ResolvedConfig {
   return {
     tenantEnabled: config.tenant?.enabled ?? false,
     tenantResolver: config.tenant?.resolver,
+    authorizationEnabled: config.authorization?.enabled ?? false,
     providers: new Map(entries),
     storage: config.storage,
     cache: config.cache,
