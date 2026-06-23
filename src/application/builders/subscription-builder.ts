@@ -4,6 +4,10 @@ import type { Subscription } from '../../domain/entities/subscription.entity';
 import { PayableError } from '../../domain/errors/payable-error';
 import { CreateSubscriptionAction } from '../actions/subscriptions/create-subscription.action';
 import { CreateCheckoutPipeline } from '../pipelines/checkout/create-checkout.pipeline';
+import { assertAuthorized } from '../policies/assert-authorized';
+import type { AuthorizationContext } from '../policies/authorization-context';
+import { CanCreateCheckoutPolicy } from '../policies/can-create-checkout.policy';
+import { CanCreateSubscriptionPolicy } from '../policies/can-create-subscription.policy';
 import type { Billable } from './billable';
 import type { BillingDependencies } from './billing-dependencies';
 import type { CheckoutRequest } from './checkout-builder';
@@ -52,6 +56,12 @@ export class SubscriptionBuilder {
   }
 
   async checkout(request: CheckoutRequest): Promise<CheckoutSessionDTO> {
+    assertAuthorized(
+      this.deps.authorizationEnabled ?? false,
+      (context) => new CanCreateCheckoutPolicy().authorize(context),
+      request.authorization,
+      'create checkout',
+    );
     if (!this.state.priceId) {
       throw new PayableError('A price is required before checkout', {
         code: 'CHECKOUT_PRICE_REQUIRED',
@@ -69,7 +79,13 @@ export class SubscriptionBuilder {
     });
   }
 
-  async create(): Promise<Subscription> {
+  async create(authorization?: AuthorizationContext): Promise<Subscription> {
+    assertAuthorized(
+      this.deps.authorizationEnabled ?? false,
+      (context) => new CanCreateSubscriptionPolicy().authorize(context),
+      authorization,
+      'create subscription',
+    );
     if (!this.state.priceId) {
       throw new PayableError('A price is required before creating a subscription', {
         code: 'SUBSCRIPTION_PRICE_REQUIRED',

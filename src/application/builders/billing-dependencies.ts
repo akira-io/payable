@@ -8,4 +8,5 @@ export interface BillingDependencies {
   clock: Clock;
   storage?: StorageDriver;
   tenantId?: string | null;
+  authorizationEnabled?: boolean;
 }

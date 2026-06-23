@@ -14,6 +14,7 @@ import type { Billable } from './application/builders/billable';
 import type { BillingDependencies } from './application/builders/billing-dependencies';
 import { CustomerContext } from './application/builders/customer-context';
 import type { WebhookDependencies } from './application/builders/webhook-dependencies';
+import type { AuthorizationContext } from './application/policies/authorization-context';
 import type { ReplayWebhookContext } from './application/policies/can-replay-webhook.policy';
 import type { Clock } from './domain/contracts/clock.contract';
 import type { EventBus } from './domain/contracts/event-bus.contract';
@@ -31,6 +32,7 @@ export interface RefundRequest {
   paymentId: string;
   amount?: Money;
   reason?: string;
+  authorization?: AuthorizationContext;
 }
 
 export class ProviderRegistry {
@@ -133,6 +135,7 @@ export class Payable {
       clock: this.resolved.clock,
       storage: this.resolved.storage,
       tenantId: tenantId ?? null,
+      authorizationEnabled: this.resolved.authorizationEnabled,
     };
   }
 
@@ -179,6 +182,7 @@ export class Payable {
       paymentId: request.paymentId,
       amount: request.amount,
       reason: request.reason,
+      authorization: request.authorization,
     });
   }
 }

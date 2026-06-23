@@ -4,6 +4,7 @@ import { CancelSubscriptionNowAction } from '../actions/subscriptions/cancel-sub
 import { ResumeSubscriptionAction } from '../actions/subscriptions/resume-subscription.action';
 import { SwapSubscriptionAction } from '../actions/subscriptions/swap-subscription.action';
 import { UpdateSubscriptionQuantityAction } from '../actions/subscriptions/update-subscription-quantity.action';
+import type { AuthorizationContext } from '../policies/authorization-context';
 import type { Billable } from './billable';
 import type { BillingDependencies } from './billing-dependencies';
 
@@ -18,16 +19,20 @@ export class SubscriptionManager {
     return new SwapSubscriptionAction(this.deps).handle(this.billable, this.name, priceId);
   }
 
-  cancel(): Promise<Subscription> {
-    return new CancelSubscriptionAction(this.deps).handle(this.billable, this.name);
+  cancel(authorization?: AuthorizationContext): Promise<Subscription> {
+    return new CancelSubscriptionAction(this.deps).handle(this.billable, this.name, authorization);
   }
 
-  cancelNow(): Promise<Subscription> {
-    return new CancelSubscriptionNowAction(this.deps).handle(this.billable, this.name);
+  cancelNow(authorization?: AuthorizationContext): Promise<Subscription> {
+    return new CancelSubscriptionNowAction(this.deps).handle(
+      this.billable,
+      this.name,
+      authorization,
+    );
   }
 
-  resume(): Promise<Subscription> {
-    return new ResumeSubscriptionAction(this.deps).handle(this.billable, this.name);
+  resume(authorization?: AuthorizationContext): Promise<Subscription> {
+    return new ResumeSubscriptionAction(this.deps).handle(this.billable, this.name, authorization);
   }
 
   updateQuantity(quantity: number): Promise<Subscription> {
