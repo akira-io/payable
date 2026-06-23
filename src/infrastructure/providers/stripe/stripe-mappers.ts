@@ -43,11 +43,11 @@ function resolvePriceUnitAmount(price: Stripe.Price): number {
   }
   if (price.unit_amount_decimal !== null && price.unit_amount_decimal !== undefined) {
     const parsed = Number(price.unit_amount_decimal);
-    if (Number.isInteger(parsed)) {
-      return parsed;
+    if (Number.isFinite(parsed)) {
+      return Math.round(parsed);
     }
   }
-  throw new PayableError(`Stripe price ${price.id} has no integer unit amount`, {
+  throw new PayableError(`Stripe price ${price.id} has no resolvable unit amount`, {
     code: 'PROVIDER_PRICE_AMOUNT_UNRESOLVABLE',
     context: { priceId: price.id },
   });
