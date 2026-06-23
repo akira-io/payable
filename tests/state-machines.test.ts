@@ -17,6 +17,10 @@ describe('SubscriptionStateMachine', () => {
     expect(new SubscriptionStateMachine('paused').resume().current()).toBe('active');
   });
 
+  it('moves a failed trial to past_due', () => {
+    expect(new SubscriptionStateMachine('trialing').markPastDue().current()).toBe('past_due');
+  });
+
   it('treats canceled as terminal', () => {
     expect(() => new SubscriptionStateMachine('canceled').resume()).toThrow(
       InvalidStateTransitionError,
@@ -42,6 +46,10 @@ describe('InvoiceStateMachine', () => {
   it('rejects paying a draft invoice', () => {
     expect(() => new InvoiceStateMachine('draft').pay()).toThrow(InvalidStateTransitionError);
   });
+
+  it('voids an uncollectible invoice', () => {
+    expect(new InvoiceStateMachine('uncollectible').voidInvoice().current()).toBe('void');
+  });
 });
 
 describe('PaymentStateMachine', () => {
@@ -50,6 +58,10 @@ describe('PaymentStateMachine', () => {
     expect(machine.process().current()).toBe('processing');
     expect(machine.succeed().current()).toBe('succeeded');
     expect(machine.refund().current()).toBe('refunded');
+  });
+
+  it('cancels an in-flight payment', () => {
+    expect(new PaymentStateMachine('processing').cancel().current()).toBe('canceled');
   });
 
   it('rejects refunding a pending payment', () => {

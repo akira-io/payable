@@ -6,7 +6,7 @@ export type InvoiceEvent = 'finalize' | 'pay' | 'mark_uncollectible' | 'void';
 const MAP: TransitionMap<InvoiceStatus, InvoiceEvent> = {
   draft: { finalize: 'open', void: 'void' },
   open: { pay: 'paid', mark_uncollectible: 'uncollectible', void: 'void' },
-  uncollectible: { pay: 'paid' },
+  uncollectible: { pay: 'paid', void: 'void' },
 };
 
 export class InvoiceStateMachine {
