@@ -27,6 +27,9 @@ export class ProcessWebhookAction {
         code: 'WEBHOOK_EVENT_NOT_FOUND',
       });
     }
+    if (event.status === 'processed') {
+      return;
+    }
     const verified: VerifiedWebhook = {
       providerEventId: event.providerEventId,
       type: event.type,
