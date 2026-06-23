@@ -1,3 +1,4 @@
+import type { Logger } from '../../../domain/contracts/logger.contract';
 import type { NormalizedEventName } from '../../../domain/events/domain-event';
 
 const EVENT_MAP: Record<string, NormalizedEventName> = {
@@ -19,7 +20,13 @@ const EVENT_MAP: Record<string, NormalizedEventName> = {
 };
 
 export class StripeEventNormalizer {
+  constructor(private readonly logger?: Logger) {}
+
   normalize(type: string): NormalizedEventName | null {
-    return EVENT_MAP[type] ?? null;
+    const normalized = EVENT_MAP[type] ?? null;
+    if (normalized === null) {
+      this.logger?.warn('Unmapped Stripe event type', { provider: 'stripe', type });
+    }
+    return normalized;
   }
 }

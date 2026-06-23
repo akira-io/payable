@@ -34,6 +34,19 @@ describe('StripeEventNormalizer', () => {
     expect(normalizer.normalize('customer.subscription.deleted')).toBe('subscription.cancelled');
     expect(normalizer.normalize('unknown.event')).toBeNull();
   });
+
+  it('logs a warning on an unmapped event type', () => {
+    const warnings: Array<{ message: string; type?: unknown }> = [];
+    const normalizer = new StripeEventNormalizer({
+      debug() {},
+      info() {},
+      warn: (message, context) => warnings.push({ message, type: context?.type }),
+      error() {},
+    });
+    expect(normalizer.normalize('brand.new.event')).toBeNull();
+    expect(normalizer.normalize('invoice.paid')).toBe('invoice.paid');
+    expect(warnings).toEqual([{ message: 'Unmapped Stripe event type', type: 'brand.new.event' }]);
+  });
 });
 
 describe('StripeProvider.verifyWebhook', () => {

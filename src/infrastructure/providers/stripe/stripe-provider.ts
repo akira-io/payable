@@ -1,4 +1,5 @@
 import type Stripe from 'stripe';
+import type { Logger } from '../../../domain/contracts/logger.contract';
 import type {
   ChargeCapable,
   DirectSubscriptionCapable,
@@ -61,6 +62,7 @@ const DEFAULT_INVOICE_LIMIT = 100;
 export interface StripeProviderOptions {
   secretKey: string;
   webhookSecret: string;
+  logger?: Logger;
 }
 
 export class StripeProvider
@@ -69,13 +71,14 @@ export class StripeProvider
   readonly name = 'stripe';
   private client?: Stripe;
   private readonly verifier: StripeWebhookVerifier;
-  private readonly normalizer = new StripeEventNormalizer();
+  private readonly normalizer: StripeEventNormalizer;
   private readonly subscriptions = new StripeSubscriptions(() => this.stripe());
 
   constructor(
     private readonly options: StripeProviderOptions,
     client?: Stripe,
   ) {
+    this.normalizer = new StripeEventNormalizer(options.logger);
     this.client = client;
     this.verifier = new StripeWebhookVerifier(options.webhookSecret);
   }
