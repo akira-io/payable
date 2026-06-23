@@ -217,6 +217,54 @@ describe('charge and refund lifecycle', () => {
     await db.destroy();
   });
 
+  it('rejects a refund exceeding the remaining balance', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
+    const storage = new KnexStorageDriver(db, clock);
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage, clock });
+
+    const payment = await payable.customer(billable).charge({
+      amount: Money.of(5000, 'USD'),
+      reference: 'inv_over',
+    });
+
+    await expect(
+      payable.refund({ paymentId: payment.id, amount: Money.of(6000, 'USD') }),
+    ).rejects.toThrow('exceeds remaining');
+
+    await payable.refund({ paymentId: payment.id, amount: Money.of(5000, 'USD') });
+    await expect(
+      payable.refund({ paymentId: payment.id, amount: Money.of(1, 'USD') }),
+    ).rejects.toThrow('not refundable');
+
+    const updated = await storage.payments.findById(payment.id);
+    expect(updated?.refundedAmount).toBe(5000);
+    await db.destroy();
+  });
+
+  it('rejects a refund for a payment that already exhausted its balance via partials', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
+    const storage = new KnexStorageDriver(db, clock);
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage, clock });
+
+    const payment = await payable.customer(billable).charge({
+      amount: Money.of(5000, 'USD'),
+      reference: 'inv_partial_over',
+    });
+
+    await payable.refund({ paymentId: payment.id, amount: Money.of(3000, 'USD') });
+    await expect(
+      payable.refund({ paymentId: payment.id, amount: Money.of(2500, 'USD') }),
+    ).rejects.toThrow('exceeds remaining');
+
+    const updated = await storage.payments.findById(payment.id);
+    expect(updated?.refundedAmount).toBe(3000);
+    await db.destroy();
+  });
+
   it('rejects a refund whose currency differs from the payment currency', async () => {
     const db = createTestDb();
     await migrate(db);

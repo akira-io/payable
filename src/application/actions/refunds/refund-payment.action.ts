@@ -29,6 +29,20 @@ export class RefundPaymentAction {
         code: 'PAYMENT_NOT_FOUND',
       });
     }
+    if (payment.status !== 'succeeded' && payment.status !== 'partially_refunded') {
+      throw new PayableError(`Payment ${payment.id} is not refundable`, {
+        code: 'PAYMENT_NOT_REFUNDABLE',
+        context: { paymentId: payment.id, status: payment.status },
+      });
+    }
+    const remaining = payment.amount - payment.refundedAmount;
+    const requested = input.amount?.amount() ?? remaining;
+    if (remaining <= 0 || requested > remaining) {
+      throw new PayableError(`Refund of ${requested} exceeds remaining ${remaining}`, {
+        code: 'REFUND_EXCEEDS_REMAINING',
+        context: { paymentId: payment.id, requested, remaining },
+      });
+    }
     assertProviderCapability(this.deps.provider, 'refunds');
     const key = IdempotencyKey.forRefund({
       provider: this.deps.providerName,
