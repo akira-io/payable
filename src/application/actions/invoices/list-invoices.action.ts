@@ -1,7 +1,8 @@
+import { isInvoiceCapable } from '../../../domain/contracts/payment-provider.contract';
 import type { InvoiceDTO } from '../../../domain/dtos/invoice.dto';
+import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
-import { assertProviderCapability } from '../../services/provider-capabilities/assert-provider-capability';
 
 export class ListInvoicesAction {
   constructor(private readonly deps: BillingDependencies) {}
@@ -18,8 +19,11 @@ export class ListInvoicesAction {
     if (!customer?.providerCustomerId) {
       return [];
     }
-    assertProviderCapability(this.deps.provider, 'invoicePdf');
-    return this.deps.provider.listInvoices({
+    const provider = this.deps.provider;
+    if (!isInvoiceCapable(provider)) {
+      throw new ProviderCapabilityNotSupportedError(provider.name, 'invoicePdf');
+    }
+    return provider.listInvoices({
       providerCustomerId: customer.providerCustomerId,
       limit,
     });

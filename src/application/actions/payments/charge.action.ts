@@ -1,6 +1,8 @@
+import { isChargeCapable } from '../../../domain/contracts/payment-provider.contract';
 import type { Payment } from '../../../domain/entities/payment.entity';
 import { CustomerNotFoundError } from '../../../domain/errors/customer-not-found.error';
 import { PayableError } from '../../../domain/errors/payable-error';
+import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { Money } from '../../../domain/value-objects/money';
@@ -35,6 +37,10 @@ export class ChargeAction {
     if (!customer) {
       throw new CustomerNotFoundError(input.billable.billableId);
     }
+    const provider = this.deps.provider;
+    if (!isChargeCapable(provider)) {
+      throw new ProviderCapabilityNotSupportedError(provider.name, 'charge');
+    }
     const key = IdempotencyKey.forCharge({
       provider: this.deps.providerName,
       billableType: input.billable.billableType,
@@ -43,7 +49,7 @@ export class ChargeAction {
       amount: input.amount.amount(),
       currency: input.amount.currency(),
     });
-    const dto = await this.deps.provider.charge(
+    const dto = await provider.charge(
       {
         providerCustomerId,
         amount: input.amount,

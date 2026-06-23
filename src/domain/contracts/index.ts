@@ -27,7 +27,18 @@ export type {
   OutboxEventRepository,
   OutboxStatus,
 } from './outbox-event-repository.contract';
-export type { PaymentProvider, ResumeSubscriptionInput } from './payment-provider.contract';
+export type {
+  ChargeCapable,
+  DirectSubscriptionCapable,
+  InvoiceCapable,
+  PaymentProvider,
+  ResumeSubscriptionInput,
+} from './payment-provider.contract';
+export {
+  isChargeCapable,
+  isDirectSubscriptionCapable,
+  isInvoiceCapable,
+} from './payment-provider.contract';
 export type { NewPayment, PaymentRepository } from './payment-repository.contract';
 export type { NewPrice, PriceRepository } from './price-repository.contract';
 export type { NewProduct, ProductRepository } from './product-repository.contract';

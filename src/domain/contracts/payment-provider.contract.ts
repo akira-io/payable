@@ -32,10 +32,6 @@ export interface PaymentProvider {
     input: CreateCheckoutSessionInput,
     ctx: OperationContext,
   ): Promise<CheckoutSessionDTO>;
-  createSubscription(
-    input: CreateSubscriptionInput,
-    ctx: OperationContext,
-  ): Promise<SubscriptionDTO>;
   updateSubscription(
     input: UpdateSubscriptionInput,
     ctx: OperationContext,
@@ -48,11 +44,42 @@ export interface PaymentProvider {
     input: ResumeSubscriptionInput,
     ctx: OperationContext,
   ): Promise<SubscriptionDTO>;
-  charge(input: ChargeInput, ctx: OperationContext): Promise<ChargeResultDTO>;
   refund(input: RefundInput, ctx: OperationContext): Promise<RefundResultDTO>;
   verifyWebhook(input: WebhookVerificationInput): Promise<VerifiedWebhook>;
   reconcileSubscription(verified: VerifiedWebhook): SubscriptionDTO | null;
   billingPortal(input: BillingPortalInput, ctx: OperationContext): Promise<BillingPortalDTO>;
+}
+
+export interface ChargeCapable {
+  charge(input: ChargeInput, ctx: OperationContext): Promise<ChargeResultDTO>;
+}
+
+export interface DirectSubscriptionCapable {
+  createSubscription(
+    input: CreateSubscriptionInput,
+    ctx: OperationContext,
+  ): Promise<SubscriptionDTO>;
+}
+
+export interface InvoiceCapable {
   listInvoices(input: ListInvoicesInput): Promise<InvoiceDTO[]>;
   downloadInvoicePdf(providerInvoiceId: string): Promise<InvoicePdfDTO>;
+}
+
+export function isChargeCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & ChargeCapable {
+  return typeof (provider as Partial<ChargeCapable>).charge === 'function';
+}
+
+export function isDirectSubscriptionCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & DirectSubscriptionCapable {
+  return typeof (provider as Partial<DirectSubscriptionCapable>).createSubscription === 'function';
+}
+
+export function isInvoiceCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & InvoiceCapable {
+  return typeof (provider as Partial<InvoiceCapable>).listInvoices === 'function';
 }

@@ -1,7 +1,6 @@
 import type { PaymentProvider } from '../../../domain/contracts/payment-provider.contract';
 import type { BillingPortalDTO, BillingPortalInput } from '../../../domain/dtos/billing-portal.dto';
 import type { ProviderCapabilities } from '../../../domain/dtos/capabilities.dto';
-import type { ChargeResultDTO } from '../../../domain/dtos/charge.dto';
 import type {
   CheckoutSessionDTO,
   CreateCheckoutSessionInput,
@@ -11,7 +10,6 @@ import type {
   CustomerDTO,
   UpdateCustomerInput,
 } from '../../../domain/dtos/customer.dto';
-import type { InvoiceDTO, InvoicePdfDTO } from '../../../domain/dtos/invoice.dto';
 import type { CreatePriceInput, PriceDTO } from '../../../domain/dtos/price.dto';
 import type {
   CreateProductInput,
@@ -127,12 +125,6 @@ export class PaddleProvider implements PaymentProvider {
     return toCheckoutSessionDTO(transaction);
   }
 
-  createSubscription(): Promise<SubscriptionDTO> {
-    return Promise.reject(
-      new ProviderCapabilityNotSupportedError('paddle', 'direct subscription creation'),
-    );
-  }
-
   async updateSubscription(input: UpdateSubscriptionInput): Promise<SubscriptionDTO> {
     const paddle = await this.paddle();
     const items = input.priceId
@@ -156,10 +148,6 @@ export class PaddleProvider implements PaymentProvider {
       effectiveFrom: 'immediately',
     });
     return toSubscriptionDTO(subscription);
-  }
-
-  charge(): Promise<ChargeResultDTO> {
-    return Promise.reject(new ProviderCapabilityNotSupportedError('paddle', 'direct charge'));
   }
 
   async refund(input: RefundInput): Promise<RefundResultDTO> {
@@ -198,14 +186,6 @@ export class PaddleProvider implements PaymentProvider {
     const paddle = await this.paddle();
     const session = await paddle.customerPortalSessions.create(input.providerCustomerId, []);
     return { url: session.urls.general.overview };
-  }
-
-  listInvoices(): Promise<InvoiceDTO[]> {
-    return Promise.reject(new ProviderCapabilityNotSupportedError('paddle', 'listInvoices'));
-  }
-
-  downloadInvoicePdf(): Promise<InvoicePdfDTO> {
-    return Promise.reject(new ProviderCapabilityNotSupportedError('paddle', 'downloadInvoicePdf'));
   }
 
   private async paddle(): Promise<PaddleClient> {
