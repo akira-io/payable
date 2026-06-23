@@ -71,6 +71,30 @@ export class Money {
     return Money.of(divideMinor(this.amount(), divisor), this.code);
   }
 
+  allocate(ratios: number[]): Money[] {
+    if (ratios.length === 0) {
+      throw new RangeError('allocate requires at least one ratio');
+    }
+    if (ratios.some((ratio) => ratio < 0)) {
+      throw new RangeError('allocate ratios cannot be negative');
+    }
+    const total = ratios.reduce((sum, ratio) => sum + ratio, 0);
+    if (total <= 0) {
+      throw new RangeError('allocate ratios must sum to a positive value');
+    }
+    const amount = this.amount();
+    const shares = ratios.map((ratio) => Math.trunc((amount * ratio) / total));
+    let remainder = amount - shares.reduce((sum, share) => sum + share, 0);
+    const step = remainder >= 0 ? 1 : -1;
+    let index = 0;
+    while (remainder !== 0) {
+      shares[index] = (shares[index] ?? 0) + step;
+      remainder -= step;
+      index = (index + 1) % shares.length;
+    }
+    return shares.map((share) => Money.of(share, this.code));
+  }
+
   equals(other: Money): boolean {
     return this.code === other.code && equal(this.value, other.value);
   }

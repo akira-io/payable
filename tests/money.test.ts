@@ -62,4 +62,21 @@ describe('Money', () => {
   it('serializes to amount and currency', () => {
     expect(Money.of(1099, 'EUR').toJSON()).toEqual({ amount: 1099, currency: 'EUR' });
   });
+
+  it('allocates an amount across ratios conserving the total', () => {
+    const shares = Money.of(100, 'USD').allocate([1, 1, 1]);
+    expect(shares.map((s) => s.amount())).toEqual([34, 33, 33]);
+    expect(shares.reduce((sum, s) => sum + s.amount(), 0)).toBe(100);
+  });
+
+  it('allocates by weight and keeps every minor unit', () => {
+    const shares = Money.of(1000, 'USD').allocate([1, 3]);
+    expect(shares.map((s) => s.amount())).toEqual([250, 750]);
+  });
+
+  it('rejects invalid allocation ratios', () => {
+    expect(() => Money.of(100, 'USD').allocate([])).toThrow(RangeError);
+    expect(() => Money.of(100, 'USD').allocate([0, 0])).toThrow(RangeError);
+    expect(() => Money.of(100, 'USD').allocate([1, -1])).toThrow(RangeError);
+  });
 });
