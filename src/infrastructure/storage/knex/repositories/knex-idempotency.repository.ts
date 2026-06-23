@@ -25,17 +25,20 @@ export class KnexIdempotencyRepository implements IdempotencyStore {
   async acquire(record: IdempotencyRecord, tenantId: string | null = null): Promise<boolean> {
     const tenant = this.tenant(tenantId);
     const timestamp = this.clock.now().toISOString();
-    const inserted = await this.knex(this.table)
-      .insert({
+    try {
+      await this.knex(this.table).insert({
         id: globalThis.crypto.randomUUID(),
         tenant_id: tenant,
         created_at: timestamp,
         ...this.row(record, timestamp),
-      })
-      .onConflict(['tenant_id', 'key'])
-      .ignore()
-      .returning('id');
-    return inserted.length > 0;
+      });
+      return true;
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   async takeOver(record: IdempotencyRecord, tenantId: string | null = null): Promise<boolean> {
@@ -156,4 +159,17 @@ export class KnexIdempotencyRepository implements IdempotencyStore {
       lockToken: (row.lock_token as string | null) ?? null,
     };
   }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  const candidate = error as { code?: string; message?: string };
+  if (
+    candidate.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+    candidate.code === 'SQLITE_CONSTRAINT' ||
+    candidate.code === '23505' ||
+    candidate.code === 'ER_DUP_ENTRY'
+  ) {
+    return true;
+  }
+  return typeof candidate.message === 'string' && /unique constraint/i.test(candidate.message);
 }
