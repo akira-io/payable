@@ -86,6 +86,14 @@ export class StripeProvider
     this.verifier = new StripeWebhookVerifier(options.webhookSecret);
   }
 
+  toJSON(): { name: string } {
+    return { name: this.name };
+  }
+
+  [Symbol.for('nodejs.util.inspect.custom')](): string {
+    return `StripeProvider { name: '${this.name}' }`;
+  }
+
   capabilities(): ProviderCapabilities {
     return {
       checkout: true,

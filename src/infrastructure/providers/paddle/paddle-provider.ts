@@ -62,6 +62,14 @@ export class PaddleProvider implements PaymentProvider {
     this.verifier = new PaddleWebhookVerifier(options.webhookSecret);
   }
 
+  toJSON(): { name: string } {
+    return { name: this.name };
+  }
+
+  [Symbol.for('nodejs.util.inspect.custom')](): string {
+    return `PaddleProvider { name: '${this.name}' }`;
+  }
+
   capabilities(): ProviderCapabilities {
     return {
       checkout: true,

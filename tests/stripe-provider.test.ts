@@ -1,3 +1,4 @@
+import { inspect } from 'node:util';
 import type Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
 import { Money } from '../src/domain/value-objects/money';
@@ -56,6 +57,16 @@ describe('StripeProvider', () => {
   it('reports Stripe capabilities', () => {
     const { client } = fakeStripe();
     expect(provider(client).capabilities().checkout).toBe(true);
+  });
+
+  it('does not leak secrets when serialized or inspected', () => {
+    const instance = new StripeProvider({
+      secretKey: 'sk_live_secret',
+      webhookSecret: 'wh_secret',
+    });
+    expect(JSON.stringify(instance)).not.toContain('sk_live_secret');
+    expect(JSON.stringify(instance)).not.toContain('wh_secret');
+    expect(inspect(instance)).not.toContain('sk_live_secret');
   });
 
   it('creates a customer and forwards the idempotency key', async () => {
