@@ -13,6 +13,7 @@ import type {
   WebhookEventRepository,
 } from '../../../domain/contracts';
 import type { Clock } from '../../../domain/contracts/clock.contract';
+import type { Encryption } from '../../../domain/contracts/encryption.contract';
 import type {
   Repositories,
   StorageDriver,
@@ -30,7 +31,7 @@ import { KnexSubscriptionRepository } from './repositories/knex-subscription.rep
 import { KnexSubscriptionItemRepository } from './repositories/knex-subscription-item.repository';
 import { KnexWebhookEventRepository } from './repositories/knex-webhook-event.repository';
 
-function buildRepositories(qb: Knex, clock: Clock): Repositories {
+function buildRepositories(qb: Knex, clock: Clock, encryption?: Encryption): Repositories {
   return {
     customers: new KnexCustomerRepository(qb, clock),
     products: new KnexProductRepository(qb, clock),
@@ -40,7 +41,7 @@ function buildRepositories(qb: Knex, clock: Clock): Repositories {
     invoices: new KnexInvoiceRepository(qb, clock),
     payments: new KnexPaymentRepository(qb, clock),
     refunds: new KnexRefundRepository(qb, clock),
-    webhookEvents: new KnexWebhookEventRepository(qb),
+    webhookEvents: new KnexWebhookEventRepository(qb, encryption),
     auditLogs: new KnexAuditLogRepository(qb, clock),
     outboxEvents: new KnexOutboxEventRepository(qb, clock),
   };
@@ -62,8 +63,9 @@ export class KnexStorageDriver implements StorageDriver {
   constructor(
     private readonly knex: Knex,
     private readonly clock: Clock = new SystemClock(),
+    private readonly encryption?: Encryption,
   ) {
-    const repositories = buildRepositories(knex, clock);
+    const repositories = buildRepositories(knex, clock, encryption);
     this.customers = repositories.customers;
     this.products = repositories.products;
     this.prices = repositories.prices;
@@ -78,6 +80,8 @@ export class KnexStorageDriver implements StorageDriver {
   }
 
   async transaction<T>(work: (repositories: Repositories) => Promise<T>): Promise<T> {
-    return this.knex.transaction((trx) => work(buildRepositories(trx, this.clock)));
+    return this.knex.transaction((trx) =>
+      work(buildRepositories(trx, this.clock, this.encryption)),
+    );
   }
 }
