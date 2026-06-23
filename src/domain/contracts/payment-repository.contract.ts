@@ -5,8 +5,8 @@ export type NewPayment = Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>;
 
 export interface PaymentRepository {
   create(data: NewPayment): Promise<Payment>;
-  update(id: string, patch: Partial<NewPayment>): Promise<Payment>;
-  findById(id: string): Promise<Payment | null>;
+  update(id: string, patch: Partial<NewPayment>, tenantId?: string | null): Promise<Payment>;
+  findById(id: string, tenantId?: string | null): Promise<Payment | null>;
   findByProviderId(provider: string, providerPaymentId: string): Promise<Payment | null>;
   listByCustomer(customerId: string, options?: ListOptions): Promise<Payment[]>;
 }

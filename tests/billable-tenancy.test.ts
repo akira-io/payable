@@ -78,4 +78,60 @@ describe('billable tenant isolation', () => {
     expect(paymentsA[0]?.tenantId).toBe('tenant-a');
     await db.destroy();
   });
+
+  it('scopes findById and update by tenant id', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
+    const storage = new KnexStorageDriver(db, clock);
+
+    const payment = await storage.payments.create({
+      tenantId: 'tenant-a',
+      customerId: null,
+      provider: 'stripe',
+      providerPaymentId: 'pi_1',
+      status: 'succeeded',
+      currency: 'USD',
+      amount: 1000,
+      refundedAmount: 0,
+      reference: null,
+      description: null,
+    });
+
+    expect(await storage.payments.findById(payment.id, 'tenant-a')).not.toBeNull();
+    expect(await storage.payments.findById(payment.id, 'tenant-b')).toBeNull();
+    expect(await storage.payments.findById(payment.id)).not.toBeNull();
+
+    await expect(
+      storage.payments.update(payment.id, { refundedAmount: 500 }, 'tenant-b'),
+    ).rejects.toThrow();
+
+    const updated = await storage.payments.update(payment.id, { refundedAmount: 500 }, 'tenant-a');
+    expect(updated.refundedAmount).toBe(500);
+    await db.destroy();
+  });
+
+  it('blocks cross-tenant webhook event lookup', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db);
+
+    const event = await storage.webhookEvents.create({
+      tenantId: 'tenant-a',
+      provider: 'stripe',
+      providerEventId: 'evt_1',
+      type: 'payment_intent.succeeded',
+      normalizedType: null,
+      payload: '{}',
+      data: {},
+      headers: {},
+      status: 'pending',
+      correlationId: 'corr_1',
+      receivedAt: new Date('2026-06-22T00:00:00.000Z'),
+    });
+
+    expect(await storage.webhookEvents.findById(event.id, 'tenant-a')).not.toBeNull();
+    expect(await storage.webhookEvents.findById(event.id, 'tenant-b')).toBeNull();
+    await db.destroy();
+  });
 });

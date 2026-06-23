@@ -38,16 +38,22 @@ export abstract class KnexRepository<Entity, New> {
     await this.knex(this.table).insert(rows);
   }
 
-  async update(id: string, patch: Partial<New>): Promise<Entity> {
+  async update(id: string, patch: Partial<New>, tenantId?: string | null): Promise<Entity> {
     const [updated] = await this.knex(this.table)
-      .where({ id })
+      .where(this.scopedWhere(id, tenantId))
       .update(stripUndefined({ ...this.toRow(patch), updated_at: this.clock.now().toISOString() }))
       .returning('*');
-    return updated ? this.toEntity(updated as Record<string, unknown>) : this.findByIdOrFail(id);
+    return updated
+      ? this.toEntity(updated as Record<string, unknown>)
+      : this.findByIdOrFail(id, tenantId);
   }
 
-  async findById(id: string): Promise<Entity | null> {
-    return this.firstWhere({ id });
+  async findById(id: string, tenantId?: string | null): Promise<Entity | null> {
+    return this.firstWhere(this.scopedWhere(id, tenantId));
+  }
+
+  protected scopedWhere(id: string, tenantId?: string | null): Record<string, unknown> {
+    return tenantId === undefined || tenantId === null ? { id } : { id, tenant_id: tenantId };
   }
 
   protected async firstWhere(where: Record<string, unknown>): Promise<Entity | null> {
@@ -79,8 +85,8 @@ export abstract class KnexRepository<Entity, New> {
     return rows.map((row) => this.toEntity(row));
   }
 
-  protected async findByIdOrFail(id: string): Promise<Entity> {
-    const found = await this.findById(id);
+  protected async findByIdOrFail(id: string, tenantId?: string | null): Promise<Entity> {
+    const found = await this.findById(id, tenantId);
     if (!found) {
       throw new Error(`${this.table}: row ${id} missing after write`);
     }
