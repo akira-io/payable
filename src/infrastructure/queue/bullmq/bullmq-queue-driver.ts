@@ -10,6 +10,14 @@ export interface BullMQQueueOptions {
   prefix?: string;
   attempts?: number;
   backoffMs?: number;
+  removeOnFailCount?: number;
+  onFailed?: (jobName: string, error: Error) => void;
+}
+
+export interface BullMQJobOptions extends BullMQRetryOptions {
+  jobId?: string;
+  removeOnComplete: true;
+  removeOnFail: { count: number };
 }
 
 export interface BullMQRetryOptions {
@@ -30,12 +38,21 @@ export class BullMQQueueDriver implements QueueDriver {
     };
   }
 
+  jobOptions(jobId?: string): BullMQJobOptions {
+    return {
+      jobId,
+      removeOnComplete: true,
+      removeOnFail: { count: this.options.removeOnFailCount ?? 1000 },
+      ...this.retryOptions(),
+    };
+  }
+
   async dispatch<T>(job: QueueJob<T>): Promise<void> {
     const queue = await this.queueFor(job.name);
     await queue.add(
       job.name,
       { payload: job.payload, correlationId: job.correlationId },
-      { jobId: job.idempotencyKey, removeOnComplete: true, ...this.retryOptions() },
+      this.jobOptions(job.idempotencyKey),
     );
   }
 
@@ -65,6 +82,9 @@ export class BullMQQueueDriver implements QueueDriver {
     const worker = new WorkerClass(name, (job: Job) => this.run(handler, job), {
       connection: this.options.connection,
       prefix: this.options.prefix,
+    });
+    worker.on('failed', (job: Job | undefined, error: Error) => {
+      this.options.onFailed?.(job?.name ?? name, error);
     });
     this.workers.set(name, worker);
   }
