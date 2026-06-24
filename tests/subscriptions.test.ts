@@ -2,9 +2,11 @@ import type Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
 import { onGracePeriod, onTrial } from '../src/domain/entities/subscription-state';
+import { IdempotencyConflictError } from '../src/domain/errors/idempotency-conflict.error';
 import { StripeProvider } from '../src/infrastructure/providers/stripe/stripe-provider';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
+import { KnexIdempotencyRepository } from '../src/infrastructure/storage/knex/repositories/knex-idempotency.repository';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
@@ -108,6 +110,31 @@ describe('subscription lifecycle', () => {
     const canceledNow = await subscriptionOf().cancelNow();
     expect(canceledNow.status).toBe('canceled');
     expect(canceledNow.endsAt?.toISOString()).toBe('2026-06-22T00:00:00.000Z');
+    await db.destroy();
+  });
+
+  it('treats a create with the same key but different quantity as a conflict', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock();
+    const storage = new KnexStorageDriver(db, clock);
+    const payable = createPayable({
+      providers: { stripe: new FakeProvider() },
+      storage,
+      clock,
+      idempotency: { store: new KnexIdempotencyRepository(db, clock) },
+    });
+
+    await payable
+      .customer(billable)
+      .newSubscription('default')
+      .price('price_pro')
+      .quantity(1)
+      .create();
+
+    await expect(
+      payable.customer(billable).newSubscription('default').price('price_pro').quantity(5).create(),
+    ).rejects.toBeInstanceOf(IdempotencyConflictError);
     await db.destroy();
   });
 
