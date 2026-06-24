@@ -49,7 +49,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "verify:bundle": "node scripts/check-core-bundle.mjs",
-    "prepublishOnly": "bun run build"
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "billing",
