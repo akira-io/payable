@@ -57,13 +57,15 @@ export async function alterExistingTables(knex: Knex): Promise<void> {
       columns: ['status', 'locked_until'],
     },
   ]);
-  await ensureUniqueIndexes(knex, [
-    {
-      table: 'payable_customers',
-      name: 'payable_customers_tenant_billable_unique',
-      columns: ['tenant_id', 'billable_type', 'billable_id'],
-    },
-  ]);
+  if (await knex.schema.hasTable('payable_customers')) {
+    await knex.raw("CREATE UNIQUE INDEX IF NOT EXISTS ?? ON ?? (COALESCE(??, ''), ??, ??)", [
+      'payable_customers_tenant_billable_unique',
+      'payable_customers',
+      'tenant_id',
+      'billable_type',
+      'billable_id',
+    ]);
+  }
 }
 
 interface IndexSpec {
@@ -79,20 +81,6 @@ async function ensureIndexes(knex: Knex, specs: IndexSpec[]): Promise<void> {
     }
     const placeholders = spec.columns.map(() => '??').join(', ');
     await knex.raw(`CREATE INDEX IF NOT EXISTS ?? ON ?? (${placeholders})`, [
-      spec.name,
-      spec.table,
-      ...spec.columns,
-    ]);
-  }
-}
-
-async function ensureUniqueIndexes(knex: Knex, specs: IndexSpec[]): Promise<void> {
-  for (const spec of specs) {
-    if (!(await knex.schema.hasTable(spec.table))) {
-      continue;
-    }
-    const placeholders = spec.columns.map(() => '??').join(', ');
-    await knex.raw(`CREATE UNIQUE INDEX IF NOT EXISTS ?? ON ?? (${placeholders})`, [
       spec.name,
       spec.table,
       ...spec.columns,
