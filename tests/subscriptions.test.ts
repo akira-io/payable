@@ -138,6 +138,25 @@ describe('subscription lifecycle', () => {
     await db.destroy();
   });
 
+  it('preserves quantity when swapping a subscription price', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new FakeProvider();
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({ providers: { stripe: provider }, storage });
+
+    await payable
+      .customer(billable)
+      .newSubscription('default')
+      .price('price_pro')
+      .quantity(3)
+      .create();
+    await payable.customer(billable).subscription('default').swap('price_business');
+
+    expect(provider.lastSubscriptionUpdate?.quantity).toBe(3);
+    await db.destroy();
+  });
+
   it('rejects management without storage', async () => {
     const payable = createPayable({ providers: { stripe: new FakeProvider() } });
     await expect(payable.customer(billable).subscription('default').cancel()).rejects.toThrow(
