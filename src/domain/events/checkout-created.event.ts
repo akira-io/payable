@@ -8,6 +8,6 @@ export interface CheckoutCreatedPayload {
 
 export class CheckoutCreatedEvent extends DomainEvent<CheckoutCreatedPayload> {
   constructor(payload: CheckoutCreatedPayload, meta: DomainEventMeta) {
-    super('checkout.completed', payload, meta.correlationId, meta.occurredAt);
+    super('checkout.created', payload, meta.correlationId, meta.occurredAt);
   }
 }

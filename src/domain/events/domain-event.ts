@@ -1,6 +1,7 @@
 export type NormalizedEventName =
   | 'customer.created'
   | 'customer.updated'
+  | 'checkout.created'
   | 'checkout.completed'
   | 'payment.succeeded'
   | 'payment.failed'

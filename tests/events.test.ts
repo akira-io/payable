@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CheckoutCreatedEvent } from '../src/domain/events/checkout-created.event';
 import { CustomerCreatedEvent } from '../src/domain/events/customer-created.event';
 import { InvoicePaidEvent } from '../src/domain/events/invoice-paid.event';
 import { Money } from '../src/domain/value-objects/money';
@@ -16,6 +17,14 @@ describe('domain events', () => {
     expect(event.payload.customerId).toBe('cus_1');
     expect(event.correlationId).toBe('corr_1');
     expect(event.occurredAt).toEqual(meta.occurredAt);
+  });
+
+  it('names a created checkout as created, not completed', () => {
+    const event = new CheckoutCreatedEvent(
+      { checkoutId: 'cs_1', customerId: 'cus_1', url: 'https://pay.test/cs_1' },
+      meta,
+    );
+    expect(event.name).toBe('checkout.created');
   });
 
   it('carry Money value objects without leaking primitives', () => {
