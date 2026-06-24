@@ -251,6 +251,30 @@ describe('PaddleProvider', () => {
       ),
     ).rejects.toMatchObject({ code: 'PROVIDER_CARD_DECLINED' });
   });
+
+  it('reconciles a subscription webhook via a validated narrowing, not a blind cast', () => {
+    const subject = new PaddleProvider({ apiKey: 'pdl', webhookSecret: 'wh' });
+    const dto = subject.reconcileSubscription({
+      providerEventId: 'evt_1',
+      type: 'subscription.updated',
+      normalizedType: 'subscription.updated',
+      data: {
+        id: 'sub_9',
+        status: 'active',
+        currentBillingPeriod: { endsAt: '2026-07-01T00:00:00.000Z' },
+      },
+    });
+    expect(dto).toMatchObject({ providerSubscriptionId: 'sub_9', status: 'active' });
+    expect(dto?.currentPeriodEnd?.toISOString()).toBe('2026-07-01T00:00:00.000Z');
+
+    const malformed = subject.reconcileSubscription({
+      providerEventId: 'evt_2',
+      type: 'subscription.updated',
+      normalizedType: 'subscription.updated',
+      data: { id: 'sub_x', status: 'active', currentBillingPeriod: 'garbage' },
+    });
+    expect(malformed?.currentPeriodEnd).toBeNull();
+  });
 });
 
 describe('withPaddleErrors', () => {

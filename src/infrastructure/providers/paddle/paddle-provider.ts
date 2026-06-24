@@ -34,12 +34,13 @@ import { PaddleEventNormalizer } from './paddle-event-normalizer';
 import {
   toCheckoutSessionDTO,
   toCustomerDTO,
+  toPaddleSubscriptionEntity,
   toPriceDTO,
   toProductDTO,
   toRefundResultDTO,
   toSubscriptionDTO,
 } from './paddle-mappers';
-import type { PaddleClient, PaddleSubscriptionEntity } from './paddle-types';
+import type { PaddleClient } from './paddle-types';
 import { PaddleWebhookVerifier } from './paddle-webhook-verifier';
 
 export interface PaddleProviderOptions {
@@ -233,7 +234,7 @@ export class PaddleProvider implements PaymentProvider {
       return null;
     }
     assertSubscriptionPayload(verified.data, 'paddle');
-    return toSubscriptionDTO(verified.data as unknown as PaddleSubscriptionEntity);
+    return toSubscriptionDTO(toPaddleSubscriptionEntity(verified.data));
   }
 
   async billingPortal(input: BillingPortalInput): Promise<BillingPortalDTO> {
