@@ -18,6 +18,17 @@ describe('redactHeaders', () => {
     });
     expect(result).toEqual({ 'content-type': 'application/json' });
   });
+
+  it('drops custom signature, api-key, secret, and token headers', () => {
+    const result = redactHeaders({
+      'X-MyProvider-Signature': 'sig',
+      'X-Api-Key': 'k',
+      'X-Webhook-Secret': 's',
+      'X-Auth-Token': 't',
+      'content-type': 'application/json',
+    });
+    expect(result).toEqual({ 'content-type': 'application/json' });
+  });
 });
 
 describe('webhook header persistence', () => {
