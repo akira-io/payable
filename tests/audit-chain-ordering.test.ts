@@ -24,4 +24,23 @@ describe('audit chain ordering', () => {
     expect(await audit.verify()).toBe(true);
     await db.destroy();
   });
+
+  it('rejects a chain entry with a null hash or sequence', async () => {
+    const db = createTestDb();
+    await migrate(db);
+
+    await expect(
+      db('payable_audit_logs').insert({
+        id: 'aud_1',
+        correlation_id: 'corr_1',
+        action: 'payment.refunded',
+        resource_type: 'payment',
+        resource_id: 'pay_1',
+        hash: null,
+        sequence: null,
+        created_at: new Date('2026-06-22T00:00:00.000Z'),
+      }),
+    ).rejects.toThrow(/NOT NULL/);
+    await db.destroy();
+  });
 });
