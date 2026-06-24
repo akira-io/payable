@@ -41,7 +41,7 @@ function buildRepositories(qb: Knex, clock: Clock, encryption?: Encryption): Rep
     invoices: new KnexInvoiceRepository(qb, clock),
     payments: new KnexPaymentRepository(qb, clock),
     refunds: new KnexRefundRepository(qb, clock),
-    webhookEvents: new KnexWebhookEventRepository(qb, encryption),
+    webhookEvents: new KnexWebhookEventRepository(qb, clock, encryption),
     auditLogs: new KnexAuditLogRepository(qb, clock),
     outboxEvents: new KnexOutboxEventRepository(qb, clock),
   };

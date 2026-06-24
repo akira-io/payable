@@ -1,4 +1,5 @@
 import type { Knex } from 'knex';
+import type { Clock } from '../../../../domain/contracts/clock.contract';
 import type { Encryption } from '../../../../domain/contracts/encryption.contract';
 import type {
   NewWebhookEvent,
@@ -10,11 +11,14 @@ import type {
 } from '../../../../domain/entities/webhook-event.entity';
 import { toDate, toJson, toNullableDate } from '../mappers';
 
+const CLAIM_TTL_MS = 300_000;
+
 export class KnexWebhookEventRepository implements WebhookEventRepository {
   private readonly table = 'payable_webhook_events';
 
   constructor(
     private readonly knex: Knex,
+    private readonly clock: Clock,
     private readonly encryption?: Encryption,
   ) {}
 
@@ -78,10 +82,18 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
 
   async claim(id: string, tenantId?: string | null): Promise<boolean> {
     const where = tenantId === undefined ? { id } : { id, tenant_id: this.tenant(tenantId) };
+    const now = this.clock.now();
+    const claimedUntil = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
     const affected = await this.knex(this.table)
       .where(where)
-      .whereIn('status', ['pending', 'failed'])
-      .update({ status: 'processing' });
+      .where((builder) =>
+        builder
+          .whereIn('status', ['pending', 'failed'])
+          .orWhere((stale) =>
+            stale.where('status', 'processing').andWhere('claimed_until', '<', now.toISOString()),
+          ),
+      )
+      .update({ status: 'processing', claimed_until: claimedUntil });
     return affected > 0;
   }
 

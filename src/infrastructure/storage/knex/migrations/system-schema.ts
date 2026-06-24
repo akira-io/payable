@@ -16,6 +16,7 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.string('correlation_id').notNullable();
     table.timestamp('received_at').notNullable();
     table.timestamp('processed_at').nullable();
+    table.timestamp('claimed_until').nullable();
     table.unique(['tenant_id', 'provider', 'provider_event_id']);
   });
 

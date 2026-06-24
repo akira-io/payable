@@ -270,6 +270,33 @@ describe('payable.receiveWebhook', () => {
     await db.destroy();
   });
 
+  it('re-claims a processing event whose lock has expired', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
+    const storage = new KnexStorageDriver(db, clock);
+    const event = await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_ttl',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      payload: '{}',
+      data: {},
+      headers: {},
+      status: 'pending',
+      correlationId: 'corr_ttl',
+      receivedAt: clock.now(),
+    });
+
+    expect(await storage.webhookEvents.claim(event.id)).toBe(true);
+    expect(await storage.webhookEvents.claim(event.id)).toBe(false);
+
+    clock.advance(300_001);
+    expect(await storage.webhookEvents.claim(event.id)).toBe(true);
+    await db.destroy();
+  });
+
   it('does not reprocess an already-processed event (idempotent delivery)', async () => {
     const db = createTestDb();
     await migrate(db);
