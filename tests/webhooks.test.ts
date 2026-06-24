@@ -118,6 +118,44 @@ describe('payable.receiveWebhook', () => {
     await db.destroy();
   });
 
+  it('reprocesses a previously failed event on provider redelivery', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new FakeProvider();
+    provider.verifyResult = {
+      providerEventId: 'evt_retry',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      data: { id: 'in_1' },
+    };
+    const clock = new FakeClock();
+    const storage = new KnexStorageDriver(db, clock);
+    const payable = createPayable({ providers: { stripe: provider }, storage });
+
+    await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_retry',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      payload: '{}',
+      data: { id: 'in_1' },
+      headers: {},
+      status: 'failed',
+      correlationId: 'corr_retry',
+      receivedAt: clock.now(),
+    });
+
+    const result = await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
+
+    expect(result.duplicate).toBe(true);
+    expect((await storage.webhookEvents.findByProviderEvent('stripe', 'evt_retry'))?.status).toBe(
+      'processed',
+    );
+    expect(await countDuePendingOutbox(db, clock)).toBe(1);
+    await db.destroy();
+  });
+
   it('marks the event failed when processing throws', async () => {
     const db = createTestDb();
     await migrate(db);
