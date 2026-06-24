@@ -21,7 +21,10 @@ export async function alterExistingTables(knex: Knex): Promise<void> {
   await ensureColumns(knex, 'payable_webhook_events', [
     { name: 'normalized_type', apply: (table) => table.string('normalized_type').nullable() },
     { name: 'data', apply: (table) => table.text('data').notNullable().defaultTo('{}') },
-    { name: 'claimed_until', apply: (table) => table.timestamp('claimed_until').nullable() },
+    {
+      name: 'claimed_until',
+      apply: (table) => table.timestamp('claimed_until', { useTz: true }).nullable(),
+    },
   ]);
   await ensureColumns(knex, 'payable_idempotency_keys', [
     { name: 'lock_token', apply: (table) => table.string('lock_token').nullable() },

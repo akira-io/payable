@@ -14,9 +14,9 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.text('headers').notNullable();
     table.string('status').notNullable();
     table.string('correlation_id').notNullable();
-    table.timestamp('received_at').notNullable();
-    table.timestamp('processed_at').nullable();
-    table.timestamp('claimed_until').nullable();
+    table.timestamp('received_at', { useTz: true }).notNullable();
+    table.timestamp('processed_at', { useTz: true }).nullable();
+    table.timestamp('claimed_until', { useTz: true }).nullable();
     table.unique(['tenant_id', 'provider', 'provider_event_id']);
   });
 
@@ -31,11 +31,11 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.string('request_hash').notNullable();
     table.text('response').nullable();
     table.string('status').notNullable();
-    table.timestamp('locked_until').nullable();
+    table.timestamp('locked_until', { useTz: true }).nullable();
     table.string('lock_token').nullable();
-    table.timestamp('expires_at').nullable();
-    table.timestamp('created_at').notNullable();
-    table.timestamp('updated_at').notNullable();
+    table.timestamp('expires_at', { useTz: true }).nullable();
+    table.timestamp('created_at', { useTz: true }).notNullable();
+    table.timestamp('updated_at', { useTz: true }).notNullable();
     table.unique(['tenant_id', 'key']);
   });
 
@@ -56,7 +56,7 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.string('previous_hash').nullable();
     table.string('hash').notNullable();
     table.integer('sequence').notNullable();
-    table.timestamp('created_at').notNullable();
+    table.timestamp('created_at', { useTz: true }).notNullable();
     table.index(['resource_type', 'resource_id']);
     table.index('correlation_id');
     table.index(['tenant_id', 'sequence']);
@@ -71,11 +71,11 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.text('payload').notNullable();
     table.string('status').notNullable();
     table.integer('attempts').notNullable();
-    table.timestamp('next_retry_at').nullable();
+    table.timestamp('next_retry_at', { useTz: true }).nullable();
     table.string('locked_by').nullable();
-    table.timestamp('locked_until').nullable();
-    table.timestamp('created_at').notNullable();
-    table.timestamp('updated_at').notNullable();
+    table.timestamp('locked_until', { useTz: true }).nullable();
+    table.timestamp('created_at', { useTz: true }).notNullable();
+    table.timestamp('updated_at', { useTz: true }).notNullable();
     table.index(['status', 'next_retry_at', 'created_at']);
   });
 
@@ -86,8 +86,8 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.text('events').notNullable();
     table.string('secret').nullable();
     table.string('status').notNullable();
-    table.timestamp('created_at').notNullable();
-    table.timestamp('updated_at').notNullable();
+    table.timestamp('created_at', { useTz: true }).notNullable();
+    table.timestamp('updated_at', { useTz: true }).notNullable();
   });
 
   await createIfMissing(knex, 'payable_webhook_deliveries', (table) => {
@@ -100,9 +100,9 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.integer('attempts').notNullable();
     table.integer('response_code').nullable();
     table.text('response_body').nullable();
-    table.timestamp('next_retry_at').nullable();
-    table.timestamp('created_at').notNullable();
-    table.timestamp('updated_at').notNullable();
+    table.timestamp('next_retry_at', { useTz: true }).nullable();
+    table.timestamp('created_at', { useTz: true }).notNullable();
+    table.timestamp('updated_at', { useTz: true }).notNullable();
     table.index('endpoint_id');
   });
 }
