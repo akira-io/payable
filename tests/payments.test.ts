@@ -439,7 +439,8 @@ describe('charge and refund lifecycle', () => {
     await migrate(db);
     const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
     const storage = new KnexStorageDriver(db, clock);
-    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage, clock });
+    const provider = new FakeProvider();
+    const payable = createPayable({ providers: { stripe: provider }, storage, clock });
 
     const payment = await payable.customer(billable).charge({
       amount: Money.of(9900, 'USD'),
@@ -450,6 +451,7 @@ describe('charge and refund lifecycle', () => {
       payable.refund({ paymentId: payment.id, amount: Money.of(9900, 'EUR') }),
     ).rejects.toThrow('does not match payment currency');
 
+    expect(provider.refundCalls).toBe(0);
     const untouched = await storage.payments.findById(payment.id);
     expect(untouched?.refundedAmount).toBe(0);
     expect(untouched?.status).toBe('succeeded');
