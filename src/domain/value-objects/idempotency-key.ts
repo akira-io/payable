@@ -47,6 +47,17 @@ function segment(value: string | number): string {
   return encodeURIComponent(String(value));
 }
 
+function amountSegment(value: number): string {
+  if (!Number.isFinite(value)) {
+    throw new TypeError(`Idempotency key amount must be finite, got ${value}`);
+  }
+  return segment(value);
+}
+
+function currencySegment(value: CurrencyCode): string {
+  return segment(value.toUpperCase());
+}
+
 export class IdempotencyKey {
   private constructor(private readonly value: string) {}
 
@@ -66,7 +77,7 @@ export class IdempotencyKey {
 
   static forCharge(parts: ChargeKeyParts): IdempotencyKey {
     return IdempotencyKey.of(
-      `charge:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}:${segment(parts.reference)}:${segment(parts.amount)}:${segment(parts.currency)}`,
+      `charge:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}:${segment(parts.reference)}:${amountSegment(parts.amount)}:${currencySegment(parts.currency)}`,
     );
   }
 
@@ -78,7 +89,7 @@ export class IdempotencyKey {
 
   static forRefund(parts: RefundKeyParts): IdempotencyKey {
     return IdempotencyKey.of(
-      `refund:${segment(parts.provider)}:${segment(parts.paymentId)}:${segment(parts.amount)}:${segment(parts.currency)}`,
+      `refund:${segment(parts.provider)}:${segment(parts.paymentId)}:${amountSegment(parts.amount)}:${currencySegment(parts.currency)}`,
     );
   }
 
