@@ -19,7 +19,10 @@ export async function runStep(knex: Knex, name: string, step: () => Promise<void
     return;
   }
   await step();
-  await knex(LEDGER_TABLE).insert({ name, applied_at: new Date().toISOString() });
+  await knex(LEDGER_TABLE)
+    .insert({ name, applied_at: new Date().toISOString() })
+    .onConflict('name')
+    .ignore();
 }
 
 export async function appliedMigrations(knex: Knex): Promise<string[]> {
