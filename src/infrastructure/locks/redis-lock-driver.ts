@@ -3,7 +3,9 @@ import { PayableError } from '../../domain/errors/payable-error';
 
 // TODO: Phase 7
 export class RedisLockDriver implements LockDriver {
-  constructor(protected readonly client: unknown) {}
+  constructor(protected readonly client: unknown) {
+    throw PayableError.notImplemented('RedisLockDriver (Phase 7)');
+  }
 
   acquire(): Promise<Lock | null> {
     return this.unsupported('acquire');

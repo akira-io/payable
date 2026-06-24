@@ -1,17 +1,33 @@
 import type { Lock, LockDriver } from '../../domain/contracts/lock-driver.contract';
 import { PayableError } from '../../domain/errors/payable-error';
 
-// TODO: Phase 7
 export class MemoryLockDriver implements LockDriver {
-  acquire(): Promise<Lock | null> {
-    return this.unsupported('acquire');
+  private readonly held = new Map<string, number>();
+
+  constructor(private readonly now: () => number = () => Date.now()) {}
+
+  async acquire(key: string, ttlMs: number): Promise<Lock | null> {
+    const expiresAt = this.held.get(key);
+    if (expiresAt !== undefined && expiresAt > this.now()) {
+      return null;
+    }
+    this.held.set(key, this.now() + ttlMs);
+    return {
+      release: async () => {
+        this.held.delete(key);
+      },
+    };
   }
 
-  withLock<T>(): Promise<T> {
-    return this.unsupported('withLock');
-  }
-
-  private unsupported(op: string): never {
-    throw PayableError.notImplemented(`MemoryLockDriver.${op} (Phase 7)`);
+  async withLock<T>(key: string, ttlMs: number, work: () => Promise<T>): Promise<T> {
+    const lock = await this.acquire(key, ttlMs);
+    if (!lock) {
+      throw new PayableError(`Lock unavailable: ${key}`, { code: 'LOCK_UNAVAILABLE' });
+    }
+    try {
+      return await work();
+    } finally {
+      await lock.release();
+    }
   }
 }

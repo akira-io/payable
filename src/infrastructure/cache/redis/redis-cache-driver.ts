@@ -3,7 +3,9 @@ import { PayableError } from '../../../domain/errors/payable-error';
 
 // TODO: Phase 7
 export class RedisCacheDriver implements CacheDriver {
-  constructor(protected readonly client: unknown) {}
+  constructor(protected readonly client: unknown) {
+    throw PayableError.notImplemented('RedisCacheDriver (Phase 7)');
+  }
 
   get<T>(): Promise<T | null> {
     return this.unsupported('get');
