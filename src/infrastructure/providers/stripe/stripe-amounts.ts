@@ -34,27 +34,44 @@ export function stripeCurrencyExponent(currency: string): number {
   return 2;
 }
 
-function assertStripeExponent(code: string): void {
-  const providerExponent = stripeCurrencyExponent(code);
-  const domainExponent = CurrencyManager.precision(code);
-  if (providerExponent !== domainExponent) {
+function rescale(amount: number, fromExponent: number, toExponent: number, code: string): number {
+  const diff = toExponent - fromExponent;
+  if (diff === 0) {
+    return amount;
+  }
+  if (diff > 0) {
+    return amount * 10 ** diff;
+  }
+  const factor = 10 ** -diff;
+  if (amount % factor !== 0) {
     throw new PayableError(
-      `Stripe currency ${code} exponent ${providerExponent} does not match the domain exponent ${domainExponent}`,
+      `Stripe currency ${code} amount ${amount} cannot be rescaled from exponent ${fromExponent} to ${toExponent} without precision loss`,
       {
         code: 'PROVIDER_CURRENCY_EXPONENT_MISMATCH',
-        context: { currency: code, providerExponent, domainExponent },
+        context: { currency: code, fromExponent, toExponent, amount },
       },
     );
   }
+  return amount / factor;
 }
 
 export function stripeMoney(amount: number, currency: string): Money {
   const code = currency.toUpperCase();
-  assertStripeExponent(code);
-  return Money.of(amount, code);
+  const rescaled = rescale(
+    amount,
+    stripeCurrencyExponent(code),
+    CurrencyManager.precision(code),
+    code,
+  );
+  return Money.of(rescaled, code);
 }
 
 export function stripeAmount(money: Money): number {
-  assertStripeExponent(money.currency().toUpperCase());
-  return money.amount();
+  const code = money.currency().toUpperCase();
+  return rescale(
+    money.amount(),
+    CurrencyManager.precision(code),
+    stripeCurrencyExponent(code),
+    code,
+  );
 }
