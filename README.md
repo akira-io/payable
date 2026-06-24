@@ -163,6 +163,17 @@ codes to HTTP status with a `{ error, message }` body.
 
 The public surface is exported from the package root; the fluent entry point is `createPayable(...)`.
 
+### API stability
+
+The supported, SemVer-covered API is the `createPayable(...)` facade together with the value objects,
+DTOs, contracts, errors, providers, storage drivers, and adapter factories exported from the root.
+
+The concrete `*Action`, `*Query`, `*Pipeline`, and policy classes are also exported for advanced use,
+but they are **internal** building blocks: they require a hand-built `BillingDependencies` /
+`WebhookDependencies`, skip the facade's actor-level authorization, and their constructor and
+`handle()` shapes may change in any release without a major bump until they are curated into a
+dedicated entry point before 1.0. Build on the facade unless you have a specific reason not to.
+
 ## Documentation
 
 Full documentation lives in [docs/](docs/00-index.md). Start with the
