@@ -2,6 +2,10 @@
 
 State machines live in `src/domain/states/`. There is one per lifecycle-bearing entity: subscription, invoice, payment, refund. Each machine constrains which status value an entity may move to next and from which current state, so an entity can never reach an illegal status.
 
+## Scope: opt-in helpers, not internal enforcement
+
+These machines are **exported as opt-in helpers** for consumers who want to validate transitions in their own code. They are not a global integrity gate inside the library. The library's own write paths treat the provider as the source of truth and reconcile the provider-reported status directly (see the webhook reconcile path and the subscription actions), so subscription, invoice, and refund status writes do **not** route through `SubscriptionStateMachine` / `InvoiceStateMachine` / `RefundStateMachine`. The one internal use is `PaymentStateMachine` in the refund path, to decide between a full and partial refund transition. If you need transition enforcement over your own status changes, construct the relevant machine and call `can(event)` / the named methods yourself; do not assume the persisted status was gated by it.
+
 ## The shared transition mechanism
 
 `src/domain/states/transition.ts` provides the engine that all four machines share.
