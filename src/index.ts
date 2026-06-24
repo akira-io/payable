@@ -311,6 +311,7 @@ export { Payable, ProviderRegistry, type RefundRequest } from './payable';
 export { FakeClock } from './support/clock/fake-clock';
 export { SystemClock } from './support/clock/system-clock';
 export {
+  type AuthorizationConfig,
   type IdempotencyConfig,
   type IdempotencyStrategy,
   type PayableConfig,
