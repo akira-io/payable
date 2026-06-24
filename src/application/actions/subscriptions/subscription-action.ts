@@ -36,16 +36,6 @@ export abstract class SubscriptionAction {
     return this.deps.storage;
   }
 
-  protected async audit(input: {
-    action: string;
-    subscriptionId: string;
-    before: Record<string, unknown>;
-    after: Record<string, unknown>;
-    authorization?: AuthorizationContext;
-  }): Promise<void> {
-    await this.auditWith(this.storage(), input);
-  }
-
   protected async auditWith(
     repos: Repositories,
     input: {

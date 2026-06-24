@@ -227,6 +227,30 @@ describe('subscription lifecycle', () => {
     await db.destroy();
   });
 
+  it('writes an audit log atomically when canceling and resuming', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
+
+    const created = await payable
+      .customer(billable)
+      .newSubscription('default')
+      .price('price_pro')
+      .create();
+    await payable.customer(billable).subscription('default').cancel();
+    await payable.customer(billable).subscription('default').resume();
+    await payable.customer(billable).subscription('default').cancelNow();
+
+    const actions = (
+      await storage.auditLogs.list({ resourceType: 'subscription', resourceId: created.id })
+    ).map((log) => log.action);
+    expect(actions).toContain('subscription.canceled');
+    expect(actions).toContain('subscription.resumed');
+    expect(actions).toContain('subscription.canceled_now');
+    await db.destroy();
+  });
+
   it('scopes findByName to the owning tenant', async () => {
     const db = createTestDb();
     await migrate(db);
