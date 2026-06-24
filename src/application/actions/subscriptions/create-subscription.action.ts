@@ -99,6 +99,13 @@ export class CreateSubscriptionAction extends SubscriptionAction {
       resourceType: 'subscription',
       tenantId: this.deps.tenantId,
       run,
+      revive: async (response) => {
+        const fresh = await storage.subscriptions.findById(
+          (response as { id: string }).id,
+          this.deps.tenantId,
+        );
+        return fresh ?? (response as Subscription);
+      },
     });
   }
 }
