@@ -32,6 +32,33 @@ describe('IdempotencyService', () => {
     expect(runs).toBe(1);
   });
 
+  it('applies the revive hook on replay only, not on the first run', async () => {
+    const service = new IdempotencyService(new InMemoryIdempotencyStore(), new FakeClock());
+    const request = { id: 'sub_1' };
+    const run = async (): Promise<{ id: string; revived?: boolean }> => ({ id: 'sub_1' });
+    const revive = (response: unknown) => ({ ...(response as { id: string }), revived: true });
+
+    const first = await service.execute({
+      key: 'sub:revive',
+      scope: 'subscription',
+      operation: 'create',
+      request,
+      run,
+      revive,
+    });
+    const second = await service.execute({
+      key: 'sub:revive',
+      scope: 'subscription',
+      operation: 'create',
+      request,
+      run,
+      revive,
+    });
+
+    expect(first).not.toHaveProperty('revived');
+    expect(second).toMatchObject({ id: 'sub_1', revived: true });
+  });
+
   it('sets an expiry on the completed record', async () => {
     const store = new InMemoryIdempotencyStore();
     const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));

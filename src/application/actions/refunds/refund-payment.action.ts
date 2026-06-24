@@ -88,6 +88,10 @@ export class RefundPaymentAction {
       resourceType: 'refund',
       tenantId: this.deps.tenantId,
       run,
+      revive: async (response) => {
+        const fresh = await storage.refunds.findById((response as { id: string }).id);
+        return fresh ?? (response as Refund);
+      },
     });
   }
 

@@ -17,6 +17,7 @@ export interface IdempotentExecution<T> {
   tenantId?: string | null;
   retryFailed?: boolean;
   run: () => Promise<T>;
+  revive?: (response: unknown) => Promise<T> | T;
 }
 
 export interface IdempotencyServiceOptions {
@@ -46,7 +47,7 @@ export class IdempotencyService {
     const existing = await this.store.find(execution.key, execution.tenantId);
     const replay = this.replay<T>(existing, requestHash, execution.key, retryFailed);
     if (replay.handled) {
-      return replay.value as T;
+      return execution.revive ? await execution.revive(replay.value) : (replay.value as T);
     }
     return this.run(execution, requestHash, retryFailed);
   }
