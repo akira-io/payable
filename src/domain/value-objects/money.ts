@@ -112,13 +112,20 @@ export class Money {
       assertSafeMinor(amount * ratio, 'allocation product');
       return Math.trunc((amount * ratio) / total);
     });
+    const eligible = ratios.reduce<number[]>((indices, ratio, index) => {
+      if (ratio > 0) {
+        indices.push(index);
+      }
+      return indices;
+    }, []);
     let remainder = amount - shares.reduce((sum, share) => sum + share, 0);
     const step = remainder >= 0 ? 1 : -1;
-    let index = 0;
+    let cursor = 0;
     while (remainder !== 0) {
-      shares[index] = (shares[index] ?? 0) + step;
+      const target = eligible[cursor % eligible.length] ?? 0;
+      shares[target] = (shares[target] ?? 0) + step;
       remainder -= step;
-      index = (index + 1) % shares.length;
+      cursor += 1;
     }
     return shares.map((share) => Money.of(share, this.code));
   }

@@ -84,6 +84,11 @@ describe('Money', () => {
     expect(shares.map((s) => s.amount())).toEqual([250, 750]);
   });
 
+  it('does not assign a remainder unit to a zero-ratio bucket', () => {
+    const shares = Money.of(10, 'USD').allocate([0, 2, 1]);
+    expect(shares.map((s) => s.amount())).toEqual([0, 7, 3]);
+  });
+
   it('allocates a negative amount conserving sign and total', () => {
     const shares = Money.of(-100, 'USD').allocate([1, 1, 1]);
     expect(shares.map((s) => s.amount())).toEqual([-34, -33, -33]);
