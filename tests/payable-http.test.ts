@@ -10,7 +10,7 @@ describe('payableErrorStatus', () => {
       ['WEBHOOK_REPLAY_DENIED', 403],
       ['SUBSCRIPTION_PRICE_REQUIRED', 422],
       ['PROVIDER_CAPABILITY_NOT_SUPPORTED', 422],
-      ['WEBHOOK_PROVIDER_AMBIGUOUS', 500],
+      ['WEBHOOK_PROVIDER_AMBIGUOUS', 400],
       ['TENANT_REQUIRED', 400],
     ];
     for (const [code, status] of cases) {
