@@ -79,7 +79,10 @@ export interface PaddleClient {
   subscriptions: {
     update(
       id: string,
-      body: { items?: { priceId: string; quantity: number }[] },
+      body: {
+        items?: { priceId: string; quantity: number }[];
+        prorationBillingMode?: string;
+      },
     ): Promise<PaddleSubscriptionEntity>;
     cancel(id: string, body?: { effectiveFrom?: string }): Promise<PaddleSubscriptionEntity>;
     resume(id: string, body: { effectiveFrom: string }): Promise<PaddleSubscriptionEntity>;
