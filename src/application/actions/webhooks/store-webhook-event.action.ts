@@ -1,4 +1,5 @@
 import type { VerifiedWebhook } from '../../../domain/dtos/webhook.dto';
+import type { WebhookEventStatus } from '../../../domain/entities/webhook-event.entity';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { redactHeaders } from '../../../support/redact-headers';
 import type { WebhookDependencies } from '../../builders/webhook-dependencies';
@@ -14,6 +15,7 @@ export interface StoredWebhookEvent {
   id: string;
   correlationId: string;
   duplicate: boolean;
+  status: WebhookEventStatus;
 }
 
 export class StoreWebhookEventAction {
@@ -28,7 +30,12 @@ export class StoreWebhookEventAction {
       tenantId,
     );
     if (existing) {
-      return { id: existing.id, correlationId: existing.correlationId, duplicate: true };
+      return {
+        id: existing.id,
+        correlationId: existing.correlationId,
+        duplicate: true,
+        status: existing.status,
+      };
     }
     const correlationId = CorrelationId.generate().toString();
     try {
@@ -45,7 +52,7 @@ export class StoreWebhookEventAction {
         correlationId,
         receivedAt: clock.now(),
       });
-      return { id: created.id, correlationId, duplicate: false };
+      return { id: created.id, correlationId, duplicate: false, status: 'pending' };
     } catch (error) {
       const raced = await storage.webhookEvents.findByProviderEvent(
         providerName,
@@ -53,7 +60,12 @@ export class StoreWebhookEventAction {
         tenantId,
       );
       if (raced) {
-        return { id: raced.id, correlationId: raced.correlationId, duplicate: true };
+        return {
+          id: raced.id,
+          correlationId: raced.correlationId,
+          duplicate: true,
+          status: raced.status,
+        };
       }
       throw error;
     }

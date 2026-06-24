@@ -36,7 +36,8 @@ export class ReceiveWebhookAction {
       headers: input.headers,
       tenantId,
     });
-    if (stored.duplicate) {
+    const reprocessable = stored.status === 'pending' || stored.status === 'failed';
+    if (stored.duplicate && !reprocessable) {
       return { webhookEventId: stored.id, duplicate: true };
     }
     await new DispatchWebhookJobAction(this.deps.queue).handle({
@@ -46,7 +47,7 @@ export class ReceiveWebhookAction {
       correlationId: stored.correlationId,
       tenantId,
     });
-    return { webhookEventId: stored.id, duplicate: false };
+    return { webhookEventId: stored.id, duplicate: stored.duplicate };
   }
 
   private async resolveTenant(input: ReceiveWebhookInput): Promise<string | null> {
