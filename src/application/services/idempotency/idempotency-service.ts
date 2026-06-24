@@ -117,7 +117,9 @@ export class IdempotencyService {
       );
       return result;
     } catch (error) {
-      await this.store.markFailed(execution.key, execution.tenantId, record.lockToken);
+      await this.store
+        .markFailed(execution.key, execution.tenantId, record.lockToken)
+        .catch(() => {});
       throw error;
     }
   }

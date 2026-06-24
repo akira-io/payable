@@ -141,6 +141,23 @@ describe('IdempotencyService', () => {
     expect(attempts).toBe(2);
   });
 
+  it('surfaces the operation error even when the failure cleanup write rejects', async () => {
+    class FailingCleanupStore extends InMemoryIdempotencyStore {
+      override markFailed(): Promise<void> {
+        return Promise.reject(new Error('store unavailable'));
+      }
+    }
+    const service = new IdempotencyService(new FailingCleanupStore(), new FakeClock());
+
+    await expect(
+      service.execute(
+        execution('charge:cleanup', { amount: 1 }, async () => {
+          throw new Error('provider declined');
+        }),
+      ),
+    ).rejects.toThrow('provider declined');
+  });
+
   it('re-runs a record whose expiresAt has passed', async () => {
     const store = new InMemoryIdempotencyStore();
     const clock = new FakeClock();
