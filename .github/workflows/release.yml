@@ -65,6 +65,11 @@ jobs:
           git diff --cached --quiet || git commit -m "chore(release): ${{ github.ref_name }}"
           git push origin "HEAD:${DEFAULT_BRANCH}"
 
+      - name: Move the tag onto the release commit
+        run: |
+          git tag -f "${{ github.ref_name }}" HEAD
+          git push -f origin "refs/tags/${{ github.ref_name }}"
+
       - name: Extract release notes
         id: notes
         env:
