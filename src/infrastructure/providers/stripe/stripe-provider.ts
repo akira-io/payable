@@ -57,7 +57,7 @@ import {
 import { StripeSubscriptions } from './stripe-subscriptions';
 import { StripeWebhookVerifier } from './stripe-webhook-verifier';
 
-export const STRIPE_API_VERSION = '2026-05-27.dahlia' as const;
+export const STRIPE_API_VERSION = '2026-06-24.dahlia' as const;
 
 const DEFAULT_INVOICE_LIMIT = 100;
 const INVOICE_PDF_TIMEOUT_MS = 10_000;
