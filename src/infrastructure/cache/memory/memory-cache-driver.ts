@@ -1,25 +1,51 @@
 import type { CacheDriver } from '../../../domain/contracts/cache-driver.contract';
-import { PayableError } from '../../../domain/errors/payable-error';
 
-// TODO: Phase 7
+interface CacheEntry {
+  value: unknown;
+  expiresAt: number | null;
+}
+
 export class MemoryCacheDriver implements CacheDriver {
-  get<T>(): Promise<T | null> {
-    return this.unsupported('get');
+  private readonly store = new Map<string, CacheEntry>();
+
+  constructor(private readonly now: () => number = () => Date.now()) {}
+
+  async get<T>(key: string): Promise<T | null> {
+    const entry = this.store.get(key);
+    if (!entry) {
+      return null;
+    }
+    if (this.expired(entry)) {
+      this.store.delete(key);
+      return null;
+    }
+    return entry.value as T;
   }
 
-  set(): Promise<void> {
-    return this.unsupported('set');
+  async set<T>(key: string, value: T, ttlSeconds?: number): Promise<void> {
+    this.store.set(key, {
+      value,
+      expiresAt: ttlSeconds === undefined ? null : this.now() + ttlSeconds * 1000,
+    });
   }
 
-  delete(): Promise<void> {
-    return this.unsupported('delete');
+  async delete(key: string): Promise<void> {
+    this.store.delete(key);
   }
 
-  has(): Promise<boolean> {
-    return this.unsupported('has');
+  async has(key: string): Promise<boolean> {
+    const entry = this.store.get(key);
+    if (!entry) {
+      return false;
+    }
+    if (this.expired(entry)) {
+      this.store.delete(key);
+      return false;
+    }
+    return true;
   }
 
-  private unsupported(op: string): never {
-    throw PayableError.notImplemented(`MemoryCacheDriver.${op} (Phase 7)`);
+  private expired(entry: CacheEntry): boolean {
+    return entry.expiresAt !== null && this.now() >= entry.expiresAt;
   }
 }
