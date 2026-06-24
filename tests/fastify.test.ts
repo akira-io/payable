@@ -195,4 +195,40 @@ describe('fastify adapter', () => {
     await app.close();
     await db.destroy();
   });
+
+  it('creates, reads, and updates a customer over HTTP', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const app = await makeApp(
+      createPayable({
+        providers: { stripe: new FakeProvider() },
+        storage: new KnexStorageDriver(db, new FakeClock()),
+      }),
+    );
+
+    const missing = await app.inject({
+      method: 'GET',
+      url: '/payable/customers',
+      query: { billableType: 'User', billableId: '1' },
+    });
+    expect(missing.statusCode).toBe(404);
+
+    const created = await app.inject({
+      method: 'POST',
+      url: '/payable/customers',
+      payload: { billable },
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().providerCustomerId).toBe('cus_fake');
+
+    const updated = await app.inject({
+      method: 'PATCH',
+      url: '/payable/customers',
+      payload: { billable, name: 'Renamed' },
+    });
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json().name).toBe('Renamed');
+    await app.close();
+    await db.destroy();
+  });
 });

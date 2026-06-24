@@ -5,19 +5,25 @@ import {
   HttpCode,
   Inject,
   Param,
+  Patch,
   Post,
+  Query,
   Req,
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import type { Billable } from '../../application/builders/billable';
 import type { CheckoutSessionDTO } from '../../domain/dtos/checkout.dto';
+import type { Customer } from '../../domain/entities/customer.entity';
 import type { Refund } from '../../domain/entities/refund.entity';
 import type { Subscription } from '../../domain/entities/subscription.entity';
 import { PayableError } from '../../domain/errors/payable-error';
 import type { Payable } from '../../payable';
 import {
+  billableLookupSchema,
   checkoutBodySchema,
+  customerBodySchema,
+  customerUpdateBodySchema,
   manageSubscriptionBodySchema,
   parseBody,
   parseMoneyInput,
@@ -129,9 +135,38 @@ export class PayableController {
   }
 
   @Post('customers')
+  @HttpCode(201)
   @UseGuards(PayableAuthGuard)
-  customers(): never {
-    throw PayableError.notImplemented('POST /customers');
+  createCustomer(@Req() request: PayableHttpRequest, @Body() rawBody: unknown): Promise<Customer> {
+    const body = parseBody(customerBodySchema, rawBody);
+    return this.payable.customers(undefined, this.tenantOf(request)).create(body.billable);
+  }
+
+  @Patch('customers')
+  @UseGuards(PayableAuthGuard)
+  updateCustomer(@Req() request: PayableHttpRequest, @Body() rawBody: unknown): Promise<Customer> {
+    const body = parseBody(customerUpdateBodySchema, rawBody);
+    return this.payable
+      .customers(undefined, this.tenantOf(request))
+      .update(body.billable, { email: body.email, name: body.name });
+  }
+
+  @Get('customers')
+  @UseGuards(PayableAuthGuard)
+  async getCustomer(
+    @Req() request: PayableHttpRequest,
+    @Query() query: unknown,
+  ): Promise<Customer> {
+    const lookup = parseBody(billableLookupSchema, query);
+    const customer = await this.payable
+      .customers(undefined, this.tenantOf(request))
+      .get({ ...lookup, email: '' });
+    if (!customer) {
+      throw new PayableError(`Customer not found: ${lookup.billableId}`, {
+        code: 'CUSTOMER_NOT_FOUND',
+      });
+    }
+    return customer;
   }
 
   @Get('invoices')

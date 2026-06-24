@@ -50,7 +50,9 @@ Every method and path below is registered by the adapter. Paths are relative to 
 | POST | `/subscriptions/:name/resume` | 200 | Resume a canceled subscription |
 | POST | `/subscriptions/:name/swap` | 200 | Swap to a new price |
 | POST | `/refunds` | 201 | Refund a payment |
-| POST | `/customers` | 501 | Reserved; throws `NOT_IMPLEMENTED` |
+| POST | `/customers` | 201 | Create (or get) a customer at the provider |
+| PATCH | `/customers` | 200 | Update a customer's email/name |
+| GET | `/customers` | 200 | Get a customer by `billableType`+`billableId` (query) |
 | GET | `/invoices` | 501 | Reserved; throws `NOT_IMPLEMENTED` |
 | GET | `/payments` | 501 | Reserved; throws `NOT_IMPLEMENTED` |
 

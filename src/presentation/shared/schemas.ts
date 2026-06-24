@@ -21,6 +21,19 @@ export const checkoutBodySchema = z.object({
   cancelUrl: z.string().url(),
 });
 
+export const customerBodySchema = z.object({ billable: billableSchema });
+
+export const customerUpdateBodySchema = z.object({
+  billable: billableSchema,
+  email: z.string().email().optional(),
+  name: z.string().min(1).optional(),
+});
+
+export const billableLookupSchema = z.object({
+  billableType: z.string().min(1),
+  billableId: z.string().min(1),
+});
+
 export const manageSubscriptionBodySchema = z.object({ billable: billableSchema });
 
 export const swapSubscriptionBodySchema = z.object({
