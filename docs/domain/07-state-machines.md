@@ -57,6 +57,7 @@ Events: `start_trial`, `activate`, `mark_past_due`, `mark_unpaid`, `pause`, `res
 | `incomplete` | `expire` | `incomplete_expired` |
 | `incomplete` | `cancel` | `canceled` |
 | `trialing` | `activate` | `active` |
+| `trialing` | `mark_past_due` | `past_due` |
 | `trialing` | `pause` | `paused` |
 | `trialing` | `cancel` | `canceled` |
 | `active` | `mark_past_due` | `past_due` |
@@ -83,6 +84,7 @@ stateDiagram-v2
   incomplete --> incomplete_expired: expire
   incomplete --> canceled: cancel
   trialing --> active: activate
+  trialing --> past_due: mark_past_due
   trialing --> paused: pause
   trialing --> canceled: cancel
   active --> past_due: mark_past_due
