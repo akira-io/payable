@@ -21,6 +21,7 @@ export interface CheckoutKeyParts {
   billableId: string;
   price: string;
   subscriptionName: string;
+  reference?: string;
 }
 
 export interface SubscriptionKeyParts {
@@ -59,8 +60,9 @@ export class IdempotencyKey {
   }
 
   static forCheckout(parts: CheckoutKeyParts): IdempotencyKey {
+    const base = `checkout:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}:${segment(parts.price)}:${segment(parts.subscriptionName)}`;
     return IdempotencyKey.of(
-      `checkout:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}:${segment(parts.price)}:${segment(parts.subscriptionName)}`,
+      parts.reference === undefined ? base : `${base}:${segment(parts.reference)}`,
     );
   }
 

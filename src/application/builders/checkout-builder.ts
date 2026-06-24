@@ -10,6 +10,7 @@ import type { BillingDependencies } from './billing-dependencies';
 export interface CheckoutRequest {
   successUrl: string;
   cancelUrl: string;
+  reference?: string;
   authorization?: AuthorizationContext;
 }
 
@@ -54,6 +55,7 @@ export class CheckoutBuilder {
       successUrl: request.successUrl,
       cancelUrl: request.cancelUrl,
       subscriptionName: this.state.subscriptionName,
+      reference: request.reference,
     });
   }
 }
