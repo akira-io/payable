@@ -16,6 +16,7 @@ export class UpdateSubscriptionQuantityAction extends SubscriptionAction {
       authorization,
       'update subscription quantity',
     );
+    this.assertQuantity(quantity);
     const subscription = await this.resolve(billable, name);
     const dto = await this.deps.provider.updateSubscription(
       {
