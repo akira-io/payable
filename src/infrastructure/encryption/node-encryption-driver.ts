@@ -43,12 +43,19 @@ export class NodeEncryptionDriver implements Encryption {
     if ((!versioned && parts.length !== 3) || !ivPart || !tagPart || !dataPart) {
       throw new PayableError('Malformed ciphertext', { code: 'ENCRYPTION_INVALID_CIPHERTEXT' });
     }
-    const decipher = createDecipheriv(ALGORITHM, this.key, Buffer.from(ivPart, 'base64'));
-    decipher.setAuthTag(Buffer.from(tagPart, 'base64'));
-    const decrypted = Buffer.concat([
-      decipher.update(Buffer.from(dataPart, 'base64')),
-      decipher.final(),
-    ]);
-    return decrypted.toString('utf8');
+    try {
+      const decipher = createDecipheriv(ALGORITHM, this.key, Buffer.from(ivPart, 'base64'));
+      decipher.setAuthTag(Buffer.from(tagPart, 'base64'));
+      const decrypted = Buffer.concat([
+        decipher.update(Buffer.from(dataPart, 'base64')),
+        decipher.final(),
+      ]);
+      return decrypted.toString('utf8');
+    } catch (error) {
+      throw new PayableError('Failed to decrypt ciphertext', {
+        code: 'ENCRYPTION_DECRYPT_FAILED',
+        cause: error,
+      });
+    }
   }
 }
