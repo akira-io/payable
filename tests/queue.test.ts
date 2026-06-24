@@ -103,6 +103,32 @@ describe('BullMQQueueDriver', () => {
 
     expect(errors).toEqual([['webhook', 'bullmq unavailable']]);
   });
+
+  it('routes a dead-letter enqueue failure through onError', async () => {
+    const connection = { host: 'localhost', port: 6379 };
+    const errors: string[] = [];
+    class FailingDriver extends BullMQQueueDriver {
+      protected override loadBullmq(): Promise<typeof import('bullmq')> {
+        return Promise.reject(new Error('dead-letter unavailable'));
+      }
+      runDeadLetter(job: unknown): void {
+        (
+          this as unknown as {
+            deadLetterExhausted: (name: string, job: unknown, error: Error) => void;
+          }
+        ).deadLetterExhausted('webhook', job, new Error('original failure'));
+      }
+    }
+    const driver = new FailingDriver({
+      connection,
+      onError: (_name, error) => errors.push(error.message),
+    });
+
+    driver.runDeadLetter({ data: { payload: {}, correlationId: 'c1' }, name: 'job', id: '1' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(errors).toEqual(['dead-letter unavailable']);
+  });
 });
 
 describe('async webhook processing', () => {
