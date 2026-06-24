@@ -282,6 +282,26 @@ describe('idempotent charge', () => {
     expect(second.providerPaymentId).toBe(first.providerPaymentId);
     await db.destroy();
   });
+
+  it('rejects a charge whose provider currency diverges from the request', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock();
+    const storage = new KnexStorageDriver(db, clock);
+    const provider = new FakeProvider();
+    provider.charge = async (_input, ctx) => {
+      provider.lastChargeCtx = ctx;
+      return { providerPaymentId: 'pi_x', status: 'succeeded', amount: Money.of(9900, 'EUR') };
+    };
+    const payable = createPayable({ providers: { stripe: provider }, storage, clock });
+
+    await expect(
+      payable
+        .customer(billable)
+        .charge({ amount: Money.of(9900, 'USD'), reference: 'inv_mismatch' }),
+    ).rejects.toThrow(/does not match requested currency/);
+    await db.destroy();
+  });
 });
 
 describe('refund idempotency key', () => {
