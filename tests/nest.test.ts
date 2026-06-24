@@ -169,22 +169,35 @@ describe('nest adapter', () => {
   });
 
   it('allows requests when no authenticate guard is configured', async () => {
-    const moduleRef = { create: () => Promise.reject(new Error('unused')) } as unknown as ModuleRef;
+    const moduleRef = {
+      get: () => {
+        throw new Error('unused');
+      },
+    } as unknown as ModuleRef;
     const guard = new PayableAuthGuard({}, moduleRef);
     await expect(guard.canActivate({} as ExecutionContext)).resolves.toBe(true);
   });
 
-  it('delegates to the configured guard when authenticate is set', async () => {
+  it('resolves the configured guard as a container singleton', async () => {
     class DenyGuard implements CanActivate {
       canActivate(): boolean {
         return false;
       }
     }
+    const singleton = new DenyGuard();
+    let resolved = 0;
     const moduleRef = {
-      create: (cls: new () => CanActivate) => Promise.resolve(new cls()),
+      get: (cls: new () => CanActivate) => {
+        resolved += 1;
+        expect(cls).toBe(DenyGuard);
+        return singleton;
+      },
     } as unknown as ModuleRef;
     const guard = new PayableAuthGuard({ authenticate: DenyGuard }, moduleRef);
+
     await expect(guard.canActivate({} as ExecutionContext)).resolves.toBe(false);
+    await guard.canActivate({} as ExecutionContext);
+    expect(resolved).toBe(2);
   });
 
   it('refunds a payment', async () => {
