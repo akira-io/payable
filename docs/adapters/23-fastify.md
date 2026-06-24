@@ -41,35 +41,29 @@ The plugin performs, in order:
 | POST | `/subscriptions/:name/cancel-now` | 200 | Cancel immediately |
 | POST | `/subscriptions/:name/resume` | 200 | Resume a canceled subscription |
 | POST | `/subscriptions/:name/swap` | 200 | Swap to a new price |
+| POST | `/refunds` | 201 | Refund a payment |
 | POST | `/customers` | 501 | Reserved; throws `NOT_IMPLEMENTED` |
 | GET | `/invoices` | 501 | Reserved; throws `NOT_IMPLEMENTED` |
 | GET | `/payments` | 501 | Reserved; throws `NOT_IMPLEMENTED` |
-| POST | `/refunds` | 501 | Reserved; throws `NOT_IMPLEMENTED` |
 
 ## Parity gap vs Express
 
-This adapter is a strict subset of the Express adapter. It implements webhooks, checkout, and
-subscription management (`cancel`, `cancel-now`, `resume`, `swap`), but does not implement the full
-route set.
+This adapter implements webhooks, checkout, subscription management (`cancel`, `cancel-now`,
+`resume`, `swap`), and `POST /refunds` (the same working refund path as Express, replying `201`). It
+does not implement the reserved `customers` / `invoices` / `payments` endpoints.
 
 What Fastify does NOT implement:
 
-- `POST /refunds` - Express runs the real refund path; Fastify's `/refunds` is a placeholder that
-  throws `PayableError.notImplemented('POST /refunds')` (HTTP 501).
 - `POST /customers`, `GET /invoices`, `GET /payments` - placeholders that throw `NOT_IMPLEMENTED`
   (HTTP 501), matching Express's reserved endpoints.
 
-All four placeholder routes:
+The three placeholder routes:
 
 ```ts
 scope.post('/customers', async () => { throw PayableError.notImplemented('POST /customers'); });
 scope.get('/invoices', async () => { throw PayableError.notImplemented('GET /invoices'); });
 scope.get('/payments', async () => { throw PayableError.notImplemented('GET /payments'); });
-scope.post('/refunds', async () => { throw PayableError.notImplemented('POST /refunds'); });
 ```
-
-To process refunds over HTTP today, use the Express adapter or call `payable.refund(...)` directly.
-See `docs/29-troubleshooting.md`.
 
 Unlike the Express checkout/subscription routes, the Fastify checkout and subscription handlers do
 not run the shared Zod schemas; they cast the request body to a TypeScript interface
@@ -147,7 +141,7 @@ The `prefix` option is Fastify's standard register option; all routes above are 
 - Multiple registered providers with no `:provider` segment surface `WEBHOOK_PROVIDER_AMBIGUOUS`
   (400) from the facade.
 - Webhook receipt requires a storage driver (`WEBHOOK_STORAGE_REQUIRED`, 500, when absent).
-- A request to `/refunds` returns 501, not 404 - the route exists but is unimplemented.
+- A `/refunds` request with an unknown currency returns `422` (`VALIDATION_FAILED`), not `500`.
 
 ---
 
