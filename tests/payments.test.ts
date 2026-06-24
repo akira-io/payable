@@ -327,7 +327,7 @@ describe('refund idempotency key', () => {
 
     await payable.refund({ paymentId: payment.id });
 
-    expect(provider.lastRefundCtx?.idempotencyKey).toBe('refund:stripe:pi_x:6000:USD');
+    expect(provider.lastRefundCtx?.idempotencyKey).toBe('refund::stripe:pi_x:6000:USD');
     await db.destroy();
   });
 });
@@ -351,7 +351,7 @@ describe('charge and refund lifecycle', () => {
       status: 'succeeded',
       amount: 9900,
     });
-    expect(provider.lastChargeCtx?.idempotencyKey).toBe('charge:stripe:User:1:inv_1:9900:USD');
+    expect(provider.lastChargeCtx?.idempotencyKey).toBe('charge::stripe:User:1:inv_1:9900:USD');
     expect(await new ListPaymentsQuery(deps).run(billable)).toHaveLength(1);
 
     const refund = await payable.refund({ paymentId: payment.id, amount: Money.of(9900, 'USD') });

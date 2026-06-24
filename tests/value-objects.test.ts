@@ -24,7 +24,22 @@ describe('IdempotencyKey', () => {
       amount: 9900,
       currency: 'USD',
     });
-    expect(key.toString()).toBe('charge:stripe:User:1:invoice_123:9900:USD');
+    expect(key.toString()).toBe('charge::stripe:User:1:invoice_123:9900:USD');
+  });
+
+  it('namespaces provider keys per tenant', () => {
+    const base = {
+      provider: 'stripe',
+      billableType: 'User',
+      billableId: '1',
+      reference: 'invoice_123',
+      amount: 9900,
+      currency: 'USD' as const,
+    };
+    const tenantA = IdempotencyKey.forCharge({ ...base, tenantId: 'tenant-a' }).toString();
+    const tenantB = IdempotencyKey.forCharge({ ...base, tenantId: 'tenant-b' }).toString();
+    expect(tenantA).toBe('charge:tenant-a:stripe:User:1:invoice_123:9900:USD');
+    expect(tenantA).not.toBe(tenantB);
   });
 
   it('builds deterministic webhook keys', () => {
@@ -63,7 +78,7 @@ describe('IdempotencyKey', () => {
         amount: 100,
         currency: 'eur' as 'EUR',
       }).toString(),
-    ).toBe('refund:stripe:pi_1:100:EUR');
+    ).toBe('refund::stripe:pi_1:100:EUR');
   });
 
   it('rejects non-finite amounts', () => {
@@ -90,8 +105,8 @@ describe('IdempotencyKey', () => {
 
   it('escapes the separator in customer and billing-portal keys', () => {
     const parts = { provider: 'stripe', billableType: 'User', billableId: 'a:b' };
-    expect(IdempotencyKey.forCustomer(parts).toString()).toBe('customer:stripe:User:a%3Ab');
-    expect(IdempotencyKey.forBillingPortal(parts).toString()).toBe('portal:stripe:User:a%3Ab');
+    expect(IdempotencyKey.forCustomer(parts).toString()).toBe('customer::stripe:User:a%3Ab');
+    expect(IdempotencyKey.forBillingPortal(parts).toString()).toBe('portal::stripe:User:a%3Ab');
   });
 });
 

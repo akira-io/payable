@@ -43,6 +43,7 @@ export class ChargeAction {
       throw new CustomerNotFoundError(input.billable.billableId);
     }
     const key = IdempotencyKey.forCharge({
+      tenantId: this.deps.tenantId ?? null,
       provider: this.deps.providerName,
       billableType: input.billable.billableType,
       billableId: input.billable.billableId,

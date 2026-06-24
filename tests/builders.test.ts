@@ -28,7 +28,7 @@ describe('fluent subscription checkout', () => {
 
     expect(session).toEqual({ id: 'cs_fake', url: 'https://fake.test/cs' });
     expect(provider.createCustomerCalls).toBe(1);
-    expect(provider.lastCustomerCtx?.idempotencyKey).toBe('customer:stripe:User:1');
+    expect(provider.lastCustomerCtx?.idempotencyKey).toBe('customer::stripe:User:1');
     expect(provider.lastCheckout?.input).toMatchObject({
       providerCustomerId: 'cus_fake',
       mode: 'subscription',
@@ -36,7 +36,7 @@ describe('fluent subscription checkout', () => {
       trialDays: 14,
     });
     expect(provider.lastCheckout?.ctx.idempotencyKey).toBe(
-      'checkout:stripe:User:1:price_pro%3A1:default',
+      'checkout::stripe:User:1:price_pro%3A1:default',
     );
   });
 
