@@ -54,6 +54,17 @@ ceiling, then dead-lettered (status `failed`, no further retry). Delivery is at-
 that crashes after delivering but before `markPublished` will redeliver, so consumers must be
 idempotent.
 
+**Claim order and tenant fairness.** `claimPending(limit)` selects claimable rows by `created_at`
+ascending with a single global limit and no per-tenant partitioning. This is a global FIFO: there is
+**no per-tenant fairness guarantee**. Under tenancy, a single tenant that stages a large backlog of
+older events fills each claim batch before newer events of other tenants are reached, delaying them
+until the noisy tenant's backlog drains. Rows stay tenant-tagged and delivery remains at-least-once
+(no data loss or cross-tenant mixing), but other tenants are delayed proportionally to the noisy
+tenant's backlog. If you run a multi-tenant deployment with adversarial volume, monitor the
+claimable backlog and consider running the publisher more frequently or sharding tenants across
+separate outbox workers. Per-tenant round-robin claiming is a planned enhancement and will require a
+contract change to `claimPending`.
+
 **When a driver is required.** `Payable.outbox()` throws `OUTBOX_STORAGE_REQUIRED` if no storage
 driver is configured - the outbox needs a persistent repository.
 
