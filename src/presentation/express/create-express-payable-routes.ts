@@ -18,12 +18,12 @@ export function createExpressPayableRoutes(
   if (options.authenticate) {
     router.use(options.authenticate);
   }
-  registerCheckoutRoutes(router, payable);
-  registerSubscriptionRoutes(router, payable);
+  registerCheckoutRoutes(router, payable, options);
+  registerSubscriptionRoutes(router, payable, options);
   registerCustomerRoutes(router, payable);
   registerInvoiceRoutes(router, payable);
   registerPaymentRoutes(router, payable);
-  registerRefundRoutes(router, payable);
+  registerRefundRoutes(router, payable, options);
   router.use(payableErrorHandler);
   return router;
 }

@@ -37,6 +37,44 @@ describe('express adapter', () => {
     expect(provider.lastCheckout?.input.trialDays).toBe(14);
   });
 
+  it('threads a resolved tenant id so writes work under tenancy', async () => {
+    const payable = createPayable({
+      providers: { stripe: new FakeProvider() },
+      tenant: { enabled: true },
+    });
+    const app = express();
+    app.use('/payable', createExpressPayableRoutes(payable, { resolveTenant: () => 'tenant-a' }));
+
+    const res = await request(app)
+      .post('/payable/checkout')
+      .send({
+        billable,
+        subscription: { name: 'default', price: 'price_pro' },
+        successUrl: 'https://app.test/s',
+        cancelUrl: 'https://app.test/c',
+      });
+    expect(res.status).toBe(201);
+  });
+
+  it('returns 400 TENANT_REQUIRED when tenancy is on but no tenant is resolved', async () => {
+    const payable = createPayable({
+      providers: { stripe: new FakeProvider() },
+      tenant: { enabled: true },
+    });
+    const app = makeApp(payable);
+
+    const res = await request(app)
+      .post('/payable/checkout')
+      .send({
+        billable,
+        subscription: { name: 'default', price: 'price_pro' },
+        successUrl: 'https://app.test/s',
+        cancelUrl: 'https://app.test/c',
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('TENANT_REQUIRED');
+  });
+
   it('processes a webhook from the raw body', async () => {
     const db = createTestDb();
     await migrate(db);

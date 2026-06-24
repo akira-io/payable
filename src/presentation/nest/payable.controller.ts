@@ -59,10 +59,13 @@ export class PayableController {
   @Post('checkout')
   @HttpCode(201)
   @UseGuards(PayableAuthGuard)
-  checkout(@Body() rawBody: unknown): Promise<CheckoutSessionDTO> {
+  checkout(
+    @Req() request: PayableHttpRequest,
+    @Body() rawBody: unknown,
+  ): Promise<CheckoutSessionDTO> {
     const body = parseBody(checkoutBodySchema, rawBody);
     const builder = this.payable
-      .customer(body.billable)
+      .customer(body.billable, undefined, this.tenantOf(request))
       .newSubscription(body.subscription.name)
       .price(body.subscription.price);
     if (body.subscription.trialDays !== undefined) {
@@ -77,33 +80,52 @@ export class PayableController {
   @Post('subscriptions/:name/cancel')
   @HttpCode(200)
   @UseGuards(PayableAuthGuard)
-  cancel(@Param('name') name: string, @Body() rawBody: unknown): Promise<Subscription> {
+  cancel(
+    @Req() request: PayableHttpRequest,
+    @Param('name') name: string,
+    @Body() rawBody: unknown,
+  ): Promise<Subscription> {
     const body = parseBody(manageSubscriptionBodySchema, rawBody);
-    return this.manage('cancel', name, body.billable);
+    return this.manage('cancel', name, body.billable, this.tenantOf(request));
   }
 
   @Post('subscriptions/:name/cancel-now')
   @HttpCode(200)
   @UseGuards(PayableAuthGuard)
-  cancelNow(@Param('name') name: string, @Body() rawBody: unknown): Promise<Subscription> {
+  cancelNow(
+    @Req() request: PayableHttpRequest,
+    @Param('name') name: string,
+    @Body() rawBody: unknown,
+  ): Promise<Subscription> {
     const body = parseBody(manageSubscriptionBodySchema, rawBody);
-    return this.manage('cancelNow', name, body.billable);
+    return this.manage('cancelNow', name, body.billable, this.tenantOf(request));
   }
 
   @Post('subscriptions/:name/resume')
   @HttpCode(200)
   @UseGuards(PayableAuthGuard)
-  resume(@Param('name') name: string, @Body() rawBody: unknown): Promise<Subscription> {
+  resume(
+    @Req() request: PayableHttpRequest,
+    @Param('name') name: string,
+    @Body() rawBody: unknown,
+  ): Promise<Subscription> {
     const body = parseBody(manageSubscriptionBodySchema, rawBody);
-    return this.manage('resume', name, body.billable);
+    return this.manage('resume', name, body.billable, this.tenantOf(request));
   }
 
   @Post('subscriptions/:name/swap')
   @HttpCode(200)
   @UseGuards(PayableAuthGuard)
-  swap(@Param('name') name: string, @Body() rawBody: unknown): Promise<Subscription> {
+  swap(
+    @Req() request: PayableHttpRequest,
+    @Param('name') name: string,
+    @Body() rawBody: unknown,
+  ): Promise<Subscription> {
     const body = parseBody(swapSubscriptionBodySchema, rawBody);
-    return this.payable.customer(body.billable).subscription(name).swap(body.price);
+    return this.payable
+      .customer(body.billable, undefined, this.tenantOf(request))
+      .subscription(name)
+      .swap(body.price);
   }
 
   @Post('customers')
@@ -127,10 +149,13 @@ export class PayableController {
   @Post('refunds')
   @HttpCode(201)
   @UseGuards(PayableAuthGuard)
-  refunds(@Body() rawBody: unknown): Promise<Refund> {
+  refunds(@Req() request: PayableHttpRequest, @Body() rawBody: unknown): Promise<Refund> {
     const body = parseBody(refundBodySchema, rawBody);
     const amount = body.amount ? Money.of(body.amount.amount, body.amount.currency) : undefined;
-    return this.payable.refund({ paymentId: body.paymentId, amount, reason: body.reason });
+    return this.payable.refund(
+      { paymentId: body.paymentId, amount, reason: body.reason },
+      this.tenantOf(request),
+    );
   }
 
   private receive(request: PayableHttpRequest, provider: string | undefined) {
@@ -154,7 +179,16 @@ export class PayableController {
     );
   }
 
-  private manage(action: ManageAction, name: string, billable: Billable): Promise<Subscription> {
-    return this.payable.customer(billable).subscription(name)[action]();
+  private manage(
+    action: ManageAction,
+    name: string,
+    billable: Billable,
+    tenantId: string | null,
+  ): Promise<Subscription> {
+    return this.payable.customer(billable, undefined, tenantId).subscription(name)[action]();
+  }
+
+  private tenantOf(request: PayableHttpRequest): string | null {
+    return this.options.resolveTenant?.(request) ?? null;
   }
 }

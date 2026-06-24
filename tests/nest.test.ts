@@ -30,12 +30,15 @@ describe('nest adapter', () => {
     const provider = new FakeProvider();
     const controller = controllerFor(createPayable({ providers: { stripe: provider } }));
 
-    const session = await controller.checkout({
-      billable,
-      subscription: { name: 'default', price: 'price_pro', trialDays: 14 },
-      successUrl: 'https://app.test/s',
-      cancelUrl: 'https://app.test/c',
-    });
+    const session = await controller.checkout(
+      { headers: {} },
+      {
+        billable,
+        subscription: { name: 'default', price: 'price_pro', trialDays: 14 },
+        successUrl: 'https://app.test/s',
+        cancelUrl: 'https://app.test/c',
+      },
+    );
 
     expect(session).toEqual({ id: 'cs_fake', url: 'https://fake.test/cs' });
     expect(provider.lastCheckout?.input.trialDays).toBe(14);
@@ -154,7 +157,10 @@ describe('nest adapter', () => {
   it('rejects checkout with an invalid body', () => {
     const controller = controllerFor(createPayable({ providers: { stripe: new FakeProvider() } }));
     try {
-      controller.checkout({ billable: { billableType: '', billableId: '', email: 'nope' } });
+      controller.checkout(
+        { headers: {} },
+        { billable: { billableType: '', billableId: '', email: 'nope' } },
+      );
       throw new Error('expected checkout to reject an invalid body');
     } catch (error) {
       expect(error).toBeInstanceOf(PayableError);
@@ -201,12 +207,12 @@ describe('nest adapter', () => {
       createPayable({ providers: { stripe: new FakeProvider() }, storage }),
     );
 
-    const refund = await controller.refunds({
-      paymentId: payment.id,
-      amount: { amount: 4000, currency: 'USD' },
-    });
+    const refund = await controller.refunds(
+      { headers: {} },
+      { paymentId: payment.id, amount: { amount: 4000, currency: 'USD' } },
+    );
     expect(refund).toMatchObject({ amount: 4000 });
-    expect(() => controller.refunds({})).toThrowError(PayableError);
+    expect(() => controller.refunds({ headers: {} }, {})).toThrowError(PayableError);
     await db.destroy();
   });
 });

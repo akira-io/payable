@@ -20,9 +20,9 @@ export function createFastifyPayablePlugin(
       if (options.authenticate) {
         authenticatedScope.addHook('onRequest', options.authenticate);
       }
-      await registerCheckoutRoutes(authenticatedScope, payable);
-      await registerSubscriptionRoutes(authenticatedScope, payable);
-      await registerRefundRoutes(authenticatedScope, payable);
+      await registerCheckoutRoutes(authenticatedScope, payable, options);
+      await registerSubscriptionRoutes(authenticatedScope, payable, options);
+      await registerRefundRoutes(authenticatedScope, payable, options);
       await registerPlaceholderRoutes(authenticatedScope, payable);
     });
   };

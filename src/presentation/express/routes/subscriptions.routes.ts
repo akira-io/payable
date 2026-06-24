@@ -5,15 +5,22 @@ import {
   parseBody,
   swapSubscriptionBodySchema,
 } from '../../shared/schemas';
-import { asyncHandler, jsonBody } from '../helpers';
+import { asyncHandler, type ExpressPayableOptions, jsonBody } from '../helpers';
 
 type ManageAction = 'cancel' | 'cancelNow' | 'resume';
 
-export function registerSubscriptionRoutes(router: Router, payable: Payable): void {
+export function registerSubscriptionRoutes(
+  router: Router,
+  payable: Payable,
+  options: ExpressPayableOptions = {},
+): void {
   const manage = (action: ManageAction) =>
     asyncHandler(async (req, res) => {
       const body = parseBody(manageSubscriptionBodySchema, req.body);
-      const manager = payable.customer(body.billable).subscription(String(req.params.name));
+      const tenantId = options.resolveTenant?.(req) ?? null;
+      const manager = payable
+        .customer(body.billable, undefined, tenantId)
+        .subscription(String(req.params.name));
       res.status(200).json(await manager[action]());
     });
 
@@ -25,7 +32,10 @@ export function registerSubscriptionRoutes(router: Router, payable: Payable): vo
     jsonBody(),
     asyncHandler(async (req, res) => {
       const body = parseBody(swapSubscriptionBodySchema, req.body);
-      const manager = payable.customer(body.billable).subscription(String(req.params.name));
+      const tenantId = options.resolveTenant?.(req) ?? null;
+      const manager = payable
+        .customer(body.billable, undefined, tenantId)
+        .subscription(String(req.params.name));
       res.status(200).json(await manager.swap(body.price));
     }),
   );
