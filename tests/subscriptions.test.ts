@@ -95,9 +95,13 @@ describe('subscription lifecycle', () => {
     expect(quantity.quantity).toBe(3);
     const keyAtThree = provider.lastSubscriptionUpdateCtx?.idempotencyKey;
     expect(keyAtThree).toContain('subscription:quantity:');
-    expect(keyAtThree?.endsWith(':3')).toBe(true);
+    expect(keyAtThree).toContain(':3:');
 
     await subscriptionOf().updateQuantity(5);
+    const keyAtFive = provider.lastSubscriptionUpdateCtx?.idempotencyKey;
+    expect(keyAtFive).not.toBe(keyAtThree);
+
+    await subscriptionOf().updateQuantity(3);
     expect(provider.lastSubscriptionUpdateCtx?.idempotencyKey).not.toBe(keyAtThree);
 
     const canceled = await subscriptionOf().cancel();
