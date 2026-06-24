@@ -123,6 +123,13 @@ describe('storage list ordering and batch insert (perf)', () => {
     ).rejects.toThrow();
   });
 
+  it('still rejects a duplicate customer for the same tenant and billable', async () => {
+    await storage.customers.create(makeCustomer({ tenantId: 'tenant-a' }));
+    await expect(
+      storage.customers.create(makeCustomer({ tenantId: 'tenant-a', providerCustomerId: 'cus_2' })),
+    ).rejects.toThrow();
+  });
+
   it('rejects a refund that references a missing payment', async () => {
     await expect(
       storage.refunds.create({
