@@ -6,8 +6,10 @@ import {
   type PaymentProvider,
 } from '../src/domain/contracts/payment-provider.contract';
 import { InvalidWebhookSignatureError } from '../src/domain/errors/invalid-webhook-signature.error';
+import { PayableError } from '../src/domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../src/domain/errors/provider-capability-not-supported.error';
 import { Money } from '../src/domain/value-objects/money';
+import { withPaddleErrors } from '../src/infrastructure/providers/paddle/paddle-errors';
 import { PaddleProvider } from '../src/infrastructure/providers/paddle/paddle-provider';
 import type {
   PaddleClient,
@@ -231,5 +233,40 @@ describe('PaddleProvider', () => {
     expect(isChargeCapable(paddle)).toBe(false);
     expect(isDirectSubscriptionCapable(paddle)).toBe(false);
     expect(isInvoiceCapable(paddle)).toBe(false);
+  });
+
+  it('normalizes a raw Paddle ApiError into a PayableError at the provider boundary', async () => {
+    const { client } = fakePaddle();
+    (client as unknown as { customers: { create: () => Promise<never> } }).customers.create = () =>
+      Promise.reject({
+        code: 'payment_method_declined',
+        type: 'request_error',
+        detail: 'The card was declined',
+      });
+
+    await expect(
+      provider(client).createCustomer(
+        { email: 'user@example.com', name: 'User', billableType: 'User', billableId: '1' },
+        ctx,
+      ),
+    ).rejects.toMatchObject({ code: 'PROVIDER_CARD_DECLINED' });
+  });
+});
+
+describe('withPaddleErrors', () => {
+  it('maps known codes and falls back to PROVIDER_ERROR', async () => {
+    await expect(
+      withPaddleErrors(() => Promise.reject({ code: 'rate_limit_exceeded', detail: 'slow down' })),
+    ).rejects.toMatchObject({ code: 'PROVIDER_RATE_LIMITED' });
+    await expect(
+      withPaddleErrors(() => Promise.reject({ code: 'something_else', detail: 'x' })),
+    ).rejects.toMatchObject({ code: 'PROVIDER_ERROR' });
+  });
+
+  it('passes through a PayableError and a non-Paddle error unchanged', async () => {
+    const payable = new PayableError('boom', { code: 'CUSTOM' });
+    await expect(withPaddleErrors(() => Promise.reject(payable))).rejects.toBe(payable);
+    const plain = new Error('network down');
+    await expect(withPaddleErrors(() => Promise.reject(plain))).rejects.toBe(plain);
   });
 });

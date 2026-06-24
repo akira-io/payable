@@ -29,6 +29,7 @@ import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import { assertSubscriptionPayload } from '../webhook-subscription-payload';
 import { buildPaddleClientOptions } from './paddle-client-options';
+import { withPaddleErrors } from './paddle-errors';
 import { PaddleEventNormalizer } from './paddle-event-normalizer';
 import {
   toCheckoutSessionDTO,
@@ -86,52 +87,62 @@ export class PaddleProvider implements PaymentProvider {
 
   async createCustomer(input: CreateCustomerInput): Promise<CustomerDTO> {
     const paddle = await this.paddle();
-    const customer = await paddle.customers.create({ email: input.email, name: input.name });
+    const customer = await withPaddleErrors(() =>
+      paddle.customers.create({ email: input.email, name: input.name }),
+    );
     return toCustomerDTO(customer);
   }
 
   async updateCustomer(input: UpdateCustomerInput): Promise<CustomerDTO> {
     const paddle = await this.paddle();
-    const customer = await paddle.customers.update(input.providerCustomerId, {
-      email: input.email,
-      name: input.name,
-    });
+    const customer = await withPaddleErrors(() =>
+      paddle.customers.update(input.providerCustomerId, {
+        email: input.email,
+        name: input.name,
+      }),
+    );
     return toCustomerDTO(customer);
   }
 
   async createProduct(input: CreateProductInput): Promise<ProductDTO> {
     const paddle = await this.paddle();
-    const product = await paddle.products.create({
-      name: input.name,
-      taxCategory: 'standard',
-      description: input.description,
-    });
+    const product = await withPaddleErrors(() =>
+      paddle.products.create({
+        name: input.name,
+        taxCategory: 'standard',
+        description: input.description,
+      }),
+    );
     return toProductDTO(product);
   }
 
   async updateProduct(input: UpdateProductInput): Promise<ProductDTO> {
     const paddle = await this.paddle();
-    const product = await paddle.products.update(input.providerProductId, {
-      name: input.name,
-      description: input.description,
-    });
+    const product = await withPaddleErrors(() =>
+      paddle.products.update(input.providerProductId, {
+        name: input.name,
+        description: input.description,
+      }),
+    );
     return toProductDTO(product);
   }
 
   async createPrice(input: CreatePriceInput): Promise<PriceDTO> {
     const paddle = await this.paddle();
-    const price = await paddle.prices.create({
-      productId: input.providerProductId,
-      description:
-        input.description ?? (input.interval ? `${input.interval} price` : 'One-time price'),
-      unitPrice: {
-        amount: String(input.unitAmount.amount()),
-        currencyCode: input.unitAmount.currency(),
-      },
-      billingCycle: input.interval
-        ? { interval: input.interval, frequency: input.intervalCount ?? 1 }
-        : undefined,
-    });
+    const price = await withPaddleErrors(() =>
+      paddle.prices.create({
+        productId: input.providerProductId,
+        description:
+          input.description ?? (input.interval ? `${input.interval} price` : 'One-time price'),
+        unitPrice: {
+          amount: String(input.unitAmount.amount()),
+          currencyCode: input.unitAmount.currency(),
+        },
+        billingCycle: input.interval
+          ? { interval: input.interval, frequency: input.intervalCount ?? 1 }
+          : undefined,
+      }),
+    );
     return toPriceDTO(price);
   }
 
@@ -140,10 +151,12 @@ export class PaddleProvider implements PaymentProvider {
     ctx: OperationContext,
   ): Promise<CheckoutSessionDTO> {
     const paddle = await this.paddle(ctx.idempotencyKey);
-    const transaction = await paddle.transactions.create({
-      items: input.lineItems.map((item) => ({ priceId: item.priceId, quantity: item.quantity })),
-      customerId: input.providerCustomerId,
-    });
+    const transaction = await withPaddleErrors(() =>
+      paddle.transactions.create({
+        items: input.lineItems.map((item) => ({ priceId: item.priceId, quantity: item.quantity })),
+        customerId: input.providerCustomerId,
+      }),
+    );
     return toCheckoutSessionDTO(transaction);
   }
 
@@ -159,26 +172,32 @@ export class PaddleProvider implements PaymentProvider {
     }
     const paddle = await this.paddle();
     const items = [{ priceId: input.priceId, quantity: input.quantity ?? 1 }];
-    const subscription = await paddle.subscriptions.update(input.providerSubscriptionId, {
-      items,
-      prorationBillingMode: 'prorated_immediately',
-    });
+    const subscription = await withPaddleErrors(() =>
+      paddle.subscriptions.update(input.providerSubscriptionId, {
+        items,
+        prorationBillingMode: 'prorated_immediately',
+      }),
+    );
     return toSubscriptionDTO(subscription);
   }
 
   async cancelSubscription(input: CancelSubscriptionInput): Promise<SubscriptionDTO> {
     const paddle = await this.paddle();
-    const subscription = await paddle.subscriptions.cancel(input.providerSubscriptionId, {
-      effectiveFrom: input.immediately ? 'immediately' : 'next_billing_period',
-    });
+    const subscription = await withPaddleErrors(() =>
+      paddle.subscriptions.cancel(input.providerSubscriptionId, {
+        effectiveFrom: input.immediately ? 'immediately' : 'next_billing_period',
+      }),
+    );
     return toSubscriptionDTO(subscription);
   }
 
   async resumeSubscription(input: { providerSubscriptionId: string }): Promise<SubscriptionDTO> {
     const paddle = await this.paddle();
-    const subscription = await paddle.subscriptions.resume(input.providerSubscriptionId, {
-      effectiveFrom: 'immediately',
-    });
+    const subscription = await withPaddleErrors(() =>
+      paddle.subscriptions.resume(input.providerSubscriptionId, {
+        effectiveFrom: 'immediately',
+      }),
+    );
     return toSubscriptionDTO(subscription);
   }
 
@@ -187,12 +206,14 @@ export class PaddleProvider implements PaymentProvider {
       throw new ProviderCapabilityNotSupportedError('paddle', 'partial refund');
     }
     const paddle = await this.paddle(ctx.idempotencyKey);
-    const adjustment = await paddle.adjustments.create({
-      action: 'refund',
-      transactionId: input.providerPaymentId,
-      reason: input.reason ?? 'requested_by_customer',
-      type: 'full',
-    });
+    const adjustment = await withPaddleErrors(() =>
+      paddle.adjustments.create({
+        action: 'refund',
+        transactionId: input.providerPaymentId,
+        reason: input.reason ?? 'requested_by_customer',
+        type: 'full',
+      }),
+    );
     return toRefundResultDTO(adjustment);
   }
 
@@ -217,7 +238,9 @@ export class PaddleProvider implements PaymentProvider {
 
   async billingPortal(input: BillingPortalInput): Promise<BillingPortalDTO> {
     const paddle = await this.paddle();
-    const session = await paddle.customerPortalSessions.create(input.providerCustomerId, []);
+    const session = await withPaddleErrors(() =>
+      paddle.customerPortalSessions.create(input.providerCustomerId, []),
+    );
     return { url: session.urls.general.overview };
   }
 
