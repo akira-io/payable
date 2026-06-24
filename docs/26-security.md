@@ -57,9 +57,9 @@ if (!this.policy.authorize(context)) {
 ```
 
 The other policies (`can-create-checkout`, `can-create-subscription`, `can-cancel-subscription`,
-`can-resume-subscription`, `can-refund-payment`) are exported from the package but are not invoked
-by the checkout, subscription, or refund actions. Do not rely on them to gate HTTP requests; they
-are building blocks you can call yourself, and they do not run automatically on the adapter routes.
+`can-resume-subscription`, `can-refund-payment`) are internal building blocks; they are not part of
+the package's public exports and are not invoked by the checkout, subscription, or refund actions.
+Do not rely on them to gate HTTP requests; they do not run automatically on the adapter routes.
 
 The policy layer is authorization for business operations (notably webhook replay), driven by an
 explicit context. It is not request authentication, and it is not applied to
