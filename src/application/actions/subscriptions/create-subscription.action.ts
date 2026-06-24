@@ -25,6 +25,12 @@ export class CreateSubscriptionAction extends SubscriptionAction {
     if (!isDirectSubscriptionCapable(provider)) {
       throw new ProviderCapabilityNotSupportedError(provider.name, 'direct subscription creation');
     }
+    if (input.quantity !== undefined) {
+      this.assertQuantity(input.quantity);
+    }
+    for (const item of input.items ?? []) {
+      this.assertQuantity(item.quantity);
+    }
     const storage = this.storage();
     const providerCustomerId = await new SyncCustomerWithProviderAction(this.deps).handle(
       input.billable,

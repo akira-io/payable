@@ -157,6 +157,25 @@ describe('subscription lifecycle', () => {
     await db.destroy();
   });
 
+  it('rejects a non-positive or non-integer quantity', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
+    const sub = payable.customer(billable).subscription('default');
+
+    await expect(sub.updateQuantity(0)).rejects.toMatchObject({
+      code: 'SUBSCRIPTION_INVALID_QUANTITY',
+    });
+    await expect(sub.updateQuantity(-2)).rejects.toMatchObject({
+      code: 'SUBSCRIPTION_INVALID_QUANTITY',
+    });
+    await expect(sub.updateQuantity(1.5)).rejects.toMatchObject({
+      code: 'SUBSCRIPTION_INVALID_QUANTITY',
+    });
+    await db.destroy();
+  });
+
   it('rejects management without storage', async () => {
     const payable = createPayable({ providers: { stripe: new FakeProvider() } });
     await expect(payable.customer(billable).subscription('default').cancel()).rejects.toThrow(

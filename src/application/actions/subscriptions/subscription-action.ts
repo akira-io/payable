@@ -82,6 +82,15 @@ export abstract class SubscriptionAction {
     return subscription as ManagedSubscription;
   }
 
+  protected assertQuantity(quantity: number): void {
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      throw new PayableError(`Subscription quantity must be a positive integer, got ${quantity}`, {
+        code: 'SUBSCRIPTION_INVALID_QUANTITY',
+        context: { quantity },
+      });
+    }
+  }
+
   protected context(
     operation: string,
     providerSubscriptionId: string,
