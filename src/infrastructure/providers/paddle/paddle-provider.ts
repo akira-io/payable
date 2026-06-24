@@ -158,7 +158,10 @@ export class PaddleProvider implements PaymentProvider {
     }
     const paddle = await this.paddle();
     const items = [{ priceId: input.priceId, quantity: input.quantity ?? 1 }];
-    const subscription = await paddle.subscriptions.update(input.providerSubscriptionId, { items });
+    const subscription = await paddle.subscriptions.update(input.providerSubscriptionId, {
+      items,
+      prorationBillingMode: 'prorated_immediately',
+    });
     return toSubscriptionDTO(subscription);
   }
 

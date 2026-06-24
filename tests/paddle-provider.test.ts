@@ -150,7 +150,10 @@ describe('PaddleProvider', () => {
       { providerSubscriptionId: 'sub_1', priceId: 'pri_1', quantity: 3 },
       ctx,
     );
-    expect(body).toEqual({ items: [{ priceId: 'pri_1', quantity: 3 }] });
+    expect(body).toEqual({
+      items: [{ priceId: 'pri_1', quantity: 3 }],
+      prorationBillingMode: 'prorated_immediately',
+    });
   });
 
   it('rejects a subscription update with no price id instead of a silent no-op', async () => {
