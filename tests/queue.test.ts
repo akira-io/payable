@@ -84,6 +84,25 @@ describe('BullMQQueueDriver', () => {
     expect(isJobExhausted(2, 5)).toBe(false);
     expect(isJobExhausted(1, 0)).toBe(true);
   });
+
+  it('surfaces a worker startup failure through onError instead of swallowing it', async () => {
+    const connection = { host: 'localhost', port: 6379 };
+    const errors: Array<[string, string]> = [];
+    class FailingDriver extends BullMQQueueDriver {
+      protected override loadBullmq(): Promise<typeof import('bullmq')> {
+        return Promise.reject(new Error('bullmq unavailable'));
+      }
+    }
+    const driver = new FailingDriver({
+      connection,
+      onError: (name, error) => errors.push([name, error.message]),
+    });
+
+    driver.process('webhook', async () => {});
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(errors).toEqual([['webhook', 'bullmq unavailable']]);
+  });
 });
 
 describe('async webhook processing', () => {

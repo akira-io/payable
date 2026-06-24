@@ -13,6 +13,11 @@ export interface BullMQQueueOptions {
   removeOnFailCount?: number;
   deadLetterSuffix?: string;
   onFailed?: (jobName: string, error: Error) => void;
+  onError?: (name: string, error: Error) => void;
+}
+
+function asError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
 }
 
 export function isJobExhausted(attemptsMade: number, attempts: number): boolean {
@@ -62,7 +67,13 @@ export class BullMQQueueDriver implements QueueDriver {
   }
 
   process<T>(name: string, handler: JobHandler<T>): void {
-    void this.startWorker(name, handler as JobHandler);
+    this.startWorker(name, handler as JobHandler).catch((error) => {
+      this.options.onError?.(name, asError(error));
+    });
+  }
+
+  protected loadBullmq(): Promise<typeof import('bullmq')> {
+    return import('bullmq');
   }
 
   private async queueFor(name: string): Promise<Queue> {
@@ -70,7 +81,7 @@ export class BullMQQueueDriver implements QueueDriver {
     if (existing) {
       return existing;
     }
-    const { Queue: QueueClass } = await import('bullmq');
+    const { Queue: QueueClass } = await this.loadBullmq();
     const queue = new QueueClass(name, {
       connection: this.options.connection,
       prefix: this.options.prefix,
@@ -83,7 +94,7 @@ export class BullMQQueueDriver implements QueueDriver {
     if (this.workers.has(name)) {
       return;
     }
-    const { Worker: WorkerClass } = await import('bullmq');
+    const { Worker: WorkerClass } = await this.loadBullmq();
     const worker = new WorkerClass(name, (job: Job) => this.run(handler, job), {
       connection: this.options.connection,
       prefix: this.options.prefix,
@@ -93,6 +104,9 @@ export class BullMQQueueDriver implements QueueDriver {
       if (job && isJobExhausted(job.attemptsMade, job.opts.attempts ?? 1)) {
         void this.deadLetter(name, job, error);
       }
+    });
+    worker.on('error', (error: Error) => {
+      this.options.onError?.(name, asError(error));
     });
     this.workers.set(name, worker);
   }
