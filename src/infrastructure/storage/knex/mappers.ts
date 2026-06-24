@@ -2,6 +2,16 @@ export function toBool(value: unknown): boolean {
   return value === true || value === 1 || value === '1';
 }
 
+export function toMinor(value: unknown, column: string): number {
+  const parsed = typeof value === 'bigint' ? value : BigInt(String(value));
+  if (parsed > BigInt(Number.MAX_SAFE_INTEGER) || parsed < BigInt(Number.MIN_SAFE_INTEGER)) {
+    throw new RangeError(
+      `Money column ${column} (${parsed}) exceeds the safe integer range; values beyond 2^53-1 lose precision`,
+    );
+  }
+  return Number(parsed);
+}
+
 export function toDate(value: unknown): Date {
   return new Date(value as string | number);
 }

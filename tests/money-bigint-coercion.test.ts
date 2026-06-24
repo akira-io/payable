@@ -28,4 +28,26 @@ describe('money bigint coercion', () => {
     expect(found?.amount).toBe(9_007_199_254);
     await db.destroy();
   });
+
+  it('throws instead of silently truncating an out-of-band value past 2^53', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const created = await storage.payments.create({
+      tenantId: null,
+      customerId: null,
+      provider: 'stripe',
+      providerPaymentId: 'pi_overflow',
+      status: 'succeeded',
+      currency: 'USD',
+      amount: 1,
+      refundedAmount: 0,
+      reference: null,
+      description: null,
+    });
+    await db('payable_payments').where({ id: created.id }).update({ amount: '9007199254740993' });
+
+    await expect(storage.payments.findById(created.id)).rejects.toThrow(/safe integer range/);
+    await db.destroy();
+  });
 });

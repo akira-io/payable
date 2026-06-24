@@ -6,7 +6,7 @@ import type { RecurringInterval } from '../../../../domain/entities/common';
 import type { Price } from '../../../../domain/entities/price.entity';
 import { CurrencyManager } from '../../../../domain/value-objects/currency';
 import { KnexRepository } from '../knex-repository';
-import { toBool, toDate } from '../mappers';
+import { toBool, toDate, toMinor } from '../mappers';
 
 export class KnexPriceRepository
   extends KnexRepository<Price, NewPrice>
@@ -30,7 +30,7 @@ export class KnexPriceRepository
       providerPriceId: (row.provider_price_id as string | null) ?? null,
       productId: row.product_id as string,
       currency: CurrencyManager.normalize(row.currency as string),
-      unitAmount: Number(row.unit_amount),
+      unitAmount: toMinor(row.unit_amount, 'unit_amount'),
       interval: (row.interval as RecurringInterval | null) ?? null,
       intervalCount: (row.interval_count as number | null) ?? null,
       active: toBool(row.active),
