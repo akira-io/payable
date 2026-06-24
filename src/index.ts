@@ -50,6 +50,7 @@ export {
   type WebhookDependencies,
 } from './application/builders';
 export { ProcessWebhookPipeline } from './application/pipelines/webhooks/process-webhook.pipeline';
+export type { AuthorizationContext } from './application/policies/authorization-context';
 export {
   CanReplayWebhookPolicy,
   type ReplayWebhookContext,

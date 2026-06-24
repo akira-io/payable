@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { AuthorizationContext } from '../src/index';
 import * as payable from '../src/index';
 
 describe('public API surface', () => {
@@ -13,5 +14,10 @@ describe('public API surface', () => {
     expect(typeof payable.ok).toBe('function');
     expect(typeof payable.isChargeCapable).toBe('function');
     expect(typeof payable.SubscriptionStateMachine).toBe('function');
+  });
+
+  it('exports AuthorizationContext on the public surface', () => {
+    const context: AuthorizationContext = { allowed: true, actorId: 'a', actorType: 'user' };
+    expect(context.allowed).toBe(true);
   });
 });
