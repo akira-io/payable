@@ -44,7 +44,15 @@ export class OutboxService {
     const events = await this.repository.claimPending(limit);
     const result: OutboxPublishResult = { published: 0, retried: 0, deadLettered: 0 };
     for (const event of events) {
-      await this.publishOne(event, deliver, result);
+      try {
+        await this.publishOne(event, deliver, result);
+      } catch (error) {
+        this.logger?.error('Outbox event handling failed; continuing batch', {
+          eventId: event.id,
+          eventType: event.eventType,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
     return result;
   }

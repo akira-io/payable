@@ -42,6 +42,24 @@ describe('OutboxService', () => {
     expect(await countDuePendingOutbox(db, clock)).toBe(0);
   });
 
+  it('isolates a per-event store-write failure instead of aborting the batch', async () => {
+    await storage.outboxEvents.create(newOutbox('a.v1'));
+    await storage.outboxEvents.create(newOutbox('b.v1'));
+
+    let failedId: string | undefined;
+    const repo = Object.create(storage.outboxEvents);
+    repo.markPublished = (id: string, token: string | null) => {
+      failedId ??= id;
+      return id === failedId
+        ? Promise.reject(new Error('store write boom'))
+        : storage.outboxEvents.markPublished(id, token);
+    };
+    const service = new OutboxService(repo, clock);
+
+    const result = await service.publishPending(async () => {});
+    expect(result.published).toBe(1);
+  });
+
   it('ignores a publish from a stale lock token', async () => {
     await storage.outboxEvents.create(newOutbox('invoice.paid.v1'));
     const [claimed] = await storage.outboxEvents.claimPending(10);
