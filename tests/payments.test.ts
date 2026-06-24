@@ -75,14 +75,26 @@ describe('StripeProvider payments', () => {
     expect(calls.get('pi')?.params).toMatchObject({ amount: 1000, currency: 'jpy' });
   });
 
-  it('rejects a charge whose Stripe exponent differs from the domain exponent', async () => {
+  it('rescales an amount whose Stripe exponent differs from the domain exponent', async () => {
+    const calls = new Map<string, { params: { amount?: number; currency?: string } }>();
     const stripe = {
-      paymentIntents: { create: () => Promise.reject(new Error('should not be called')) },
+      paymentIntents: {
+        create: (params: { amount?: number; currency?: string }) => {
+          calls.set('pi', { params });
+          return Promise.resolve({
+            id: 'pi_isk',
+            status: 'succeeded',
+            amount: 100000,
+            currency: 'isk',
+          });
+        },
+      },
     } as unknown as Stripe;
 
-    await expect(
-      stripeProvider(stripe).charge({ amount: Money.of(1000, 'ISK') }, ctx),
-    ).rejects.toThrow('does not match the domain exponent');
+    // ISK: domain exponent 0, Stripe exponent 2 -> 1000 kr is sent as 100000.
+    const dto = await stripeProvider(stripe).charge({ amount: Money.of(1000, 'ISK') }, ctx);
+    expect(calls.get('pi')?.params).toMatchObject({ amount: 100000, currency: 'isk' });
+    expect(dto.amount.amount()).toBe(1000);
   });
 
   it('refunds a payment intent', async () => {
