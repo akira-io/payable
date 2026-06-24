@@ -21,6 +21,12 @@ describe('SubscriptionStateMachine', () => {
     expect(new SubscriptionStateMachine('trialing').markPastDue().current()).toBe('past_due');
   });
 
+  it('covers the provider dunning edges active to unpaid and paused to past_due', () => {
+    expect(new SubscriptionStateMachine('active').markUnpaid().current()).toBe('unpaid');
+    expect(new SubscriptionStateMachine('paused').markPastDue().current()).toBe('past_due');
+    expect(new SubscriptionStateMachine('trialing').markUnpaid().current()).toBe('unpaid');
+  });
+
   it('treats canceled as terminal', () => {
     expect(() => new SubscriptionStateMachine('canceled').resume()).toThrow(
       InvalidStateTransitionError,
