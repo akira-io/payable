@@ -43,8 +43,17 @@ function resolvePriceUnitAmount(price: Stripe.Price): number {
   }
   if (price.unit_amount_decimal !== null && price.unit_amount_decimal !== undefined) {
     const parsed = Number(price.unit_amount_decimal);
+    if (Number.isInteger(parsed)) {
+      return parsed;
+    }
     if (Number.isFinite(parsed)) {
-      return Math.round(parsed);
+      throw new PayableError(
+        `Stripe price ${price.id} has a fractional unit amount ${price.unit_amount_decimal} that cannot be represented in integer minor units`,
+        {
+          code: 'PROVIDER_PRICE_AMOUNT_FRACTIONAL',
+          context: { priceId: price.id, unitAmountDecimal: price.unit_amount_decimal },
+        },
+      );
     }
   }
   throw new PayableError(`Stripe price ${price.id} has no resolvable unit amount`, {
