@@ -110,6 +110,31 @@ describe('nest adapter', () => {
     expect(captured.body?.error).toBe('INTERNAL_ERROR');
   });
 
+  it('preserves a framework HttpException status instead of remapping to 500', () => {
+    const captured: { status?: number; body?: unknown } = {};
+    const host = {
+      switchToHttp: () => ({
+        getResponse: () => ({
+          status: (code: number) => ({
+            json: (body: unknown) => {
+              captured.status = code;
+              captured.body = body;
+            },
+          }),
+        }),
+      }),
+    } as unknown as ArgumentsHost;
+    const httpException = {
+      getStatus: () => 401,
+      getResponse: () => ({ statusCode: 401, message: 'Unauthorized' }),
+    };
+
+    new PayableExceptionFilter().catch(httpException, host);
+
+    expect(captured.status).toBe(401);
+    expect(captured.body).toEqual({ statusCode: 401, message: 'Unauthorized' });
+  });
+
   it('throws not-implemented for placeholder routes', () => {
     const controller = controllerFor(createPayable({ providers: { stripe: new FakeProvider() } }));
     expect(() => controller.invoices()).toThrowError(PayableError);
