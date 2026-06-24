@@ -82,6 +82,15 @@ aggregates.
 | `payable_payments` | `customer_id`, `provider`, `provider_payment_id`, `status`, `currency`, `amount`, `refunded_amount`, `reference` | unique `(provider, provider_payment_id)`; index `customer_id` |
 | `payable_refunds` | `payment_id`, `provider`, `provider_refund_id`, `status`, `currency`, `amount`, `reason` | unique `(provider, provider_refund_id)`; index `payment_id` |
 
+#### Referential integrity
+
+The split between hard foreign keys and plain indexed columns is deliberate, not an oversight:
+
+- **Composition relationships use real foreign keys with `ON DELETE CASCADE`.** A `payable_subscription_item` cannot exist without its `payable_subscription`, and a `payable_refund` cannot exist without its `payable_payment`. Both children are created in-process alongside their parent, so the parent is always present and a cascade is the correct lifecycle.
+- **Cross-aggregate references are indexed columns with application-managed integrity.** `prices.product_id`, `subscriptions.customer_id`, `invoices.customer_id` / `subscription_id`, and `payments.customer_id` point at aggregates that are populated by provider ingestion, which can arrive out of order (a subscription webhook may land before its customer is synced). A database foreign key would reject those inserts, so the application owns the integrity of these edges instead.
+
+When deleting an aggregate root, the application is responsible for cleaning up the indexed references that do not cascade.
+
 ### System schema
 
 Source: `src/infrastructure/storage/knex/migrations/system-schema.ts`. These support webhooks,
