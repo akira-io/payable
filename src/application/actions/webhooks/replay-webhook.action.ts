@@ -34,11 +34,21 @@ export class ReplayWebhookAction {
       normalizedType: event.normalizedType as NormalizedEventName | null,
       data: event.data,
     };
-    await new ProcessWebhookPipeline(this.deps).handle({
-      verified,
-      webhookEventId: event.id,
-      correlationId: CorrelationId.generate().toString(),
-      tenantId: event.tenantId,
-    });
+    await this.deps.storage.webhookEvents.markStatus(event.id, 'pending', null);
+    const claimed = await this.deps.storage.webhookEvents.claim(event.id, context.tenantId);
+    if (!claimed) {
+      return;
+    }
+    try {
+      await new ProcessWebhookPipeline(this.deps).handle({
+        verified,
+        webhookEventId: event.id,
+        correlationId: CorrelationId.generate().toString(),
+        tenantId: event.tenantId,
+      });
+    } catch (error) {
+      await this.deps.storage.webhookEvents.markStatus(event.id, 'failed', null);
+      throw error;
+    }
   }
 }
