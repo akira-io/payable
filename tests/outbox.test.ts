@@ -165,4 +165,28 @@ describe('webhook replay', () => {
       payable.replayWebhook('missing', { allowed: true, actorId: 'admin-1' }),
     ).rejects.toThrow('not found');
   });
+
+  it('claims the event before reprocessing a previously failed replay', async () => {
+    const provider = new FakeProvider();
+    provider.verifyResult = verifyResult;
+    const payable = createPayable({ providers: { stripe: provider }, storage, clock });
+
+    const event = await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_replay_failed',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      payload: '{}',
+      data: { id: 'in_1' },
+      headers: {},
+      status: 'failed',
+      correlationId: 'corr_replay',
+      receivedAt: clock.now(),
+    });
+
+    await payable.replayWebhook(event.id, { allowed: true, actorType: 'user', actorId: 'admin-1' });
+
+    expect((await storage.webhookEvents.findById(event.id))?.status).toBe('processed');
+  });
 });
