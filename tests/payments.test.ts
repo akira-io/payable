@@ -335,8 +335,31 @@ describe('charge and refund lifecycle', () => {
     const auditEntries = await storage.auditLogs.list({ resourceType: 'payment' });
     expect(auditEntries.some((entry) => entry.action === 'payment.refunded')).toBe(true);
     expect(await new ListInvoicesAction(deps).handle(billable)).toHaveLength(1);
+    const owner = await storage.customers.findByBillable(
+      billable.billableType,
+      billable.billableId,
+      null,
+    );
+    await storage.invoices.create({
+      tenantId: null,
+      customerId: owner?.id ?? '',
+      subscriptionId: null,
+      provider: 'stripe',
+      providerInvoiceId: 'in_fake',
+      status: 'paid',
+      currency: 'USD',
+      total: 9900,
+      amountPaid: 9900,
+      amountDue: 0,
+      number: null,
+      hostedInvoiceUrl: null,
+      invoicePdf: null,
+    });
     expect((await new DownloadInvoicePdfAction(deps).handle('in_fake')).filename).toBe(
       'in_fake.pdf',
+    );
+    await expect(new DownloadInvoicePdfAction(deps).handle('in_foreign')).rejects.toThrow(
+      'Invoice not found',
     );
     await db.destroy();
   });
