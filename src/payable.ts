@@ -188,12 +188,25 @@ export class Payable {
     return name;
   }
 
-  refund(request: RefundRequest, tenantId?: string | null): Promise<Refund> {
-    return new RefundPaymentAction(this.dependencies(undefined, tenantId)).handle({
+  async refund(request: RefundRequest, tenantId?: string | null): Promise<Refund> {
+    const providerName = await this.resolveRefundProvider(request.paymentId, tenantId ?? null);
+    return new RefundPaymentAction(this.dependencies(providerName, tenantId)).handle({
       paymentId: request.paymentId,
       amount: request.amount,
       reason: request.reason,
       authorization: request.authorization,
     });
+  }
+
+  private async resolveRefundProvider(
+    paymentId: string,
+    tenantId: string | null,
+  ): Promise<string | undefined> {
+    const storage = this.resolved.storage;
+    if (!storage) {
+      return undefined;
+    }
+    const payment = await storage.payments.findById(paymentId, tenantId);
+    return payment?.provider ?? undefined;
   }
 }

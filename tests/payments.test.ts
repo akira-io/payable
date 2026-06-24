@@ -456,6 +456,26 @@ describe('charge and refund lifecycle', () => {
     await db.destroy();
   });
 
+  it('routes a refund to the provider that owns the payment in a multi-provider setup', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
+    const storage = new KnexStorageDriver(db, clock);
+    const stripe = new FakeProvider();
+    const paddle = new FakeProvider();
+    const payable = createPayable({ providers: { stripe, paddle }, storage, clock });
+
+    const payment = await payable
+      .customer(billable, 'paddle')
+      .charge({ amount: Money.of(9900, 'USD'), reference: 'inv_multi' });
+
+    await payable.refund({ paymentId: payment.id });
+
+    expect(paddle.refundCalls).toBe(1);
+    expect(stripe.refundCalls).toBe(0);
+    await db.destroy();
+  });
+
   it('rejects a refund without a storage driver', async () => {
     const payable = createPayable({ providers: { stripe: new FakeProvider() } });
     await expect(payable.refund({ paymentId: 'pay_x' })).rejects.toThrow(
@@ -527,9 +547,9 @@ describe('charge and refund lifecycle', () => {
       .customer(billable, undefined, 'tenant-a')
       .charge({ amount: Money.of(4000, 'USD') });
 
-    expect(() => payable.refund({ paymentId: payment.id, amount: Money.of(4000, 'USD') })).toThrow(
-      'tenant id is required',
-    );
+    await expect(
+      payable.refund({ paymentId: payment.id, amount: Money.of(4000, 'USD') }),
+    ).rejects.toThrow('tenant id is required');
 
     await expect(
       payable.refund({ paymentId: payment.id, amount: Money.of(4000, 'USD') }, 'tenant-b'),
