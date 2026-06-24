@@ -102,13 +102,19 @@ export class BullMQQueueDriver implements QueueDriver {
     worker.on('failed', (job: Job | undefined, error: Error) => {
       this.options.onFailed?.(job?.name ?? name, error);
       if (job && isJobExhausted(job.attemptsMade, job.opts.attempts ?? 1)) {
-        void this.deadLetter(name, job, error);
+        this.deadLetterExhausted(name, job, error);
       }
     });
     worker.on('error', (error: Error) => {
       this.options.onError?.(name, asError(error));
     });
     this.workers.set(name, worker);
+  }
+
+  private deadLetterExhausted(name: string, job: Job, error: Error): void {
+    this.deadLetter(name, job, error).catch((deadLetterError) => {
+      this.options.onError?.(name, asError(deadLetterError));
+    });
   }
 
   private async deadLetter(name: string, job: Job, error: Error): Promise<void> {
