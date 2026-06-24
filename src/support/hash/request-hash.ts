@@ -3,6 +3,12 @@ function canonicalize(value: unknown): string {
     return `${value}n`;
   }
   if (value === null || typeof value !== 'object') {
+    if (typeof value === 'function' || typeof value === 'symbol') {
+      throw new TypeError(`Cannot hash a non-serializable ${typeof value} value`);
+    }
+    if (typeof value === 'number' && !Number.isFinite(value)) {
+      throw new TypeError(`Cannot hash a non-finite number: ${value}`);
+    }
     return JSON.stringify(value) ?? 'null';
   }
   if (Array.isArray(value)) {

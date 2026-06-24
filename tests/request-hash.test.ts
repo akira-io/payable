@@ -58,4 +58,11 @@ describe('hashRequest', () => {
     const b = await hashRequest({ price: { amount: 1000, currency: 'USD' } });
     expect(a).toBe(b);
   });
+
+  it('rejects non-serializable and non-finite values instead of colliding with null', async () => {
+    await expect(hashRequest({ a: () => {} })).rejects.toThrow(/non-serializable/);
+    await expect(hashRequest({ a: Symbol('x') })).rejects.toThrow(/non-serializable/);
+    await expect(hashRequest({ a: Number.NaN })).rejects.toThrow(/non-finite/);
+    await expect(hashRequest({ a: Number.POSITIVE_INFINITY })).rejects.toThrow(/non-finite/);
+  });
 });
