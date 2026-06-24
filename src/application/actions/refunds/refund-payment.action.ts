@@ -48,6 +48,12 @@ export class RefundPaymentAction {
         context: { paymentId: payment.id, status: payment.status },
       });
     }
+    if (input.amount && input.amount.currency() !== payment.currency) {
+      throw new PayableError(
+        `Refund currency ${input.amount.currency()} does not match payment currency ${payment.currency}`,
+        { code: 'REFUND_CURRENCY_MISMATCH', context: { paymentId: payment.id } },
+      );
+    }
     const remaining = payment.amount - payment.refundedAmount;
     const requested = input.amount?.amount() ?? remaining;
     if (remaining <= 0 || requested > remaining) {
