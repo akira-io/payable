@@ -15,12 +15,12 @@ import type { CheckoutSessionDTO } from '../../domain/dtos/checkout.dto';
 import type { Refund } from '../../domain/entities/refund.entity';
 import type { Subscription } from '../../domain/entities/subscription.entity';
 import { PayableError } from '../../domain/errors/payable-error';
-import { Money } from '../../domain/value-objects/money';
 import type { Payable } from '../../payable';
 import {
   checkoutBodySchema,
   manageSubscriptionBodySchema,
   parseBody,
+  parseMoneyInput,
   refundBodySchema,
   swapSubscriptionBodySchema,
 } from '../shared/schemas';
@@ -151,7 +151,7 @@ export class PayableController {
   @UseGuards(PayableAuthGuard)
   refunds(@Req() request: PayableHttpRequest, @Body() rawBody: unknown): Promise<Refund> {
     const body = parseBody(refundBodySchema, rawBody);
-    const amount = body.amount ? Money.of(body.amount.amount, body.amount.currency) : undefined;
+    const amount = body.amount ? parseMoneyInput(body.amount) : undefined;
     return this.payable.refund(
       { paymentId: body.paymentId, amount, reason: body.reason },
       this.tenantOf(request),

@@ -213,6 +213,17 @@ describe('nest adapter', () => {
     );
     expect(refund).toMatchObject({ amount: 4000 });
     expect(() => controller.refunds({ headers: {} }, {})).toThrowError(PayableError);
+
+    try {
+      controller.refunds(
+        { headers: {} },
+        { paymentId: payment.id, amount: { amount: 100, currency: 'NOPE' } },
+      );
+      throw new Error('expected an invalid currency to reject');
+    } catch (error) {
+      expect(error).toBeInstanceOf(PayableError);
+      expect((error as PayableError).code).toBe('VALIDATION_FAILED');
+    }
     await db.destroy();
   });
 });
