@@ -1,5 +1,4 @@
 import type { QueueDriver } from '../../../domain/contracts/queue-driver.contract';
-import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import { PROCESS_WEBHOOK_JOB, type ProcessWebhookJobPayload } from './process-webhook.action';
 
 export class DispatchWebhookJobAction {
@@ -10,10 +9,7 @@ export class DispatchWebhookJobAction {
       name: PROCESS_WEBHOOK_JOB,
       payload,
       correlationId: payload.correlationId,
-      idempotencyKey: IdempotencyKey.forWebhook({
-        provider: payload.providerName,
-        providerEventId: payload.providerEventId,
-      }).toString(),
+      idempotencyKey: payload.webhookEventId,
     });
   }
 }
