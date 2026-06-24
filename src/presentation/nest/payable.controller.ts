@@ -14,7 +14,9 @@ import {
 } from '@nestjs/common';
 import type { Billable } from '../../application/builders/billable';
 import type { CheckoutSessionDTO } from '../../domain/dtos/checkout.dto';
+import type { InvoiceDTO } from '../../domain/dtos/invoice.dto';
 import type { Customer } from '../../domain/entities/customer.entity';
+import type { Payment } from '../../domain/entities/payment.entity';
 import type { Refund } from '../../domain/entities/refund.entity';
 import type { Subscription } from '../../domain/entities/subscription.entity';
 import { PayableError } from '../../domain/errors/payable-error';
@@ -24,6 +26,7 @@ import {
   checkoutBodySchema,
   customerBodySchema,
   customerUpdateBodySchema,
+  listInvoicesQuerySchema,
   manageSubscriptionBodySchema,
   parseBody,
   parseMoneyInput,
@@ -171,14 +174,24 @@ export class PayableController {
 
   @Get('invoices')
   @UseGuards(PayableAuthGuard)
-  invoices(): never {
-    throw PayableError.notImplemented('GET /invoices');
+  invoices(@Req() request: PayableHttpRequest, @Query() query: unknown): Promise<InvoiceDTO[]> {
+    const lookup = parseBody(listInvoicesQuerySchema, query);
+    return this.payable
+      .customer(
+        { billableType: lookup.billableType, billableId: lookup.billableId, email: '' },
+        undefined,
+        this.tenantOf(request),
+      )
+      .invoices(lookup.limit);
   }
 
   @Get('payments')
   @UseGuards(PayableAuthGuard)
-  payments(): never {
-    throw PayableError.notImplemented('GET /payments');
+  payments(@Req() request: PayableHttpRequest, @Query() query: unknown): Promise<Payment[]> {
+    const lookup = parseBody(billableLookupSchema, query);
+    return this.payable
+      .customer({ ...lookup, email: '' }, undefined, this.tenantOf(request))
+      .payments();
   }
 
   @Post('refunds')

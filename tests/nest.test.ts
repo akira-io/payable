@@ -138,9 +138,14 @@ describe('nest adapter', () => {
     expect(captured.body).toEqual({ statusCode: 401, message: 'Unauthorized' });
   });
 
-  it('throws not-implemented for placeholder routes', () => {
+  it('lists invoices and payments (empty without storage)', async () => {
     const controller = controllerFor(createPayable({ providers: { stripe: new FakeProvider() } }));
-    expect(() => controller.invoices()).toThrowError(PayableError);
+    await expect(
+      controller.invoices({ headers: {} }, { billableType: 'User', billableId: '1' }),
+    ).resolves.toEqual([]);
+    await expect(
+      controller.payments({ headers: {} }, { billableType: 'User', billableId: '1' }),
+    ).resolves.toEqual([]);
   });
 
   it('rejects a webhook whose body is not the raw buffer', () => {

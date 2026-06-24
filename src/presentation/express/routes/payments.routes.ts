@@ -1,13 +1,22 @@
 import type { Router } from 'express';
-import { PayableError } from '../../../domain/errors/payable-error';
 import type { Payable } from '../../../payable';
-import { asyncHandler } from '../helpers';
+import { billableLookupSchema, parseBody } from '../../shared/schemas';
+import { asyncHandler, type ExpressPayableOptions } from '../helpers';
 
-export function registerPaymentRoutes(router: Router, _payable: Payable): void {
+export function registerPaymentRoutes(
+  router: Router,
+  payable: Payable,
+  options: ExpressPayableOptions = {},
+): void {
   router.get(
     '/payments',
-    asyncHandler(async () => {
-      throw PayableError.notImplemented('GET /payments');
+    asyncHandler(async (req, res) => {
+      const query = parseBody(billableLookupSchema, req.query);
+      const tenantId = options.resolveTenant?.(req) ?? null;
+      const payments = await payable
+        .customer({ ...query, email: '' }, undefined, tenantId)
+        .payments();
+      res.status(200).json(payments);
     }),
   );
 }

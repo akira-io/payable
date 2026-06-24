@@ -158,11 +158,39 @@ describe('express adapter', () => {
     await db.destroy();
   });
 
-  it('maps not-implemented operations to 501', async () => {
-    const app = makeApp(createPayable({ providers: { stripe: new FakeProvider() } }));
-    const res = await request(app).get('/payable/invoices');
-    expect(res.status).toBe(501);
-    expect(res.body.error).toBe('NOT_IMPLEMENTED');
+  it('lists invoices and payments for a billable', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
+    const app = makeApp(payable);
+
+    const customer = await payable.customers().create(billable);
+    await storage.payments.create({
+      tenantId: null,
+      customerId: customer.id,
+      provider: 'stripe',
+      providerPaymentId: 'pi_list',
+      status: 'succeeded',
+      currency: 'USD',
+      amount: 9900,
+      refundedAmount: 0,
+      reference: null,
+      description: null,
+    });
+
+    const invoices = await request(app)
+      .get('/payable/invoices')
+      .query({ billableType: 'User', billableId: '1' });
+    expect(invoices.status).toBe(200);
+    expect(invoices.body[0]?.providerInvoiceId).toBe('in_fake');
+
+    const payments = await request(app)
+      .get('/payable/payments')
+      .query({ billableType: 'User', billableId: '1' });
+    expect(payments.status).toBe(200);
+    expect(payments.body).toHaveLength(1);
+    await db.destroy();
   });
 
   it('creates, reads, and updates a customer over HTTP', async () => {
