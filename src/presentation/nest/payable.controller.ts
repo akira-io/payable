@@ -134,7 +134,7 @@ export class PayableController {
   }
 
   private receive(request: PayableHttpRequest, provider: string | undefined) {
-    const header = this.options.webhookSignatureHeader ?? 'stripe-signature';
+    const header = (this.options.webhookSignatureHeader ?? 'stripe-signature').toLowerCase();
     const signature = request.headers[header];
     return this.payable.receiveWebhook({
       provider,

@@ -10,9 +10,12 @@ import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
 
-async function makeApp(payable: Payable) {
+async function makeApp(
+  payable: Payable,
+  options: Parameters<typeof createFastifyPayablePlugin>[1] = {},
+) {
   const app = Fastify();
-  await app.register(createFastifyPayablePlugin(payable), { prefix: '/payable' });
+  await app.register(createFastifyPayablePlugin(payable, options), { prefix: '/payable' });
   await app.ready();
   return app;
 }
@@ -90,6 +93,34 @@ describe('fastify adapter', () => {
     expect((await storage.webhookEvents.findByProviderEvent('stripe', 'evt_1'))?.status).toBe(
       'processed',
     );
+    await app.close();
+    await db.destroy();
+  });
+
+  it('reads a custom signature header configured with uppercase', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new FakeProvider();
+    provider.verifyResult = {
+      providerEventId: 'evt_uc',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      data: { id: 'in_1' },
+    };
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const app = await makeApp(createPayable({ providers: { stripe: provider }, storage }), {
+      webhookSignatureHeader: 'X-Custom-Signature',
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/payable/webhooks',
+      headers: { 'x-custom-signature': 'sig-123', 'content-type': 'application/json' },
+      payload: '{"id":"evt_uc"}',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(provider.lastVerifyInput?.signature).toBe('sig-123');
     await app.close();
     await db.destroy();
   });

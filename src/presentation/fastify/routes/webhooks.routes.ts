@@ -9,7 +9,7 @@ export async function registerWebhookRoutes(
   payable: Payable,
   options: FastifyPayableOptions,
 ): Promise<void> {
-  const header = options.webhookSignatureHeader ?? 'stripe-signature';
+  const header = (options.webhookSignatureHeader ?? 'stripe-signature').toLowerCase();
   scope.removeAllContentTypeParsers();
   scope.addContentTypeParser(
     '*',
