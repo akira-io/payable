@@ -95,7 +95,10 @@ export abstract class KnexRepository<Entity, New> {
           .orWhere((tie) => tie.where('created_at', cursorAt).andWhere('id', '<', cursorId)),
       );
     }
-    const limit = Math.min(options.limit ?? DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT);
+    const requested = options.limit ?? DEFAULT_LIST_LIMIT;
+    const safe =
+      Number.isFinite(requested) && requested > 0 ? Math.floor(requested) : DEFAULT_LIST_LIMIT;
+    const limit = Math.min(safe, MAX_LIST_LIMIT);
     const rows = (await query.limit(limit)) as Record<string, unknown>[];
     return rows.map((row) => this.toEntity(row));
   }

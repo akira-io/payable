@@ -41,6 +41,25 @@ describe('storage list ordering and batch insert (perf)', () => {
     expect(list.map((payment) => payment.reference)).toEqual(['b', 'a']);
   });
 
+  it('treats a non-positive limit as the default instead of returning nothing', async () => {
+    const customer = await storage.customers.create(makeCustomer());
+    const base = {
+      tenantId: null,
+      customerId: customer.id,
+      provider: 'stripe',
+      status: 'succeeded' as const,
+      currency: 'USD',
+      amount: 100,
+      refundedAmount: 0,
+      description: null,
+    };
+    await storage.payments.create({ ...base, providerPaymentId: 'pi_a', reference: 'a' });
+    await storage.payments.create({ ...base, providerPaymentId: 'pi_b', reference: 'b' });
+
+    expect(await storage.payments.listByCustomer(customer.id, { limit: 0 })).toHaveLength(2);
+    expect(await storage.payments.listByCustomer(customer.id, { limit: -5 })).toHaveLength(2);
+  });
+
   it('batch-inserts subscription items in a single call', async () => {
     const subscription = await storage.subscriptions.create({
       tenantId: null,
