@@ -60,6 +60,21 @@ export function toCheckoutSessionDTO(transaction: PaddleTransaction): CheckoutSe
   return { id: transaction.id, url: transaction.checkout?.url ?? '' };
 }
 
+export function toPaddleSubscriptionEntity(
+  data: Record<string, unknown>,
+): PaddleSubscriptionEntity {
+  const period = data.currentBillingPeriod;
+  const endsAt =
+    typeof period === 'object' && period !== null && 'endsAt' in period
+      ? (period as { endsAt?: unknown }).endsAt
+      : null;
+  return {
+    id: data.id as string,
+    status: data.status as string,
+    currentBillingPeriod: { endsAt: typeof endsAt === 'string' ? endsAt : null },
+  };
+}
+
 export function toSubscriptionDTO(subscription: PaddleSubscriptionEntity): SubscriptionDTO {
   const endsAt = subscription.currentBillingPeriod?.endsAt ?? null;
   return {
