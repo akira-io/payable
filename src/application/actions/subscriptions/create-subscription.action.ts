@@ -51,6 +51,7 @@ export class CreateSubscriptionAction extends SubscriptionAction {
       price: input.priceId,
     });
     const items = input.items ?? [{ priceId: input.priceId, quantity: input.quantity ?? 1 }];
+    const primary = items[0] ?? { priceId: input.priceId, quantity: input.quantity ?? 1 };
     const run = async (): Promise<Subscription> => {
       const dto = await provider.createSubscription(
         {
@@ -71,8 +72,8 @@ export class CreateSubscriptionAction extends SubscriptionAction {
           provider: this.deps.providerName,
           providerSubscriptionId: dto.providerSubscriptionId,
           status: dto.status,
-          priceId: input.priceId,
-          quantity: input.quantity ?? 1,
+          priceId: primary.priceId,
+          quantity: primary.quantity,
           trialEndsAt: dto.trialEndsAt,
           endsAt: null,
           currentPeriodStart: null,

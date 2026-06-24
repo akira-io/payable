@@ -1,5 +1,6 @@
 import type Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
+import { CreateSubscriptionAction } from '../src/application/actions/subscriptions/create-subscription.action';
 import { createPayable } from '../src/create-payable';
 import { onGracePeriod, onTrial } from '../src/domain/entities/subscription-state';
 import { IdempotencyConflictError } from '../src/domain/errors/idempotency-conflict.error';
@@ -248,6 +249,44 @@ describe('subscription lifecycle', () => {
     expect(actions).toContain('subscription.canceled');
     expect(actions).toContain('subscription.resumed');
     expect(actions).toContain('subscription.canceled_now');
+    await db.destroy();
+  });
+
+  it('derives the header price and quantity from the primary line item', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const provider = new FakeProvider();
+    await storage.customers.create({
+      tenantId: null,
+      billableType: 'User',
+      billableId: '1',
+      provider: 'stripe',
+      providerCustomerId: 'cus_fake',
+      email: 'user@example.com',
+      name: 'User',
+      metadata: null,
+    });
+
+    const action = new CreateSubscriptionAction({
+      provider,
+      providerName: 'stripe',
+      clock: new FakeClock(),
+      storage,
+    });
+    const created = await action.handle({
+      billable,
+      name: 'default',
+      priceId: 'price_top',
+      quantity: 9,
+      items: [
+        { priceId: 'price_primary', quantity: 2 },
+        { priceId: 'price_addon', quantity: 1 },
+      ],
+    });
+
+    expect(created.priceId).toBe('price_primary');
+    expect(created.quantity).toBe(2);
     await db.destroy();
   });
 
