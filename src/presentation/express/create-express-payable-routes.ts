@@ -20,7 +20,7 @@ export function createExpressPayableRoutes(
   }
   registerCheckoutRoutes(router, payable, options);
   registerSubscriptionRoutes(router, payable, options);
-  registerCustomerRoutes(router, payable);
+  registerCustomerRoutes(router, payable, options);
   registerInvoiceRoutes(router, payable);
   registerPaymentRoutes(router, payable);
   registerRefundRoutes(router, payable, options);

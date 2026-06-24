@@ -6,9 +6,6 @@ export async function registerPlaceholderRoutes(
   scope: FastifyInstance,
   _payable: Payable,
 ): Promise<void> {
-  scope.post('/customers', async () => {
-    throw PayableError.notImplemented('POST /customers');
-  });
   scope.get('/invoices', async () => {
     throw PayableError.notImplemented('GET /invoices');
   });

@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import type { Payable } from '../../payable';
 import { type FastifyPayableOptions, payableErrorReply } from './helpers';
 import { registerCheckoutRoutes } from './routes/checkout.routes';
+import { registerCustomerRoutes } from './routes/customers.routes';
 import { registerPlaceholderRoutes } from './routes/placeholder.routes';
 import { registerRefundRoutes } from './routes/refunds.routes';
 import { registerSubscriptionRoutes } from './routes/subscriptions.routes';
@@ -23,6 +24,7 @@ export function createFastifyPayablePlugin(
       await registerCheckoutRoutes(authenticatedScope, payable, options);
       await registerSubscriptionRoutes(authenticatedScope, payable, options);
       await registerRefundRoutes(authenticatedScope, payable, options);
+      await registerCustomerRoutes(authenticatedScope, payable, options);
       await registerPlaceholderRoutes(authenticatedScope, payable);
     });
   };

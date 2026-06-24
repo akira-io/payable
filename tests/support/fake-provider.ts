@@ -10,7 +10,11 @@ import type {
   CreateCheckoutSessionInput,
 } from '../../src/domain/dtos/checkout.dto';
 import type { OperationContext } from '../../src/domain/dtos/common.dto';
-import type { CreateCustomerInput, CustomerDTO } from '../../src/domain/dtos/customer.dto';
+import type {
+  CreateCustomerInput,
+  CustomerDTO,
+  UpdateCustomerInput,
+} from '../../src/domain/dtos/customer.dto';
 import type {
   InvoiceDTO,
   InvoicePdfDTO,
@@ -35,6 +39,7 @@ export class FakeProvider implements PaymentProvider {
   readonly name = 'stripe';
   createCustomerCalls = 0;
   lastCustomerCtx?: OperationContext;
+  lastUpdateCustomer?: UpdateCustomerInput;
   lastCheckout?: { input: CreateCheckoutSessionInput; ctx: OperationContext };
   verifyResult?: VerifiedWebhook;
   verifyError?: Error;
@@ -77,8 +82,13 @@ export class FakeProvider implements PaymentProvider {
     return { id: 'cs_fake', url: 'https://fake.test/cs' };
   }
 
-  updateCustomer(): Promise<CustomerDTO> {
-    return this.unused('updateCustomer');
+  async updateCustomer(input: UpdateCustomerInput): Promise<CustomerDTO> {
+    this.lastUpdateCustomer = input;
+    return {
+      providerCustomerId: input.providerCustomerId,
+      email: input.email ?? null,
+      name: input.name ?? null,
+    };
   }
 
   createProduct(): Promise<ProductDTO> {

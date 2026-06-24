@@ -13,6 +13,7 @@ import { ReplayWebhookAction } from './application/actions/webhooks/replay-webho
 import type { Billable } from './application/builders/billable';
 import type { BillingDependencies } from './application/builders/billing-dependencies';
 import { CustomerContext } from './application/builders/customer-context';
+import { CustomerResource } from './application/builders/customer-resource';
 import type { WebhookDependencies } from './application/builders/webhook-dependencies';
 import type { AuthorizationContext } from './application/policies/authorization-context';
 import type { ReplayWebhookContext } from './application/policies/can-replay-webhook.policy';
@@ -92,6 +93,10 @@ export class Payable {
 
   customer(billable: Billable, providerName?: string, tenantId?: string | null): CustomerContext {
     return new CustomerContext(billable, this.dependencies(providerName, tenantId));
+  }
+
+  customers(providerName?: string, tenantId?: string | null): CustomerResource {
+    return new CustomerResource(this.dependencies(providerName, tenantId));
   }
 
   async receiveWebhook(

@@ -70,7 +70,9 @@ constructor(
 | POST | `subscriptions/:name/cancel-now` | 200 | `cancelNow` | Cancel immediately |
 | POST | `subscriptions/:name/resume` | 200 | `resume` | Resume a canceled subscription |
 | POST | `subscriptions/:name/swap` | 200 | `swap` | Swap to a new price |
-| POST | `customers` | 501 | `customers` | Reserved; throws `NOT_IMPLEMENTED` |
+| POST | `customers` | 201 | `createCustomer` | Create (or get) a customer at the provider |
+| PATCH | `customers` | 200 | `updateCustomer` | Update a customer's email/name |
+| GET | `customers` | 200 | `getCustomer` | Get a customer by `billableType`+`billableId` |
 | GET | `invoices` | 501 | `invoices` | Reserved; throws `NOT_IMPLEMENTED` |
 | GET | `payments` | 501 | `payments` | Reserved; throws `NOT_IMPLEMENTED` |
 | POST | `refunds` | 501 | `refunds` | Reserved; throws `NOT_IMPLEMENTED` |

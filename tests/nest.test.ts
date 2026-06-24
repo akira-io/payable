@@ -239,4 +239,32 @@ describe('nest adapter', () => {
     }
     await db.destroy();
   });
+
+  it('creates, reads, and updates a customer', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const controller = controllerFor(
+      createPayable({
+        providers: { stripe: new FakeProvider() },
+        storage: new KnexStorageDriver(db, new FakeClock()),
+      }),
+    );
+
+    await expect(
+      controller.getCustomer({ headers: {} }, { billableType: 'User', billableId: '1' }),
+    ).rejects.toMatchObject({ code: 'CUSTOMER_NOT_FOUND' });
+
+    const created = await controller.createCustomer({ headers: {} }, { billable });
+    expect(created.providerCustomerId).toBe('cus_fake');
+
+    const fetched = await controller.getCustomer(
+      { headers: {} },
+      { billableType: 'User', billableId: '1' },
+    );
+    expect(fetched.email).toBe('user@example.com');
+
+    const updated = await controller.updateCustomer({ headers: {} }, { billable, name: 'Renamed' });
+    expect(updated.name).toBe('Renamed');
+    await db.destroy();
+  });
 });

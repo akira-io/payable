@@ -165,6 +165,39 @@ describe('express adapter', () => {
     expect(res.body.error).toBe('NOT_IMPLEMENTED');
   });
 
+  it('creates, reads, and updates a customer over HTTP', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const app = makeApp(
+      createPayable({
+        providers: { stripe: new FakeProvider() },
+        storage: new KnexStorageDriver(db, new FakeClock()),
+      }),
+    );
+
+    const missing = await request(app)
+      .get('/payable/customers')
+      .query({ billableType: 'User', billableId: '1' });
+    expect(missing.status).toBe(404);
+
+    const created = await request(app).post('/payable/customers').send({ billable });
+    expect(created.status).toBe(201);
+    expect(created.body.providerCustomerId).toBe('cus_fake');
+
+    const fetched = await request(app)
+      .get('/payable/customers')
+      .query({ billableType: 'User', billableId: '1' });
+    expect(fetched.status).toBe(200);
+    expect(fetched.body.email).toBe('user@example.com');
+
+    const updated = await request(app)
+      .patch('/payable/customers')
+      .send({ billable, name: 'Renamed' });
+    expect(updated.status).toBe(200);
+    expect(updated.body.name).toBe('Renamed');
+    await db.destroy();
+  });
+
   it('rejects a webhook whose body was parsed by an upstream JSON parser', async () => {
     const provider = new FakeProvider();
     const app = express();
