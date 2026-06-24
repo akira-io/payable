@@ -44,6 +44,12 @@ Invalid <machine> transition '<event>' from state '<from>'
 
 It carries `code: 'INVALID_STATE_TRANSITION'` and a `context` of `{ machine, from, transition }`. A terminal state (one whose map entry is empty or absent) therefore rejects every event. Use `can(event)` to test a transition without triggering the throw.
 
+### Idempotency contract
+
+The machines are strict, not idempotent. There are no self-loops for level events: applying an event whose target equals the current state still throws, because the `(from, event)` pair is absent from the map. For example `succeed` from `succeeded`, `activate` from `active`, `mark_past_due` from `past_due`, and `pay` from `paid` all raise `InvalidStateTransitionError`.
+
+Providers redeliver webhooks, so a caller that drives a machine directly from provider events must treat the machine as at-most-once and guard each call with `can(event)` before applying it (or catch `InvalidStateTransitionError`). A duplicate delivery is then a no-op rather than an error. The library's own webhook path does not rely on the machines for this — it reconciles by writing the provider status directly and dedups redelivery upstream via the webhook claim.
+
 ## Subscription
 
 `src/domain/states/subscription-state-machine.ts`. States are the `SubscriptionStatus` values; default initial state is `incomplete`.
