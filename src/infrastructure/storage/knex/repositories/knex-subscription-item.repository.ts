@@ -21,6 +21,7 @@ export class KnexSubscriptionItemRepository
     const first = await this.knex(this.table)
       .where({ subscription_id: subscriptionId })
       .orderBy('created_at', 'asc')
+      .orderBy('id', 'asc')
       .first();
     if (!first) {
       return;

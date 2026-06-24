@@ -86,6 +86,36 @@ describe('storage list ordering and batch insert (perf)', () => {
     expect(items.map((item) => item.priceId).sort()).toEqual(['p1', 'p2', 'p3']);
   });
 
+  it('updatePrimary deterministically targets the lowest-id item among created_at ties', async () => {
+    const subscription = await storage.subscriptions.create({
+      tenantId: null,
+      customerId: 'cus_tie',
+      name: 'default',
+      provider: 'stripe',
+      providerSubscriptionId: 'sub_tie',
+      status: 'active',
+      priceId: null,
+      quantity: 1,
+      trialEndsAt: null,
+      endsAt: null,
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+    });
+    await storage.subscriptionItems.createMany([
+      { subscriptionId: subscription.id, priceId: 'p1', providerItemId: null, quantity: 1 },
+      { subscriptionId: subscription.id, priceId: 'p2', providerItemId: null, quantity: 1 },
+      { subscriptionId: subscription.id, priceId: 'p3', providerItemId: null, quantity: 1 },
+    ]);
+
+    await storage.subscriptionItems.updatePrimary(subscription.id, { quantity: 99 });
+
+    const items = await storage.subscriptionItems.listBySubscription(subscription.id);
+    const updated = items.filter((item) => item.quantity === 99);
+    const lowestId = [...items].map((item) => item.id).sort()[0];
+    expect(updated).toHaveLength(1);
+    expect(updated[0]?.id).toBe(lowestId);
+  });
+
   it('rejects a refund that references a missing payment', async () => {
     await expect(
       storage.refunds.create({
