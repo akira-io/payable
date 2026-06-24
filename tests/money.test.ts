@@ -69,6 +69,10 @@ describe('Money', () => {
     expect(Money.of(1000, 'JPY').format()).toBe('¥1,000');
   });
 
+  it('keeps the last minor unit for very large amounts', () => {
+    expect(Money.of(9007199254740991, 'USD').format()).toBe('$90,071,992,547,409.91');
+  });
+
   it('serializes to amount and currency', () => {
     expect(Money.of(1099, 'EUR').toJSON()).toEqual({ amount: 1099, currency: 'EUR' });
   });
