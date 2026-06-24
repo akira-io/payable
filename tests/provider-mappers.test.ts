@@ -60,15 +60,16 @@ describe('stripe price mapping', () => {
     ).toThrowError(/no resolvable unit amount/);
   });
 
-  it('rounds a fractional unit_amount_decimal to the nearest minor unit', () => {
-    const dto = toStripePriceDTO({
-      id: 'price_4',
-      product: 'prod_1',
-      unit_amount: null,
-      unit_amount_decimal: '1234.5',
-      currency: 'usd',
-    } as unknown as Stripe.Price);
-    expect(dto.unitAmount.amount()).toBe(1235);
+  it('rejects a fractional unit_amount_decimal instead of silently rounding it', () => {
+    expect(() =>
+      toStripePriceDTO({
+        id: 'price_4',
+        product: 'prod_1',
+        unit_amount: null,
+        unit_amount_decimal: '1234.5',
+        currency: 'usd',
+      } as unknown as Stripe.Price),
+    ).toThrowError(expect.objectContaining({ code: 'PROVIDER_PRICE_AMOUNT_FRACTIONAL' }));
   });
 });
 

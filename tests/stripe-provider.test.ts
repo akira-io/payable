@@ -97,6 +97,27 @@ describe('StripeProvider', () => {
     expect(dto.interval).toBe('month');
   });
 
+  it('rejects a fractional unit_amount_decimal price instead of silently rounding it', async () => {
+    const client = {
+      prices: {
+        create: async () => ({
+          id: 'price_frac',
+          product: 'prod_1',
+          unit_amount: null,
+          unit_amount_decimal: '2.5',
+          currency: 'usd',
+        }),
+      },
+    } as unknown as Stripe;
+
+    await expect(
+      provider(client).createPrice(
+        { providerProductId: 'prod_1', unitAmount: Money.of(100, 'USD') },
+        ctx,
+      ),
+    ).rejects.toMatchObject({ code: 'PROVIDER_PRICE_AMOUNT_FRACTIONAL' });
+  });
+
   it('creates a subscription checkout session with a trial', async () => {
     const { client, calls } = fakeStripe();
     const dto = await provider(client).createCheckoutSession(
