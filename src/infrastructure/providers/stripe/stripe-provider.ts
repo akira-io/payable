@@ -320,9 +320,19 @@ export class StripeProvider
         code: 'INVOICE_PDF_UNTRUSTED_URL',
       });
     }
-    const response = await globalThis.fetch(invoice.invoice_pdf, {
-      signal: AbortSignal.timeout(INVOICE_PDF_TIMEOUT_MS),
-    });
+    let response: Response;
+    try {
+      response = await globalThis.fetch(invoice.invoice_pdf, {
+        signal: AbortSignal.timeout(INVOICE_PDF_TIMEOUT_MS),
+      });
+    } catch (error) {
+      const timedOut = error instanceof Error && error.name === 'TimeoutError';
+      throw new PayableError(`Failed to download invoice ${providerInvoiceId} PDF`, {
+        code: 'INVOICE_PDF_DOWNLOAD_FAILED',
+        context: { reason: timedOut ? 'timeout' : 'transport' },
+        cause: error,
+      });
+    }
     if (!response.ok) {
       throw new PayableError(`Failed to download invoice ${providerInvoiceId} PDF`, {
         code: 'INVOICE_PDF_DOWNLOAD_FAILED',
@@ -336,7 +346,16 @@ export class StripeProvider
         context: { bytes: declaredLength },
       });
     }
-    const buffer = await response.arrayBuffer();
+    let buffer: ArrayBuffer;
+    try {
+      buffer = await response.arrayBuffer();
+    } catch (error) {
+      throw new PayableError(`Failed to read invoice ${providerInvoiceId} PDF`, {
+        code: 'INVOICE_PDF_DOWNLOAD_FAILED',
+        context: { reason: 'transport' },
+        cause: error,
+      });
+    }
     if (buffer.byteLength > INVOICE_PDF_MAX_BYTES) {
       throw new PayableError(`Invoice ${providerInvoiceId} PDF exceeds the size limit`, {
         code: 'INVOICE_PDF_TOO_LARGE',

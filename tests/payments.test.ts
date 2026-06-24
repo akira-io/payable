@@ -236,6 +236,32 @@ describe('StripeProvider payments', () => {
     });
   });
 
+  it('wraps a network failure or timeout downloading the invoice PDF', async () => {
+    const stripe = {
+      invoices: { retrieve: async () => ({ invoice_pdf: 'https://pdf.test' }) },
+    } as unknown as Stripe;
+    const provider = stripeProvider(stripe);
+    const original = globalThis.fetch;
+
+    globalThis.fetch = (() => Promise.reject(new TypeError('connection reset'))) as typeof fetch;
+    try {
+      await expect(provider.downloadInvoicePdf('in_1')).rejects.toMatchObject({
+        code: 'INVOICE_PDF_DOWNLOAD_FAILED',
+        context: { reason: 'transport' },
+      });
+
+      const timeout = new Error('timed out');
+      timeout.name = 'TimeoutError';
+      globalThis.fetch = (() => Promise.reject(timeout)) as typeof fetch;
+      await expect(provider.downloadInvoicePdf('in_1')).rejects.toMatchObject({
+        code: 'INVOICE_PDF_DOWNLOAD_FAILED',
+        context: { reason: 'timeout' },
+      });
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
   it('rejects an invoice PDF that exceeds the size limit', async () => {
     const stripe = {
       invoices: { retrieve: async () => ({ invoice_pdf: 'https://pdf.test/in.pdf' }) },
