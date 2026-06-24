@@ -116,6 +116,13 @@ describe('storage list ordering and batch insert (perf)', () => {
     expect(updated[0]?.id).toBe(lowestId);
   });
 
+  it('rejects a duplicate customer for the same billable under a null tenant', async () => {
+    await storage.customers.create(makeCustomer({ tenantId: null }));
+    await expect(
+      storage.customers.create(makeCustomer({ tenantId: null, providerCustomerId: 'cus_dup' })),
+    ).rejects.toThrow();
+  });
+
   it('rejects a refund that references a missing payment', async () => {
     await expect(
       storage.refunds.create({
