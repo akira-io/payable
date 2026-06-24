@@ -3,7 +3,6 @@ import type { CacheDriver } from '../../domain/contracts/cache-driver.contract';
 import type { Clock } from '../../domain/contracts/clock.contract';
 import type { Encryption } from '../../domain/contracts/encryption.contract';
 import type { EventBus } from '../../domain/contracts/event-bus.contract';
-import type { IdempotencyKeyResolver } from '../../domain/contracts/idempotency-key-resolver.contract';
 import type { IdempotencyStore } from '../../domain/contracts/idempotency-store.contract';
 import type { LockDriver } from '../../domain/contracts/lock-driver.contract';
 import type { Logger } from '../../domain/contracts/logger.contract';
@@ -21,7 +20,6 @@ export type IdempotencyStrategy = 'auto' | 'manual';
 export interface IdempotencyConfig {
   enabled?: boolean;
   strategy?: IdempotencyStrategy;
-  resolver?: IdempotencyKeyResolver;
   store?: IdempotencyStore;
 }
 
@@ -52,7 +50,6 @@ export interface PayableConfig {
 export interface ResolvedIdempotency {
   enabled: boolean;
   strategy: IdempotencyStrategy;
-  resolver?: IdempotencyKeyResolver;
   store?: IdempotencyStore;
 }
 
@@ -109,7 +106,6 @@ export function resolveConfig(config: PayableConfig): ResolvedConfig {
     idempotency: {
       enabled: config.idempotency?.enabled ?? true,
       strategy: config.idempotency?.strategy ?? 'auto',
-      resolver: config.idempotency?.resolver,
       store: config.idempotency?.store,
     },
   };
