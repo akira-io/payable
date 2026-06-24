@@ -1,7 +1,6 @@
 import type { Router } from 'express';
-import { Money } from '../../../domain/value-objects/money';
 import type { Payable } from '../../../payable';
-import { parseBody, refundBodySchema } from '../../shared/schemas';
+import { parseBody, parseMoneyInput, refundBodySchema } from '../../shared/schemas';
 import { asyncHandler, jsonBody } from '../helpers';
 
 export function registerRefundRoutes(router: Router, payable: Payable): void {
@@ -10,7 +9,7 @@ export function registerRefundRoutes(router: Router, payable: Payable): void {
     jsonBody(),
     asyncHandler(async (req, res) => {
       const body = parseBody(refundBodySchema, req.body);
-      const amount = body.amount ? Money.of(body.amount.amount, body.amount.currency) : undefined;
+      const amount = body.amount ? parseMoneyInput(body.amount) : undefined;
       const refund = await payable.refund({
         paymentId: body.paymentId,
         amount,

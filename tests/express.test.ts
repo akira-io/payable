@@ -155,6 +155,15 @@ describe('express adapter', () => {
     expect(res.body.error).toBe('VALIDATION_FAILED');
   });
 
+  it('returns 422 for a refund with an invalid currency instead of a 500', async () => {
+    const app = makeApp(createPayable({ providers: { stripe: new FakeProvider() } }));
+    const res = await request(app)
+      .post('/payable/refunds')
+      .send({ paymentId: 'pay_1', amount: { amount: 100, currency: 'NOPE' } });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBe('VALIDATION_FAILED');
+  });
+
   it('rejects an invalid email or non-URL redirect in checkout', async () => {
     const app = makeApp(createPayable({ providers: { stripe: new FakeProvider() } }));
     const res = await request(app)

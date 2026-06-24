@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PayableError } from '../../domain/errors/payable-error';
+import { Money } from '../../domain/value-objects/money';
 
 export const billableSchema = z.object({
   billableType: z.string().min(1),
@@ -42,4 +43,15 @@ export function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
     });
   }
   return result.data;
+}
+
+export function parseMoneyInput(input: { amount: number; currency: string }): Money {
+  try {
+    return Money.of(input.amount, input.currency);
+  } catch (error) {
+    throw new PayableError('Request validation failed', {
+      code: 'VALIDATION_FAILED',
+      context: { reason: error instanceof Error ? error.message : 'invalid money amount' },
+    });
+  }
 }
