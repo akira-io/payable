@@ -3,7 +3,7 @@ import { DomainEvent, type DomainEventMeta } from './domain-event';
 
 export interface PaymentSucceededPayload {
   paymentId: string;
-  customerId: string;
+  customerId: string | null;
   amount: Money;
 }
 

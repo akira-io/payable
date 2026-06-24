@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CheckoutCreatedEvent } from '../src/domain/events/checkout-created.event';
 import { CustomerCreatedEvent } from '../src/domain/events/customer-created.event';
 import { InvoicePaidEvent } from '../src/domain/events/invoice-paid.event';
+import { PaymentSucceededEvent } from '../src/domain/events/payment-succeeded.event';
 import { Money } from '../src/domain/value-objects/money';
 import { InMemoryEventBus } from '../src/infrastructure/event-bus/in-memory-event-bus';
 
@@ -25,6 +26,15 @@ describe('domain events', () => {
       meta,
     );
     expect(event.name).toBe('checkout.created');
+  });
+
+  it('allows a null customer on a payment that has no linked customer', () => {
+    const event = new PaymentSucceededEvent(
+      { paymentId: 'pi_1', customerId: null, amount: Money.of(500, 'USD') },
+      meta,
+    );
+    expect(event.payload.customerId).toBeNull();
+    expect(event.payload.amount.amount()).toBe(500);
   });
 
   it('carry Money value objects without leaking primitives', () => {
