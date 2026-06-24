@@ -54,8 +54,8 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.string('ip_address').nullable();
     table.text('user_agent').nullable();
     table.string('previous_hash').nullable();
-    table.string('hash').nullable();
-    table.integer('sequence').nullable();
+    table.string('hash').notNullable();
+    table.integer('sequence').notNullable();
     table.timestamp('created_at').notNullable();
     table.index(['resource_type', 'resource_id']);
     table.index('correlation_id');
