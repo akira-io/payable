@@ -122,7 +122,8 @@ export class PaddleProvider implements PaymentProvider {
     const paddle = await this.paddle();
     const price = await paddle.prices.create({
       productId: input.providerProductId,
-      description: input.providerProductId,
+      description:
+        input.description ?? (input.interval ? `${input.interval} price` : 'One-time price'),
       unitPrice: {
         amount: String(input.unitAmount.amount()),
         currencyCode: input.unitAmount.currency(),

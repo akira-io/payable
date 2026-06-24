@@ -6,6 +6,7 @@ export interface CreatePriceInput {
   unitAmount: Money;
   interval?: RecurringInterval;
   intervalCount?: number;
+  description?: string;
 }
 
 export interface PriceDTO {

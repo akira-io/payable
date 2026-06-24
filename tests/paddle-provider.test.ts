@@ -117,11 +117,26 @@ describe('PaddleProvider', () => {
     );
     expect(calls.get('prices.create')).toMatchObject({
       productId: 'pro_1',
+      description: 'month price',
       unitPrice: { amount: '9900', currencyCode: 'USD' },
       billingCycle: { interval: 'month', frequency: 1 },
     });
     expect(dto.unitAmount.amount()).toBe(9900);
     expect(dto.unitAmount.currency()).toBe('USD');
+  });
+
+  it('uses a caller-supplied price description instead of the product id', async () => {
+    const { client, calls } = fakePaddle();
+    await provider(client).createPrice(
+      {
+        providerProductId: 'pro_1',
+        unitAmount: Money.of(9900, 'USD'),
+        interval: 'month',
+        description: 'Pro monthly',
+      },
+      ctx,
+    );
+    expect(calls.get('prices.create')).toMatchObject({ description: 'Pro monthly' });
   });
 
   it('opens a checkout via a transaction', async () => {
