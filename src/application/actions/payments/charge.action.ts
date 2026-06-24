@@ -60,6 +60,12 @@ export class ChargeAction {
         },
         { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
       );
+      if (dto.amount.currency() !== input.amount.currency()) {
+        throw new PayableError(
+          `Charge currency ${dto.amount.currency()} does not match requested currency ${input.amount.currency()}`,
+          { code: 'PAYMENT_CURRENCY_MISMATCH', context: { reference: input.reference ?? null } },
+        );
+      }
       return storage.payments.create({
         tenantId: this.deps.tenantId ?? null,
         customerId: customer.id,
