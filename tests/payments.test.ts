@@ -394,6 +394,16 @@ describe('charge and refund lifecycle', () => {
     await db.destroy();
   });
 
+  it('rejects a non-positive or non-integer invoice limit at the action boundary', async () => {
+    const provider = new FakeProvider();
+    const deps: BillingDependencies = { provider, providerName: 'stripe', clock: new FakeClock() };
+    const action = new ListInvoicesAction(deps);
+
+    await expect(action.handle(billable, 0)).rejects.toThrow(/positive integer/);
+    await expect(action.handle(billable, -5)).rejects.toThrow(/positive integer/);
+    await expect(action.handle(billable, 2.5)).rejects.toThrow(/positive integer/);
+  });
+
   it('records a partial refund then completes it', async () => {
     const db = createTestDb();
     await migrate(db);
