@@ -129,6 +129,63 @@ describe('BullMQQueueDriver', () => {
 
     expect(errors).toEqual(['dead-letter unavailable']);
   });
+
+  it('routes a dead-letter write failure to onError instead of swallowing it', async () => {
+    type FailedHandler = (job: unknown, error: Error) => void;
+    let failedHandler: FailedHandler | undefined;
+
+    class FakeQueue {
+      constructor(public readonly queueName: string) {}
+      add(): Promise<void> {
+        return this.queueName.endsWith(':dead')
+          ? Promise.reject(new Error('dlq down'))
+          : Promise.resolve();
+      }
+    }
+    class FakeWorker {
+      constructor(
+        public readonly workerName: string,
+        public readonly processor: unknown,
+      ) {}
+      on(event: string, cb: FailedHandler): void {
+        if (event === 'failed') {
+          failedHandler = cb;
+        }
+      }
+    }
+    class TestDriver extends BullMQQueueDriver {
+      protected override loadBullmq(): Promise<typeof import('bullmq')> {
+        return Promise.resolve({
+          Queue: FakeQueue,
+          Worker: FakeWorker,
+        } as unknown as typeof import('bullmq'));
+      }
+    }
+
+    const errors: Array<[string, string]> = [];
+    const driver = new TestDriver({
+      connection: { host: 'localhost', port: 6379 },
+      attempts: 1,
+      onError: (name, error) => errors.push([name, error.message]),
+    });
+
+    driver.process('webhook', async () => {});
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    failedHandler?.(
+      {
+        name: 'webhook',
+        attemptsMade: 1,
+        opts: { attempts: 1 },
+        data: { payload: {}, correlationId: 'c' },
+        id: 'job_1',
+      },
+      new Error('boom'),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(errors).toEqual([['webhook', 'dlq down']]);
+  });
 });
 
 describe('async webhook processing', () => {
