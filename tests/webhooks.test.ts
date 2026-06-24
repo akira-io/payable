@@ -1,9 +1,10 @@
 import type Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
+import { DispatchWebhookJobAction } from '../src/application/actions/webhooks/dispatch-webhook-job.action';
 import { ProcessWebhookAction } from '../src/application/actions/webhooks/process-webhook.action';
 import type { WebhookDependencies } from '../src/application/builders/webhook-dependencies';
 import { createPayable } from '../src/create-payable';
-import type { QueueJob } from '../src/domain/contracts/queue-driver.contract';
+import type { QueueDriver, QueueJob } from '../src/domain/contracts/queue-driver.contract';
 import { InvalidWebhookSignatureError } from '../src/domain/errors/invalid-webhook-signature.error';
 import { InMemoryEventBus } from '../src/infrastructure/event-bus/in-memory-event-bus';
 import { StripeEventNormalizer } from '../src/infrastructure/providers/stripe/stripe-event-normalizer';
@@ -80,6 +81,36 @@ describe('StripeProvider.verifyWebhook', () => {
     await expect(
       provider.verifyWebhook({ payload: '{}', signature: 'bad' }),
     ).rejects.toBeInstanceOf(InvalidWebhookSignatureError);
+  });
+});
+
+describe('DispatchWebhookJobAction', () => {
+  it('uses the per-event id as the queue dedup key so tenants do not collide', async () => {
+    const keys: string[] = [];
+    const queue: QueueDriver = {
+      dispatch: async (job) => {
+        keys.push(job.idempotencyKey ?? '');
+      },
+      process: () => {},
+    };
+    const action = new DispatchWebhookJobAction(queue);
+
+    await action.handle({
+      providerName: 'stripe',
+      webhookEventId: 'evt_row_a',
+      providerEventId: 'evt_1',
+      correlationId: 'c',
+      tenantId: 'tenant-a',
+    });
+    await action.handle({
+      providerName: 'stripe',
+      webhookEventId: 'evt_row_b',
+      providerEventId: 'evt_1',
+      correlationId: 'c',
+      tenantId: 'tenant-b',
+    });
+
+    expect(keys).toEqual(['evt_row_a', 'evt_row_b']);
   });
 });
 
