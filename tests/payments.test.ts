@@ -309,6 +309,30 @@ describe('idempotent charge', () => {
     await db.destroy();
   });
 
+  it('does not auto-deduplicate when the idempotency strategy is manual', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new FakeProvider();
+    const clock = new FakeClock();
+    const storage = new KnexStorageDriver(db, clock);
+    const payable = createPayable({
+      providers: { stripe: provider },
+      storage,
+      clock,
+      idempotency: { strategy: 'manual', store: new KnexIdempotencyRepository(db, clock) },
+    });
+
+    await payable.customer(billable).charge({ amount: Money.of(9900, 'USD'), reference: 'inv_m' });
+    // Manual strategy means no auto-dedup: the identical second charge re-runs and calls the
+    // provider again (rather than replaying), so chargeCalls reaches 2.
+    await expect(
+      payable.customer(billable).charge({ amount: Money.of(9900, 'USD'), reference: 'inv_m' }),
+    ).rejects.toThrow();
+
+    expect(provider.chargeCalls).toBe(2);
+    await db.destroy();
+  });
+
   it('rejects a charge whose provider currency diverges from the request', async () => {
     const db = createTestDb();
     await migrate(db);

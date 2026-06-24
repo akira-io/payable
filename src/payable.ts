@@ -142,8 +142,8 @@ export class Payable {
   }
 
   private idempotencyService(): IdempotencyService | undefined {
-    const { enabled, store } = this.resolved.idempotency;
-    if (!enabled || !store) {
+    const { enabled, strategy, store } = this.resolved.idempotency;
+    if (!enabled || strategy === 'manual' || !store) {
       return undefined;
     }
     return new IdempotencyService(store, this.resolved.clock);
