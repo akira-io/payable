@@ -42,6 +42,24 @@ describe('OutboxService', () => {
     expect(await countDuePendingOutbox(db, clock)).toBe(0);
   });
 
+  it('does not dead-letter an already-delivered event when markPublished fails', async () => {
+    const event = await storage.outboxEvents.create(newOutbox('invoice.paid.v1'));
+    const repo = Object.create(storage.outboxEvents);
+    repo.markPublished = () => Promise.reject(new Error('store write boom'));
+    const service = new OutboxService(repo, clock, { maxAttempts: 2 });
+
+    let delivered = 0;
+    const result = await service.publishPending(async () => {
+      delivered += 1;
+    });
+
+    expect(delivered).toBe(1);
+    expect(result).toEqual({ published: 0, retried: 0, deadLettered: 0 });
+    const row = await db('payable_outbox_events').where({ id: event.id }).first();
+    expect(row?.status).not.toBe('failed');
+    expect(row?.attempts).toBe(0);
+  });
+
   it('ignores a publish from a stale lock token', async () => {
     await storage.outboxEvents.create(newOutbox('invoice.paid.v1'));
     const [claimed] = await storage.outboxEvents.claimPending(10);
