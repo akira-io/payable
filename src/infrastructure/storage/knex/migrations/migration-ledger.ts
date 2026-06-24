@@ -8,7 +8,7 @@ async function ensureLedger(knex: Knex): Promise<void> {
   }
   await knex.schema.createTable(LEDGER_TABLE, (table) => {
     table.string('name').primary();
-    table.timestamp('applied_at').notNullable();
+    table.timestamp('applied_at', { useTz: true }).notNullable();
   });
 }
 

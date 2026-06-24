@@ -19,6 +19,24 @@ describe('forward migrations (C5)', () => {
     await expect(migrate(db)).resolves.toBeUndefined();
   });
 
+  it('round-trips a UTC instant through a timestamptz column', async () => {
+    await migrate(db);
+    const instant = '2026-06-22T08:30:00.000Z';
+    await db('payable_customers').insert({
+      id: 'cus_tz',
+      provider: 'stripe',
+      provider_customer_id: 'pc_tz',
+      billable_type: 'User',
+      billable_id: '1',
+      email: 'tz@example.test',
+      created_at: instant,
+      updated_at: instant,
+    });
+
+    const row = await db('payable_customers').where({ id: 'cus_tz' }).first();
+    expect(new Date(row.created_at).toISOString()).toBe(instant);
+  });
+
   it('creates the composite list-access indexes', async () => {
     await migrate(db);
     const names = (await db

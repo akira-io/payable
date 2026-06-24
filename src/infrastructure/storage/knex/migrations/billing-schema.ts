@@ -12,8 +12,8 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.string('email').notNullable();
     table.string('name').nullable();
     table.text('metadata').nullable();
-    table.timestamp('created_at').notNullable();
-    table.timestamp('updated_at').notNullable();
+    table.timestamp('created_at', { useTz: true }).notNullable();
+    table.timestamp('updated_at', { useTz: true }).notNullable();
     table.unique(['provider', 'provider_customer_id']);
   });
 
@@ -26,8 +26,8 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.text('description').nullable();
     table.boolean('active').notNullable();
     table.text('metadata').nullable();
-    table.timestamp('created_at').notNullable();
-    table.timestamp('updated_at').notNullable();
+    table.timestamp('created_at', { useTz: true }).notNullable();
+    table.timestamp('updated_at', { useTz: true }).notNullable();
     table.unique(['provider', 'provider_product_id']);
   });
 
@@ -42,8 +42,8 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.string('interval').nullable();
     table.integer('interval_count').nullable();
     table.boolean('active').notNullable();
-    table.timestamp('created_at').notNullable();
-    table.timestamp('updated_at').notNullable();
+    table.timestamp('created_at', { useTz: true }).notNullable();
+    table.timestamp('updated_at', { useTz: true }).notNullable();
     table.unique(['provider', 'provider_price_id']);
     table.index('product_id');
   });
@@ -58,12 +58,12 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.string('status').notNullable();
     table.uuid('price_id').nullable();
     table.integer('quantity').notNullable();
-    table.timestamp('trial_ends_at').nullable();
-    table.timestamp('ends_at').nullable();
-    table.timestamp('current_period_start').nullable();
-    table.timestamp('current_period_end').nullable();
-    table.timestamp('created_at').notNullable();
-    table.timestamp('updated_at').notNullable();
+    table.timestamp('trial_ends_at', { useTz: true }).nullable();
+    table.timestamp('ends_at', { useTz: true }).nullable();
+    table.timestamp('current_period_start', { useTz: true }).nullable();
+    table.timestamp('current_period_end', { useTz: true }).nullable();
+    table.timestamp('created_at', { useTz: true }).notNullable();
+    table.timestamp('updated_at', { useTz: true }).notNullable();
     table.unique(['provider', 'provider_subscription_id']);
     table.unique(['customer_id', 'name']);
   });
@@ -79,8 +79,8 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.uuid('price_id').notNullable();
     table.string('provider_item_id').nullable();
     table.integer('quantity').notNullable();
-    table.timestamp('created_at').notNullable();
-    table.timestamp('updated_at').notNullable();
+    table.timestamp('created_at', { useTz: true }).notNullable();
+    table.timestamp('updated_at', { useTz: true }).notNullable();
     table.index('subscription_id');
   });
 
@@ -99,8 +99,8 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.string('number').nullable();
     table.text('hosted_invoice_url').nullable();
     table.text('invoice_pdf').nullable();
-    table.timestamp('created_at').notNullable();
-    table.timestamp('updated_at').notNullable();
+    table.timestamp('created_at', { useTz: true }).notNullable();
+    table.timestamp('updated_at', { useTz: true }).notNullable();
     table.unique(['provider', 'provider_invoice_id']);
     table.index('customer_id');
   });
@@ -117,8 +117,8 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.bigInteger('refunded_amount').notNullable();
     table.string('reference').nullable();
     table.text('description').nullable();
-    table.timestamp('created_at').notNullable();
-    table.timestamp('updated_at').notNullable();
+    table.timestamp('created_at', { useTz: true }).notNullable();
+    table.timestamp('updated_at', { useTz: true }).notNullable();
     table.unique(['provider', 'provider_payment_id']);
     table.index('customer_id');
   });
@@ -138,8 +138,8 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.string('currency').notNullable();
     table.bigInteger('amount').notNullable();
     table.text('reason').nullable();
-    table.timestamp('created_at').notNullable();
-    table.timestamp('updated_at').notNullable();
+    table.timestamp('created_at', { useTz: true }).notNullable();
+    table.timestamp('updated_at', { useTz: true }).notNullable();
     table.unique(['provider', 'provider_refund_id']);
     table.index('payment_id');
   });
