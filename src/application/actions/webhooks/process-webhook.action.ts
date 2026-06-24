@@ -51,7 +51,9 @@ export class ProcessWebhookAction {
         tenantId: payload.tenantId,
       });
     } catch (error) {
-      await this.deps.storage.webhookEvents.markStatus(payload.webhookEventId, 'failed', null);
+      await this.deps.storage.webhookEvents
+        .markStatus(payload.webhookEventId, 'failed', null)
+        .catch(() => {});
       throw error;
     }
   }
