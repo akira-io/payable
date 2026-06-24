@@ -234,6 +234,54 @@ describe('payable.receiveWebhook', () => {
     await db.destroy();
   });
 
+  it('surfaces the processing error even when the failed-status write rejects', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock();
+    const storage = new KnexStorageDriver(db, clock);
+    const provider = new FakeProvider();
+
+    const event = await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_mask',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      payload: '{}',
+      data: {},
+      headers: {},
+      status: 'pending',
+      correlationId: 'corr_mask',
+      receivedAt: clock.now(),
+    });
+
+    const failingWebhookEvents = Object.create(storage.webhookEvents);
+    failingWebhookEvents.markStatus = () => Promise.reject(new Error('status write boom'));
+    const failing = Object.create(storage) as KnexStorageDriver;
+    failing.transaction = () => Promise.reject(new Error('processing boom'));
+    (failing as { webhookEvents: unknown }).webhookEvents = failingWebhookEvents;
+
+    const deps: WebhookDependencies = {
+      provider,
+      providerName: 'stripe',
+      storage: failing,
+      queue: new SyncQueueDriver(),
+      events: new InMemoryEventBus(),
+      clock,
+    };
+
+    await expect(
+      new ProcessWebhookAction(deps).handle({
+        providerName: 'stripe',
+        webhookEventId: event.id,
+        providerEventId: 'evt_mask',
+        correlationId: 'corr_mask',
+        tenantId: null,
+      }),
+    ).rejects.toThrow('processing boom');
+    await db.destroy();
+  });
+
   it('claims the event atomically so concurrent workers process it once', async () => {
     const db = createTestDb();
     await migrate(db);
