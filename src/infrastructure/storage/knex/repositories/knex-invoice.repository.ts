@@ -7,7 +7,7 @@ import type { Invoice } from '../../../../domain/entities/invoice.entity';
 import { CurrencyManager } from '../../../../domain/value-objects/currency';
 import type { InvoiceStatus } from '../../../../domain/value-objects/invoice-status';
 import { KnexRepository } from '../knex-repository';
-import { toDate } from '../mappers';
+import { toDate, toMinor } from '../mappers';
 
 export class KnexInvoiceRepository
   extends KnexRepository<Invoice, NewInvoice>
@@ -33,9 +33,9 @@ export class KnexInvoiceRepository
       providerInvoiceId: (row.provider_invoice_id as string | null) ?? null,
       status: row.status as InvoiceStatus,
       currency: CurrencyManager.normalize(row.currency as string),
-      total: Number(row.total),
-      amountPaid: Number(row.amount_paid),
-      amountDue: Number(row.amount_due),
+      total: toMinor(row.total, 'total'),
+      amountPaid: toMinor(row.amount_paid, 'amount_paid'),
+      amountDue: toMinor(row.amount_due, 'amount_due'),
       number: (row.number as string | null) ?? null,
       hostedInvoiceUrl: (row.hosted_invoice_url as string | null) ?? null,
       invoicePdf: (row.invoice_pdf as string | null) ?? null,

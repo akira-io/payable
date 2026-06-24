@@ -7,7 +7,7 @@ import type { Payment } from '../../../../domain/entities/payment.entity';
 import { CurrencyManager } from '../../../../domain/value-objects/currency';
 import type { PaymentStatus } from '../../../../domain/value-objects/payment-status';
 import { KnexRepository } from '../knex-repository';
-import { toDate } from '../mappers';
+import { toDate, toMinor } from '../mappers';
 
 export class KnexPaymentRepository
   extends KnexRepository<Payment, NewPayment>
@@ -32,8 +32,8 @@ export class KnexPaymentRepository
       providerPaymentId: (row.provider_payment_id as string | null) ?? null,
       status: row.status as PaymentStatus,
       currency: CurrencyManager.normalize(row.currency as string),
-      amount: Number(row.amount),
-      refundedAmount: Number(row.refunded_amount),
+      amount: toMinor(row.amount, 'amount'),
+      refundedAmount: toMinor(row.refunded_amount, 'refunded_amount'),
       reference: (row.reference as string | null) ?? null,
       description: (row.description as string | null) ?? null,
       createdAt: toDate(row.created_at),

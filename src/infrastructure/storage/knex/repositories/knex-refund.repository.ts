@@ -7,7 +7,7 @@ import type { Refund } from '../../../../domain/entities/refund.entity';
 import { CurrencyManager } from '../../../../domain/value-objects/currency';
 import type { RefundStatus } from '../../../../domain/value-objects/refund-status';
 import { KnexRepository } from '../knex-repository';
-import { toDate } from '../mappers';
+import { toDate, toMinor } from '../mappers';
 
 export class KnexRefundRepository
   extends KnexRepository<Refund, NewRefund>
@@ -32,7 +32,7 @@ export class KnexRefundRepository
       providerRefundId: (row.provider_refund_id as string | null) ?? null,
       status: row.status as RefundStatus,
       currency: CurrencyManager.normalize(row.currency as string),
-      amount: Number(row.amount),
+      amount: toMinor(row.amount, 'amount'),
       reason: (row.reason as string | null) ?? null,
       createdAt: toDate(row.created_at),
       updatedAt: toDate(row.updated_at),
