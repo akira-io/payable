@@ -139,6 +139,27 @@ describe('PaddleProvider', () => {
     expect(dto).toEqual({ id: 'txn_1', url: 'https://pay.paddle.test/txn_1' });
   });
 
+  it('sends a quantity-only update as an items array carrying the price id', async () => {
+    const { client } = fakePaddle();
+    let body: unknown;
+    (client.subscriptions as { update: unknown }).update = (_id: string, payload: unknown) => {
+      body = payload;
+      return Promise.resolve({ id: 'sub_1', status: 'active' });
+    };
+    await provider(client).updateSubscription(
+      { providerSubscriptionId: 'sub_1', priceId: 'pri_1', quantity: 3 },
+      ctx,
+    );
+    expect(body).toEqual({ items: [{ priceId: 'pri_1', quantity: 3 }] });
+  });
+
+  it('rejects a subscription update with no price id instead of a silent no-op', async () => {
+    const { client } = fakePaddle();
+    await expect(
+      provider(client).updateSubscription({ providerSubscriptionId: 'sub_1', quantity: 3 }, ctx),
+    ).rejects.toThrow('requires a price id');
+  });
+
   it('refunds through an adjustment', async () => {
     const { client, calls } = fakePaddle();
     const dto = await provider(client).refund({ providerPaymentId: 'txn_1' }, ctx);

@@ -25,6 +25,7 @@ import type {
   UpdateSubscriptionInput,
 } from '../../../domain/dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
+import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import { assertSubscriptionPayload } from '../webhook-subscription-payload';
 import { buildPaddleClientOptions } from './paddle-client-options';
@@ -146,10 +147,17 @@ export class PaddleProvider implements PaymentProvider {
   }
 
   async updateSubscription(input: UpdateSubscriptionInput): Promise<SubscriptionDTO> {
+    if (!input.priceId) {
+      throw new PayableError(
+        `Paddle subscription ${input.providerSubscriptionId} update requires a price id`,
+        {
+          code: 'PROVIDER_SUBSCRIPTION_ITEM_MISSING',
+          context: { providerSubscriptionId: input.providerSubscriptionId },
+        },
+      );
+    }
     const paddle = await this.paddle();
-    const items = input.priceId
-      ? [{ priceId: input.priceId, quantity: input.quantity ?? 1 }]
-      : undefined;
+    const items = [{ priceId: input.priceId, quantity: input.quantity ?? 1 }];
     const subscription = await paddle.subscriptions.update(input.providerSubscriptionId, { items });
     return toSubscriptionDTO(subscription);
   }
