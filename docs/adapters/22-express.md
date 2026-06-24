@@ -20,6 +20,7 @@ function createExpressPayableRoutes(
 
 interface ExpressPayableOptions {
   webhookSignatureHeader?: string; // default: 'stripe-signature'
+  authenticate?: RequestHandler; // optional auth middleware, applied after webhook routes
 }
 ```
 
@@ -64,8 +65,8 @@ in `src/presentation/shared/schemas.ts` (`checkoutBodySchema`, `manageSubscripti
 `swapSubscriptionBodySchema`). A validation failure throws `PayableError` with code
 `VALIDATION_FAILED`, mapped to HTTP 422.
 
-The refund route uses a manual check rather than a Zod schema: a missing or empty `paymentId`
-throws `VALIDATION_FAILED` (422). The body shape is
+The refund route validates the body with `refundBodySchema` via `parseBody` (Zod): an invalid or
+missing `paymentId` throws `VALIDATION_FAILED` (422). The body shape is
 `{ paymentId: string, amount?: { amount: number, currency: string }, reason?: string }`; `amount`
 is converted to a `Money` value object before reaching `payable.refund(...)`.
 
@@ -153,8 +154,16 @@ routes is unprotected at the adapter level:
   `payable.receiveWebhook`), not by request authentication.
 
 Authenticating the request and verifying ownership of the billable or payment is the caller's
-responsibility. Add your own middleware ahead of the Payable router (after any webhook-safe
-ordering concerns). See `docs/26-security.md`.
+responsibility. Pass an `authenticate` middleware in `ExpressPayableOptions` to have it applied
+inside the router after the webhook routes and before checkout/subscription/refund, or mount your
+own middleware ahead of the Payable router. See `docs/26-security.md`.
+
+```ts
+app.use(
+  '/payable',
+  createExpressPayableRoutes(payable, { authenticate: requireApiKey }),
+);
+```
 
 ## Mounting example
 
