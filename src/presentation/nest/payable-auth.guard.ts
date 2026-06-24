@@ -13,7 +13,7 @@ export class PayableAuthGuard implements CanActivate {
     if (!this.options.authenticate) {
       return true;
     }
-    const guard = await this.moduleRef.create(this.options.authenticate);
+    const guard = this.moduleRef.get(this.options.authenticate, { strict: false });
     const result = guard.canActivate(context);
     return resolveGuardResult(result);
   }
