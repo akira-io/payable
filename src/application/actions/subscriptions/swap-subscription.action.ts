@@ -23,7 +23,7 @@ export class SwapSubscriptionAction extends SubscriptionAction {
         priceId,
         quantity: subscription.quantity,
       },
-      this.context('swap', subscription.providerSubscriptionId, priceId),
+      this.context('swap', subscription.providerSubscriptionId, priceId, true),
     );
     return this.storage().transaction(async (repos) => {
       const updated = await repos.subscriptions.update(

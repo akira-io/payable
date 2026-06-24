@@ -23,7 +23,7 @@ export class UpdateSubscriptionQuantityAction extends SubscriptionAction {
         priceId: subscription.priceId ?? undefined,
         quantity,
       },
-      this.context('quantity', subscription.providerSubscriptionId, String(quantity)),
+      this.context('quantity', subscription.providerSubscriptionId, String(quantity), true),
     );
     return this.storage().transaction(async (repos) => {
       const updated = await repos.subscriptions.update(

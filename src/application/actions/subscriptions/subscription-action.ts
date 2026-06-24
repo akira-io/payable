@@ -86,11 +86,14 @@ export abstract class SubscriptionAction {
     operation: string,
     providerSubscriptionId: string,
     discriminator?: string,
+    perAttempt = false,
   ): OperationContext {
+    const correlationId = CorrelationId.generate().toString();
     const suffix = discriminator ? `:${discriminator}` : '';
+    const nonce = perAttempt ? `:${correlationId}` : '';
     return {
-      correlationId: CorrelationId.generate().toString(),
-      idempotencyKey: `subscription:${operation}:${this.deps.providerName}:${providerSubscriptionId}${suffix}`,
+      correlationId,
+      idempotencyKey: `subscription:${operation}:${this.deps.providerName}:${providerSubscriptionId}${suffix}${nonce}`,
     };
   }
 }
