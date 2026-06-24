@@ -8,6 +8,12 @@ describe('hashRequest', () => {
     expect(a).toBe(b);
   });
 
+  it('orders keys deterministically regardless of locale-sensitive casing', async () => {
+    const a = await hashRequest({ Z: 1, a: 2, Aa: 3 });
+    const b = await hashRequest({ a: 2, Aa: 3, Z: 1 });
+    expect(a).toBe(b);
+  });
+
   it('ignores undefined fields', async () => {
     const a = await hashRequest({ amount: 1099, note: undefined });
     const b = await hashRequest({ amount: 1099 });
