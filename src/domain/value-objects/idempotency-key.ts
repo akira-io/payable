@@ -1,12 +1,14 @@
 import type { CurrencyCode } from './currency';
 
 export interface BillableKeyParts {
+  tenantId?: string | null;
   provider: string;
   billableType: string;
   billableId: string;
 }
 
 export interface ChargeKeyParts {
+  tenantId?: string | null;
   provider: string;
   billableType: string;
   billableId: string;
@@ -16,6 +18,7 @@ export interface ChargeKeyParts {
 }
 
 export interface CheckoutKeyParts {
+  tenantId?: string | null;
   provider: string;
   billableType: string;
   billableId: string;
@@ -25,6 +28,7 @@ export interface CheckoutKeyParts {
 }
 
 export interface SubscriptionKeyParts {
+  tenantId?: string | null;
   provider: string;
   billableType: string;
   billableId: string;
@@ -33,6 +37,7 @@ export interface SubscriptionKeyParts {
 }
 
 export interface RefundKeyParts {
+  tenantId?: string | null;
   provider: string;
   paymentId: string;
   amount: number;
@@ -46,6 +51,10 @@ export interface WebhookKeyParts {
 
 function segment(value: string | number): string {
   return encodeURIComponent(String(value));
+}
+
+function tenantSegment(value: string | null | undefined): string {
+  return segment(value ?? '');
 }
 
 function amountSegment(value: number): string {
@@ -71,7 +80,7 @@ export class IdempotencyKey {
   }
 
   static forCheckout(parts: CheckoutKeyParts): IdempotencyKey {
-    const base = `checkout:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}:${segment(parts.price)}:${segment(parts.subscriptionName)}`;
+    const base = `checkout:${tenantSegment(parts.tenantId)}:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}:${segment(parts.price)}:${segment(parts.subscriptionName)}`;
     return IdempotencyKey.of(
       parts.reference === undefined ? base : `${base}:${segment(parts.reference)}`,
     );
@@ -79,19 +88,19 @@ export class IdempotencyKey {
 
   static forCharge(parts: ChargeKeyParts): IdempotencyKey {
     return IdempotencyKey.of(
-      `charge:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}:${segment(parts.reference)}:${amountSegment(parts.amount)}:${currencySegment(parts.currency)}`,
+      `charge:${tenantSegment(parts.tenantId)}:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}:${segment(parts.reference)}:${amountSegment(parts.amount)}:${currencySegment(parts.currency)}`,
     );
   }
 
   static forSubscription(parts: SubscriptionKeyParts): IdempotencyKey {
     return IdempotencyKey.of(
-      `subscription:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}:${segment(parts.subscriptionName)}:${segment(parts.price)}`,
+      `subscription:${tenantSegment(parts.tenantId)}:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}:${segment(parts.subscriptionName)}:${segment(parts.price)}`,
     );
   }
 
   static forRefund(parts: RefundKeyParts): IdempotencyKey {
     return IdempotencyKey.of(
-      `refund:${segment(parts.provider)}:${segment(parts.paymentId)}:${amountSegment(parts.amount)}:${currencySegment(parts.currency)}`,
+      `refund:${tenantSegment(parts.tenantId)}:${segment(parts.provider)}:${segment(parts.paymentId)}:${amountSegment(parts.amount)}:${currencySegment(parts.currency)}`,
     );
   }
 
@@ -103,13 +112,13 @@ export class IdempotencyKey {
 
   static forCustomer(parts: BillableKeyParts): IdempotencyKey {
     return IdempotencyKey.of(
-      `customer:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}`,
+      `customer:${tenantSegment(parts.tenantId)}:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}`,
     );
   }
 
   static forBillingPortal(parts: BillableKeyParts): IdempotencyKey {
     return IdempotencyKey.of(
-      `portal:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}`,
+      `portal:${tenantSegment(parts.tenantId)}:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}`,
     );
   }
 

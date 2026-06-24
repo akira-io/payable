@@ -20,6 +20,7 @@ export class SyncCustomerWithProviderAction {
       }
     }
     const key = IdempotencyKey.forCustomer({
+      tenantId,
       provider: providerName,
       billableType: billable.billableType,
       billableId: billable.billableId,

@@ -64,6 +64,7 @@ export class RefundPaymentAction {
     }
     assertProviderCapability(this.deps.provider, 'refunds');
     const key = IdempotencyKey.forRefund({
+      tenantId: this.deps.tenantId ?? null,
       provider: this.deps.providerName,
       paymentId: payment.providerPaymentId,
       amount: requested,

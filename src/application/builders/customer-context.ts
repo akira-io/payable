@@ -45,6 +45,7 @@ export class CustomerContext {
       this.billable,
     );
     const key = IdempotencyKey.forBillingPortal({
+      tenantId: this.deps.tenantId ?? null,
       provider: this.deps.providerName,
       billableType: this.billable.billableType,
       billableId: this.billable.billableId,

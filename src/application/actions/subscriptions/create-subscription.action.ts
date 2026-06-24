@@ -44,6 +44,7 @@ export class CreateSubscriptionAction extends SubscriptionAction {
       throw new CustomerNotFoundError(input.billable.billableId);
     }
     const key = IdempotencyKey.forSubscription({
+      tenantId: this.deps.tenantId ?? null,
       provider: this.deps.providerName,
       billableType: input.billable.billableType,
       billableId: input.billable.billableId,

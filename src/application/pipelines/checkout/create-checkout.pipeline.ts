@@ -29,6 +29,7 @@ export class CreateCheckoutPipeline {
   async handle(input: CreateCheckoutInput): Promise<CheckoutSessionDTO> {
     const providerCustomerId = await this.syncCustomer.handle(input.billable);
     const key = IdempotencyKey.forCheckout({
+      tenantId: this.deps.tenantId ?? null,
       provider: this.deps.providerName,
       billableType: input.billable.billableType,
       billableId: input.billable.billableId,
