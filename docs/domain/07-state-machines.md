@@ -58,9 +58,11 @@ Events: `start_trial`, `activate`, `mark_past_due`, `mark_unpaid`, `pause`, `res
 | `incomplete` | `cancel` | `canceled` |
 | `trialing` | `activate` | `active` |
 | `trialing` | `mark_past_due` | `past_due` |
+| `trialing` | `mark_unpaid` | `unpaid` |
 | `trialing` | `pause` | `paused` |
 | `trialing` | `cancel` | `canceled` |
 | `active` | `mark_past_due` | `past_due` |
+| `active` | `mark_unpaid` | `unpaid` |
 | `active` | `pause` | `paused` |
 | `active` | `cancel` | `canceled` |
 | `past_due` | `activate` | `active` |
@@ -69,6 +71,7 @@ Events: `start_trial`, `activate`, `mark_past_due`, `mark_unpaid`, `pause`, `res
 | `unpaid` | `activate` | `active` |
 | `unpaid` | `cancel` | `canceled` |
 | `paused` | `resume` | `active` |
+| `paused` | `mark_past_due` | `past_due` |
 | `paused` | `cancel` | `canceled` |
 | `canceled` | - | (terminal: no transitions) |
 
@@ -85,9 +88,11 @@ stateDiagram-v2
   incomplete --> canceled: cancel
   trialing --> active: activate
   trialing --> past_due: mark_past_due
+  trialing --> unpaid: mark_unpaid
   trialing --> paused: pause
   trialing --> canceled: cancel
   active --> past_due: mark_past_due
+  active --> unpaid: mark_unpaid
   active --> paused: pause
   active --> canceled: cancel
   past_due --> active: activate
@@ -96,6 +101,7 @@ stateDiagram-v2
   unpaid --> active: activate
   unpaid --> canceled: cancel
   paused --> active: resume
+  paused --> past_due: mark_past_due
   paused --> canceled: cancel
   canceled --> [*]
   incomplete_expired --> [*]
