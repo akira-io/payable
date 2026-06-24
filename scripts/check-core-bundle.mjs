@@ -1,15 +1,7 @@
 import { readFileSync } from 'node:fs';
 
-const PEERS = [
-  'stripe',
-  '@paddle/paddle-node-sdk',
-  'knex',
-  'bullmq',
-  'express',
-  'fastify',
-  '@nestjs/common',
-  'reflect-metadata',
-];
+const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+const PEERS = Object.keys(pkg.peerDependencies ?? {});
 
 const FILES = ['dist/index.js', 'dist/index.cjs'];
 
