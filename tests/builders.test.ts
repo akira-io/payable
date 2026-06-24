@@ -104,4 +104,28 @@ describe('payment-mode checkout builder', () => {
 
     expect(first).not.toBe(second);
   });
+
+  it('keys repeat one-time purchases distinctly via a caller reference', async () => {
+    const provider = new FakeProvider();
+    const payable = createPayable({ providers: { stripe: provider } });
+
+    await payable
+      .customer(billable)
+      .checkout()
+      .mode('payment')
+      .addPrice('price_one')
+      .create({ ...urls, reference: 'order_1' });
+    const first = provider.lastCheckout?.ctx.idempotencyKey;
+
+    await payable
+      .customer(billable)
+      .checkout()
+      .mode('payment')
+      .addPrice('price_one')
+      .create({ ...urls, reference: 'order_2' });
+    const second = provider.lastCheckout?.ctx.idempotencyKey;
+
+    expect(first).toContain(':order_1');
+    expect(first).not.toBe(second);
+  });
 });

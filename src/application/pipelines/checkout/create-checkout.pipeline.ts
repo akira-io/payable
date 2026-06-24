@@ -12,6 +12,7 @@ export interface CreateCheckoutInput {
   successUrl: string;
   cancelUrl: string;
   subscriptionName: string;
+  reference?: string;
   trialDays?: number;
   coupon?: string;
 }
@@ -33,6 +34,7 @@ export class CreateCheckoutPipeline {
       billableId: input.billable.billableId,
       price: input.lineItems.map((item) => `${item.priceId}:${item.quantity}`).join(','),
       subscriptionName: input.subscriptionName,
+      reference: input.reference,
     });
     return this.createSession.handle({
       input: {
