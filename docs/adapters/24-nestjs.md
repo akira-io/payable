@@ -97,6 +97,32 @@ process refunds, use the Express adapter or call `payable.refund(...)` directly.
 Like Fastify, the controller casts request bodies to TypeScript interfaces rather than validating
 with the shared Zod schemas, so malformed bodies are not rejected with `VALIDATION_FAILED`.
 
+## Request body limits
+
+Unlike the Express and Fastify adapters - which apply a built-in 64KB cap on JSON routes and a 1MB
+cap on webhook routes - the NestJS adapter sets no body-size limit of its own. NestJS owns the HTTP
+server and its body parser, so the controller relies entirely on the host application's parser
+configuration. A default Nest deployment is bounded by the platform parser's default (~100KB for
+the Express platform), but you do not get the adapter's 64KB/1MB DoS guard automatically.
+
+Configure equivalent limits on the host app to match the other adapters:
+
+```ts
+// Express platform (Nest 10+): set per-parser limits
+const app = await NestFactory.create<NestExpressApplication>(AppModule);
+app.useBodyParser('json', { limit: '64kb' });
+app.useBodyParser('raw', { limit: '1mb' }); // for the raw webhook route
+
+// Fastify platform: cap the body at registration
+const app = await NestFactory.create<NestFastifyApplication>(
+  AppModule,
+  new FastifyAdapter({ bodyLimit: 1024 * 1024 }),
+);
+```
+
+Keep the webhook route's limit (1MB) higher than the JSON routes' limit (64KB), and remember the
+webhook route also requires `{ rawBody: true }` (see below).
+
 ## Raw body requirement
 
 Webhook signature verification needs the raw request body. The controller reads it from
