@@ -156,7 +156,7 @@ export class Money {
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: this.code,
-    }).format(Number(toDecimal(this.value)));
+    }).format(toDecimal(this.value) as unknown as number);
   }
 
   toJSON(): { amount: number; currency: CurrencyCode } {
