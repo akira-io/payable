@@ -41,6 +41,7 @@ import type {
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { assertSubscriptionPayload } from '../webhook-subscription-payload';
+import { stripeAmount } from './stripe-amounts';
 import { withStripeErrors } from './stripe-errors';
 import { StripeEventNormalizer } from './stripe-event-normalizer';
 import {
@@ -170,7 +171,7 @@ export class StripeProvider
     const params: Stripe.PriceCreateParams = {
       product: input.providerProductId,
       currency: input.unitAmount.currency().toLowerCase(),
-      unit_amount: input.unitAmount.amount(),
+      unit_amount: stripeAmount(input.unitAmount),
     };
     if (input.interval) {
       params.recurring = { interval: input.interval, interval_count: input.intervalCount ?? 1 };
@@ -238,7 +239,7 @@ export class StripeProvider
     const intent = await withStripeErrors(() =>
       stripe.paymentIntents.create(
         {
-          amount: input.amount.amount(),
+          amount: stripeAmount(input.amount),
           currency: input.amount.currency().toLowerCase(),
           customer: input.providerCustomerId,
           description: input.description,
@@ -256,7 +257,7 @@ export class StripeProvider
       stripe.refunds.create(
         {
           payment_intent: input.providerPaymentId,
-          amount: input.amount?.amount(),
+          amount: input.amount ? stripeAmount(input.amount) : undefined,
           reason: stripeRefundReason(input.reason),
         },
         { idempotencyKey: ctx.idempotencyKey },

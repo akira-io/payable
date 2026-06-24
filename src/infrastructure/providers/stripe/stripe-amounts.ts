@@ -34,8 +34,7 @@ export function stripeCurrencyExponent(currency: string): number {
   return 2;
 }
 
-export function stripeMoney(amount: number, currency: string): Money {
-  const code = currency.toUpperCase();
+function assertStripeExponent(code: string): void {
   const providerExponent = stripeCurrencyExponent(code);
   const domainExponent = CurrencyManager.precision(code);
   if (providerExponent !== domainExponent) {
@@ -47,5 +46,15 @@ export function stripeMoney(amount: number, currency: string): Money {
       },
     );
   }
+}
+
+export function stripeMoney(amount: number, currency: string): Money {
+  const code = currency.toUpperCase();
+  assertStripeExponent(code);
   return Money.of(amount, code);
+}
+
+export function stripeAmount(money: Money): number {
+  assertStripeExponent(money.currency().toUpperCase());
+  return money.amount();
 }
