@@ -6,6 +6,7 @@ export { flattenHeaders } from '../shared/payable-http';
 export interface FastifyPayableOptions {
   webhookSignatureHeader?: string;
   authenticate?: onRequestHookHandler;
+  resolveTenant?: (request: FastifyRequest) => string | null | undefined;
 }
 
 export function payableErrorReply(

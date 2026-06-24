@@ -12,6 +12,7 @@ export function jsonBody(): RequestHandler {
 export interface ExpressPayableOptions {
   webhookSignatureHeader?: string;
   authenticate?: RequestHandler;
+  resolveTenant?: (req: Request) => string | null | undefined;
 }
 
 export type AsyncRouteHandler = (req: Request, res: Response) => Promise<void>;

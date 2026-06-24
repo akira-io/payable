@@ -5,6 +5,7 @@ import {
   parseBody,
   swapSubscriptionBodySchema,
 } from '../../shared/schemas';
+import type { FastifyPayableOptions } from '../helpers';
 import { DEFAULT_BODY_LIMIT } from '../limits';
 
 type ManageAction = 'cancel' | 'cancelNow' | 'resume';
@@ -12,11 +13,13 @@ type ManageAction = 'cancel' | 'cancelNow' | 'resume';
 export async function registerSubscriptionRoutes(
   scope: FastifyInstance,
   payable: Payable,
+  options: FastifyPayableOptions = {},
 ): Promise<void> {
   const manage = (action: ManageAction) => async (request: FastifyRequest, reply: FastifyReply) => {
     const body = parseBody(manageSubscriptionBodySchema, request.body);
     const params = request.params as { name: string };
-    const manager = payable.customer(body.billable).subscription(params.name);
+    const tenantId = options.resolveTenant?.(request) ?? null;
+    const manager = payable.customer(body.billable, undefined, tenantId).subscription(params.name);
     reply.status(200).send(await manager[action]());
   };
 
@@ -27,7 +30,8 @@ export async function registerSubscriptionRoutes(
   scope.post('/subscriptions/:name/swap', routeOptions, async (request, reply) => {
     const body = parseBody(swapSubscriptionBodySchema, request.body);
     const params = request.params as { name: string };
-    const manager = payable.customer(body.billable).subscription(params.name);
+    const tenantId = options.resolveTenant?.(request) ?? null;
+    const manager = payable.customer(body.billable, undefined, tenantId).subscription(params.name);
     reply.status(200).send(await manager.swap(body.price));
   });
 }
