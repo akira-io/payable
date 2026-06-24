@@ -28,9 +28,11 @@ describe('NodeEncryptionDriver', () => {
     expect(await driver.decrypt(b)).toBe('same');
   });
 
-  it('fails to decrypt with the wrong key', async () => {
+  it('fails to decrypt with the wrong key as a coded PayableError', async () => {
     const token = await new NodeEncryptionDriver({ key: 'right' }).encrypt('secret');
-    await expect(new NodeEncryptionDriver({ key: 'wrong' }).decrypt(token)).rejects.toThrow();
+    await expect(new NodeEncryptionDriver({ key: 'wrong' }).decrypt(token)).rejects.toMatchObject({
+      code: 'ENCRYPTION_DECRYPT_FAILED',
+    });
   });
 
   it('rejects malformed ciphertext', async () => {
