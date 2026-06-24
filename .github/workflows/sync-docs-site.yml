@@ -7,16 +7,31 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Vercel deploy hook
-        env:
-          DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+      - name: Checkout payable
+        uses: actions/checkout@v4
+
+      - name: Checkout payable-docs
+        uses: actions/checkout@v4
+        with:
+          repository: kidiatoliny/payable-docs
+          token: ${{ secrets.PAYABLE_DOCS_TOKEN }}
+          path: payable-docs
+
+      - name: Mirror docs into _docs_src
+        run: rsync -a --delete docs/ payable-docs/_docs_src/
+
+      - name: Commit and push
+        working-directory: payable-docs
         run: |
-          if [ -z "$DEPLOY_HOOK" ]; then
-            echo "VERCEL_DEPLOY_HOOK_URL secret is not set" >&2
-            exit 1
+          git config user.name "kidiatoliny"
+          git config user.email "48266788+kidiatoliny@users.noreply.github.com"
+          git add _docs_src
+          if git diff --cached --quiet; then
+            echo "no docs changes to publish"
+            exit 0
           fi
-          curl -fsS -o /dev/null -X POST "$DEPLOY_HOOK"
-          echo "docs site rebuild triggered"
+          git commit -m "docs: sync from payable ${GITHUB_SHA::7}"
+          git push
