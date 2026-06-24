@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
-import { appliedMigrations } from '../src/infrastructure/storage/knex/migrations/migration-ledger';
+import {
+  appliedMigrations,
+  runStep,
+} from '../src/infrastructure/storage/knex/migrations/migration-ledger';
 import { createTestDb } from './support/knex';
 
 describe('migration ledger', () => {
@@ -14,6 +17,28 @@ describe('migration ledger', () => {
       '002-system-tables',
       '003-alter-existing-tables',
     ]);
+    await db.destroy();
+  });
+
+  it('converges instead of crashing when a concurrent migrator inserts the ledger row first', async () => {
+    const db = createTestDb();
+    await migrate(db);
+
+    let ran = 0;
+    await expect(
+      runStep(db, 'concurrent-step', async () => {
+        ran += 1;
+        await db('payable_migrations').insert({
+          name: 'concurrent-step',
+          applied_at: new Date().toISOString(),
+        });
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(ran).toBe(1);
+    expect((await appliedMigrations(db)).filter((name) => name === 'concurrent-step')).toHaveLength(
+      1,
+    );
     await db.destroy();
   });
 });
