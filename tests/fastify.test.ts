@@ -184,6 +184,14 @@ describe('fastify adapter', () => {
 
     const missing = await app.inject({ method: 'POST', url: '/payable/refunds', payload: {} });
     expect(missing.statusCode).toBe(422);
+
+    const badCurrency = await app.inject({
+      method: 'POST',
+      url: '/payable/refunds',
+      payload: { paymentId: payment.id, amount: { amount: 100, currency: 'NOPE' } },
+    });
+    expect(badCurrency.statusCode).toBe(422);
+    expect(badCurrency.json().error).toBe('VALIDATION_FAILED');
     await app.close();
     await db.destroy();
   });
