@@ -169,12 +169,23 @@ describe('express adapter', () => {
     expect(res.body.error).toBe('VALIDATION_FAILED');
   });
 
-  it('rejects an oversized request body', async () => {
+  it('rejects an oversized request body with a matching error body', async () => {
     const app = makeApp(createPayable({ providers: { stripe: new FakeProvider() } }));
     const res = await request(app)
       .post('/payable/checkout')
       .send({ billable, note: 'x'.repeat(70 * 1024) });
     expect(res.status).toBe(413);
+    expect(res.body.error).toBe('PAYLOAD_TOO_LARGE');
+  });
+
+  it('rejects malformed JSON with an INVALID_JSON body, not INTERNAL_ERROR', async () => {
+    const app = makeApp(createPayable({ providers: { stripe: new FakeProvider() } }));
+    const res = await request(app)
+      .post('/payable/checkout')
+      .set('Content-Type', 'application/json')
+      .send('{ not valid json');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('INVALID_JSON');
   });
 
   it('rejects a refund body with a non-positive amount', async () => {

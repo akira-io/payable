@@ -35,10 +35,29 @@ export function payableErrorStatus(error: unknown): number {
   return error instanceof PayableError ? (STATUS_BY_CODE[error.code] ?? 500) : 500;
 }
 
+function nonPayableErrorBody(error: unknown): PayableErrorBody {
+  const candidate = error as { type?: string; status?: number; statusCode?: number };
+  if (candidate.type === 'entity.too.large') {
+    return {
+      error: 'PAYLOAD_TOO_LARGE',
+      message: 'Request body exceeds the configured size limit',
+    };
+  }
+  if (candidate.type === 'entity.parse.failed') {
+    return { error: 'INVALID_JSON', message: 'Request body is not valid JSON' };
+  }
+  const status = candidate.status ?? candidate.statusCode;
+  if (typeof status === 'number' && status >= 400 && status < 500) {
+    return { error: 'BAD_REQUEST', message: 'Invalid request' };
+  }
+  return { error: 'INTERNAL_ERROR', message: 'Unexpected error' };
+}
+
 export function payableErrorBody(error: unknown): PayableErrorBody {
-  return error instanceof PayableError
-    ? { error: error.code, message: error.message }
-    : { error: 'INTERNAL_ERROR', message: 'Unexpected error' };
+  if (error instanceof PayableError) {
+    return { error: error.code, message: error.message };
+  }
+  return nonPayableErrorBody(error);
 }
 
 export function flattenHeaders(headers: IncomingHttpHeaders): Record<string, string> {
