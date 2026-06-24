@@ -8,6 +8,10 @@ function canonicalize(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map(canonicalize).join(',')}]`;
   }
+  const serializable = value as { toJSON?: () => unknown };
+  if (typeof serializable.toJSON === 'function') {
+    return canonicalize(serializable.toJSON());
+  }
   const entries = Object.entries(value as Record<string, unknown>)
     .filter(([, v]) => v !== undefined)
     .sort(([a], [b]) => a.localeCompare(b));

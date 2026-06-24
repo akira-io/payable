@@ -37,4 +37,19 @@ describe('hashRequest', () => {
     const b = await hashRequest({ items: [1, undefined, null] });
     expect(a).toBe(b);
   });
+
+  it('distinguishes Date values instead of collapsing them to an empty object', async () => {
+    const a = await hashRequest({ at: new Date('2026-01-01T00:00:00.000Z') });
+    const b = await hashRequest({ at: new Date('2026-02-01T00:00:00.000Z') });
+    const empty = await hashRequest({ at: {} });
+    expect(a).not.toBe(b);
+    expect(a).not.toBe(empty);
+  });
+
+  it('hashes objects via toJSON (value objects) by their serialized value', async () => {
+    const money = { amount: () => 1000, toJSON: () => ({ amount: 1000, currency: 'USD' }) };
+    const a = await hashRequest({ price: money });
+    const b = await hashRequest({ price: { amount: 1000, currency: 'USD' } });
+    expect(a).toBe(b);
+  });
 });
