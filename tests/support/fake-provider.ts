@@ -173,7 +173,11 @@ export class FakeProvider implements PaymentProvider {
   async charge(input: ChargeInput, ctx: OperationContext): Promise<ChargeResultDTO> {
     this.lastChargeCtx = ctx;
     this.chargeCalls += 1;
-    return { providerPaymentId: 'pi_fake', status: 'succeeded', amount: input.amount };
+    return {
+      providerPaymentId: `pi_fake_${this.chargeCalls}`,
+      status: 'succeeded',
+      amount: input.amount,
+    };
   }
 
   async refund(input: RefundInput, ctx: OperationContext): Promise<RefundResultDTO> {
