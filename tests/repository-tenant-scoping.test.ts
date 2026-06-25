@@ -76,6 +76,37 @@ describe('findByProviderId tenant scoping', () => {
       (await storage.payments.findByProviderId('stripe', 'pi_1', 'acme'))?.providerPaymentId,
     ).toBe('pi_1');
   });
+
+  it('scopes product and price lookups to the owning tenant', async () => {
+    const product = await storage.products.create({
+      tenantId: 'acme',
+      provider: 'stripe',
+      providerProductId: 'prod_1',
+      name: 'Plan',
+      description: null,
+      active: true,
+      metadata: null,
+    });
+    await storage.prices.create({
+      tenantId: 'acme',
+      provider: 'stripe',
+      providerPriceId: 'price_1',
+      productId: product.id,
+      currency: 'USD',
+      unitAmount: 1000,
+      interval: 'month',
+      intervalCount: 1,
+      active: true,
+    });
+
+    expect(await storage.products.findByProviderId('stripe', 'prod_1', 'globex')).toBeNull();
+    expect(
+      (await storage.products.findByProviderId('stripe', 'prod_1', 'acme'))?.providerProductId,
+    ).toBe('prod_1');
+    expect(await storage.prices.findByProviderId('stripe', 'price_1', 'globex')).toBeNull();
+    expect(await storage.prices.listByProduct(product.id, 'globex')).toHaveLength(0);
+    expect(await storage.prices.listByProduct(product.id, 'acme')).toHaveLength(1);
+  });
 });
 
 describe('subscription item tenant guard', () => {

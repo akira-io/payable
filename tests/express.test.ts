@@ -471,13 +471,22 @@ describe('express adapter', () => {
     });
     const app = makeApp(payable);
 
-    const res = await request(app).get('/payable/invoices/in_fake/pdf');
+    const res = await request(app).get(
+      '/payable/invoices/in_fake/pdf?billableType=User&billableId=1',
+    );
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toContain('application/pdf');
     expect(res.headers['content-disposition']).toContain('in_fake.pdf');
     expect(Buffer.from(res.body)).toEqual(Buffer.from([1, 2, 3]));
 
-    const missing = await request(app).get('/payable/invoices/in_missing/pdf');
+    const otherCustomer = await request(app).get(
+      '/payable/invoices/in_fake/pdf?billableType=User&billableId=2',
+    );
+    expect(otherCustomer.status).toBe(404);
+
+    const missing = await request(app).get(
+      '/payable/invoices/in_missing/pdf?billableType=User&billableId=1',
+    );
     expect(missing.status).toBe(404);
     await db.destroy();
   });

@@ -4,6 +4,7 @@ import { type NestPayableOptions, PAYABLE_INSTANCE, PAYABLE_OPTIONS } from './pa
 import { PayableController } from './payable.controller';
 import { PayableExceptionFilter } from './payable.exception-filter';
 import { PayableAuthGuard } from './payable-auth.guard';
+import { PayableReadController } from './payable-read.controller';
 
 @Module({})
 export class PayableModule {
@@ -19,7 +20,7 @@ export class PayableModule {
     }
     return {
       module: PayableModule,
-      controllers: [PayableController],
+      controllers: [PayableController, PayableReadController],
       providers,
     };
   }

@@ -1,6 +1,7 @@
 import type { Router } from 'express';
 import type { Payable } from '../../../payable';
-import { listInvoicesQuerySchema, parseBody } from '../../shared/schemas';
+import { safeContentDispositionFilename } from '../../shared/payable-http';
+import { billableLookupSchema, listInvoicesQuerySchema, parseBody } from '../../shared/schemas';
 import { asyncHandler, type ExpressPayableOptions } from '../helpers';
 
 export function registerInvoiceRoutes(
@@ -28,10 +29,14 @@ export function registerInvoiceRoutes(
     '/invoices/:id/pdf',
     asyncHandler(async (req, res) => {
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const pdf = await payable.invoices(undefined, tenantId).downloadPdf(String(req.params.id));
+      const billable = parseBody(billableLookupSchema, req.query);
+      const pdf = await payable
+        .invoices(undefined, tenantId)
+        .downloadPdf(String(req.params.id), billable);
+      const filename = safeContentDispositionFilename(pdf.filename);
       res.status(200);
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${pdf.filename}"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.send(Buffer.from(pdf.content));
     }),
   );

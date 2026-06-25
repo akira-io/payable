@@ -19,3 +19,17 @@ export interface NestPayableOptions {
   resolveTenant?: (request: PayableHttpRequest) => string | null | undefined;
   resolveAuthorization?: (request: PayableHttpRequest) => AuthorizationContext | undefined;
 }
+
+export function resolveTenantId(
+  options: NestPayableOptions,
+  request: PayableHttpRequest,
+): string | null {
+  return options.resolveTenant?.(request) ?? null;
+}
+
+export function resolveAuthorization(
+  options: NestPayableOptions,
+  request: PayableHttpRequest,
+): AuthorizationContext | undefined {
+  return options.resolveAuthorization?.(request);
+}

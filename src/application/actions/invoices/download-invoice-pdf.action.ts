@@ -2,12 +2,13 @@ import { isInvoiceCapable } from '../../../domain/contracts/payment-provider.con
 import type { InvoicePdfDTO } from '../../../domain/dtos/invoice.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
+import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
 
 export class DownloadInvoicePdfAction {
   constructor(private readonly deps: BillingDependencies) {}
 
-  async handle(providerInvoiceId: string): Promise<InvoicePdfDTO> {
+  async handle(providerInvoiceId: string, billable?: Billable): Promise<InvoicePdfDTO> {
     const provider = this.deps.provider;
     if (!isInvoiceCapable(provider)) {
       throw new ProviderCapabilityNotSupportedError(provider.name, 'invoicePdf');
@@ -24,12 +25,28 @@ export class DownloadInvoicePdfAction {
       providerInvoiceId,
       tenantId,
     );
-    if (!invoice) {
+    if (!invoice || !(await this.belongsToBillable(invoice.customerId, tenantId, billable))) {
       throw new PayableError(`Invoice not found: ${providerInvoiceId}`, {
         code: 'INVOICE_NOT_FOUND',
         context: { providerInvoiceId },
       });
     }
     return provider.downloadInvoicePdf(providerInvoiceId);
+  }
+
+  private async belongsToBillable(
+    customerId: string,
+    tenantId: string | null,
+    billable?: Billable,
+  ): Promise<boolean> {
+    if (!billable) {
+      return true;
+    }
+    const customer = await this.deps.storage?.customers.findByBillable(
+      billable.billableType,
+      billable.billableId,
+      tenantId,
+    );
+    return customer?.id === customerId;
   }
 }

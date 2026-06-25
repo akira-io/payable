@@ -1,26 +1,21 @@
 import {
   Body,
   Controller,
-  Get,
   HttpCode,
   Inject,
   Param,
   Patch,
   Post,
-  Query,
   Req,
-  StreamableFile,
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import type { Billable } from '../../application/builders/billable';
 import type { AuthorizationContext } from '../../application/policies/authorization-context';
 import type { CheckoutSessionDTO } from '../../domain/dtos/checkout.dto';
-import type { InvoiceDTO } from '../../domain/dtos/invoice.dto';
 import type { PriceDTO } from '../../domain/dtos/price.dto';
 import type { ProductDTO } from '../../domain/dtos/product.dto';
 import type { Customer } from '../../domain/entities/customer.entity';
-import type { Payment } from '../../domain/entities/payment.entity';
 import type { Refund } from '../../domain/entities/refund.entity';
 import type { Subscription } from '../../domain/entities/subscription.entity';
 import { PayableError } from '../../domain/errors/payable-error';
@@ -32,13 +27,9 @@ import {
   runSwapSubscription,
 } from '../shared/operations';
 import {
-  billableLookupSchema,
   checkoutBodySchema,
   customerBodySchema,
   customerUpdateBodySchema,
-  listInvoicesQuerySchema,
-  listRefundsQuerySchema,
-  listSubscriptionsQuerySchema,
   manageSubscriptionBodySchema,
   parseBody,
   parseMoneyInput,
@@ -54,6 +45,8 @@ import {
   PAYABLE_INSTANCE,
   PAYABLE_OPTIONS,
   type PayableHttpRequest,
+  resolveAuthorization,
+  resolveTenantId,
 } from './payable.constants';
 import { PayableExceptionFilter } from './payable.exception-filter';
 import { PayableAuthGuard } from './payable-auth.guard';
@@ -180,102 +173,6 @@ export class PayableController {
       .update(body.billable, { email: body.email, name: body.name });
   }
 
-  @Get('customers')
-  @UseGuards(PayableAuthGuard)
-  async getCustomer(
-    @Req() request: PayableHttpRequest,
-    @Query() query: unknown,
-  ): Promise<Customer> {
-    const lookup = parseBody(billableLookupSchema, query);
-    const customer = await this.payable
-      .customers(undefined, this.tenantOf(request))
-      .get({ ...lookup });
-    if (!customer) {
-      throw new PayableError(`Customer not found: ${lookup.billableId}`, {
-        code: 'CUSTOMER_NOT_FOUND',
-      });
-    }
-    return customer;
-  }
-
-  @Get('invoices')
-  @UseGuards(PayableAuthGuard)
-  invoices(@Req() request: PayableHttpRequest, @Query() query: unknown): Promise<InvoiceDTO[]> {
-    const lookup = parseBody(listInvoicesQuerySchema, query);
-    return this.payable
-      .customer(
-        { billableType: lookup.billableType, billableId: lookup.billableId },
-        undefined,
-        this.tenantOf(request),
-      )
-      .invoices(lookup.limit);
-  }
-
-  @Get('invoices/:id/pdf')
-  @UseGuards(PayableAuthGuard)
-  async getInvoicePdf(
-    @Req() request: PayableHttpRequest,
-    @Param('id') id: string,
-  ): Promise<StreamableFile> {
-    const pdf = await this.payable.invoices(undefined, this.tenantOf(request)).downloadPdf(id);
-    return new StreamableFile(Buffer.from(pdf.content), {
-      type: 'application/pdf',
-      disposition: `attachment; filename="${pdf.filename}"`,
-    });
-  }
-
-  @Get('payments')
-  @UseGuards(PayableAuthGuard)
-  payments(@Req() request: PayableHttpRequest, @Query() query: unknown): Promise<Payment[]> {
-    const lookup = parseBody(billableLookupSchema, query);
-    return this.payable.customer({ ...lookup }, undefined, this.tenantOf(request)).payments();
-  }
-
-  @Get('subscriptions')
-  @UseGuards(PayableAuthGuard)
-  subscriptions(
-    @Req() request: PayableHttpRequest,
-    @Query() query: unknown,
-  ): Promise<Subscription[]> {
-    const lookup = parseBody(listSubscriptionsQuerySchema, query);
-    return this.payable
-      .customer(
-        { billableType: lookup.billableType, billableId: lookup.billableId },
-        undefined,
-        this.tenantOf(request),
-      )
-      .subscriptions(lookup.limit ? { limit: lookup.limit } : undefined);
-  }
-
-  @Get('subscriptions/:name')
-  @UseGuards(PayableAuthGuard)
-  async getSubscription(
-    @Req() request: PayableHttpRequest,
-    @Param('name') name: string,
-    @Query() query: unknown,
-  ): Promise<Subscription> {
-    const lookup = parseBody(billableLookupSchema, query);
-    const subscription = await this.payable
-      .customer({ ...lookup }, undefined, this.tenantOf(request))
-      .subscription(name)
-      .get();
-    if (!subscription) {
-      throw new PayableError(`Subscription not found: ${name}`, {
-        code: 'SUBSCRIPTION_NOT_FOUND',
-      });
-    }
-    return subscription;
-  }
-
-  @Get('refunds')
-  @UseGuards(PayableAuthGuard)
-  listRefunds(@Req() request: PayableHttpRequest, @Query() query: unknown): Promise<Refund[]> {
-    const lookup = parseBody(listRefundsQuerySchema, query);
-    return this.payable
-      .refunds(undefined, this.tenantOf(request))
-      .list(lookup.paymentId, lookup.limit ? { limit: lookup.limit } : undefined);
-  }
-
   @Post('refunds')
   @HttpCode(201)
   @UseGuards(PayableAuthGuard)
@@ -345,10 +242,10 @@ export class PayableController {
   }
 
   private authorizationOf(request: PayableHttpRequest): AuthorizationContext | undefined {
-    return this.options.resolveAuthorization?.(request);
+    return resolveAuthorization(this.options, request);
   }
 
   private tenantOf(request: PayableHttpRequest): string | null {
-    return this.options.resolveTenant?.(request) ?? null;
+    return resolveTenantId(this.options, request);
   }
 }

@@ -470,13 +470,25 @@ describe('fastify adapter', () => {
     });
     const app = await makeApp(payable);
 
-    const res = await app.inject({ method: 'GET', url: '/payable/invoices/in_fake/pdf' });
+    const res = await app.inject({
+      method: 'GET',
+      url: '/payable/invoices/in_fake/pdf?billableType=User&billableId=1',
+    });
     expect(res.statusCode).toBe(200);
     expect(res.headers['content-type']).toContain('application/pdf');
     expect(res.headers['content-disposition']).toContain('in_fake.pdf');
     expect(Buffer.from(res.rawPayload)).toEqual(Buffer.from([1, 2, 3]));
 
-    const missing = await app.inject({ method: 'GET', url: '/payable/invoices/in_missing/pdf' });
+    const otherCustomer = await app.inject({
+      method: 'GET',
+      url: '/payable/invoices/in_fake/pdf?billableType=User&billableId=2',
+    });
+    expect(otherCustomer.statusCode).toBe(404);
+
+    const missing = await app.inject({
+      method: 'GET',
+      url: '/payable/invoices/in_missing/pdf?billableType=User&billableId=1',
+    });
     expect(missing.statusCode).toBe(404);
     await app.close();
     await db.destroy();

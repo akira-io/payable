@@ -14,12 +14,20 @@ export class KnexPriceRepository
 {
   protected readonly table = 'payable_prices';
 
-  findByProviderId(provider: string, providerPriceId: string): Promise<Price | null> {
-    return this.firstWhere({ provider, provider_price_id: providerPriceId });
+  findByProviderId(
+    provider: string,
+    providerPriceId: string,
+    tenantId?: string | null,
+  ): Promise<Price | null> {
+    return this.firstWhere({
+      provider,
+      provider_price_id: providerPriceId,
+      ...this.tenantClause(tenantId),
+    });
   }
 
-  listByProduct(productId: string): Promise<Price[]> {
-    return this.manyWhere({ product_id: productId });
+  listByProduct(productId: string, tenantId?: string | null): Promise<Price[]> {
+    return this.manyWhere({ product_id: productId, ...this.tenantClause(tenantId) });
   }
 
   protected toEntity(row: Record<string, unknown>): Price {
