@@ -1,3 +1,4 @@
+import type { WebhookEventStatus } from '../../../domain/entities/webhook-event.entity';
 import { PayableError } from '../../../domain/errors/payable-error';
 import type { WebhookDependencies } from '../../builders/webhook-dependencies';
 import { DispatchWebhookJobAction } from './dispatch-webhook-job.action';
@@ -13,6 +14,7 @@ export interface ReceiveWebhookInput {
 export interface ReceiveWebhookResult {
   webhookEventId: string;
   duplicate: boolean;
+  status: WebhookEventStatus;
 }
 
 export class ReceiveWebhookAction {
@@ -38,7 +40,7 @@ export class ReceiveWebhookAction {
     });
     const reprocessable = stored.status === 'pending' || stored.status === 'failed';
     if (stored.duplicate && !reprocessable) {
-      return { webhookEventId: stored.id, duplicate: true };
+      return { webhookEventId: stored.id, duplicate: true, status: stored.status };
     }
     await new DispatchWebhookJobAction(this.deps.queue).handle({
       providerName: this.deps.providerName,
@@ -47,7 +49,15 @@ export class ReceiveWebhookAction {
       correlationId: stored.correlationId,
       tenantId,
     });
-    return { webhookEventId: stored.id, duplicate: stored.duplicate };
+    const settled = await this.deps.storage.webhookEvents.findById(stored.id, tenantId);
+    const status = settled?.status ?? stored.status;
+    if (status === 'failed') {
+      throw new PayableError(`Webhook processing failed: ${stored.id}`, {
+        code: 'WEBHOOK_PROCESSING_FAILED',
+        context: { webhookEventId: stored.id },
+      });
+    }
+    return { webhookEventId: stored.id, duplicate: stored.duplicate, status };
   }
 
   private async resolveTenant(input: ReceiveWebhookInput): Promise<string | null> {
