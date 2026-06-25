@@ -66,15 +66,52 @@ export async function alterExistingTables(knex: Knex): Promise<void> {
       columns: ['status', 'locked_until', 'created_at', 'id'],
     },
   ]);
-  if (await knex.schema.hasTable('payable_customers')) {
-    await knex.raw("CREATE UNIQUE INDEX IF NOT EXISTS ?? ON ?? (COALESCE(??, ''), ??, ??)", [
-      'payable_customers_tenant_billable_unique',
+  await ensureCustomerBillableUnique(knex);
+}
+
+const CUSTOMER_BILLABLE_INDEX = 'payable_customers_tenant_billable_unique';
+const CUSTOMER_TENANT_KEY = 'tenant_key';
+
+async function ensureCustomerBillableUnique(knex: Knex): Promise<void> {
+  if (!(await knex.schema.hasTable('payable_customers'))) {
+    return;
+  }
+  const dialect = (knex.client as { dialect?: string }).dialect;
+  if (dialect === 'mysql' || dialect === 'mariadb') {
+    await ensureMysqlCustomerBillableUnique(knex);
+    return;
+  }
+  await knex.raw("CREATE UNIQUE INDEX IF NOT EXISTS ?? ON ?? (COALESCE(??, ''), ??, ??)", [
+    CUSTOMER_BILLABLE_INDEX,
+    'payable_customers',
+    'tenant_id',
+    'billable_type',
+    'billable_id',
+  ]);
+}
+
+async function ensureMysqlCustomerBillableUnique(knex: Knex): Promise<void> {
+  if (!(await knex.schema.hasColumn('payable_customers', CUSTOMER_TENANT_KEY))) {
+    await knex.raw("ALTER TABLE ?? ADD COLUMN ?? VARCHAR(255) AS (COALESCE(??, '')) STORED", [
       'payable_customers',
+      CUSTOMER_TENANT_KEY,
       'tenant_id',
-      'billable_type',
-      'billable_id',
     ]);
   }
+  const [rows] = (await knex.raw(
+    'SELECT COUNT(*) AS count FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?',
+    ['payable_customers', CUSTOMER_BILLABLE_INDEX],
+  )) as [{ count: number }[], unknown];
+  if (Number(rows[0]?.count ?? 0) > 0) {
+    return;
+  }
+  await knex.raw('CREATE UNIQUE INDEX ?? ON ?? (??, ??, ??)', [
+    CUSTOMER_BILLABLE_INDEX,
+    'payable_customers',
+    CUSTOMER_TENANT_KEY,
+    'billable_type',
+    'billable_id',
+  ]);
 }
 
 interface IndexSpec {
