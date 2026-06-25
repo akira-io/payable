@@ -108,6 +108,20 @@ describe('IdempotencyKey', () => {
     expect(IdempotencyKey.forCustomer(parts).toString()).toBe('customer::stripe:User:a%3Ab');
     expect(IdempotencyKey.forBillingPortal(parts).toString()).toBe('portal::stripe:User:a%3Ab');
   });
+
+  it('treats an empty checkout reference the same as an omitted one', () => {
+    const parts = {
+      tenantId: null,
+      provider: 'stripe',
+      billableType: 'User',
+      billableId: '1',
+      price: 'price_pro',
+      subscriptionName: 'default',
+    };
+    const omitted = IdempotencyKey.forCheckout(parts).toString();
+    const empty = IdempotencyKey.forCheckout({ ...parts, reference: '' }).toString();
+    expect(empty).toBe(omitted);
+  });
 });
 
 describe('CorrelationId', () => {
