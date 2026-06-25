@@ -101,4 +101,5 @@ export interface PaddleClient {
   webhooks: {
     unmarshal(body: string, secret: string, signature: string): Promise<PaddleWebhookEvent | null>;
   };
+  withIdempotencyKey?(idempotencyKey: string): PaddleClient;
 }

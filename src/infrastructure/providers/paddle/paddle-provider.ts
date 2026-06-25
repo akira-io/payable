@@ -245,7 +245,7 @@ export class PaddleProvider implements PaymentProvider {
 
   private async paddle(idempotencyKey?: string): Promise<PaddleClient> {
     if (this.injected && this.client) {
-      return this.client;
+      return this.scopeToKey(this.client, idempotencyKey);
     }
     if (!idempotencyKey && this.client) {
       return this.client;
@@ -260,5 +260,12 @@ export class PaddleProvider implements PaymentProvider {
       this.client = client;
     }
     return client;
+  }
+
+  private scopeToKey(client: PaddleClient, idempotencyKey?: string): PaddleClient {
+    if (!idempotencyKey || !client.withIdempotencyKey) {
+      return client;
+    }
+    return client.withIdempotencyKey(idempotencyKey);
   }
 }
