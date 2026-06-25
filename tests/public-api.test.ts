@@ -25,4 +25,10 @@ describe('public API surface', () => {
     const config: AuthorizationConfig = { enabled: true };
     expect(config.enabled).toBe(true);
   });
+
+  it('exports the redaction helpers for custom adapters and loggers', () => {
+    expect(typeof payable.redactHeaders).toBe('function');
+    expect(typeof payable.redactContext).toBe('function');
+    expect(payable.redactHeaders({ authorization: 'secret' }).authorization).toBeUndefined();
+  });
 });
