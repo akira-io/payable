@@ -1,5 +1,7 @@
+import { isWebhookCapable } from '../../../domain/contracts/payment-provider.contract';
 import type { WebhookEventStatus } from '../../../domain/entities/webhook-event.entity';
 import { PayableError } from '../../../domain/errors/payable-error';
+import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import type { WebhookDependencies } from '../../builders/webhook-dependencies';
 import { DispatchWebhookJobAction } from './dispatch-webhook-job.action';
 import { StoreWebhookEventAction } from './store-webhook-event.action';
@@ -21,7 +23,11 @@ export class ReceiveWebhookAction {
   constructor(private readonly deps: WebhookDependencies) {}
 
   async handle(input: ReceiveWebhookInput): Promise<ReceiveWebhookResult> {
-    const verified = await this.deps.provider.verifyWebhook({
+    const provider = this.deps.provider;
+    if (!isWebhookCapable(provider)) {
+      throw new ProviderCapabilityNotSupportedError(provider.name, 'webhooks');
+    }
+    const verified = await provider.verifyWebhook({
       payload: input.payload,
       signature: input.signature,
       headers: input.headers,

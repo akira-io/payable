@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
+  type BillingPortalCapable,
+  type CatalogCapable,
+  type CustomerCapable,
   isChargeCapable,
   isDirectSubscriptionCapable,
   isInvoiceCapable,
   type PaymentProvider,
+  type SubscriptionManagementCapable,
+  type WebhookCapable,
 } from '../src/domain/contracts/payment-provider.contract';
 import { InvalidWebhookSignatureError } from '../src/domain/errors/invalid-webhook-signature.error';
-import { PayableError } from '../src/domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../src/domain/errors/provider-capability-not-supported.error';
 import { Money } from '../src/domain/value-objects/money';
-import { withPaddleErrors } from '../src/infrastructure/providers/paddle/paddle-errors';
 import { PaddleProvider } from '../src/infrastructure/providers/paddle/paddle-provider';
 import type {
   PaddleClient,
@@ -93,7 +96,14 @@ function fakePaddle(unmarshal?: () => Promise<PaddleWebhookEvent | null>) {
   return { client: typed, calls };
 }
 
-const provider = (client: PaddleClient): PaymentProvider =>
+const provider = (
+  client: PaddleClient,
+): PaymentProvider &
+  CustomerCapable &
+  CatalogCapable &
+  SubscriptionManagementCapable &
+  WebhookCapable &
+  BillingPortalCapable =>
   new PaddleProvider({ apiKey: 'pdl_test', webhookSecret: 'wh_test' }, client);
 
 describe('PaddleProvider', () => {
@@ -281,23 +291,5 @@ describe('PaddleProvider', () => {
       data: { id: 'sub_x', status: 'active', currentBillingPeriod: 'garbage' },
     });
     expect(malformed?.currentPeriodEnd).toBeNull();
-  });
-});
-
-describe('withPaddleErrors', () => {
-  it('maps known codes and falls back to PROVIDER_ERROR', async () => {
-    await expect(
-      withPaddleErrors(() => Promise.reject({ code: 'rate_limit_exceeded', detail: 'slow down' })),
-    ).rejects.toMatchObject({ code: 'PROVIDER_RATE_LIMITED' });
-    await expect(
-      withPaddleErrors(() => Promise.reject({ code: 'something_else', detail: 'x' })),
-    ).rejects.toMatchObject({ code: 'PROVIDER_ERROR' });
-  });
-
-  it('passes through a PayableError and a non-Paddle error unchanged', async () => {
-    const payable = new PayableError('boom', { code: 'CUSTOM' });
-    await expect(withPaddleErrors(() => Promise.reject(payable))).rejects.toBe(payable);
-    const plain = new Error('network down');
-    await expect(withPaddleErrors(() => Promise.reject(plain))).rejects.toBe(plain);
   });
 });

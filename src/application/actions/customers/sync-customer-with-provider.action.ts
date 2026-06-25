@@ -1,4 +1,6 @@
+import { isCustomerCapable } from '../../../domain/contracts/payment-provider.contract';
 import { PayableError } from '../../../domain/errors/payable-error';
+import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { Email } from '../../../domain/value-objects/email';
 import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
@@ -10,6 +12,9 @@ export class SyncCustomerWithProviderAction {
 
   async handle(billable: Billable): Promise<string> {
     const { provider, providerName, storage, idempotency } = this.deps;
+    if (!isCustomerCapable(provider)) {
+      throw new ProviderCapabilityNotSupportedError(provider.name, 'customers');
+    }
     const tenantId = this.deps.tenantId ?? null;
     const email = this.normalizeEmail(billable.email);
     if (storage) {

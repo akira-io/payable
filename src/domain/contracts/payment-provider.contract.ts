@@ -15,6 +15,7 @@ import type {
   UpdateSubscriptionInput,
 } from '../dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../dtos/webhook.dto';
+import type { PaymentStatus } from '../value-objects/payment-status';
 
 export interface ResumeSubscriptionInput {
   providerSubscriptionId: string;
@@ -23,15 +24,25 @@ export interface ResumeSubscriptionInput {
 export interface PaymentProvider {
   readonly name: string;
   capabilities(): ProviderCapabilities;
-  createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO>;
-  updateCustomer(input: UpdateCustomerInput, ctx: OperationContext): Promise<CustomerDTO>;
-  createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO>;
-  updateProduct(input: UpdateProductInput, ctx: OperationContext): Promise<ProductDTO>;
-  createPrice(input: CreatePriceInput, ctx: OperationContext): Promise<PriceDTO>;
   createCheckoutSession(
     input: CreateCheckoutSessionInput,
     ctx: OperationContext,
   ): Promise<CheckoutSessionDTO>;
+  refund(input: RefundInput, ctx: OperationContext): Promise<RefundResultDTO>;
+}
+
+export interface CustomerCapable {
+  createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO>;
+  updateCustomer(input: UpdateCustomerInput, ctx: OperationContext): Promise<CustomerDTO>;
+}
+
+export interface CatalogCapable {
+  createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO>;
+  updateProduct(input: UpdateProductInput, ctx: OperationContext): Promise<ProductDTO>;
+  createPrice(input: CreatePriceInput, ctx: OperationContext): Promise<PriceDTO>;
+}
+
+export interface SubscriptionManagementCapable {
   updateSubscription(
     input: UpdateSubscriptionInput,
     ctx: OperationContext,
@@ -44,10 +55,25 @@ export interface PaymentProvider {
     input: ResumeSubscriptionInput,
     ctx: OperationContext,
   ): Promise<SubscriptionDTO>;
-  refund(input: RefundInput, ctx: OperationContext): Promise<RefundResultDTO>;
+}
+
+export interface WebhookCapable {
   verifyWebhook(input: WebhookVerificationInput): Promise<VerifiedWebhook>;
   reconcileSubscription(verified: VerifiedWebhook): SubscriptionDTO | null;
+}
+
+export interface BillingPortalCapable {
   billingPortal(input: BillingPortalInput, ctx: OperationContext): Promise<BillingPortalDTO>;
+}
+
+export interface RedirectCallbackResult {
+  providerPaymentId: string;
+  status: PaymentStatus;
+}
+
+export interface RedirectCallbackCapable {
+  verifyCallback(payload: Record<string, unknown>): boolean | Promise<boolean>;
+  handleRedirectCallback(payload: Record<string, unknown>): Promise<RedirectCallbackResult>;
 }
 
 export interface ChargeCapable {
@@ -64,6 +90,63 @@ export interface DirectSubscriptionCapable {
 export interface InvoiceCapable {
   listInvoices(input: ListInvoicesInput): Promise<InvoiceDTO[]>;
   downloadInvoicePdf(providerInvoiceId: string): Promise<InvoicePdfDTO>;
+}
+
+export function isCustomerCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & CustomerCapable {
+  const candidate = provider as Partial<CustomerCapable>;
+  return (
+    typeof candidate.createCustomer === 'function' && typeof candidate.updateCustomer === 'function'
+  );
+}
+
+export function isCatalogCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & CatalogCapable {
+  const candidate = provider as Partial<CatalogCapable>;
+  return (
+    typeof candidate.createProduct === 'function' &&
+    typeof candidate.updateProduct === 'function' &&
+    typeof candidate.createPrice === 'function'
+  );
+}
+
+export function isSubscriptionManagementCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & SubscriptionManagementCapable {
+  const candidate = provider as Partial<SubscriptionManagementCapable>;
+  return (
+    typeof candidate.updateSubscription === 'function' &&
+    typeof candidate.cancelSubscription === 'function' &&
+    typeof candidate.resumeSubscription === 'function'
+  );
+}
+
+export function isWebhookCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & WebhookCapable {
+  const candidate = provider as Partial<WebhookCapable>;
+  return (
+    typeof candidate.verifyWebhook === 'function' &&
+    typeof candidate.reconcileSubscription === 'function'
+  );
+}
+
+export function isBillingPortalCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & BillingPortalCapable {
+  return typeof (provider as Partial<BillingPortalCapable>).billingPortal === 'function';
+}
+
+export function isRedirectCallbackCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & RedirectCallbackCapable {
+  const candidate = provider as Partial<RedirectCallbackCapable>;
+  return (
+    typeof candidate.verifyCallback === 'function' &&
+    typeof candidate.handleRedirectCallback === 'function'
+  );
 }
 
 export function isChargeCapable(

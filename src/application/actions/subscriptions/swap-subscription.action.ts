@@ -21,7 +21,7 @@ export class SwapSubscriptionAction extends SubscriptionAction {
   ): Promise<Subscription> {
     this.authorize((context) => this.policy.authorize(context), authorization, 'swap subscription');
     const subscription = await this.resolve(billable, name);
-    const dto = await this.deps.provider.updateSubscription(
+    const dto = await this.subscriptionProvider().updateSubscription(
       {
         providerSubscriptionId: subscription.providerSubscriptionId,
         priceId,

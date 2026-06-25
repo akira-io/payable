@@ -9,6 +9,7 @@
         "zod": "^3.24.1",
       },
       "devDependencies": {
+        "@akira-io/sisp": "^1.0.0-beta.1",
         "@biomejs/biome": "^2.3.0",
         "@fastify/rate-limit": "^11.0.0",
         "@modelcontextprotocol/sdk": "^1.29.0",
@@ -32,7 +33,9 @@
         "vitest": "^3.2.0",
       },
       "peerDependencies": {
+        "@akira-io/sisp": ">=1",
         "@fastify/rate-limit": ">=9",
+        "@modelcontextprotocol/sdk": ">=1.18",
         "@nestjs/common": ">=10",
         "@nestjs/core": ">=10",
         "@paddle/paddle-node-sdk": ">=2",
@@ -45,6 +48,7 @@
       },
       "optionalPeers": [
         "@fastify/rate-limit",
+        "@modelcontextprotocol/sdk",
         "@nestjs/common",
         "@nestjs/core",
         "@paddle/paddle-node-sdk",
@@ -58,6 +62,8 @@
     },
   },
   "packages": {
+    "@akira-io/sisp": ["@akira-io/sisp@1.0.0-beta.1", "", { "dependencies": { "knex": "^3.1.0", "qs": "^6.15.2" }, "peerDependencies": { "@fastify/formbody": ">=7", "@nestjs/common": ">=10", "better-sqlite3": ">=11", "express": ">=4.18", "fastify": ">=4.27", "mysql2": ">=3", "pg": ">=8" }, "optionalPeers": ["@fastify/formbody", "@nestjs/common", "better-sqlite3", "express", "fastify", "mysql2", "pg"], "bin": { "sisp": "dist/cli.js" } }, "sha512-poI1Mi5lNGMqqwgKQqCZyk0TbGb2QRbkz+oncaFUF9MmVf8sEAALKB6P7081+oxBb1s5DhdwaQ2vA3ZyAijRhw=="],
+
     "@ampproject/remapping": ["@ampproject/remapping@2.3.0", "", { "dependencies": { "@jridgewell/gen-mapping": "^0.3.5", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw=="],
 
     "@babel/helper-string-parser": ["@babel/helper-string-parser@7.29.7", "", {}, "sha512-Pb5ijPrZ89GDH8223L4UP8i6QApWxs04RbPQJTeWDV0/keR2E36MeKnyr6LYmUUvqRRI+Iv87SuF1W6ErINzYw=="],
