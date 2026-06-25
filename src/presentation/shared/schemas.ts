@@ -34,6 +34,10 @@ export const billableLookupSchema = z.object({
   billableId: z.string().min(1),
 });
 
+export const listInvoicesQuerySchema = billableLookupSchema.extend({
+  limit: z.coerce.number().int().positive().optional(),
+});
+
 export const manageSubscriptionBodySchema = z.object({ billable: billableSchema });
 
 export const swapSubscriptionBodySchema = z.object({

@@ -21,8 +21,8 @@ export function createExpressPayableRoutes(
   registerCheckoutRoutes(router, payable, options);
   registerSubscriptionRoutes(router, payable, options);
   registerCustomerRoutes(router, payable, options);
-  registerInvoiceRoutes(router, payable);
-  registerPaymentRoutes(router, payable);
+  registerInvoiceRoutes(router, payable, options);
+  registerPaymentRoutes(router, payable, options);
   registerRefundRoutes(router, payable, options);
   router.use(payableErrorHandler);
   return router;
