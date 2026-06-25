@@ -60,6 +60,11 @@ export async function alterExistingTables(knex: Knex): Promise<void> {
       name: 'payable_outbox_events_status_locked_index',
       columns: ['status', 'locked_until'],
     },
+    {
+      table: 'payable_outbox_events',
+      name: 'payable_outbox_events_pending_claim_index',
+      columns: ['status', 'next_retry_at', 'created_at', 'id'],
+    },
   ]);
   if (await knex.schema.hasTable('payable_customers')) {
     await knex.raw("CREATE UNIQUE INDEX IF NOT EXISTS ?? ON ?? (COALESCE(??, ''), ??, ??)", [

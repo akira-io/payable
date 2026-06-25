@@ -42,6 +42,18 @@ describe('OutboxService', () => {
     expect(await countDuePendingOutbox(db, clock)).toBe(0);
   });
 
+  it('claims same-timestamp events in a deterministic id order', async () => {
+    for (let i = 0; i < 6; i += 1) {
+      await storage.outboxEvents.create(newOutbox(`evt.${i}.v1`));
+    }
+
+    const claimed = await storage.outboxEvents.claimPending(10);
+    const ids = claimed.map((event) => event.id);
+
+    expect(ids).toHaveLength(6);
+    expect(ids).toEqual([...ids].sort());
+  });
+
   it('isolates a per-event store-write failure instead of aborting the batch', async () => {
     await storage.outboxEvents.create(newOutbox('a.v1'));
     await storage.outboxEvents.create(newOutbox('b.v1'));
