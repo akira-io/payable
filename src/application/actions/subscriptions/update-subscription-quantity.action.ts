@@ -40,7 +40,11 @@ export class UpdateSubscriptionQuantityAction extends SubscriptionAction {
         { quantity, status: this.reconcileStatus(subscription.status, dto.status) },
         this.deps.tenantId ?? null,
       );
-      await repos.subscriptionItems.updatePrimary(subscription.id, { quantity });
+      await repos.subscriptionItems.updatePrimary(
+        subscription.id,
+        { quantity },
+        this.deps.tenantId ?? null,
+      );
       await this.auditWith(repos, {
         action: 'subscription.quantity_updated',
         subscriptionId: subscription.id,

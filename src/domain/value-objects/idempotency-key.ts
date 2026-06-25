@@ -50,6 +50,7 @@ export interface WebhookKeyParts {
 }
 
 export interface SubscriptionOperationKeyParts {
+  tenantId?: string | null;
   operation: string;
   provider: string;
   providerSubscriptionId: string;
@@ -118,7 +119,7 @@ export class IdempotencyKey {
   }
 
   static forSubscriptionOperation(parts: SubscriptionOperationKeyParts): IdempotencyKey {
-    const base = `subscription:${segment(parts.operation)}:${segment(parts.provider)}:${segment(parts.providerSubscriptionId)}`;
+    const base = `subscription:${segment(parts.operation)}:${tenantSegment(parts.tenantId)}:${segment(parts.provider)}:${segment(parts.providerSubscriptionId)}`;
     const discriminator = parts.discriminator ? `:${segment(parts.discriminator)}` : '';
     const nonce = parts.nonce ? `:${segment(parts.nonce)}` : '';
     return IdempotencyKey.of(`${base}${discriminator}${nonce}`);

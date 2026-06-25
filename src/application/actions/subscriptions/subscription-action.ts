@@ -101,6 +101,7 @@ export abstract class SubscriptionAction {
     return {
       correlationId,
       idempotencyKey: IdempotencyKey.forSubscriptionOperation({
+        tenantId: this.deps.tenantId ?? null,
         operation,
         provider: this.deps.providerName,
         providerSubscriptionId,

@@ -22,8 +22,9 @@ export class DownloadInvoicePdfAction {
     const invoice = await storage.invoices.findByProviderId(
       this.deps.providerName,
       providerInvoiceId,
+      tenantId,
     );
-    if (!invoice || (invoice.tenantId ?? null) !== tenantId) {
+    if (!invoice) {
       throw new PayableError(`Invoice not found: ${providerInvoiceId}`, {
         code: 'INVOICE_NOT_FOUND',
         context: { providerInvoiceId },

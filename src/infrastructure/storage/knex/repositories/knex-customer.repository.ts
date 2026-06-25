@@ -24,8 +24,16 @@ export class KnexCustomerRepository
     });
   }
 
-  findByProviderId(provider: string, providerCustomerId: string): Promise<Customer | null> {
-    return this.firstWhere({ provider, provider_customer_id: providerCustomerId });
+  findByProviderId(
+    provider: string,
+    providerCustomerId: string,
+    tenantId?: string | null,
+  ): Promise<Customer | null> {
+    return this.firstWhere({
+      provider,
+      provider_customer_id: providerCustomerId,
+      ...this.tenantClause(tenantId),
+    });
   }
 
   protected toEntity(row: Record<string, unknown>): Customer {
