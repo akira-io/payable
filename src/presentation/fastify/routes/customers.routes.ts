@@ -33,7 +33,7 @@ export async function registerCustomerRoutes(
   scope.get('/customers', async (request, reply) => {
     const query = parseBody(billableLookupSchema, request.query);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    const customer = await payable.customers(undefined, tenantId).get({ ...query, email: '' });
+    const customer = await payable.customers(undefined, tenantId).get({ ...query });
     if (!customer) {
       reply.status(404).send({ error: 'CUSTOMER_NOT_FOUND', message: 'Customer not found' });
       return;

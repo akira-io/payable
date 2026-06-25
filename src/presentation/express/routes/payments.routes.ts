@@ -13,9 +13,7 @@ export function registerPaymentRoutes(
     asyncHandler(async (req, res) => {
       const query = parseBody(billableLookupSchema, req.query);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const payments = await payable
-        .customer({ ...query, email: '' }, undefined, tenantId)
-        .payments();
+      const payments = await payable.customer({ ...query }, undefined, tenantId).payments();
       res.status(200).json(payments);
     }),
   );

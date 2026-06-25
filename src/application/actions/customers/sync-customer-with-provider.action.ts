@@ -58,9 +58,9 @@ export class SyncCustomerWithProviderAction {
     });
   }
 
-  private normalizeEmail(value: string): string {
+  private normalizeEmail(value: string | undefined): string {
     try {
-      return Email.of(value).toString();
+      return Email.of(value ?? '').toString();
     } catch {
       throw new PayableError(`Invalid customer email: ${value}`, {
         code: 'CUSTOMER_EMAIL_INVALID',

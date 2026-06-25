@@ -23,7 +23,7 @@ export function registerSubscriptionRoutes(
       const tenantId = options.resolveTenant?.(req) ?? null;
       const subscriptions = await payable
         .customer(
-          { billableType: query.billableType, billableId: query.billableId, email: '' },
+          { billableType: query.billableType, billableId: query.billableId },
           undefined,
           tenantId,
         )
@@ -38,7 +38,7 @@ export function registerSubscriptionRoutes(
       const query = parseBody(billableLookupSchema, req.query);
       const tenantId = options.resolveTenant?.(req) ?? null;
       const subscription = await payable
-        .customer({ ...query, email: '' }, undefined, tenantId)
+        .customer({ ...query }, undefined, tenantId)
         .subscription(String(req.params.name))
         .get();
       if (!subscription) {
