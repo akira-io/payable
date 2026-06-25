@@ -133,6 +133,28 @@ describe('webhook subscription reconciliation (C1)', () => {
     expect(reloaded?.status).toBe(subscription.status);
   });
 
+  it('does not resurrect a canceled subscription from an out-of-order provider event', async () => {
+    await seedSubscription();
+    await payable.customer(billable).subscription('default').cancelNow();
+    provider.verifyResult = {
+      providerEventId: 'evt_stale',
+      type: 'customer.subscription.updated',
+      normalizedType: 'subscription.updated',
+      data: {},
+    };
+    provider.reconcileResult = {
+      providerSubscriptionId: 'sub_fake',
+      status: 'active',
+      currentPeriodEnd: new Date('2026-07-22T00:00:00.000Z'),
+      trialEndsAt: null,
+    };
+
+    await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
+
+    const reloaded = await storage.subscriptions.findByProviderId('stripe', 'sub_fake');
+    expect(reloaded?.status).toBe('canceled');
+  });
+
   it('ignores non-subscription events', async () => {
     const subscription = await seedSubscription();
     provider.verifyResult = {
