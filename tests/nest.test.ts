@@ -272,4 +272,21 @@ describe('nest adapter', () => {
     expect(updated.name).toBe('Renamed');
     await db.destroy();
   });
+
+  it('creates products and prices', async () => {
+    const controller = controllerFor(createPayable({ providers: { stripe: new FakeProvider() } }));
+
+    const product = await controller.createProduct({ headers: {} }, { name: 'Pro' });
+    expect(product.providerProductId).toBe('prod_fake');
+
+    const price = await controller.createPrice(
+      { headers: {} },
+      {
+        providerProductId: 'prod_fake',
+        amount: { amount: 9900, currency: 'USD' },
+        interval: 'month',
+      },
+    );
+    expect(price.providerPriceId).toBe('price_fake');
+  });
 });

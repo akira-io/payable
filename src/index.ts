@@ -47,6 +47,8 @@ export {
   type CustomerChanges,
   CustomerContext,
   CustomerResource,
+  PriceResource,
+  ProductResource,
   SubscriptionBuilder,
   SubscriptionManager,
   type WebhookDependencies,

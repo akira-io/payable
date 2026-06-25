@@ -55,6 +55,9 @@ Every method and path below is registered by the adapter. Paths are relative to 
 | GET | `/customers` | 200 | Get a customer by `billableType`+`billableId` (query) |
 | GET | `/invoices` | 200 | List a billable's invoices (query: billableType, billableId, limit?) |
 | GET | `/payments` | 200 | List a billable's payments (query: billableType, billableId) |
+| POST | `/products` | 201 | Create a product at the provider |
+| PATCH | `/products` | 200 | Update a product |
+| POST | `/prices` | 201 | Create a price for a product |
 
 All routes above are wired to working implementations. `/customers` (POST/PATCH/GET), `/invoices`,
 and `/payments` resolve a `Payable` resource for the request's billable (and tenant, when tenancy is

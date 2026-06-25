@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import type { Payable } from '../../payable';
 import { type FastifyPayableOptions, payableErrorReply } from './helpers';
+import { registerCatalogRoutes } from './routes/catalog.routes';
 import { registerCheckoutRoutes } from './routes/checkout.routes';
 import { registerCustomerRoutes } from './routes/customers.routes';
 import { registerReadRoutes } from './routes/reads.routes';
@@ -26,6 +27,7 @@ export function createFastifyPayablePlugin(
       await registerRefundRoutes(authenticatedScope, payable, options);
       await registerCustomerRoutes(authenticatedScope, payable, options);
       await registerReadRoutes(authenticatedScope, payable, options);
+      await registerCatalogRoutes(authenticatedScope, payable, options);
     });
   };
 }

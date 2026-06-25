@@ -5,6 +5,7 @@ import { registerCheckoutRoutes } from './routes/checkout.routes';
 import { registerCustomerRoutes } from './routes/customers.routes';
 import { registerInvoiceRoutes } from './routes/invoices.routes';
 import { registerPaymentRoutes } from './routes/payments.routes';
+import { registerCatalogRoutes } from './routes/products.routes';
 import { registerRefundRoutes } from './routes/refunds.routes';
 import { registerSubscriptionRoutes } from './routes/subscriptions.routes';
 import { registerWebhookRoutes } from './routes/webhooks.routes';
@@ -24,6 +25,7 @@ export function createExpressPayableRoutes(
   registerInvoiceRoutes(router, payable, options);
   registerPaymentRoutes(router, payable, options);
   registerRefundRoutes(router, payable, options);
+  registerCatalogRoutes(router, payable, options);
   router.use(payableErrorHandler);
   return router;
 }

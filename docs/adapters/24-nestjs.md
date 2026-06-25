@@ -75,6 +75,9 @@ constructor(
 | GET | `customers` | 200 | `getCustomer` | Get a customer by `billableType`+`billableId` |
 | GET | `invoices` | 200 | `invoices` | List a billable's invoices |
 | GET | `payments` | 200 | `payments` | List a billable's payments |
+| POST | `products` | 201 | `createProduct` | Create a product at the provider |
+| PATCH | `products` | 200 | `updateProduct` | Update a product |
+| POST | `prices` | 201 | `createPrice` | Create a price for a product |
 | POST | `refunds` | 501 | `refunds` | Reserved; throws `NOT_IMPLEMENTED` |
 
 ## Scope and parity vs Express

@@ -14,6 +14,8 @@ import type { Billable } from './application/builders/billable';
 import type { BillingDependencies } from './application/builders/billing-dependencies';
 import { CustomerContext } from './application/builders/customer-context';
 import { CustomerResource } from './application/builders/customer-resource';
+import { PriceResource } from './application/builders/price-resource';
+import { ProductResource } from './application/builders/product-resource';
 import type { WebhookDependencies } from './application/builders/webhook-dependencies';
 import type { AuthorizationContext } from './application/policies/authorization-context';
 import type { ReplayWebhookContext } from './application/policies/can-replay-webhook.policy';
@@ -97,6 +99,14 @@ export class Payable {
 
   customers(providerName?: string, tenantId?: string | null): CustomerResource {
     return new CustomerResource(this.dependencies(providerName, tenantId));
+  }
+
+  products(providerName?: string, tenantId?: string | null): ProductResource {
+    return new ProductResource(this.dependencies(providerName, tenantId));
+  }
+
+  prices(providerName?: string, tenantId?: string | null): PriceResource {
+    return new PriceResource(this.dependencies(providerName, tenantId));
   }
 
   async receiveWebhook(
