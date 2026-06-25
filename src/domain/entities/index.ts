@@ -14,4 +14,5 @@ export type { Product } from './product.entity';
 export type { Refund } from './refund.entity';
 export type { Subscription } from './subscription.entity';
 export type { SubscriptionItem } from './subscription-item.entity';
+export type { WebhookEndpoint, WebhookEndpointStatus } from './webhook-endpoint.entity';
 export type { WebhookEvent, WebhookEventStatus } from './webhook-event.entity';

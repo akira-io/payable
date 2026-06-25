@@ -10,6 +10,7 @@ import type {
   RefundRepository,
   SubscriptionItemRepository,
   SubscriptionRepository,
+  WebhookEndpointRepository,
   WebhookEventRepository,
 } from '../../../domain/contracts';
 import type { Clock } from '../../../domain/contracts/clock.contract';
@@ -29,6 +30,7 @@ import { KnexProductRepository } from './repositories/knex-product.repository';
 import { KnexRefundRepository } from './repositories/knex-refund.repository';
 import { KnexSubscriptionRepository } from './repositories/knex-subscription.repository';
 import { KnexSubscriptionItemRepository } from './repositories/knex-subscription-item.repository';
+import { KnexWebhookEndpointRepository } from './repositories/knex-webhook-endpoint.repository';
 import { KnexWebhookEventRepository } from './repositories/knex-webhook-event.repository';
 
 function buildRepositories(qb: Knex, clock: Clock, encryption?: Encryption): Repositories {
@@ -42,6 +44,7 @@ function buildRepositories(qb: Knex, clock: Clock, encryption?: Encryption): Rep
     payments: new KnexPaymentRepository(qb, clock),
     refunds: new KnexRefundRepository(qb, clock),
     webhookEvents: new KnexWebhookEventRepository(qb, clock, encryption),
+    webhookEndpoints: new KnexWebhookEndpointRepository(qb, clock),
     auditLogs: new KnexAuditLogRepository(qb, clock),
     outboxEvents: new KnexOutboxEventRepository(qb, clock),
   };
@@ -57,6 +60,7 @@ export class KnexStorageDriver implements StorageDriver {
   readonly payments: PaymentRepository;
   readonly refunds: RefundRepository;
   readonly webhookEvents: WebhookEventRepository;
+  readonly webhookEndpoints: WebhookEndpointRepository;
   readonly auditLogs: AuditLogRepository;
   readonly outboxEvents: OutboxEventRepository;
 
@@ -75,6 +79,7 @@ export class KnexStorageDriver implements StorageDriver {
     this.payments = repositories.payments;
     this.refunds = repositories.refunds;
     this.webhookEvents = repositories.webhookEvents;
+    this.webhookEndpoints = repositories.webhookEndpoints;
     this.auditLogs = repositories.auditLogs;
     this.outboxEvents = repositories.outboxEvents;
   }
