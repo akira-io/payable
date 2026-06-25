@@ -28,6 +28,20 @@ describe('payable.customers', () => {
     await db.destroy();
   });
 
+  it('rejects an invalid email with a coded CUSTOMER_EMAIL_INVALID error', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const payable = createPayable({
+      providers: { stripe: new FakeProvider() },
+      storage: new KnexStorageDriver(db, new FakeClock()),
+    });
+
+    await expect(
+      payable.customers().create({ ...billable, email: 'not-an-email' }),
+    ).rejects.toMatchObject({ code: 'CUSTOMER_EMAIL_INVALID' });
+    await db.destroy();
+  });
+
   it('is idempotent: a second create returns the existing customer', async () => {
     const db = createTestDb();
     await migrate(db);

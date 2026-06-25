@@ -1,3 +1,4 @@
+import { PayableError } from '../../../domain/errors/payable-error';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { Email } from '../../../domain/value-objects/email';
 import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
@@ -10,7 +11,7 @@ export class SyncCustomerWithProviderAction {
   async handle(billable: Billable): Promise<string> {
     const { provider, providerName, storage, idempotency } = this.deps;
     const tenantId = this.deps.tenantId ?? null;
-    const email = Email.of(billable.email).toString();
+    const email = this.normalizeEmail(billable.email);
     if (storage) {
       const existing = await storage.customers.findByBillable(
         billable.billableType,
@@ -57,6 +58,17 @@ export class SyncCustomerWithProviderAction {
     });
   }
 
+  private normalizeEmail(value: string): string {
+    try {
+      return Email.of(value).toString();
+    } catch {
+      throw new PayableError(`Invalid customer email: ${value}`, {
+        code: 'CUSTOMER_EMAIL_INVALID',
+        context: { billableEmail: value },
+      });
+    }
+  }
+
   private async persist(
     billable: Billable,
     providerCustomerId: string,
@@ -73,7 +85,7 @@ export class SyncCustomerWithProviderAction {
       tenantId,
     );
     if (existing) {
-      await storage.customers.update(existing.id, { providerCustomerId });
+      await storage.customers.update(existing.id, { providerCustomerId }, tenantId);
       return;
     }
     try {
@@ -96,7 +108,7 @@ export class SyncCustomerWithProviderAction {
       if (!raced) {
         throw error;
       }
-      await storage.customers.update(raced.id, { providerCustomerId });
+      await storage.customers.update(raced.id, { providerCustomerId }, tenantId);
     }
   }
 }

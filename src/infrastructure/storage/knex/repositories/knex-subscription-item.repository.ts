@@ -13,11 +13,24 @@ export class KnexSubscriptionItemRepository
 {
   protected readonly table = 'payable_subscription_items';
 
-  listBySubscription(subscriptionId: string): Promise<SubscriptionItem[]> {
+  async listBySubscription(
+    subscriptionId: string,
+    tenantId?: string | null,
+  ): Promise<SubscriptionItem[]> {
+    if (tenantId !== undefined && !(await this.subscriptionInTenant(subscriptionId, tenantId))) {
+      return [];
+    }
     return this.manyWhere({ subscription_id: subscriptionId });
   }
 
-  async updatePrimary(subscriptionId: string, patch: SubscriptionItemPatch): Promise<void> {
+  async updatePrimary(
+    subscriptionId: string,
+    patch: SubscriptionItemPatch,
+    tenantId?: string | null,
+  ): Promise<void> {
+    if (tenantId !== undefined && !(await this.subscriptionInTenant(subscriptionId, tenantId))) {
+      return;
+    }
     const first = await this.knex(this.table)
       .where({ subscription_id: subscriptionId })
       .orderBy('created_at', 'asc')
@@ -34,6 +47,16 @@ export class KnexSubscriptionItemRepository
       changes.quantity = patch.quantity;
     }
     await this.knex(this.table).where({ id: first.id }).update(changes);
+  }
+
+  private async subscriptionInTenant(
+    subscriptionId: string,
+    tenantId: string | null,
+  ): Promise<boolean> {
+    const where =
+      tenantId === null ? { id: subscriptionId } : { id: subscriptionId, tenant_id: tenantId };
+    const row = await this.knex('payable_subscriptions').where(where).first();
+    return Boolean(row);
   }
 
   protected toEntity(row: Record<string, unknown>): SubscriptionItem {

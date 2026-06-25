@@ -31,4 +31,12 @@ describe('ConsoleLogger redaction', () => {
     expect(headers[0]?.cookie).toBe('[redacted]');
     expect(headers[1]?.['x-id']).toBe('1');
   });
+
+  it('does not overflow on a cyclic object', () => {
+    const cyclic: Record<string, unknown> = { id: 1 };
+    cyclic.self = cyclic;
+    const result = redactContext({ cyclic });
+    expect((result.cyclic as { id: number }).id).toBe(1);
+    expect((result.cyclic as { self: unknown }).self).toBe('[circular]');
+  });
 });

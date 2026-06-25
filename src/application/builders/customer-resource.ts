@@ -60,10 +60,14 @@ export class CustomerResource {
       { providerCustomerId: existing.providerCustomerId, email: changes.email, name: changes.name },
       { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
     );
-    return storage.customers.update(existing.id, {
-      email: dto.email ?? changes.email ?? existing.email,
-      name: dto.name ?? changes.name ?? existing.name,
-    });
+    return storage.customers.update(
+      existing.id,
+      {
+        email: dto.email ?? changes.email ?? existing.email,
+        name: dto.name ?? changes.name ?? existing.name,
+      },
+      this.deps.tenantId ?? null,
+    );
   }
 
   private requireStorage(): NonNullable<BillingDependencies['storage']> {

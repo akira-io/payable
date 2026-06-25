@@ -15,8 +15,16 @@ export class KnexPaymentRepository
 {
   protected readonly table = 'payable_payments';
 
-  findByProviderId(provider: string, providerPaymentId: string): Promise<Payment | null> {
-    return this.firstWhere({ provider, provider_payment_id: providerPaymentId });
+  findByProviderId(
+    provider: string,
+    providerPaymentId: string,
+    tenantId?: string | null,
+  ): Promise<Payment | null> {
+    return this.firstWhere({
+      provider,
+      provider_payment_id: providerPaymentId,
+      ...this.tenantClause(tenantId),
+    });
   }
 
   listByCustomer(

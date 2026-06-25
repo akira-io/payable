@@ -26,6 +26,24 @@ describe('PayableError', () => {
     expect(JSON.stringify(error)).not.toContain('abc123');
   });
 
+  it('redacts sensitive context keys in toJSON', () => {
+    const error = new PayableError('boom', {
+      code: 'X',
+      context: { apiKey: 'sk_live_1', cardNumber: '4242', paymentId: 'pay_1' },
+    });
+    const json = error.toJSON();
+    expect(json.context).toEqual({
+      apiKey: '[redacted]',
+      cardNumber: '[redacted]',
+      paymentId: 'pay_1',
+    });
+  });
+
+  it('captures a stack trace at the throw site', () => {
+    const error = new PayableError('boom');
+    expect(error.stack).toBeDefined();
+  });
+
   it('subclasses keep their name and code', () => {
     const error = new ProviderNotFoundError('stripe');
     expect(error).toBeInstanceOf(PayableError);

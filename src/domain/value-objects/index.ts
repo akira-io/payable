@@ -6,6 +6,7 @@ export {
   type DineroCurrency,
   type KnownCurrencyCode,
 } from './currency';
+export { Email } from './email';
 export {
   type BillableKeyParts,
   type ChargeKeyParts,
@@ -13,6 +14,7 @@ export {
   IdempotencyKey,
   type RefundKeyParts,
   type SubscriptionKeyParts,
+  type SubscriptionOperationKeyParts,
   type WebhookKeyParts,
 } from './idempotency-key';
 export {
@@ -43,3 +45,5 @@ export {
   type SubscriptionStatus,
 } from './subscription-status';
 export { TenantId } from './tenant-id';
+export { WebhookEndpointUrl } from './webhook-endpoint-url';
+export { WebhookSigningSecret } from './webhook-signing-secret';

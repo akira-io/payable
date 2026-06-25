@@ -15,8 +15,16 @@ export class KnexInvoiceRepository
 {
   protected readonly table = 'payable_invoices';
 
-  findByProviderId(provider: string, providerInvoiceId: string): Promise<Invoice | null> {
-    return this.firstWhere({ provider, provider_invoice_id: providerInvoiceId });
+  findByProviderId(
+    provider: string,
+    providerInvoiceId: string,
+    tenantId?: string | null,
+  ): Promise<Invoice | null> {
+    return this.firstWhere({
+      provider,
+      provider_invoice_id: providerInvoiceId,
+      ...this.tenantClause(tenantId),
+    });
   }
 
   listByCustomer(
