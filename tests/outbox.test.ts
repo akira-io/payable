@@ -113,12 +113,14 @@ describe('OutboxService', () => {
       throw new Error('expected a claimed event');
     }
 
-    await storage.outboxEvents.markPublished(claimed.id, 'stale-token');
+    const staleUpdates = await storage.outboxEvents.markPublished(claimed.id, 'stale-token');
+    expect(staleUpdates).toBe(0);
     expect((await db('payable_outbox_events').where({ id: claimed.id }).first())?.status).toBe(
       'processing',
     );
 
-    await storage.outboxEvents.markPublished(claimed.id, claimed.lockToken);
+    const ownedUpdates = await storage.outboxEvents.markPublished(claimed.id, claimed.lockToken);
+    expect(ownedUpdates).toBe(1);
     expect((await db('payable_outbox_events').where({ id: claimed.id }).first())?.status).toBe(
       'published',
     );

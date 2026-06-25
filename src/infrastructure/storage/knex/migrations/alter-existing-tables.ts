@@ -75,6 +75,41 @@ export async function alterExistingTables(knex: Knex): Promise<void> {
     },
   ]);
   await ensureCustomerBillableUnique(knex);
+  await backfillEndpointEvents(knex);
+}
+
+async function backfillEndpointEvents(knex: Knex): Promise<void> {
+  if (
+    !(await knex.schema.hasTable('payable_webhook_endpoints')) ||
+    !(await knex.schema.hasTable('payable_webhook_endpoint_events'))
+  ) {
+    return;
+  }
+  const endpoints = (await knex('payable_webhook_endpoints').select('id', 'events')) as {
+    id: string;
+    events: string;
+  }[];
+  for (const endpoint of endpoints) {
+    const events = parseEventList(endpoint.events);
+    for (const eventType of events) {
+      await knex('payable_webhook_endpoint_events')
+        .insert({ endpoint_id: endpoint.id, event_type: eventType })
+        .onConflict(['endpoint_id', 'event_type'])
+        .ignore();
+    }
+  }
+}
+
+function parseEventList(value: unknown): string[] {
+  if (typeof value !== 'string') {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? (parsed as string[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 const CUSTOMER_BILLABLE_INDEX = 'payable_customers_tenant_billable_unique';
