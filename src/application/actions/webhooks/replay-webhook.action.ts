@@ -34,8 +34,9 @@ export class ReplayWebhookAction {
       normalizedType: event.normalizedType as NormalizedEventName | null,
       data: event.data,
     };
-    await this.deps.storage.webhookEvents.markStatus(event.id, 'pending', null);
-    const claimed = await this.deps.storage.webhookEvents.claim(event.id, context.tenantId);
+    const claimed = await this.deps.storage.webhookEvents.claim(event.id, context.tenantId, {
+      replay: true,
+    });
     if (!claimed) {
       return;
     }

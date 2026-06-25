@@ -207,4 +207,33 @@ describe('webhook replay', () => {
 
     expect((await storage.webhookEvents.findById(event.id))?.status).toBe('processed');
   });
+
+  it('does not replay an event another worker is actively processing', async () => {
+    const provider = new FakeProvider();
+    provider.verifyResult = verifyResult;
+    const payable = createPayable({ providers: { stripe: provider }, storage, clock });
+
+    const event = await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_live_processing',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      payload: '{}',
+      data: { id: 'in_1' },
+      headers: {},
+      status: 'pending',
+      correlationId: 'corr_live',
+      receivedAt: clock.now(),
+    });
+    expect(await storage.webhookEvents.claim(event.id)).toBe(true);
+    const auditBefore = (await storage.auditLogs.list({ resourceType: 'webhook_event' })).length;
+
+    await payable.replayWebhook(event.id, { allowed: true, actorType: 'user', actorId: 'admin-1' });
+
+    expect((await storage.webhookEvents.findById(event.id))?.status).toBe('processing');
+    expect(await storage.auditLogs.list({ resourceType: 'webhook_event' })).toHaveLength(
+      auditBefore,
+    );
+  });
 });
