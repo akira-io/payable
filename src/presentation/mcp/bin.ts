@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { timingSafeEqual } from 'node:crypto';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Payable } from '../../payable';
@@ -26,6 +27,14 @@ function readFlag(name: string): string | boolean | undefined {
 
 function notify(message: string): void {
   process.stderr.write(`payable-mcp: ${message}\n`);
+}
+
+function bearerMatches(header: string | undefined, token: string): boolean {
+  const expected = `Bearer ${token}`;
+  if (typeof header !== 'string' || header.length !== expected.length) {
+    return false;
+  }
+  return timingSafeEqual(Buffer.from(header), Buffer.from(expected));
 }
 
 async function loadConfig(path: string): Promise<PayableMcpConfig> {
@@ -64,7 +73,7 @@ async function main(): Promise<void> {
       host,
       port,
       authenticate: token
-        ? (request) => request.headers.authorization === `Bearer ${token}`
+        ? (request) => bearerMatches(request.headers.authorization, token)
         : undefined,
     });
     notify(`listening on http://${host ?? '127.0.0.1'}:${port ?? 3333}/mcp`);

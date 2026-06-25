@@ -27,10 +27,12 @@ export function jsonResult(data: unknown): CallToolResult {
 }
 
 export function errorResult(error: unknown): CallToolResult {
-  const message = error instanceof Error ? error.message : String(error);
-  const code = error instanceof PayableError ? error.code : 'INTERNAL_ERROR';
+  const payload =
+    error instanceof PayableError
+      ? { error: error.code, message: error.message }
+      : { error: 'INTERNAL_ERROR', message: 'Unexpected error' };
   return {
-    content: [{ type: 'text', text: JSON.stringify({ error: code, message }) }],
+    content: [{ type: 'text', text: JSON.stringify(payload) }],
     isError: true,
   };
 }
