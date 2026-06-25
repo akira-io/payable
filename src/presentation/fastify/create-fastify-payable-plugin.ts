@@ -1,3 +1,4 @@
+import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import type { Payable } from '../../payable';
 import { type FastifyPayableOptions, payableErrorReply } from './helpers';
@@ -19,6 +20,11 @@ export function createFastifyPayablePlugin(
       await registerWebhookRoutes(webhookScope, payable, options);
     });
     await fastify.register(async (authenticatedScope) => {
+      await authenticatedScope.register(rateLimit, {
+        max: 100,
+        timeWindow: '1 minute',
+        ...options.rateLimit,
+      });
       if (options.authenticate) {
         authenticatedScope.addHook('onRequest', options.authenticate);
       }
