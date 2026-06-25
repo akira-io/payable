@@ -16,15 +16,16 @@ export function createFastifyPayablePlugin(
 ): FastifyPluginAsync {
   return async (fastify: FastifyInstance) => {
     fastify.setErrorHandler(payableErrorReply);
+    await fastify.register(rateLimit, {
+      global: false,
+      max: 100,
+      timeWindow: '1 minute',
+      ...options.rateLimit,
+    });
     await fastify.register(async (webhookScope) => {
       await registerWebhookRoutes(webhookScope, payable, options);
     });
     await fastify.register(async (authenticatedScope) => {
-      await authenticatedScope.register(rateLimit, {
-        max: 100,
-        timeWindow: '1 minute',
-        ...options.rateLimit,
-      });
       if (options.authenticate) {
         authenticatedScope.addHook('onRequest', options.authenticate);
       }

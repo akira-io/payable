@@ -6,7 +6,7 @@ import {
   swapSubscriptionBodySchema,
 } from '../../shared/schemas';
 import type { FastifyPayableOptions } from '../helpers';
-import { DEFAULT_BODY_LIMIT } from '../limits';
+import { DEFAULT_BODY_LIMIT, DEFAULT_ROUTE_RATE_LIMIT } from '../limits';
 
 type ManageAction = 'cancel' | 'cancelNow' | 'resume';
 
@@ -24,7 +24,10 @@ export async function registerSubscriptionRoutes(
     reply.status(200).send(await manager[action](authorization));
   };
 
-  const routeOptions = { bodyLimit: DEFAULT_BODY_LIMIT };
+  const routeOptions = {
+    bodyLimit: DEFAULT_BODY_LIMIT,
+    config: { rateLimit: options.rateLimit ?? DEFAULT_ROUTE_RATE_LIMIT },
+  };
   scope.post('/subscriptions/:name/cancel', routeOptions, manage('cancel'));
   scope.post('/subscriptions/:name/cancel-now', routeOptions, manage('cancelNow'));
   scope.post('/subscriptions/:name/resume', routeOptions, manage('resume'));
