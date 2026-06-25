@@ -62,7 +62,7 @@ export function registerSubscriptionRoutes(
         payable,
         action,
         String(req.params.name),
-        body,
+        body.billable,
         tenantId,
         options.resolveAuthorization?.(req),
       );

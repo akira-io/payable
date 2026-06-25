@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type { AuthorizationContext } from '../../application/policies/authorization-context';
+import type { Billable } from '../../application/builders/billable';
 import type { CheckoutSessionDTO } from '../../domain/dtos/checkout.dto';
 import type { Refund } from '../../domain/entities/refund.entity';
 import type { Subscription } from '../../domain/entities/subscription.entity';
@@ -45,14 +46,11 @@ export function runManageSubscription(
   payable: Payable,
   action: ManageSubscriptionAction,
   name: string,
-  body: ManageSubscriptionBody,
+  billable: Billable,
   tenantId: string | null,
   authorization?: AuthorizationContext,
 ): Promise<Subscription> {
-  return payable
-    .customer(body.billable, undefined, tenantId)
-    .subscription(name)
-    [action](authorization);
+  return payable.customer(billable, undefined, tenantId).subscription(name)[action](authorization);
 }
 
 export function runSwapSubscription(

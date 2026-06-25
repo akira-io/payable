@@ -26,7 +26,7 @@ export async function registerSubscriptionRoutes(
       payable,
       action,
       params.name,
-      body,
+      body.billable,
       tenantId,
       options.resolveAuthorization?.(request),
     );

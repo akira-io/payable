@@ -341,7 +341,7 @@ export class PayableController {
     tenantId: string | null,
     authorization?: AuthorizationContext,
   ): Promise<Subscription> {
-    return runManageSubscription(this.payable, action, name, { billable }, tenantId, authorization);
+    return runManageSubscription(this.payable, action, name, billable, tenantId, authorization);
   }
 
   private authorizationOf(request: PayableHttpRequest): AuthorizationContext | undefined {
