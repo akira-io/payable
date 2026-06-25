@@ -74,6 +74,10 @@ export {
   type IdempotencyServiceOptions,
   type IdempotentExecution,
 } from './application/services/idempotency/idempotency-service';
+export {
+  type WebhookDeliveryOptions,
+  WebhookDeliveryService,
+} from './application/services/webhook-delivery/webhook-delivery-service';
 export { createPayable } from './create-payable';
 export {
   type AuditLogQuery,
@@ -114,6 +118,7 @@ export {
   type NewRefund,
   type NewSubscription,
   type NewSubscriptionItem,
+  type NewWebhookDelivery,
   type NewWebhookEndpoint,
   type NewWebhookEvent,
   type OutboxEvent,
@@ -131,6 +136,7 @@ export {
   type StorageDriver,
   type SubscriptionItemRepository,
   type SubscriptionRepository,
+  type WebhookDeliveryRepository,
   type WebhookEndpointRepository,
   type WebhookEventRepository,
 } from './domain/contracts';
@@ -186,6 +192,8 @@ export type {
   SubscriptionItem,
   TenantScoped,
   Timestamps,
+  WebhookDelivery,
+  WebhookDeliveryStatus,
   WebhookEndpoint,
   WebhookEndpointStatus,
   WebhookEvent,
@@ -320,7 +328,12 @@ export { SyncQueueDriver } from './infrastructure/queue/sync/sync-queue-driver';
 export { KnexStorageDriver } from './infrastructure/storage/knex/knex-storage-driver';
 export { migrate } from './infrastructure/storage/knex/migrations/migrate';
 export { KnexIdempotencyRepository } from './infrastructure/storage/knex/repositories/knex-idempotency.repository';
-export { Payable, ProviderRegistry, type RefundRequest } from './payable';
+export {
+  type DeliverWebhooksOptions,
+  Payable,
+  ProviderRegistry,
+  type RefundRequest,
+} from './payable';
 export { FakeClock } from './support/clock/fake-clock';
 export { SystemClock } from './support/clock/system-clock';
 export {
@@ -334,6 +347,7 @@ export {
   type TenantConfig,
 } from './support/config/payable-config';
 export { hashRequest } from './support/hash/request-hash';
+export { signWebhookPayload } from './support/hash/webhook-signature';
 export { ConsoleLogger, redactContext } from './support/logger/console-logger';
 export { NullLogger } from './support/logger/null-logger';
 export { redactHeaders } from './support/redact-headers';

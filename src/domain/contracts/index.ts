@@ -55,6 +55,10 @@ export type {
   TenantResolver,
 } from './tenant-resolver.contract';
 export type {
+  NewWebhookDelivery,
+  WebhookDeliveryRepository,
+} from './webhook-delivery-repository.contract';
+export type {
   NewWebhookEndpoint,
   WebhookEndpointRepository,
 } from './webhook-endpoint-repository.contract';
