@@ -88,6 +88,7 @@ export class RefundPaymentAction {
       request: { paymentId: payment.id, amount: requested, currency: payment.currency },
       resourceType: 'refund',
       tenantId: this.deps.tenantId,
+      retryFailed: false,
       run,
       revive: async (response) => {
         const fresh = await storage.refunds.findById(

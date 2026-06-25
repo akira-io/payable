@@ -46,12 +46,16 @@ export class IdempotencyService {
   async execute<T>(execution: IdempotentExecution<T>): Promise<T> {
     const requestHash = await hashRequest(execution.request);
     const retryFailed = execution.retryFailed ?? this.retryFailed;
-    const existing = await this.store.find(execution.key, execution.tenantId);
+    const existing = await this.store.find(this.scopedKey(execution), execution.tenantId);
     const replay = this.replay<T>(existing, requestHash, execution.key, retryFailed);
     if (replay.handled) {
       return execution.revive ? await execution.revive(replay.value) : (replay.value as T);
     }
     return this.run(execution, requestHash, retryFailed);
+  }
+
+  private scopedKey(execution: Pick<IdempotentExecution<unknown>, 'scope' | 'key'>): string {
+    return `${execution.scope}:${execution.key}`;
   }
 
   private replay<T>(
@@ -94,10 +98,11 @@ export class IdempotencyService {
     requestHash: string,
     retryFailed: boolean,
   ): Promise<T> {
+    const scopedKey = this.scopedKey(execution);
     const record = this.processingRecord(execution, requestHash);
     const acquired = await this.store.acquire(record, execution.tenantId);
     if (!acquired) {
-      const existing = await this.store.find(execution.key, execution.tenantId);
+      const existing = await this.store.find(scopedKey, execution.tenantId);
       const replay = this.replay<T>(existing, requestHash, execution.key, retryFailed);
       if (replay.handled) {
         return replay.value as T;
@@ -114,7 +119,7 @@ export class IdempotencyService {
       const result = await execution.run();
       const expiresAt = new Date(this.clock.now().getTime() + this.completedTtlMs);
       await this.store.markCompleted(
-        execution.key,
+        scopedKey,
         result,
         execution.tenantId,
         record.lockToken,
@@ -122,9 +127,7 @@ export class IdempotencyService {
       );
       return result;
     } catch (error) {
-      await this.store
-        .markFailed(execution.key, execution.tenantId, record.lockToken)
-        .catch(() => {});
+      await this.store.markFailed(scopedKey, execution.tenantId, record.lockToken).catch(() => {});
       throw error;
     }
   }
@@ -134,7 +137,7 @@ export class IdempotencyService {
     requestHash: string,
   ): IdempotencyRecord {
     return {
-      key: execution.key,
+      key: this.scopedKey(execution),
       scope: execution.scope,
       operation: execution.operation,
       resourceType: execution.resourceType ?? null,

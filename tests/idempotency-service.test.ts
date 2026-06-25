@@ -64,7 +64,7 @@ describe('IdempotencyService', () => {
     const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
     const service = new IdempotencyService(store, clock, { completedTtlMs: 60_000 });
 
-    await service.execute(execution('charge:ttl', { amount: 100 }, async () => 'ok'));
+    await service.execute(execution('ttl', { amount: 100 }, async () => 'ok'));
 
     const record = await store.find('charge:ttl');
     expect(record?.status).toBe('completed');
@@ -78,7 +78,7 @@ describe('IdempotencyService', () => {
     let lockedUntilDuringRun: Date | null = null;
 
     await service.execute({
-      ...execution('charge:lockttl', { amount: 100 }, async () => {
+      ...execution('lockttl', { amount: 100 }, async () => {
         lockedUntilDuringRun = (await store.find('charge:lockttl'))?.lockedUntil ?? null;
         return 'ok';
       }),
@@ -89,6 +89,38 @@ describe('IdempotencyService', () => {
     expect((lockedUntilDuringRun as unknown as Date).toISOString()).toBe(
       '2026-06-22T00:02:00.000Z',
     );
+  });
+
+  it('isolates the same key across different scopes', async () => {
+    const service = new IdempotencyService(new InMemoryIdempotencyStore(), new FakeClock());
+    const request = { amount: 100 };
+    let chargeRuns = 0;
+    let refundRuns = 0;
+
+    await service.execute({
+      key: 'shared',
+      scope: 'charge',
+      operation: 'charge',
+      request,
+      run: async () => {
+        chargeRuns += 1;
+        return 'charged';
+      },
+    });
+    const refund = await service.execute({
+      key: 'shared',
+      scope: 'refund',
+      operation: 'refund',
+      request,
+      run: async () => {
+        refundRuns += 1;
+        return 'refunded';
+      },
+    });
+
+    expect(refund).toBe('refunded');
+    expect(chargeRuns).toBe(1);
+    expect(refundRuns).toBe(1);
   });
 
   it('throws on a reused key with a different request', async () => {
@@ -116,7 +148,7 @@ describe('IdempotencyService', () => {
     });
     const service = new IdempotencyService(store, clock);
     await expect(
-      service.execute(execution('charge:expired', { amount: 999 }, async () => 'ok')),
+      service.execute(execution('expired', { amount: 999 }, async () => 'ok')),
     ).rejects.toBeInstanceOf(IdempotencyConflictError);
   });
 
@@ -137,9 +169,9 @@ describe('IdempotencyService', () => {
       expiresAt: null,
     });
     const service = new IdempotencyService(store, clock);
-    await expect(
-      service.execute(execution('charge:3', request, async () => 'ok')),
-    ).rejects.toBeInstanceOf(IdempotencyInProgressError);
+    await expect(service.execute(execution('3', request, async () => 'ok'))).rejects.toBeInstanceOf(
+      IdempotencyInProgressError,
+    );
   });
 
   it('marks failures and allows a retry', async () => {
@@ -196,7 +228,7 @@ describe('IdempotencyService', () => {
     const service = new IdempotencyService(store, clock);
     let runs = 0;
     const result = await service.execute(
-      execution('charge:exp', { amount: 1 }, async () => {
+      execution('exp', { amount: 1 }, async () => {
         runs += 1;
         return 'new';
       }),
@@ -252,7 +284,7 @@ describe('IdempotencyService', () => {
     let runs = 0;
     await expect(
       service.execute(
-        execution('charge:stale', request, async () => {
+        execution('stale', request, async () => {
           runs += 1;
           return 'ok';
         }),
@@ -281,7 +313,7 @@ describe('IdempotencyService', () => {
     const service = new IdempotencyService(store, clock);
     let runs = 0;
     const result = await service.execute({
-      ...execution('charge:reclaim', request, async () => {
+      ...execution('reclaim', request, async () => {
         runs += 1;
         return 'recovered';
       }),

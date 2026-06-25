@@ -78,7 +78,10 @@ describe('payable.customers', () => {
       billableType: 'User',
       billableId: '1',
     });
-    const record = await new KnexIdempotencyRepository(db, clock).find(key.toString(), undefined);
+    const record = await new KnexIdempotencyRepository(db, clock).find(
+      `customer:${key.toString()}`,
+      undefined,
+    );
     expect(provider.createCustomerCalls).toBe(1);
     expect(record?.status).toBe('completed');
     expect(record?.response).toBe('cus_fake');
