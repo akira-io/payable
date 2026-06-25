@@ -23,6 +23,6 @@ export type NewOutboxEvent = Omit<
 export interface OutboxEventRepository {
   create(data: NewOutboxEvent): Promise<OutboxEvent>;
   claimPending(limit: number): Promise<OutboxEvent[]>;
-  markPublished(id: string, lockToken?: string | null): Promise<void>;
-  markFailed(id: string, nextRetryAt: Date | null, lockToken?: string | null): Promise<void>;
+  markPublished(id: string, lockToken?: string | null): Promise<number>;
+  markFailed(id: string, nextRetryAt: Date | null, lockToken?: string | null): Promise<number>;
 }

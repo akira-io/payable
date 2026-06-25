@@ -69,7 +69,14 @@ export class OutboxService {
       return;
     }
     try {
-      await this.repository.markPublished(event.id, event.lockToken);
+      const updated = await this.repository.markPublished(event.id, event.lockToken);
+      if (updated === 0) {
+        this.logger?.warn('Outbox event delivered but the claim was lost before markPublished', {
+          eventId: event.id,
+          eventType: event.eventType,
+        });
+        return;
+      }
       result.published += 1;
     } catch (error) {
       this.logger?.error('Outbox event delivered but markPublished failed; leaving for reclaim', {
@@ -94,8 +101,15 @@ export class OutboxService {
         attempts,
         error: message,
       });
-      await this.repository.markFailed(event.id, null, event.lockToken);
-      result.deadLettered += 1;
+      const deadLettered = await this.repository.markFailed(event.id, null, event.lockToken);
+      if (deadLettered > 0) {
+        result.deadLettered += 1;
+      } else {
+        this.logger?.warn('Outbox claim lost before dead-lettering', {
+          eventId: event.id,
+          eventType: event.eventType,
+        });
+      }
       return;
     }
     this.logger?.warn('Outbox delivery failed, scheduling retry', {
@@ -104,8 +118,19 @@ export class OutboxService {
       attempts,
       error: message,
     });
-    await this.repository.markFailed(event.id, this.nextRetry(attempts), event.lockToken);
-    result.retried += 1;
+    const retried = await this.repository.markFailed(
+      event.id,
+      this.nextRetry(attempts),
+      event.lockToken,
+    );
+    if (retried > 0) {
+      result.retried += 1;
+    } else {
+      this.logger?.warn('Outbox claim lost before scheduling retry', {
+        eventId: event.id,
+        eventType: event.eventType,
+      });
+    }
   }
 
   private nextRetry(attempts: number): Date {

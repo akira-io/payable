@@ -12,6 +12,7 @@ import { toDate } from '../mappers';
 
 export class KnexWebhookEndpointRepository implements WebhookEndpointRepository {
   private readonly table = 'payable_webhook_endpoints';
+  private readonly eventsTable = 'payable_webhook_endpoint_events';
 
   constructor(
     private readonly knex: Knex,
@@ -31,6 +32,12 @@ export class KnexWebhookEndpointRepository implements WebhookEndpointRepository 
       created_at: timestamp,
       updated_at: timestamp,
     });
+    for (const eventType of data.events) {
+      await this.knex(this.eventsTable)
+        .insert({ endpoint_id: id, event_type: eventType })
+        .onConflict(['endpoint_id', 'event_type'])
+        .ignore();
+    }
     return this.findByIdOrFail(id, data.tenantId);
   }
 
@@ -51,13 +58,18 @@ export class KnexWebhookEndpointRepository implements WebhookEndpointRepository 
     eventType: string,
     tenantId?: string | null,
   ): Promise<WebhookEndpoint[]> {
-    const rows = (await this.knex(this.table)
-      .where({ status: 'enabled', ...this.tenantClause(tenantId) })
-      .orderBy('created_at', 'asc')
-      .orderBy('id', 'asc')) as Record<string, unknown>[];
-    return rows
-      .map((row) => this.toEntity(row))
-      .filter((endpoint) => endpoint.events.includes(eventType));
+    let query = this.knex(`${this.table} as ep`)
+      .join(`${this.eventsTable} as ev`, 'ev.endpoint_id', 'ep.id')
+      .where('ev.event_type', eventType)
+      .where('ep.status', 'enabled');
+    if (tenantId !== undefined) {
+      query = query.where({ 'ep.tenant_id': tenantId });
+    }
+    const rows = (await query
+      .select('ep.*')
+      .orderBy('ep.created_at', 'asc')
+      .orderBy('ep.id', 'asc')) as Record<string, unknown>[];
+    return rows.map((row) => this.toEntity(row));
   }
 
   async setStatus(

@@ -82,6 +82,23 @@ describe('webhook endpoint lifecycle (#460)', () => {
     expect(matched[0]?.url).toBe('https://a.test/hook');
   });
 
+  it('indexes endpoint event subscriptions in the join table', async () => {
+    const endpoint = await payable
+      .webhookEndpoints()
+      .register({ url: 'https://a.test/hook', events: ['invoice.paid', 'subscription.updated'] });
+
+    const rows = (await db('payable_webhook_endpoint_events')
+      .where({ endpoint_id: endpoint.id })
+      .orderBy('event_type', 'asc')) as { event_type: string }[];
+    expect(rows.map((row) => row.event_type)).toEqual(['invoice.paid', 'subscription.updated']);
+
+    const matched = await storage.webhookEndpoints.listEnabledForEvent(
+      'subscription.updated',
+      null,
+    );
+    expect(matched.map((endpointRow) => endpointRow.id)).toEqual([endpoint.id]);
+  });
+
   it('requires a storage driver', () => {
     const noStorage = createPayable({ providers: { stripe: new FakeProvider() } });
     expect(() => noStorage.webhookEndpoints()).toThrow(PayableError);

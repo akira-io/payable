@@ -89,6 +89,13 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.timestamp('updated_at', { useTz: true }).notNullable();
   });
 
+  await createIfMissing(knex, 'payable_webhook_endpoint_events', (table) => {
+    table.uuid('endpoint_id').notNullable();
+    table.string('event_type').notNullable();
+    table.primary(['endpoint_id', 'event_type']);
+    table.index('event_type');
+  });
+
   await createIfMissing(knex, 'payable_webhook_deliveries', (table) => {
     table.uuid('id').primary();
     table.string('tenant_id').nullable();

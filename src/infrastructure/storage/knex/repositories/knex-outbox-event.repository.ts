@@ -117,8 +117,8 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
     return dialect === 'postgresql' || dialect === 'mysql' || dialect === 'mariadb';
   }
 
-  async markPublished(id: string, lockToken: string | null = null): Promise<void> {
-    await this.owned(id, lockToken).update({
+  async markPublished(id: string, lockToken: string | null = null): Promise<number> {
+    return this.owned(id, lockToken).update({
       status: 'published',
       locked_by: null,
       locked_until: null,
@@ -130,8 +130,8 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
     id: string,
     nextRetryAt: Date | null,
     lockToken: string | null = null,
-  ): Promise<void> {
-    await this.owned(id, lockToken).update({
+  ): Promise<number> {
+    return this.owned(id, lockToken).update({
       status: nextRetryAt ? 'pending' : 'failed',
       attempts: this.knex.raw('attempts + 1'),
       next_retry_at: nextRetryAt ? nextRetryAt.toISOString() : null,
