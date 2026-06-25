@@ -73,12 +73,14 @@ export function toPaddleSubscriptionEntity(
 }
 
 export function toSubscriptionDTO(subscription: PaddleSubscriptionEntity): SubscriptionDTO {
+  const status = SUBSCRIPTION_STATUS[subscription.status] ?? 'incomplete';
   const endsAt = subscription.currentBillingPeriod?.endsAt ?? null;
+  const periodEnd = endsAt ? new Date(endsAt) : null;
   return {
     providerSubscriptionId: subscription.id,
-    status: SUBSCRIPTION_STATUS[subscription.status] ?? 'incomplete',
-    currentPeriodEnd: endsAt ? new Date(endsAt) : null,
-    trialEndsAt: null,
+    status,
+    currentPeriodEnd: periodEnd,
+    trialEndsAt: status === 'trialing' ? periodEnd : null,
   };
 }
 
