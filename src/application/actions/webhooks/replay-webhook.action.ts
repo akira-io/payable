@@ -48,7 +48,7 @@ export class ReplayWebhookAction {
         tenantId: event.tenantId,
       });
     } catch (error) {
-      await this.deps.storage.webhookEvents.markStatus(event.id, 'failed', null);
+      await this.deps.storage.webhookEvents.markStatus(event.id, 'failed', null, event.tenantId);
       throw error;
     }
   }

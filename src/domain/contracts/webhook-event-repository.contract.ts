@@ -19,5 +19,6 @@ export interface WebhookEventRepository {
     id: string,
     status: WebhookEventStatus,
     processedAt: Date | null,
+    tenantId?: string | null,
   ): Promise<WebhookEvent>;
 }

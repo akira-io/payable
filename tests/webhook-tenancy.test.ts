@@ -99,6 +99,29 @@ describe('webhook tenancy', () => {
     ).resolves.toBeUndefined();
   });
 
+  it('scopes markStatus to the tenant that owns the row', async () => {
+    const acme = await payableWithResolver().receiveWebhook({
+      payload: '{}',
+      signature: 'sig',
+      headers: { 'x-tenant-id': 'acme' },
+    });
+
+    await expect(
+      storage.webhookEvents.markStatus(acme.webhookEventId, 'failed', null, 'globex'),
+    ).rejects.toThrow('missing after write');
+
+    const stillProcessed = await storage.webhookEvents.findById(acme.webhookEventId, 'acme');
+    expect(stillProcessed?.status).toBe('processed');
+
+    const flipped = await storage.webhookEvents.markStatus(
+      acme.webhookEventId,
+      'failed',
+      null,
+      'acme',
+    );
+    expect(flipped.status).toBe('failed');
+  });
+
   it('rejects a webhook when tenancy is enabled but no tenant resolves', async () => {
     const payable = payableWithResolver();
     await expect(

@@ -48,7 +48,7 @@ export class ProcessWebhookPipeline {
         });
       }
 
-      await repos.webhookEvents.markStatus(input.webhookEventId, 'processed', occurredAt);
+      await repos.webhookEvents.markStatus(input.webhookEventId, 'processed', occurredAt, tenantId);
     });
 
     await events.emit(
