@@ -98,12 +98,19 @@ export function toSubscriptionDTO(subscription: Stripe.Subscription): Subscripti
   return {
     providerSubscriptionId: subscription.id,
     status: isSubscriptionStatus(subscription.status) ? subscription.status : 'incomplete',
-    currentPeriodEnd: fromUnixSeconds(
-      subscription.items.data[0]?.current_period_end ??
-        (subscription as { current_period_end?: number | null }).current_period_end,
-    ),
+    currentPeriodEnd: fromUnixSeconds(earliestPeriodEnd(subscription)),
     trialEndsAt: fromUnixSeconds(subscription.trial_end),
   };
+}
+
+function earliestPeriodEnd(subscription: Stripe.Subscription): number | null | undefined {
+  const ends = subscription.items.data
+    .map((item) => item.current_period_end)
+    .filter((end): end is number => typeof end === 'number');
+  if (ends.length === 0) {
+    return (subscription as { current_period_end?: number | null }).current_period_end;
+  }
+  return Math.min(...ends);
 }
 
 export function toChargeResultDTO(intent: Stripe.PaymentIntent): ChargeResultDTO {
