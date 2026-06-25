@@ -49,6 +49,14 @@ export interface WebhookKeyParts {
   providerEventId: string;
 }
 
+export interface SubscriptionOperationKeyParts {
+  operation: string;
+  provider: string;
+  providerSubscriptionId: string;
+  discriminator?: string;
+  nonce?: string;
+}
+
 function segment(value: string | number): string {
   return encodeURIComponent(String(value));
 }
@@ -68,6 +76,8 @@ function currencySegment(value: CurrencyCode): string {
   return segment(value.toUpperCase());
 }
 
+const MAX_KEY_LENGTH = 512;
+
 export class IdempotencyKey {
   private constructor(private readonly value: string) {}
 
@@ -75,6 +85,11 @@ export class IdempotencyKey {
     const normalized = value.trim();
     if (normalized.length === 0) {
       throw new TypeError('Idempotency key cannot be empty');
+    }
+    if (normalized.length > MAX_KEY_LENGTH) {
+      throw new TypeError(
+        `Idempotency key exceeds ${MAX_KEY_LENGTH} characters (got ${normalized.length})`,
+      );
     }
     return new IdempotencyKey(normalized);
   }
@@ -100,6 +115,13 @@ export class IdempotencyKey {
     return IdempotencyKey.of(
       `refund:${tenantSegment(parts.tenantId)}:${segment(parts.provider)}:${segment(parts.paymentId)}:${amountSegment(parts.amount)}:${currencySegment(parts.currency)}`,
     );
+  }
+
+  static forSubscriptionOperation(parts: SubscriptionOperationKeyParts): IdempotencyKey {
+    const base = `subscription:${segment(parts.operation)}:${segment(parts.provider)}:${segment(parts.providerSubscriptionId)}`;
+    const discriminator = parts.discriminator ? `:${segment(parts.discriminator)}` : '';
+    const nonce = parts.nonce ? `:${segment(parts.nonce)}` : '';
+    return IdempotencyKey.of(`${base}${discriminator}${nonce}`);
   }
 
   static forWebhook(parts: WebhookKeyParts): IdempotencyKey {

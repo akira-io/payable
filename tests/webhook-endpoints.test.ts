@@ -103,4 +103,14 @@ describe('webhook endpoint lifecycle (#460)', () => {
     const noStorage = createPayable({ providers: { stripe: new FakeProvider() } });
     expect(() => noStorage.webhookEndpoints()).toThrow(PayableError);
   });
+
+  it('treats a malformed events column as an empty subscription list', async () => {
+    const endpoint = await payable
+      .webhookEndpoints()
+      .register({ url: 'https://hooks.test/in', events: ['invoice.paid'] });
+    await db('payable_webhook_endpoints').where({ id: endpoint.id }).update({ events: 'not-json' });
+
+    const reloaded = await storage.webhookEndpoints.findById(endpoint.id);
+    expect(reloaded?.events).toEqual([]);
+  });
 });

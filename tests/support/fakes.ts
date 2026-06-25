@@ -9,7 +9,7 @@ import type {
   IdempotencyStore,
 } from '../../src/domain/contracts/idempotency-store.contract';
 import type { AuditLog } from '../../src/domain/entities/audit-log.entity';
-import { auditEntryHash } from '../../src/infrastructure/audit/audit-chain';
+import { auditEntryHash, auditLinkValid } from '../../src/infrastructure/audit/audit-chain';
 
 export class InMemoryIdempotencyStore implements IdempotencyStore {
   private readonly records = new Map<string, IdempotencyRecord>();
@@ -127,5 +127,17 @@ export class InMemoryAuditLogRepository implements AuditLogRepository {
     });
     const ordered = matches.slice().reverse();
     return query.limit ? ordered.slice(0, query.limit) : ordered;
+  }
+
+  async verifyChain(tenantId: string | null): Promise<boolean> {
+    const chain = this.entries.filter((entry) => (entry.tenantId ?? null) === (tenantId ?? null));
+    let previousHash: string | null = null;
+    for (const entry of chain) {
+      if (!(await auditLinkValid(previousHash, entry))) {
+        return false;
+      }
+      previousHash = entry.hash;
+    }
+    return true;
   }
 }

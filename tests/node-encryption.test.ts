@@ -10,13 +10,13 @@ describe('NodeEncryptionDriver', () => {
     expect(await driver.decrypt(token)).toBe('customer@example.com');
   });
 
-  it('tags the envelope with a version and still reads legacy tokens', async () => {
+  it('binds the envelope version into the authentication tag', async () => {
     const driver = new NodeEncryptionDriver({ key: 'a-secret-key' });
     const token = await driver.encrypt('secret');
 
     expect(token.startsWith('v1:')).toBe(true);
-    const legacy = token.slice('v1:'.length);
-    expect(await driver.decrypt(legacy)).toBe('secret');
+    const stripped = token.slice('v1:'.length);
+    await expect(driver.decrypt(stripped)).rejects.toThrow('Malformed ciphertext');
   });
 
   it('produces a fresh ciphertext per call', async () => {

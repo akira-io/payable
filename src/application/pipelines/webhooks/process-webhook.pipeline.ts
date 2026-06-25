@@ -21,7 +21,7 @@ export class ProcessWebhookPipeline {
     const tenantId = input.tenantId ?? null;
 
     await storage.transaction(async (repos) => {
-      await this.reconcile(repos, input.verified, occurredAt);
+      await this.reconcile(repos, input.verified, occurredAt, tenantId);
 
       await repos.auditLogs.create({
         tenantId,
@@ -51,22 +51,25 @@ export class ProcessWebhookPipeline {
       await repos.webhookEvents.markStatus(input.webhookEventId, 'processed', occurredAt, tenantId);
     });
 
-    await events.emit(
-      new WebhookProcessedEvent(
-        {
-          webhookEventId: input.webhookEventId,
-          provider: providerName,
-          providerEventId: input.verified.providerEventId,
-        },
-        { correlationId: input.correlationId, occurredAt },
-      ),
-    );
+    await events
+      .emit(
+        new WebhookProcessedEvent(
+          {
+            webhookEventId: input.webhookEventId,
+            provider: providerName,
+            providerEventId: input.verified.providerEventId,
+          },
+          { correlationId: input.correlationId, occurredAt },
+        ),
+      )
+      .catch(() => {});
   }
 
   private async reconcile(
     repos: Repositories,
     verified: VerifiedWebhook,
     occurredAt: Date,
+    tenantId: string | null,
   ): Promise<void> {
     const { provider, providerName } = this.deps;
     const dto = provider.reconcileSubscription(verified);
@@ -76,6 +79,7 @@ export class ProcessWebhookPipeline {
     const local = await repos.subscriptions.findByProviderId(
       providerName,
       dto.providerSubscriptionId,
+      tenantId,
     );
     if (!local) {
       return;
@@ -87,6 +91,6 @@ export class ProcessWebhookPipeline {
       trialEndsAt: dto.trialEndsAt,
       ...(status === 'canceled' ? { endsAt: dto.currentPeriodEnd ?? occurredAt } : {}),
     };
-    await repos.subscriptions.update(local.id, patch);
+    await repos.subscriptions.update(local.id, patch, tenantId);
   }
 }

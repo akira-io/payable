@@ -90,7 +90,10 @@ export class RefundPaymentAction {
       tenantId: this.deps.tenantId,
       run,
       revive: async (response) => {
-        const fresh = await storage.refunds.findById((response as { id: string }).id);
+        const fresh = await storage.refunds.findById(
+          (response as { id: string }).id,
+          this.deps.tenantId ?? null,
+        );
         return fresh ?? (response as Refund);
       },
     });
