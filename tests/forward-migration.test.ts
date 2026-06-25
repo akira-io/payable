@@ -51,6 +51,33 @@ describe('forward migrations (C5)', () => {
     expect(names).toContain('payable_outbox_events_stale_claim_index');
   });
 
+  it('enforces billable uniqueness across null tenants on the default dialect', async () => {
+    await migrate(db);
+    const base = {
+      tenant_id: null,
+      billable_type: 'User',
+      billable_id: '1',
+      email: 'user@example.com',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    await db('payable_customers').insert({
+      id: '11111111-1111-1111-1111-111111111111',
+      provider: 'stripe',
+      provider_customer_id: 'cus_a',
+      ...base,
+    });
+
+    await expect(
+      db('payable_customers').insert({
+        id: '22222222-2222-2222-2222-222222222222',
+        provider: 'paddle',
+        provider_customer_id: 'cus_b',
+        ...base,
+      }),
+    ).rejects.toThrow();
+  });
+
   it('back-fills columns added after a table was first created', async () => {
     await db.schema.createTable('payable_webhook_events', (table) => {
       table.uuid('id').primary();
