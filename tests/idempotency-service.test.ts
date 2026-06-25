@@ -211,6 +211,66 @@ describe('IdempotencyService', () => {
     expect(record?.response).toEqual({ from: 'b' });
   });
 
+  it('refuses to re-run a stale processing record whose side effect may have committed', async () => {
+    const store = new InMemoryIdempotencyStore();
+    const clock = new FakeClock();
+    const request = { amount: 100 };
+    await store.put({
+      key: 'charge:stale',
+      scope: 'charge',
+      operation: 'charge',
+      resourceType: null,
+      resourceId: null,
+      requestHash: await hashRequest(request),
+      response: null,
+      status: 'processing',
+      lockedUntil: new Date(clock.now().getTime() - 1_000),
+      expiresAt: null,
+      lockToken: 'owner-a',
+    });
+    const service = new IdempotencyService(store, clock);
+    let runs = 0;
+    await expect(
+      service.execute(
+        execution('charge:stale', request, async () => {
+          runs += 1;
+          return 'ok';
+        }),
+      ),
+    ).rejects.toBeInstanceOf(IdempotencyInProgressError);
+    expect(runs).toBe(0);
+  });
+
+  it('reclaims a stale processing record when reclaimStaleProcessing is set', async () => {
+    const store = new InMemoryIdempotencyStore();
+    const clock = new FakeClock();
+    const request = { amount: 100 };
+    await store.put({
+      key: 'charge:reclaim',
+      scope: 'charge',
+      operation: 'charge',
+      resourceType: null,
+      resourceId: null,
+      requestHash: await hashRequest(request),
+      response: null,
+      status: 'processing',
+      lockedUntil: new Date(clock.now().getTime() - 1_000),
+      expiresAt: null,
+      lockToken: 'owner-a',
+    });
+    const service = new IdempotencyService(store, clock);
+    let runs = 0;
+    const result = await service.execute({
+      ...execution('charge:reclaim', request, async () => {
+        runs += 1;
+        return 'recovered';
+      }),
+      reclaimStaleProcessing: true,
+    });
+    expect(result).toBe('recovered');
+    expect(runs).toBe(1);
+  });
+
   it('refuses to retry a failed record when retryFailed is overridden to false', async () => {
     const service = new IdempotencyService(new InMemoryIdempotencyStore(), new FakeClock());
     let attempts = 0;

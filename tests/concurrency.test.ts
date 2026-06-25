@@ -69,7 +69,7 @@ describe('idempotency lock acquisition (C2)', () => {
     expect(fulfilled.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('does not double-execute when taking over an expired lock', async () => {
+  it('fails closed on a stale processing lock instead of re-running', async () => {
     const store = new KnexIdempotencyRepository(db, clock);
     const requestHash = await hashRequest({ amount: 9900 });
     await store.acquire({
@@ -96,10 +96,47 @@ describe('idempotency lock acquisition (C2)', () => {
       service.execute(execution()),
     ]);
 
+    expect(runs).toBe(0);
+    for (const result of settled) {
+      expect(result.status).toBe('rejected');
+      if (result.status === 'rejected') {
+        expect(result.reason).toBeInstanceOf(IdempotencyInProgressError);
+      }
+    }
+  });
+
+  it('reclaims a stale processing lock once when reclaimStaleProcessing is set', async () => {
+    const store = new KnexIdempotencyRepository(db, clock);
+    const requestHash = await hashRequest({ amount: 9900 });
+    await store.acquire({
+      ...processing('charge:4'),
+      requestHash,
+      lockedUntil: new Date(clock.now().getTime() - 1),
+    });
+    const service = new IdempotencyService(store, clock);
+    let runs = 0;
+    const execution = () => ({
+      key: 'charge:4',
+      scope: 'charge',
+      operation: 'charge',
+      request: { amount: 9900 },
+      reclaimStaleProcessing: true,
+      run: async () => {
+        runs += 1;
+        await Promise.resolve();
+        return { paymentId: 'pay_4' };
+      },
+    });
+
+    const settled = await Promise.allSettled([
+      service.execute(execution()),
+      service.execute(execution()),
+    ]);
+
     expect(runs).toBe(1);
     for (const result of settled) {
       if (result.status === 'fulfilled') {
-        expect(result.value).toEqual({ paymentId: 'pay_3' });
+        expect(result.value).toEqual({ paymentId: 'pay_4' });
       } else {
         expect(result.reason).toBeInstanceOf(IdempotencyInProgressError);
       }
