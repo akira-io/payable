@@ -26,6 +26,12 @@ import type { Subscription } from '../../domain/entities/subscription.entity';
 import { PayableError } from '../../domain/errors/payable-error';
 import type { Payable } from '../../payable';
 import {
+  runCheckout,
+  runManageSubscription,
+  runRefund,
+  runSwapSubscription,
+} from '../shared/operations';
+import {
   billableLookupSchema,
   checkoutBodySchema,
   customerBodySchema,
@@ -82,21 +88,7 @@ export class PayableController {
     @Body() rawBody: unknown,
   ): Promise<CheckoutSessionDTO> {
     const body = parseBody(checkoutBodySchema, rawBody);
-    const builder = this.payable
-      .customer(body.billable, undefined, this.tenantOf(request))
-      .newSubscription(body.subscription.name)
-      .price(body.subscription.price);
-    if (body.subscription.trialDays !== undefined) {
-      builder.trialDays(body.subscription.trialDays);
-    }
-    if (body.subscription.coupon) {
-      builder.coupon(body.subscription.coupon);
-    }
-    return builder.checkout({
-      successUrl: body.successUrl,
-      cancelUrl: body.cancelUrl,
-      authorization: this.authorizationOf(request),
-    });
+    return runCheckout(this.payable, body, this.tenantOf(request), this.authorizationOf(request));
   }
 
   @Post('subscriptions/:name/cancel')
@@ -162,10 +154,13 @@ export class PayableController {
     @Body() rawBody: unknown,
   ): Promise<Subscription> {
     const body = parseBody(swapSubscriptionBodySchema, rawBody);
-    return this.payable
-      .customer(body.billable, undefined, this.tenantOf(request))
-      .subscription(name)
-      .swap(body.price, this.authorizationOf(request));
+    return runSwapSubscription(
+      this.payable,
+      name,
+      body,
+      this.tenantOf(request),
+      this.authorizationOf(request),
+    );
   }
 
   @Post('customers')
@@ -286,16 +281,7 @@ export class PayableController {
   @UseGuards(PayableAuthGuard)
   refunds(@Req() request: PayableHttpRequest, @Body() rawBody: unknown): Promise<Refund> {
     const body = parseBody(refundBodySchema, rawBody);
-    const amount = body.amount ? parseMoneyInput(body.amount) : undefined;
-    return this.payable.refund(
-      {
-        paymentId: body.paymentId,
-        amount,
-        reason: body.reason,
-        authorization: this.authorizationOf(request),
-      },
-      this.tenantOf(request),
-    );
+    return runRefund(this.payable, body, this.tenantOf(request), this.authorizationOf(request));
   }
 
   @Post('products')
@@ -355,10 +341,7 @@ export class PayableController {
     tenantId: string | null,
     authorization?: AuthorizationContext,
   ): Promise<Subscription> {
-    return this.payable
-      .customer(billable, undefined, tenantId)
-      .subscription(name)
-      [action](authorization);
+    return runManageSubscription(this.payable, action, name, billable, tenantId, authorization);
   }
 
   private authorizationOf(request: PayableHttpRequest): AuthorizationContext | undefined {

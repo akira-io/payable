@@ -1,6 +1,11 @@
 import type { Router } from 'express';
 import type { Payable } from '../../../payable';
 import {
+  type ManageSubscriptionAction as ManageAction,
+  runManageSubscription,
+  runSwapSubscription,
+} from '../../shared/operations';
+import {
   billableLookupSchema,
   listSubscriptionsQuerySchema,
   manageSubscriptionBodySchema,
@@ -8,8 +13,6 @@ import {
   swapSubscriptionBodySchema,
 } from '../../shared/schemas';
 import { asyncHandler, type ExpressPayableOptions, jsonBody } from '../helpers';
-
-type ManageAction = 'cancel' | 'cancelNow' | 'resume';
 
 export function registerSubscriptionRoutes(
   router: Router,
@@ -55,11 +58,15 @@ export function registerSubscriptionRoutes(
     asyncHandler(async (req, res) => {
       const body = parseBody(manageSubscriptionBodySchema, req.body);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const authorization = options.resolveAuthorization?.(req);
-      const manager = payable
-        .customer(body.billable, undefined, tenantId)
-        .subscription(String(req.params.name));
-      res.status(200).json(await manager[action](authorization));
+      const result = await runManageSubscription(
+        payable,
+        action,
+        String(req.params.name),
+        body.billable,
+        tenantId,
+        options.resolveAuthorization?.(req),
+      );
+      res.status(200).json(result);
     });
 
   router.post('/subscriptions/:name/cancel', jsonBody(), manage('cancel'));
@@ -71,10 +78,14 @@ export function registerSubscriptionRoutes(
     asyncHandler(async (req, res) => {
       const body = parseBody(swapSubscriptionBodySchema, req.body);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const manager = payable
-        .customer(body.billable, undefined, tenantId)
-        .subscription(String(req.params.name));
-      res.status(200).json(await manager.swap(body.price, options.resolveAuthorization?.(req)));
+      const result = await runSwapSubscription(
+        payable,
+        String(req.params.name),
+        body,
+        tenantId,
+        options.resolveAuthorization?.(req),
+      );
+      res.status(200).json(result);
     }),
   );
 }

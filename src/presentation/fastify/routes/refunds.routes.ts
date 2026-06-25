@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Payable } from '../../../payable';
-import { parseBody, parseMoneyInput, refundBodySchema } from '../../shared/schemas';
+import { runRefund } from '../../shared/operations';
+import { parseBody, refundBodySchema } from '../../shared/schemas';
 import type { FastifyPayableOptions } from '../helpers';
 import { DEFAULT_BODY_LIMIT, DEFAULT_ROUTE_RATE_LIMIT } from '../limits';
 
@@ -17,16 +18,12 @@ export async function registerRefundRoutes(
     },
     async (request, reply) => {
       const body = parseBody(refundBodySchema, request.body);
-      const amount = body.amount ? parseMoneyInput(body.amount) : undefined;
       const tenantId = options.resolveTenant?.(request) ?? null;
-      const refund = await payable.refund(
-        {
-          paymentId: body.paymentId,
-          amount,
-          reason: body.reason,
-          authorization: options.resolveAuthorization?.(request),
-        },
+      const refund = await runRefund(
+        payable,
+        body,
         tenantId,
+        options.resolveAuthorization?.(request),
       );
       reply.status(201).send(refund);
     },
