@@ -86,7 +86,12 @@ export function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
   if (!result.success) {
     throw new PayableError('Request validation failed', {
       code: 'VALIDATION_FAILED',
-      context: { issues: result.error.issues },
+      context: {
+        issues: result.error.issues.map((issue) => ({
+          field: issue.path.join('.'),
+          message: issue.message,
+        })),
+      },
     });
   }
   return result.data;
