@@ -108,9 +108,9 @@ describe('SispProvider', () => {
     );
     const body = calls.payment?.body as Record<string, unknown>;
     expect(body.merchantRef).toBe('R-DEFAULT');
-    expect(body.amount).toBe(1500);
+    expect(body.amount).toBe('1500.00');
     expect(body.items).toEqual([
-      { product_name: 'Payment', quantity: 1, unit_price: 1500, total_price: 1500 },
+      { product_name: 'Payment', quantity: 1, unit_price: '1500.00', total_price: '1500.00' },
     ]);
     expect(dto.id).toBe(body.merchantRef);
     expect(dto.url).toBe(GATEWAY);

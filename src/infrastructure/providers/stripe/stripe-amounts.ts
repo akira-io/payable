@@ -1,6 +1,7 @@
 import { PayableError } from '../../../domain/errors/payable-error';
 import { CurrencyManager } from '../../../domain/value-objects/currency';
 import { Money } from '../../../domain/value-objects/money';
+import { assertDecimalCurrency } from '../assert-decimal-currency';
 
 const STRIPE_ZERO_DECIMAL = new Set([
   'BIF',
@@ -57,6 +58,7 @@ function rescale(amount: number, fromExponent: number, toExponent: number, code:
 
 export function stripeMoney(amount: number, currency: string): Money {
   const code = currency.toUpperCase();
+  assertDecimalCurrency('Stripe', code);
   const rescaled = rescale(
     amount,
     stripeCurrencyExponent(code),
@@ -68,6 +70,7 @@ export function stripeMoney(amount: number, currency: string): Money {
 
 export function stripeAmount(money: Money): number {
   const code = money.currency().toUpperCase();
+  assertDecimalCurrency('Stripe', code);
   return rescale(
     money.amount(),
     CurrencyManager.precision(code),

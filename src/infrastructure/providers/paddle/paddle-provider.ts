@@ -28,6 +28,7 @@ import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/
 import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import { assertSubscriptionPayload } from '../webhook-subscription-payload';
+import { paddleAmount } from './paddle-amounts';
 import { buildPaddleClientOptions } from './paddle-client-options';
 import { withPaddleErrors } from './paddle-errors';
 import { PaddleEventNormalizer } from './paddle-event-normalizer';
@@ -134,7 +135,7 @@ export class PaddleProvider implements PaymentProvider {
         description:
           input.description ?? (input.interval ? `${input.interval} price` : 'One-time price'),
         unitPrice: {
-          amount: String(input.unitAmount.amount()),
+          amount: paddleAmount(input.unitAmount),
           currencyCode: input.unitAmount.currency(),
         },
         billingCycle: input.interval
