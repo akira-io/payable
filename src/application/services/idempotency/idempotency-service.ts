@@ -17,6 +17,7 @@ export interface IdempotentExecution<T> {
   tenantId?: string | null;
   retryFailed?: boolean;
   reclaimStaleProcessing?: boolean;
+  lockTtlMs?: number;
   run: () => Promise<T>;
   revive?: (response: unknown) => Promise<T> | T;
 }
@@ -141,7 +142,7 @@ export class IdempotencyService {
       requestHash,
       response: null,
       status: 'processing',
-      lockedUntil: new Date(this.clock.now().getTime() + this.lockTtlMs),
+      lockedUntil: new Date(this.clock.now().getTime() + (execution.lockTtlMs ?? this.lockTtlMs)),
       expiresAt: null,
       lockToken: globalThis.crypto.randomUUID(),
     };
