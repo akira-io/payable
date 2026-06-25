@@ -9,7 +9,7 @@ import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import type { RecurringInterval } from '../../../domain/entities/common';
 import { PayableError } from '../../../domain/errors/payable-error';
-import type { InvoiceStatus } from '../../../domain/value-objects/invoice-status';
+import { isInvoiceStatus } from '../../../domain/value-objects/invoice-status';
 import type { PaymentStatus } from '../../../domain/value-objects/payment-status';
 import type { RefundStatus } from '../../../domain/value-objects/refund-status';
 import { isSubscriptionStatus } from '../../../domain/value-objects/subscription-status';
@@ -125,7 +125,7 @@ export function toRefundResultDTO(refund: Stripe.Refund): RefundResultDTO {
 export function toInvoiceDTO(invoice: Stripe.Invoice): InvoiceDTO {
   return {
     providerInvoiceId: invoice.id ?? '',
-    status: (invoice.status as InvoiceStatus | null) ?? 'draft',
+    status: invoice.status && isInvoiceStatus(invoice.status) ? invoice.status : 'draft',
     total: stripeMoney(invoice.total ?? 0, invoice.currency),
     hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
     invoicePdf: invoice.invoice_pdf ?? null,
