@@ -6,9 +6,9 @@ import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import type { RecurringInterval } from '../../../domain/entities/common';
 import { PayableError } from '../../../domain/errors/payable-error';
-import { Money } from '../../../domain/value-objects/money';
 import type { RefundStatus } from '../../../domain/value-objects/refund-status';
 import type { SubscriptionStatus } from '../../../domain/value-objects/subscription-status';
+import { paddleMoney } from './paddle-amounts';
 import type {
   PaddleAdjustment,
   PaddleCustomer,
@@ -48,10 +48,7 @@ export function toPriceDTO(price: PaddlePriceEntity): PriceDTO {
   return {
     providerPriceId: price.id,
     providerProductId: price.productId,
-    unitAmount: Money.of(
-      toMinorUnits(price.unitPrice.amount),
-      price.unitPrice.currencyCode.toUpperCase(),
-    ),
+    unitAmount: paddleMoney(toMinorUnits(price.unitPrice.amount), price.unitPrice.currencyCode),
     interval: (price.billingCycle?.interval as RecurringInterval | undefined) ?? null,
   };
 }
@@ -101,9 +98,6 @@ export function toRefundResultDTO(adjustment: PaddleAdjustment): RefundResultDTO
   return {
     providerRefundId: adjustment.id,
     status: REFUND_STATUS_BY_ADJUSTMENT[adjustment.status] ?? 'pending',
-    amount: Money.of(
-      toMinorUnits(adjustment.totals.total),
-      adjustment.totals.currencyCode.toUpperCase(),
-    ),
+    amount: paddleMoney(toMinorUnits(adjustment.totals.total), adjustment.totals.currencyCode),
   };
 }

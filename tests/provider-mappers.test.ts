@@ -166,6 +166,26 @@ describe('paddle amount parsing', () => {
       toPaddleRefundDTO({ id: 'adj_1', status: 'approved' } as unknown as PaddleAdjustment),
     ).toThrowError(/missing totals/);
   });
+
+  it('maps a zero-decimal currency without rescaling the minor units', () => {
+    const dto = toPaddlePriceDTO({
+      id: 'pri_jpy',
+      productId: 'pro_1',
+      unitPrice: { amount: '500', currencyCode: 'jpy' },
+    } as unknown as PaddlePriceEntity);
+    expect(dto.unitAmount.amount()).toBe(500);
+    expect(dto.unitAmount.currency()).toBe('JPY');
+  });
+
+  it('wraps an unsupported currency in a PayableError instead of a raw RangeError', () => {
+    expect(() =>
+      toPaddleRefundDTO({
+        id: 'adj_x',
+        status: 'approved',
+        totals: { total: '100', currencyCode: 'zzz' },
+      } as unknown as PaddleAdjustment),
+    ).toThrowError(/PROVIDER_CURRENCY_UNSUPPORTED|not supported/);
+  });
 });
 
 describe('stripe invoice mapping', () => {
