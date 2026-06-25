@@ -47,7 +47,8 @@ describe('forward migrations (C5)', () => {
     expect(names).toContain('payable_invoices_customer_created_id_index');
     expect(names).toContain('payable_subscriptions_customer_created_id_index');
     expect(names).toContain('payable_refunds_payment_created_id_index');
-    expect(names).toContain('payable_outbox_events_status_locked_index');
+    expect(names).toContain('payable_outbox_events_pending_claim_index');
+    expect(names).toContain('payable_outbox_events_stale_claim_index');
   });
 
   it('back-fills columns added after a table was first created', async () => {
