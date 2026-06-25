@@ -27,8 +27,9 @@ export class WebhookEndpointResource {
     });
   }
 
-  list(): Promise<WebhookEndpoint[]> {
-    return this.storage.webhookEndpoints.list(this.tenantId);
+  async list(): Promise<Omit<WebhookEndpoint, 'secret'>[]> {
+    const endpoints = await this.storage.webhookEndpoints.list(this.tenantId);
+    return endpoints.map(({ secret: _secret, ...rest }) => rest);
   }
 
   enable(id: string): Promise<WebhookEndpoint> {
