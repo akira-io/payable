@@ -8,6 +8,9 @@ import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { Money } from '../../../domain/value-objects/money';
 import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
+import { assertAuthorized } from '../../policies/assert-authorized';
+import type { AuthorizationContext } from '../../policies/authorization-context';
+import { CanChargePolicy } from '../../policies/can-charge.policy';
 import { SyncCustomerWithProviderAction } from '../customers/sync-customer-with-provider.action';
 
 export interface ChargeActionInput {
@@ -15,12 +18,22 @@ export interface ChargeActionInput {
   amount: Money;
   reference?: string;
   description?: string;
+  authorization?: AuthorizationContext;
 }
 
 export class ChargeAction {
-  constructor(private readonly deps: BillingDependencies) {}
+  constructor(
+    private readonly deps: BillingDependencies,
+    private readonly policy = new CanChargePolicy(),
+  ) {}
 
   async handle(input: ChargeActionInput): Promise<Payment> {
+    assertAuthorized(
+      this.deps.authorizationEnabled ?? false,
+      (context) => this.policy.authorize(context),
+      input.authorization,
+      'charge',
+    );
     const provider = this.deps.provider;
     if (!isChargeCapable(provider)) {
       throw new ProviderCapabilityNotSupportedError(provider.name, 'charge');
