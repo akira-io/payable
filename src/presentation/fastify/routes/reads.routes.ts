@@ -27,6 +27,17 @@ export async function registerReadRoutes(
     reply.status(200).send(invoices);
   });
 
+  scope.get('/invoices/:id/pdf', async (request, reply) => {
+    const tenantId = options.resolveTenant?.(request) ?? null;
+    const id = String((request.params as { id: string }).id);
+    const pdf = await payable.invoices(undefined, tenantId).downloadPdf(id);
+    reply
+      .status(200)
+      .header('content-type', 'application/pdf')
+      .header('content-disposition', `attachment; filename="${pdf.filename}"`)
+      .send(Buffer.from(pdf.content));
+  });
+
   scope.get('/payments', async (request, reply) => {
     const query = parseBody(billableLookupSchema, request.query);
     const tenantId = options.resolveTenant?.(request) ?? null;

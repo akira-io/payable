@@ -54,6 +54,7 @@ Every method and path below is registered by the adapter. Paths are relative to 
 | PATCH | `/customers` | 200 | Update a customer's email/name |
 | GET | `/customers` | 200 | Get a customer by `billableType`+`billableId` (query) |
 | GET | `/invoices` | 200 | List a billable's invoices (query: billableType, billableId, limit?) |
+| GET | `/invoices/:id/pdf` | 200 | Download an invoice PDF (`application/pdf`; 404 if absent, 422 if the provider lacks `invoicePdf`) |
 | GET | `/payments` | 200 | List a billable's payments (query: billableType, billableId) |
 | POST | `/products` | 201 | Create a product at the provider |
 | PATCH | `/products` | 200 | Update a product |

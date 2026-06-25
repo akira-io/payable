@@ -9,6 +9,7 @@ import {
   Post,
   Query,
   Req,
+  StreamableFile,
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
@@ -190,6 +191,19 @@ export class PayableController {
         this.tenantOf(request),
       )
       .invoices(lookup.limit);
+  }
+
+  @Get('invoices/:id/pdf')
+  @UseGuards(PayableAuthGuard)
+  async getInvoicePdf(
+    @Req() request: PayableHttpRequest,
+    @Param('id') id: string,
+  ): Promise<StreamableFile> {
+    const pdf = await this.payable.invoices(undefined, this.tenantOf(request)).downloadPdf(id);
+    return new StreamableFile(Buffer.from(pdf.content), {
+      type: 'application/pdf',
+      disposition: `attachment; filename="${pdf.filename}"`,
+    });
   }
 
   @Get('payments')

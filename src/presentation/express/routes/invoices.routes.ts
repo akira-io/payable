@@ -23,4 +23,16 @@ export function registerInvoiceRoutes(
       res.status(200).json(invoices);
     }),
   );
+
+  router.get(
+    '/invoices/:id/pdf',
+    asyncHandler(async (req, res) => {
+      const tenantId = options.resolveTenant?.(req) ?? null;
+      const pdf = await payable.invoices(undefined, tenantId).downloadPdf(String(req.params.id));
+      res.status(200);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${pdf.filename}"`);
+      res.send(Buffer.from(pdf.content));
+    }),
+  );
 }

@@ -366,4 +366,39 @@ describe('fastify adapter', () => {
     await app.close();
     await db.destroy();
   });
+
+  it('downloads an invoice pdf over HTTP', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
+    const customer = await payable.customers().create(billable);
+    await storage.invoices.create({
+      tenantId: null,
+      customerId: customer.id,
+      subscriptionId: null,
+      provider: 'stripe',
+      providerInvoiceId: 'in_fake',
+      status: 'paid',
+      currency: 'USD',
+      total: 9900,
+      amountPaid: 9900,
+      amountDue: 0,
+      number: null,
+      hostedInvoiceUrl: null,
+      invoicePdf: null,
+    });
+    const app = await makeApp(payable);
+
+    const res = await app.inject({ method: 'GET', url: '/payable/invoices/in_fake/pdf' });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('application/pdf');
+    expect(res.headers['content-disposition']).toContain('in_fake.pdf');
+    expect(Buffer.from(res.rawPayload)).toEqual(Buffer.from([1, 2, 3]));
+
+    const missing = await app.inject({ method: 'GET', url: '/payable/invoices/in_missing/pdf' });
+    expect(missing.statusCode).toBe(404);
+    await app.close();
+    await db.destroy();
+  });
 });
