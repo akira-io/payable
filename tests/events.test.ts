@@ -68,6 +68,25 @@ describe('InMemoryEventBus', () => {
     expect(received).toEqual(['named:customer.created', 'all:customer.created']);
   });
 
+  it('stops dispatching to a listener after its unsubscribe handle is called', async () => {
+    const bus = new InMemoryEventBus();
+    let calls = 0;
+    const unsubscribe = bus.listen('customer.created', () => {
+      calls += 1;
+    });
+    const event = () =>
+      new CustomerCreatedEvent(
+        { customerId: 'cus_1', billableType: 'User', billableId: '1' },
+        meta,
+      );
+
+    await bus.emit(event());
+    unsubscribe();
+    await bus.emit(event());
+
+    expect(calls).toBe(1);
+  });
+
   it('awaits async listeners', async () => {
     const bus = new InMemoryEventBus();
     let done = false;

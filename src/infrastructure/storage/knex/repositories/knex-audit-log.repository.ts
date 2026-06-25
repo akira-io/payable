@@ -38,28 +38,28 @@ export class KnexAuditLogRepository implements AuditLogRepository {
       const previousHash = latest?.hash ?? null;
       const hash = await auditEntryHash(previousHash, data);
       const sequence = (latest?.sequence ?? 0) + 1;
+      const record = {
+        id,
+        sequence,
+        tenant_id: this.tenant(tenantId),
+        correlation_id: data.correlationId,
+        actor_type: data.actorType,
+        actor_id: data.actorId,
+        action: data.action,
+        resource_type: data.resourceType,
+        resource_id: data.resourceId,
+        before: fromJson(data.before) ?? null,
+        after: fromJson(data.after) ?? null,
+        metadata: fromJson(data.metadata) ?? null,
+        ip_address: data.ipAddress,
+        user_agent: data.userAgent,
+        previous_hash: previousHash,
+        hash,
+        created_at: this.clock.now().toISOString(),
+      };
       try {
-        await this.knex(this.table).insert({
-          id,
-          sequence,
-          tenant_id: this.tenant(tenantId),
-          correlation_id: data.correlationId,
-          actor_type: data.actorType,
-          actor_id: data.actorId,
-          action: data.action,
-          resource_type: data.resourceType,
-          resource_id: data.resourceId,
-          before: fromJson(data.before) ?? null,
-          after: fromJson(data.after) ?? null,
-          metadata: fromJson(data.metadata) ?? null,
-          ip_address: data.ipAddress,
-          user_agent: data.userAgent,
-          previous_hash: previousHash,
-          hash,
-          created_at: this.clock.now().toISOString(),
-        });
-        const row = await this.knex(this.table).where({ id }).first();
-        return this.toEntity(row as Record<string, unknown>);
+        await this.knex(this.table).insert(record);
+        return this.toEntity(record as Record<string, unknown>);
       } catch (error) {
         if (!isUniqueViolation(error)) {
           throw error;
