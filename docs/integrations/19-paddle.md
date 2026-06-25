@@ -138,4 +138,4 @@ await payable.refund({ paymentId: 'txn_123' });
 
 ---
 
-[Previous: Stripe](18-stripe.md) · [Index](../00-index.md) · [Next: Knex Storage](../persistence/20-storage-knex.md)
+[Previous: Stripe](18-stripe.md) · [Index](../00-index.md) · [Next: SISP](20-sisp.md)

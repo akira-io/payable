@@ -2,8 +2,18 @@
 
 Every billing operation in Payable starts from a `Billable` - the integrating application's own
 record (a user, a team, an organization) that should be billed. Payable never owns that record; it
-maps it to a provider customer (a Stripe or Paddle customer) and persists the mapping locally so the
-same provider customer is reused across operations.
+persists a local customer for it and, when the provider supports it, maps that local customer to a
+provider customer (a Stripe or Paddle customer) so the same provider customer is reused across
+operations.
+
+Whether a provider customer is created depends on the provider's `customers` capability:
+
+- **Provider with `customers`** (Stripe, Paddle): `payable.customers().create(...)` syncs to the
+  provider and stores the returned `providerCustomerId`.
+- **Provider without `customers`** (SISP): no provider customer exists. Payable still persists a
+  **local-only** customer with `providerCustomerId: null`, so the billable is associated with its
+  payments. `update(...)` edits the local record only - no provider call. The `Customer` entity's
+  `providerCustomerId` is nullable for exactly this reason.
 
 ## The `Billable` shape
 
