@@ -113,4 +113,21 @@ describe('webhook endpoint lifecycle (#460)', () => {
     const reloaded = await storage.webhookEndpoints.findById(endpoint.id);
     expect(reloaded?.events).toEqual([]);
   });
+
+  it('rolls back the endpoint row when writing its event subscriptions fails', async () => {
+    await db.schema.dropTable('payable_webhook_endpoint_events');
+
+    await expect(
+      storage.webhookEndpoints.create({
+        tenantId: null,
+        url: 'https://hooks.test/atomic',
+        events: ['invoice.paid'],
+        secret: 'whsec_atomic',
+        status: 'enabled',
+      }),
+    ).rejects.toThrow();
+
+    const rows = await db('payable_webhook_endpoints');
+    expect(rows).toHaveLength(0);
+  });
 });

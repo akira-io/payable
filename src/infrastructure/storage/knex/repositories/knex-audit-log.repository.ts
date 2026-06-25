@@ -14,8 +14,13 @@ const MAX_AUDIT_LIST_LIMIT = 1000;
 const MAX_CHAIN_RETRIES = 50;
 
 function isUniqueViolation(error: unknown): boolean {
-  const candidate = error as { code?: string; message?: string };
-  if (candidate.code === '23505' || candidate.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+  const candidate = error as { code?: string; errno?: number; message?: string };
+  if (
+    candidate.code === '23505' ||
+    candidate.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+    candidate.code === 'ER_DUP_ENTRY' ||
+    candidate.errno === 1062
+  ) {
     return true;
   }
   return typeof candidate.message === 'string' && /unique/i.test(candidate.message);

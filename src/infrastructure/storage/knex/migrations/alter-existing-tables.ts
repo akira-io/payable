@@ -89,14 +89,18 @@ async function backfillEndpointEvents(knex: Knex): Promise<void> {
     id: string;
     events: string;
   }[];
-  for (const endpoint of endpoints) {
-    const events = parseEventList(endpoint.events);
-    for (const eventType of events) {
-      await knex('payable_webhook_endpoint_events')
-        .insert({ endpoint_id: endpoint.id, event_type: eventType })
-        .onConflict(['endpoint_id', 'event_type'])
-        .ignore();
-    }
+  const rows = endpoints.flatMap((endpoint) =>
+    parseEventList(endpoint.events).map((eventType) => ({
+      endpoint_id: endpoint.id,
+      event_type: eventType,
+    })),
+  );
+  const chunkSize = 500;
+  for (let offset = 0; offset < rows.length; offset += chunkSize) {
+    await knex('payable_webhook_endpoint_events')
+      .insert(rows.slice(offset, offset + chunkSize))
+      .onConflict(['endpoint_id', 'event_type'])
+      .ignore();
   }
 }
 
