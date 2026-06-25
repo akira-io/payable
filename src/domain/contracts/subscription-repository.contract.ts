@@ -26,4 +26,5 @@ export interface SubscriptionRepository {
     tenantId?: string | null,
     options?: ListOptions,
   ): Promise<Subscription[]>;
+  list(tenantId?: string | null, options?: ListOptions): Promise<Subscription[]>;
 }

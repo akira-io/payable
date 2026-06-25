@@ -20,16 +20,23 @@ import { ProductResource } from './application/builders/product-resource';
 import { RefundResource } from './application/builders/refund-resource';
 import type { WebhookDependencies } from './application/builders/webhook-dependencies';
 import { WebhookEndpointResource } from './application/builders/webhook-endpoint-resource';
+import { WebhookEventResource } from './application/builders/webhook-event-resource';
 import type { AuthorizationContext } from './application/policies/authorization-context';
 import type { ReplayWebhookContext } from './application/policies/can-replay-webhook.policy';
+import { ListAuditLogsQuery } from './application/queries/audit/list-audit-logs.query';
+import { ListAllPaymentsQuery } from './application/queries/payments/list-all-payments.query';
+import { ListAllSubscriptionsQuery } from './application/queries/subscriptions/list-all-subscriptions.query';
 import { IdempotencyService } from './application/services/idempotency/idempotency-service';
 import { WebhookDeliveryService } from './application/services/webhook-delivery/webhook-delivery-service';
 import type { Clock } from './domain/contracts/clock.contract';
 import type { EventBus } from './domain/contracts/event-bus.contract';
+import type { ListOptions } from './domain/contracts/list-options.contract';
 import type { Logger } from './domain/contracts/logger.contract';
 import type { PaymentProvider } from './domain/contracts/payment-provider.contract';
 import type { QueueJob } from './domain/contracts/queue-driver.contract';
+import type { Payment } from './domain/entities/payment.entity';
 import type { Refund } from './domain/entities/refund.entity';
+import type { Subscription } from './domain/entities/subscription.entity';
 import { PayableError } from './domain/errors/payable-error';
 import { ProviderNotFoundError } from './domain/errors/provider-not-found.error';
 import type { Money } from './domain/value-objects/money';
@@ -188,6 +195,42 @@ export class Payable {
       });
     }
     return new WebhookEndpointResource(this.resolved.storage, tenantId ?? null);
+  }
+
+  webhookEvents(tenantId?: string | null): WebhookEventResource {
+    if (!this.resolved.storage) {
+      throw new PayableError('Webhook events require a storage driver', {
+        code: 'WEBHOOK_STORAGE_REQUIRED',
+      });
+    }
+    if (this.resolved.tenantEnabled && (tenantId === undefined || tenantId === null)) {
+      throw new PayableError('A tenant id is required when tenancy is enabled', {
+        code: 'TENANT_REQUIRED',
+      });
+    }
+    return new WebhookEventResource(this.resolved.storage, tenantId ?? null);
+  }
+
+  subscriptions(tenantId?: string | null, options?: ListOptions): Promise<Subscription[]> {
+    return new ListAllSubscriptionsQuery(this.dependencies(undefined, tenantId)).run(options);
+  }
+
+  payments(tenantId?: string | null, options?: ListOptions): Promise<Payment[]> {
+    return new ListAllPaymentsQuery(this.dependencies(undefined, tenantId)).run(options);
+  }
+
+  auditLogs(tenantId?: string | null): ListAuditLogsQuery {
+    if (!this.resolved.storage) {
+      throw new PayableError('Audit logs require a storage driver', {
+        code: 'AUDIT_LOG_STORAGE_REQUIRED',
+      });
+    }
+    if (this.resolved.tenantEnabled && (tenantId === undefined || tenantId === null)) {
+      throw new PayableError('A tenant id is required when tenancy is enabled', {
+        code: 'TENANT_REQUIRED',
+      });
+    }
+    return new ListAuditLogsQuery(this.resolved.storage.auditLogs, tenantId ?? null);
   }
 
   private dependencies(providerName?: string, tenantId?: string | null): BillingDependencies {

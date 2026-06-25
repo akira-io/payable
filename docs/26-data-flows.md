@@ -173,4 +173,4 @@ flowchart TD
 
 ---
 
-[Previous: NestJS](adapters/24-nestjs.md) | [Index](00-index.md) | [Next: Security](26-security.md)
+[Previous: MCP](adapters/25-mcp.md) | [Index](00-index.md) | [Next: Security](27-security.md)

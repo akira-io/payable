@@ -40,6 +40,10 @@ export class KnexSubscriptionRepository
     return this.manyWhere({ customer_id: customerId, ...this.tenantClause(tenantId) }, options);
   }
 
+  list(tenantId?: string | null, options?: ListOptions): Promise<Subscription[]> {
+    return this.manyWhere(this.tenantClause(tenantId), options);
+  }
+
   protected toEntity(row: Record<string, unknown>): Subscription {
     return {
       id: row.id as string,

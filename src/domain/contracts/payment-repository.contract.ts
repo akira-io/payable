@@ -14,4 +14,5 @@ export interface PaymentRepository {
     tenantId?: string | null,
     options?: ListOptions,
   ): Promise<Payment[]>;
+  list(tenantId?: string | null, options?: ListOptions): Promise<Payment[]>;
 }

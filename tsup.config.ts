@@ -6,6 +6,8 @@ export default defineConfig({
     'express/index': 'src/presentation/express/index.ts',
     'fastify/index': 'src/presentation/fastify/index.ts',
     'nest/index': 'src/presentation/nest/index.ts',
+    'mcp/index': 'src/presentation/mcp/index.ts',
+    'mcp/bin': 'src/presentation/mcp/bin.ts',
   },
   format: ['esm', 'cjs'],
   dts: {
@@ -14,6 +16,7 @@ export default defineConfig({
       'express/index': 'src/presentation/express/index.ts',
       'fastify/index': 'src/presentation/fastify/index.ts',
       'nest/index': 'src/presentation/nest/index.ts',
+      'mcp/index': 'src/presentation/mcp/index.ts',
     },
   },
   noExternal: ['dinero.js'],

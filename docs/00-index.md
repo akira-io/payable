@@ -45,15 +45,16 @@ tree.
 22. [adapters/22-express.md](adapters/22-express.md) - Express routes adapter.
 23. [adapters/23-fastify.md](adapters/23-fastify.md) - Fastify plugin adapter.
 24. [adapters/24-nestjs.md](adapters/24-nestjs.md) - NestJS module adapter.
+25. [adapters/25-mcp.md](adapters/25-mcp.md) - MCP server adapter for AI clients.
 
 ## Cross-cutting
 
-25. [25-data-flows.md](25-data-flows.md) - End-to-end data flows for the main operations.
-26. [26-security.md](26-security.md) - Signature verification, auth boundaries, encryption, and header redaction.
-27. [27-development.md](27-development.md) - Build, lint, test, and the bundle check.
-28. [28-operations.md](28-operations.md) - Running migrations, queue workers, and the outbox.
-29. [29-troubleshooting.md](29-troubleshooting.md) - Common errors and their causes.
-30. [30-faq.md](30-faq.md) - Frequently asked questions.
+26. [26-data-flows.md](26-data-flows.md) - End-to-end data flows for the main operations.
+27. [27-security.md](27-security.md) - Signature verification, auth boundaries, encryption, and header redaction.
+28. [28-development.md](28-development.md) - Build, lint, test, and the bundle check.
+29. [29-operations.md](29-operations.md) - Running migrations, queue workers, and the outbox.
+30. [30-troubleshooting.md](30-troubleshooting.md) - Common errors and their causes.
+31. [31-faq.md](31-faq.md) - Frequently asked questions.
 
 ---
 

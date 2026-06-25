@@ -36,7 +36,15 @@
       "types": "./dist/nest/index.d.ts",
       "import": "./dist/nest/index.js",
       "require": "./dist/nest/index.cjs"
+    },
+    "./mcp": {
+      "types": "./dist/mcp/index.d.ts",
+      "import": "./dist/mcp/index.js",
+      "require": "./dist/mcp/index.cjs"
     }
+  },
+  "bin": {
+    "payable-mcp": "./dist/mcp/bin.cjs"
   },
   "files": [
     "dist"
@@ -68,6 +76,7 @@
   },
   "peerDependencies": {
     "@fastify/rate-limit": ">=9",
+    "@modelcontextprotocol/sdk": ">=1.18",
     "@nestjs/common": ">=10",
     "@nestjs/core": ">=10",
     "@paddle/paddle-node-sdk": ">=2",
@@ -80,6 +89,9 @@
   },
   "peerDependenciesMeta": {
     "@fastify/rate-limit": {
+      "optional": true
+    },
+    "@modelcontextprotocol/sdk": {
       "optional": true
     },
     "@nestjs/common": {
@@ -113,6 +125,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.3.0",
     "@fastify/rate-limit": "^11.0.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@nestjs/common": "^11.1.27",
     "@nestjs/core": "^11.1.27",
     "@paddle/paddle-node-sdk": "^3.8.0",
