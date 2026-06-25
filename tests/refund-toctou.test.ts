@@ -52,4 +52,36 @@ describe('refund TOCTOU guard', () => {
     });
     await db.destroy();
   });
+
+  it('scopes refund findById to the owning tenant', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payment = await storage.payments.create({
+      tenantId: 'acme',
+      customerId: null,
+      provider: 'stripe',
+      providerPaymentId: 'pi_acme',
+      status: 'succeeded',
+      currency: 'USD',
+      amount: 500,
+      refundedAmount: 500,
+      reference: null,
+      description: null,
+    });
+    const refund = await storage.refunds.create({
+      tenantId: 'acme',
+      paymentId: payment.id,
+      provider: 'stripe',
+      providerRefundId: 're_acme',
+      status: 'succeeded',
+      currency: 'USD',
+      amount: 500,
+      reason: null,
+    });
+
+    expect(await storage.refunds.findById(refund.id, 'globex')).toBeNull();
+    expect((await storage.refunds.findById(refund.id, 'acme'))?.id).toBe(refund.id);
+    await db.destroy();
+  });
 });

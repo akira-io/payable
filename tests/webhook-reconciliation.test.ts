@@ -155,6 +155,62 @@ describe('webhook subscription reconciliation (C1)', () => {
     expect(reloaded?.status).toBe('canceled');
   });
 
+  it('does not reconcile a subscription owned by a different tenant', async () => {
+    const tenantPayable = createPayable({
+      providers: { stripe: provider },
+      storage,
+      clock,
+      tenant: { enabled: true, resolver: { resolve: (ctx) => ctx.headers['x-tenant-id'] ?? null } },
+    });
+
+    const customer = await storage.customers.create({
+      tenantId: 'globex',
+      provider: 'stripe',
+      providerCustomerId: 'cus_globex',
+      billableType: 'User',
+      billableId: '99',
+      email: 'globex@example.com',
+      name: 'Globex',
+      metadata: null,
+    });
+    await storage.subscriptions.create({
+      tenantId: 'globex',
+      customerId: customer.id,
+      name: 'default',
+      provider: 'stripe',
+      providerSubscriptionId: 'sub_shared',
+      status: 'active',
+      priceId: 'price_pro',
+      quantity: 1,
+      trialEndsAt: null,
+      endsAt: null,
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+    });
+
+    provider.verifyResult = {
+      providerEventId: 'evt_cross',
+      type: 'customer.subscription.updated',
+      normalizedType: 'subscription.updated',
+      data: {},
+    };
+    provider.reconcileResult = {
+      providerSubscriptionId: 'sub_shared',
+      status: 'past_due',
+      currentPeriodEnd: new Date('2026-07-22T00:00:00.000Z'),
+      trialEndsAt: null,
+    };
+
+    await tenantPayable.receiveWebhook({
+      payload: '{}',
+      signature: 'sig',
+      headers: { 'x-tenant-id': 'acme' },
+    });
+
+    const reloaded = await storage.subscriptions.findByProviderId('stripe', 'sub_shared', 'globex');
+    expect(reloaded?.status).toBe('active');
+  });
+
   it('ignores non-subscription events', async () => {
     const subscription = await seedSubscription();
     provider.verifyResult = {
