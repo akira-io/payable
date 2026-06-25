@@ -289,4 +289,64 @@ describe('nest adapter', () => {
     );
     expect(price.providerPriceId).toBe('price_fake');
   });
+
+  it('lists subscriptions, gets one, and lists refunds', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
+    const controller = controllerFor(payable);
+    const customer = await payable.customers().create(billable);
+    await storage.subscriptions.create({
+      tenantId: null,
+      customerId: customer.id,
+      name: 'default',
+      provider: 'stripe',
+      providerSubscriptionId: 'sub_1',
+      status: 'active',
+      priceId: 'price_pro',
+      quantity: 1,
+      trialEndsAt: null,
+      endsAt: null,
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+    });
+    const payment = await storage.payments.create({
+      tenantId: null,
+      customerId: customer.id,
+      provider: 'stripe',
+      providerPaymentId: 'pi_r',
+      status: 'succeeded',
+      currency: 'USD',
+      amount: 9900,
+      refundedAmount: 4000,
+      reference: null,
+      description: null,
+    });
+    await storage.refunds.create({
+      tenantId: null,
+      paymentId: payment.id,
+      provider: 'stripe',
+      providerRefundId: 're_1',
+      status: 'succeeded',
+      currency: 'USD',
+      amount: 4000,
+      reason: null,
+    });
+
+    const lookup = { billableType: 'User', billableId: '1' };
+    const list = await controller.subscriptions({ headers: {} }, lookup);
+    expect(list[0]?.name).toBe('default');
+
+    const one = await controller.getSubscription({ headers: {} }, 'default', lookup);
+    expect(one.status).toBe('active');
+
+    await expect(controller.getSubscription({ headers: {} }, 'nope', lookup)).rejects.toMatchObject(
+      { code: 'SUBSCRIPTION_NOT_FOUND' },
+    );
+
+    const refunds = await controller.listRefunds({ headers: {} }, { paymentId: payment.id });
+    expect(refunds[0]?.amount).toBe(4000);
+    await db.destroy();
+  });
 });

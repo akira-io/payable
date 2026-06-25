@@ -29,6 +29,8 @@ import {
   customerBodySchema,
   customerUpdateBodySchema,
   listInvoicesQuerySchema,
+  listRefundsQuerySchema,
+  listSubscriptionsQuerySchema,
   manageSubscriptionBodySchema,
   parseBody,
   parseMoneyInput,
@@ -197,6 +199,51 @@ export class PayableController {
     return this.payable
       .customer({ ...lookup, email: '' }, undefined, this.tenantOf(request))
       .payments();
+  }
+
+  @Get('subscriptions')
+  @UseGuards(PayableAuthGuard)
+  subscriptions(
+    @Req() request: PayableHttpRequest,
+    @Query() query: unknown,
+  ): Promise<Subscription[]> {
+    const lookup = parseBody(listSubscriptionsQuerySchema, query);
+    return this.payable
+      .customer(
+        { billableType: lookup.billableType, billableId: lookup.billableId, email: '' },
+        undefined,
+        this.tenantOf(request),
+      )
+      .subscriptions(lookup.limit ? { limit: lookup.limit } : undefined);
+  }
+
+  @Get('subscriptions/:name')
+  @UseGuards(PayableAuthGuard)
+  async getSubscription(
+    @Req() request: PayableHttpRequest,
+    @Param('name') name: string,
+    @Query() query: unknown,
+  ): Promise<Subscription> {
+    const lookup = parseBody(billableLookupSchema, query);
+    const subscription = await this.payable
+      .customer({ ...lookup, email: '' }, undefined, this.tenantOf(request))
+      .subscription(name)
+      .get();
+    if (!subscription) {
+      throw new PayableError(`Subscription not found: ${name}`, {
+        code: 'SUBSCRIPTION_NOT_FOUND',
+      });
+    }
+    return subscription;
+  }
+
+  @Get('refunds')
+  @UseGuards(PayableAuthGuard)
+  listRefunds(@Req() request: PayableHttpRequest, @Query() query: unknown): Promise<Refund[]> {
+    const lookup = parseBody(listRefundsQuerySchema, query);
+    return this.payable
+      .refunds(undefined, this.tenantOf(request))
+      .list(lookup.paymentId, lookup.limit ? { limit: lookup.limit } : undefined);
   }
 
   @Post('refunds')

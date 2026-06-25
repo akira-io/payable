@@ -58,6 +58,9 @@ Every method and path below is registered by the adapter. Paths are relative to 
 | POST | `/products` | 201 | Create a product at the provider |
 | PATCH | `/products` | 200 | Update a product |
 | POST | `/prices` | 201 | Create a price for a product |
+| GET | `/subscriptions` | 200 | List a billable's subscriptions (query: billableType, billableId, limit?) |
+| GET | `/subscriptions/:name` | 200 | Get one subscription by name (404 if absent) |
+| GET | `/refunds` | 200 | List a payment's refunds (query: paymentId, limit?) |
 
 All routes above are wired to working implementations. `/customers` (POST/PATCH/GET), `/invoices`,
 and `/payments` resolve a `Payable` resource for the request's billable (and tenant, when tenancy is
@@ -207,7 +210,7 @@ app.use(
   `WEBHOOK_PROVIDER_AMBIGUOUS` (400) from the facade - route such webhooks to `/webhooks/:provider`.
 - Webhook receipt requires a storage driver; without one the facade throws
   `WEBHOOK_STORAGE_REQUIRED` (500).
-- The reserved 501 endpoints are intentional placeholders, not bugs.
+- `GET /subscriptions/:name` returns 404 when the named subscription does not exist.
 
 ---
 

@@ -288,4 +288,82 @@ describe('fastify adapter', () => {
     expect(price.json().providerPriceId).toBe('price_fake');
     await app.close();
   });
+
+  it('lists subscriptions, gets one, and lists refunds over HTTP', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
+    const customer = await payable.customers().create(billable);
+    await storage.subscriptions.create({
+      tenantId: null,
+      customerId: customer.id,
+      name: 'default',
+      provider: 'stripe',
+      providerSubscriptionId: 'sub_1',
+      status: 'active',
+      priceId: 'price_pro',
+      quantity: 1,
+      trialEndsAt: null,
+      endsAt: null,
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+    });
+    const payment = await storage.payments.create({
+      tenantId: null,
+      customerId: customer.id,
+      provider: 'stripe',
+      providerPaymentId: 'pi_r',
+      status: 'succeeded',
+      currency: 'USD',
+      amount: 9900,
+      refundedAmount: 4000,
+      reference: null,
+      description: null,
+    });
+    await storage.refunds.create({
+      tenantId: null,
+      paymentId: payment.id,
+      provider: 'stripe',
+      providerRefundId: 're_1',
+      status: 'succeeded',
+      currency: 'USD',
+      amount: 4000,
+      reason: null,
+    });
+    const app = await makeApp(payable);
+
+    const list = await app.inject({
+      method: 'GET',
+      url: '/payable/subscriptions',
+      query: { billableType: 'User', billableId: '1' },
+    });
+    expect(list.statusCode).toBe(200);
+    expect(list.json()[0]?.name).toBe('default');
+
+    const one = await app.inject({
+      method: 'GET',
+      url: '/payable/subscriptions/default',
+      query: { billableType: 'User', billableId: '1' },
+    });
+    expect(one.statusCode).toBe(200);
+    expect(one.json().status).toBe('active');
+
+    const missingSub = await app.inject({
+      method: 'GET',
+      url: '/payable/subscriptions/nope',
+      query: { billableType: 'User', billableId: '1' },
+    });
+    expect(missingSub.statusCode).toBe(404);
+
+    const refunds = await app.inject({
+      method: 'GET',
+      url: '/payable/refunds',
+      query: { paymentId: payment.id },
+    });
+    expect(refunds.statusCode).toBe(200);
+    expect(refunds.json()[0]?.amount).toBe(4000);
+    await app.close();
+    await db.destroy();
+  });
 });

@@ -1,6 +1,11 @@
 import type { Router } from 'express';
 import type { Payable } from '../../../payable';
-import { parseBody, parseMoneyInput, refundBodySchema } from '../../shared/schemas';
+import {
+  listRefundsQuerySchema,
+  parseBody,
+  parseMoneyInput,
+  refundBodySchema,
+} from '../../shared/schemas';
 import { asyncHandler, type ExpressPayableOptions, jsonBody } from '../helpers';
 
 export function registerRefundRoutes(
@@ -8,6 +13,18 @@ export function registerRefundRoutes(
   payable: Payable,
   options: ExpressPayableOptions = {},
 ): void {
+  router.get(
+    '/refunds',
+    asyncHandler(async (req, res) => {
+      const query = parseBody(listRefundsQuerySchema, req.query);
+      const tenantId = options.resolveTenant?.(req) ?? null;
+      const refunds = await payable
+        .refunds(undefined, tenantId)
+        .list(query.paymentId, query.limit ? { limit: query.limit } : undefined);
+      res.status(200).json(refunds);
+    }),
+  );
+
   router.post(
     '/refunds',
     jsonBody(),

@@ -6,6 +6,7 @@ export { CustomerContext } from './customer-context';
 export { type CustomerChanges, CustomerResource } from './customer-resource';
 export { PriceResource } from './price-resource';
 export { ProductResource } from './product-resource';
+export { RefundResource } from './refund-resource';
 export { SubscriptionBuilder } from './subscription-builder';
 export { SubscriptionManager } from './subscription-manager';
 export type { WebhookDependencies } from './webhook-dependencies';

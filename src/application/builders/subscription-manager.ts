@@ -5,6 +5,7 @@ import { ResumeSubscriptionAction } from '../actions/subscriptions/resume-subscr
 import { SwapSubscriptionAction } from '../actions/subscriptions/swap-subscription.action';
 import { UpdateSubscriptionQuantityAction } from '../actions/subscriptions/update-subscription-quantity.action';
 import type { AuthorizationContext } from '../policies/authorization-context';
+import { FindSubscriptionQuery } from '../queries/subscriptions/find-subscription.query';
 import type { Billable } from './billable';
 import type { BillingDependencies } from './billing-dependencies';
 
@@ -24,6 +25,10 @@ export class SubscriptionManager {
     private readonly name: string,
     private readonly deps: BillingDependencies,
   ) {}
+
+  get(): Promise<Subscription | null> {
+    return new FindSubscriptionQuery(this.deps).run(this.billable, this.name);
+  }
 
   swap(priceId: string, authorization?: AuthorizationContext): Promise<Subscription>;
   swap(options: SwapOptions): Promise<Subscription>;
