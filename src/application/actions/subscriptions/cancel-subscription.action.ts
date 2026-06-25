@@ -24,7 +24,7 @@ export class CancelSubscriptionAction extends SubscriptionAction {
       const updated = await repos.subscriptions.update(
         subscription.id,
         {
-          status: dto.status,
+          status: this.reconcileStatus(subscription.status, dto.status),
           endsAt: dto.currentPeriodEnd,
         },
         this.deps.tenantId ?? null,

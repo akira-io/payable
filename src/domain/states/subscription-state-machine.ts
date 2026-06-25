@@ -85,3 +85,24 @@ export class SubscriptionStateMachine {
     return this.to('expire');
   }
 }
+
+export interface SubscriptionStatusReconciliation {
+  status: SubscriptionStatus;
+  applied: boolean;
+  event: SubscriptionEvent | null;
+}
+
+export function reconcileSubscriptionStatus(
+  current: SubscriptionStatus,
+  target: SubscriptionStatus,
+): SubscriptionStatusReconciliation {
+  if (current === target) {
+    return { status: current, applied: true, event: null };
+  }
+  for (const [event, next] of Object.entries(MAP[current] ?? {})) {
+    if (next === target) {
+      return { status: target, applied: true, event: event as SubscriptionEvent };
+    }
+  }
+  return { status: current, applied: false, event: null };
+}

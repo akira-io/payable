@@ -3,7 +3,10 @@ import { InvalidStateTransitionError } from '../src/domain/errors/invalid-state-
 import { InvoiceStateMachine } from '../src/domain/states/invoice-state-machine';
 import { PaymentStateMachine } from '../src/domain/states/payment-state-machine';
 import { RefundStateMachine } from '../src/domain/states/refund-state-machine';
-import { SubscriptionStateMachine } from '../src/domain/states/subscription-state-machine';
+import {
+  reconcileSubscriptionStatus,
+  SubscriptionStateMachine,
+} from '../src/domain/states/subscription-state-machine';
 
 describe('SubscriptionStateMachine', () => {
   it('walks the trial-to-active-to-canceled path', () => {
@@ -39,6 +42,40 @@ describe('SubscriptionStateMachine', () => {
   it('reports whether a transition is allowed', () => {
     expect(new SubscriptionStateMachine('active').can('cancel')).toBe(true);
     expect(new SubscriptionStateMachine('active').can('start_trial')).toBe(false);
+  });
+
+  it('reconciles a provider status only through a legal transition', () => {
+    expect(reconcileSubscriptionStatus('active', 'canceled')).toEqual({
+      status: 'canceled',
+      applied: true,
+      event: 'cancel',
+    });
+    expect(reconcileSubscriptionStatus('paused', 'active')).toEqual({
+      status: 'active',
+      applied: true,
+      event: 'resume',
+    });
+  });
+
+  it('keeps the current status when the provider status is an illegal transition', () => {
+    expect(reconcileSubscriptionStatus('canceled', 'active')).toEqual({
+      status: 'canceled',
+      applied: false,
+      event: null,
+    });
+    expect(reconcileSubscriptionStatus('canceled', 'incomplete')).toEqual({
+      status: 'canceled',
+      applied: false,
+      event: null,
+    });
+  });
+
+  it('treats an unchanged provider status as applied without an event', () => {
+    expect(reconcileSubscriptionStatus('active', 'active')).toEqual({
+      status: 'active',
+      applied: true,
+      event: null,
+    });
   });
 });
 
