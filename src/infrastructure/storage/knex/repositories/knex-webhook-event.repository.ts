@@ -105,11 +105,13 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
     id: string,
     status: WebhookEventStatus,
     processedAt: Date | null,
+    tenantId?: string | null,
   ): Promise<WebhookEvent> {
+    const where = tenantId === undefined ? { id } : { id, tenant_id: this.tenant(tenantId) };
     await this.knex(this.table)
-      .where({ id })
+      .where(where)
       .update({ status, processed_at: processedAt ? processedAt.toISOString() : null });
-    return this.findByIdOrFail(id);
+    return this.findByIdOrFail(id, tenantId);
   }
 
   private toEntity(row: Record<string, unknown>): WebhookEvent {
@@ -130,8 +132,8 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
     };
   }
 
-  private async findByIdOrFail(id: string): Promise<WebhookEvent> {
-    const found = await this.findById(id);
+  private async findByIdOrFail(id: string, tenantId?: string | null): Promise<WebhookEvent> {
+    const found = await this.findById(id, tenantId);
     if (!found) {
       throw new Error(`${this.table}: row ${id} missing after write`);
     }
