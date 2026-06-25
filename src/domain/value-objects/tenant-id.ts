@@ -1,12 +1,10 @@
+import { normalizeIdentifier } from './identifier';
+
 export class TenantId {
   private constructor(private readonly value: string) {}
 
   static of(value: string): TenantId {
-    const normalized = value.trim();
-    if (normalized.length === 0) {
-      throw new TypeError('Tenant id cannot be empty');
-    }
-    return new TenantId(normalized);
+    return new TenantId(normalizeIdentifier(value, 'Tenant id'));
   }
 
   toString(): string {

@@ -68,6 +68,8 @@ function currencySegment(value: CurrencyCode): string {
   return segment(value.toUpperCase());
 }
 
+const MAX_KEY_LENGTH = 512;
+
 export class IdempotencyKey {
   private constructor(private readonly value: string) {}
 
@@ -75,6 +77,11 @@ export class IdempotencyKey {
     const normalized = value.trim();
     if (normalized.length === 0) {
       throw new TypeError('Idempotency key cannot be empty');
+    }
+    if (normalized.length > MAX_KEY_LENGTH) {
+      throw new TypeError(
+        `Idempotency key exceeds ${MAX_KEY_LENGTH} characters (got ${normalized.length})`,
+      );
     }
     return new IdempotencyKey(normalized);
   }

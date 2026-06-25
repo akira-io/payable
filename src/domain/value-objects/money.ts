@@ -65,11 +65,13 @@ export class Money {
 
   add(other: Money): Money {
     this.assertSameCurrency(other);
+    assertSafeMinor(this.amount() + other.amount(), 'sum');
     return new Money(add(this.value, other.value), this.code);
   }
 
   subtract(other: Money): Money {
     this.assertSameCurrency(other);
+    assertSafeMinor(this.amount() - other.amount(), 'difference');
     return new Money(subtract(this.value, other.value), this.code);
   }
 

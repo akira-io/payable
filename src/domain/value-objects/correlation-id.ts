@@ -1,12 +1,10 @@
+import { normalizeIdentifier } from './identifier';
+
 export class CorrelationId {
   private constructor(private readonly value: string) {}
 
   static of(value: string): CorrelationId {
-    const normalized = value.trim();
-    if (normalized.length === 0) {
-      throw new TypeError('Correlation id cannot be empty');
-    }
-    return new CorrelationId(normalized);
+    return new CorrelationId(normalizeIdentifier(value, 'Correlation id'));
   }
 
   static generate(): CorrelationId {
