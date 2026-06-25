@@ -11,6 +11,15 @@ import { fromJson, toDate, toJson } from '../mappers';
 
 const DEFAULT_AUDIT_LIST_LIMIT = 100;
 const MAX_AUDIT_LIST_LIMIT = 1000;
+const MAX_CHAIN_RETRIES = 50;
+
+function isUniqueViolation(error: unknown): boolean {
+  const candidate = error as { code?: string; message?: string };
+  if (candidate.code === '23505' || candidate.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    return true;
+  }
+  return typeof candidate.message === 'string' && /unique/i.test(candidate.message);
+}
 
 export class KnexAuditLogRepository implements AuditLogRepository {
   private readonly table = 'payable_audit_logs';
@@ -21,53 +30,67 @@ export class KnexAuditLogRepository implements AuditLogRepository {
   ) {}
 
   async create(data: NewAuditLog): Promise<AuditLog> {
-    const id = globalThis.crypto.randomUUID();
-    const previousHash = await this.latestHash(data.tenantId ?? null);
-    const hash = await auditEntryHash(previousHash, data);
-    const sequence = await this.nextSequence(data.tenantId ?? null);
-    await this.knex(this.table).insert({
-      id,
-      sequence,
-      tenant_id: data.tenantId,
-      correlation_id: data.correlationId,
-      actor_type: data.actorType,
-      actor_id: data.actorId,
-      action: data.action,
-      resource_type: data.resourceType,
-      resource_id: data.resourceId,
-      before: fromJson(data.before) ?? null,
-      after: fromJson(data.after) ?? null,
-      metadata: fromJson(data.metadata) ?? null,
-      ip_address: data.ipAddress,
-      user_agent: data.userAgent,
-      previous_hash: previousHash,
-      hash,
-      created_at: this.clock.now().toISOString(),
-    });
-    const row = await this.knex(this.table).where({ id }).first();
-    return this.toEntity(row as Record<string, unknown>);
+    const tenantId = data.tenantId ?? null;
+    let lastError: unknown;
+    for (let attempt = 0; attempt < MAX_CHAIN_RETRIES; attempt += 1) {
+      const id = globalThis.crypto.randomUUID();
+      const latest = await this.latest(tenantId);
+      const previousHash = latest?.hash ?? null;
+      const hash = await auditEntryHash(previousHash, data);
+      const sequence = (latest?.sequence ?? 0) + 1;
+      try {
+        await this.knex(this.table).insert({
+          id,
+          sequence,
+          tenant_id: this.tenant(tenantId),
+          correlation_id: data.correlationId,
+          actor_type: data.actorType,
+          actor_id: data.actorId,
+          action: data.action,
+          resource_type: data.resourceType,
+          resource_id: data.resourceId,
+          before: fromJson(data.before) ?? null,
+          after: fromJson(data.after) ?? null,
+          metadata: fromJson(data.metadata) ?? null,
+          ip_address: data.ipAddress,
+          user_agent: data.userAgent,
+          previous_hash: previousHash,
+          hash,
+          created_at: this.clock.now().toISOString(),
+        });
+        const row = await this.knex(this.table).where({ id }).first();
+        return this.toEntity(row as Record<string, unknown>);
+      } catch (error) {
+        if (!isUniqueViolation(error)) {
+          throw error;
+        }
+        lastError = error;
+      }
+    }
+    throw lastError;
   }
 
-  private async latestHash(tenantId: string | null): Promise<string | null> {
-    const query = this.knex(this.table).orderBy('sequence', 'desc');
-    const scoped =
-      tenantId === null ? query.whereNull('tenant_id') : query.where({ tenant_id: tenantId });
-    const row = await scoped.first();
-    return row ? ((row.hash as string | null) ?? null) : null;
+  private tenant(tenantId: string | null): string {
+    return tenantId ?? '';
   }
 
-  private async nextSequence(tenantId: string | null): Promise<number> {
-    const query = this.knex(this.table);
-    const scoped =
-      tenantId === null ? query.whereNull('tenant_id') : query.where({ tenant_id: tenantId });
-    const row = await scoped.max('sequence as max').first();
-    return ((row?.max as number | null) ?? 0) + 1;
+  private async latest(
+    tenantId: string | null,
+  ): Promise<{ hash: string | null; sequence: number } | null> {
+    const row = await this.knex(this.table)
+      .where({ tenant_id: this.tenant(tenantId) })
+      .orderBy('sequence', 'desc')
+      .first();
+    if (!row) {
+      return null;
+    }
+    return { hash: (row.hash as string | null) ?? null, sequence: row.sequence as number };
   }
 
   async list(query: AuditLogQuery): Promise<AuditLog[]> {
     let builder = this.knex(this.table).orderBy('sequence', 'desc');
     if (query.tenantId !== undefined) {
-      builder = builder.where('tenant_id', query.tenantId);
+      builder = builder.where('tenant_id', this.tenant(query.tenantId));
     }
     if (query.resourceType) {
       builder = builder.where('resource_type', query.resourceType);
@@ -87,7 +110,7 @@ export class KnexAuditLogRepository implements AuditLogRepository {
   private toEntity(row: Record<string, unknown>): AuditLog {
     return {
       id: row.id as string,
-      tenantId: (row.tenant_id as string | null) ?? null,
+      tenantId: (row.tenant_id as string) || null,
       correlationId: row.correlation_id as string,
       actorType: (row.actor_type as string | null) ?? null,
       actorId: (row.actor_id as string | null) ?? null,
