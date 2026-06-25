@@ -2,10 +2,13 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 
+const DEFAULT_MAX_BODY_BYTES = 1_048_576;
+
 export interface McpHttpServeOptions {
   host?: string;
   port?: number;
   path?: string;
+  maxBodyBytes?: number;
   authenticate?: (request: IncomingMessage) => boolean | Promise<boolean>;
 }
 
@@ -14,8 +17,9 @@ export async function serveHttp(
   options: McpHttpServeOptions = {},
 ): Promise<Server> {
   const path = options.path ?? '/mcp';
+  const maxBodyBytes = options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
   const http = createServer((req, res) => {
-    void handle(req, res, createMcpServer, path, options.authenticate);
+    void handle(req, res, createMcpServer, path, maxBodyBytes, options.authenticate);
   });
   await new Promise<void>((resolve) => {
     http.listen(options.port ?? 3333, options.host ?? '127.0.0.1', resolve);
@@ -28,11 +32,17 @@ async function handle(
   res: ServerResponse,
   createMcpServer: () => McpServer,
   path: string,
+  maxBodyBytes: number,
   authenticate?: (request: IncomingMessage) => boolean | Promise<boolean>,
 ): Promise<void> {
   const url = new URL(req.url ?? '/', 'http://localhost');
   if (url.pathname !== path) {
     res.writeHead(404).end();
+    return;
+  }
+  const declaredLength = Number(req.headers['content-length'] ?? '0');
+  if (Number.isFinite(declaredLength) && declaredLength > maxBodyBytes) {
+    res.writeHead(413).end();
     return;
   }
   if (authenticate && !(await authenticate(req))) {

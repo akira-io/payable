@@ -1,3 +1,4 @@
+import { request as nodeRequest } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -28,6 +29,36 @@ describe('mcp http transport', () => {
     expect(names).toEqual(['stripe']);
 
     await client.close();
+    await new Promise<void>((resolve) => http.close(() => resolve()));
+  });
+
+  it('rejects a request whose declared body exceeds the size cap', async () => {
+    const payable = createPayable({ providers: { stripe: new FakeProvider() } });
+    const http = await serveHttp(() => createPayableMcpServer(payable), {
+      port: 0,
+      maxBodyBytes: 16,
+    });
+    const { port } = http.address() as AddressInfo;
+
+    const status = await new Promise<number>((resolve, reject) => {
+      const request = nodeRequest(
+        {
+          host: '127.0.0.1',
+          port,
+          path: '/mcp',
+          method: 'POST',
+          headers: { 'content-length': '64' },
+        },
+        (response) => {
+          response.resume();
+          resolve(response.statusCode ?? 0);
+        },
+      );
+      request.on('error', reject);
+      request.end('x'.repeat(64));
+    });
+
+    expect(status).toBe(413);
     await new Promise<void>((resolve) => http.close(() => resolve()));
   });
 });

@@ -36,6 +36,7 @@ const STATUS_BY_CODE: Record<string, number> = {
 export interface PayableErrorBody {
   error: string;
   message: string;
+  fields?: Array<{ field: string; message: string }>;
 }
 
 export function payableErrorStatus(error: unknown): number {
@@ -62,7 +63,12 @@ function nonPayableErrorBody(error: unknown): PayableErrorBody {
 
 export function payableErrorBody(error: unknown): PayableErrorBody {
   if (error instanceof PayableError) {
-    return { error: error.code, message: error.message };
+    const body: PayableErrorBody = { error: error.code, message: error.message };
+    const issues = error.context?.issues;
+    if (error.code === 'VALIDATION_FAILED' && Array.isArray(issues)) {
+      body.fields = issues as Array<{ field: string; message: string }>;
+    }
+    return body;
   }
   return nonPayableErrorBody(error);
 }
