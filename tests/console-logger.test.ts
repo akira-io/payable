@@ -18,4 +18,17 @@ describe('ConsoleLogger redaction', () => {
     expect(result.paymentId).toBe('pay_1');
     expect(result.amount).toBe(100);
   });
+
+  it('recurses into nested objects and arrays', () => {
+    const result = redactContext({
+      request: { authorization: 'Bearer x', path: '/charge' },
+      headers: [{ cookie: 'a=b' }, { 'x-id': '1' }],
+    });
+    const request = result.request as { authorization: string; path: string };
+    const headers = result.headers as Array<Record<string, string>>;
+    expect(request.authorization).toBe('[redacted]');
+    expect(request.path).toBe('/charge');
+    expect(headers[0]?.cookie).toBe('[redacted]');
+    expect(headers[1]?.['x-id']).toBe('1');
+  });
 });
