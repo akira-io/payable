@@ -55,12 +55,13 @@ export class ChargeAction {
     if (!customer) {
       throw new CustomerNotFoundError(input.billable.billableId);
     }
+    const dedupReference = input.reference ?? `nonce:${CorrelationId.generate().toString()}`;
     const key = IdempotencyKey.forCharge({
       tenantId: this.deps.tenantId ?? null,
       provider: this.deps.providerName,
       billableType: input.billable.billableType,
       billableId: input.billable.billableId,
-      reference: input.reference ?? '',
+      reference: dedupReference,
       amount: input.amount.amount(),
       currency: input.amount.currency(),
     });
@@ -103,7 +104,7 @@ export class ChargeAction {
       request: {
         billableType: input.billable.billableType,
         billableId: input.billable.billableId,
-        reference: input.reference ?? '',
+        reference: dedupReference,
         amount: input.amount.amount(),
         currency: input.amount.currency(),
       },

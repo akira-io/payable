@@ -334,13 +334,14 @@ describe('idempotent charge', () => {
       idempotency: { strategy: 'manual', store: new KnexIdempotencyRepository(db, clock) },
     });
 
-    await payable.customer(billable).charge({ amount: Money.of(9900, 'USD'), reference: 'inv_m' });
-    // Manual strategy means no auto-dedup: the identical second charge re-runs and calls the
-    // provider again (rather than replaying), so chargeCalls reaches 2.
-    await expect(
-      payable.customer(billable).charge({ amount: Money.of(9900, 'USD'), reference: 'inv_m' }),
-    ).rejects.toThrow();
+    const first = await payable
+      .customer(billable)
+      .charge({ amount: Money.of(9900, 'USD'), reference: 'inv_m' });
+    const second = await payable
+      .customer(billable)
+      .charge({ amount: Money.of(9900, 'USD'), reference: 'inv_m' });
 
+    expect(second.id).not.toBe(first.id);
     expect(provider.chargeCalls).toBe(2);
     await db.destroy();
   });
@@ -409,7 +410,7 @@ describe('charge and refund lifecycle', () => {
       reference: 'inv_1',
     });
     expect(payment).toMatchObject({
-      providerPaymentId: 'pi_fake',
+      providerPaymentId: 'pi_fake_1',
       status: 'succeeded',
       amount: 9900,
     });
@@ -418,7 +419,7 @@ describe('charge and refund lifecycle', () => {
 
     const refund = await payable.refund({ paymentId: payment.id, amount: Money.of(9900, 'USD') });
     expect(refund).toMatchObject({ providerRefundId: 're_fake_1', amount: 9900 });
-    expect(provider.lastRefundInput?.providerPaymentId).toBe('pi_fake');
+    expect(provider.lastRefundInput?.providerPaymentId).toBe('pi_fake_1');
 
     const updated = await storage.payments.findById(payment.id);
     expect(updated?.refundedAmount).toBe(9900);
