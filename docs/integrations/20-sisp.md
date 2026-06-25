@@ -3,11 +3,11 @@
 SISP (Sistema de Pagamentos de Cabo Verde) is the Cabo Verde national payment gateway, also known as
 **vinti4**. It is fundamentally different from Stripe and Paddle: there is no customers API, no
 product/price catalog, no subscriptions, no billing portal, and no asynchronous signed webhook. A
-payment is a one-time, browser-driven, hosted 3-D Secure flow:
+payment is a one-time, browser-driven, hosted 3D Secure flow:
 
 1. The merchant builds a SHA-512-signed HTML form and the **browser auto-POSTs** it to the vinti4
    hosted page (`https://mc.vinti4net.cv/Client_VbV_v2/biz_vbv_clientdata.jsp`).
-2. The customer completes 3-D Secure on the vinti4 page.
+2. The customer completes 3D Secure on the vinti4 page.
 3. vinti4 **browser-POSTs a fingerprint-validated callback** back to the merchant's
    `urlMerchantResponse`.
 
@@ -39,7 +39,7 @@ provider's cloud.
 
 | Layer | Owner | Holds |
 | --- | --- | --- |
-| Protocol store | `node-sisp` (its own knex DB) | fingerprints, gateway transaction id, retry attempts, raw callback payload, 3-D Secure data, refund tracking |
+| Protocol store | `node-sisp` (its own knex DB) | fingerprints, gateway transaction id, retry attempts, raw callback payload, 3D Secure data, refund tracking |
 | Canonical ledger | payable storage (`payments`, `customers`) | the normalized `Payment` (amount, status, `providerPaymentId`), the local customer, cross-provider listing |
 
 The two are joined by the **`merchantRef`**: payable stores it as `Payment.providerPaymentId`, and
@@ -155,22 +155,22 @@ other provider's.
 sequenceDiagram
   participant App
   participant Payable
-  participant NodeSisp as node-sisp (DB)
+  participant NodeSisp as node-sisp DB
   participant Browser
   participant Vinti4
 
   App->>Payable: redirectCheckout(amount).create()
-  Payable->>NodeSisp: handlePayment (persist + sign)
+  Payable->>NodeSisp: handlePayment - persist and sign
   NodeSisp-->>Payable: HTML auto-submit form
-  Payable->>Payable: record pending Payment (merchantRef)
-  Payable-->>App: { id, url, html }
+  Payable->>Payable: record pending Payment with merchantRef
+  Payable-->>App: id, url, html
   App-->>Browser: html
   Browser->>Vinti4: auto-POST signed form
-  Vinti4-->>Browser: 3-D Secure
-  Vinti4->>App: POST callback (urlMerchantResponse)
+  Vinti4-->>Browser: 3D Secure
+  Vinti4->>App: POST callback to urlMerchantResponse
   App->>Payable: receiveRedirectCallback(payload)
-  Payable->>NodeSisp: handlePaymentCallback (validate + store)
-  NodeSisp-->>Payable: transaction { merchant_ref, status }
+  Payable->>NodeSisp: handlePaymentCallback - validate and store
+  NodeSisp-->>Payable: transaction merchant_ref and status
   Payable->>Payable: update Payment by merchantRef
 ```
 
@@ -194,9 +194,9 @@ the fingerprint, so passing minor units would double-scale.
 
 ## Caveats
 
-- **3-D Secure data.** `CreateCheckoutSessionInput` carries no customer address/email, so if the
-  node-sisp instance is configured with `is3DSec: '1'`, `handlePayment` fails for lack of 3-D Secure
-  fields. For payable's unified `redirectCheckout`, use `is3DSec: '0'`; for full 3-D Secure, mount
+- **3D Secure data.** `CreateCheckoutSessionInput` carries no customer address/email, so if the
+  node-sisp instance is configured with `is3DSec: '1'`, `handlePayment` fails for lack of 3D Secure
+  fields. For payable's unified `redirectCheckout`, use `is3DSec: '0'`; for full 3D Secure, mount
   node-sisp's own adapter for the payment route.
 - **Rate limiting.** payable has no HTTP request context, so `handlePayment` runs node-sisp's pipeline
   with an empty IP. If node-sisp rate limiting is enabled, payable-initiated checkouts share the
