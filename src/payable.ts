@@ -14,6 +14,7 @@ import type { Billable } from './application/builders/billable';
 import type { BillingDependencies } from './application/builders/billing-dependencies';
 import { CustomerContext } from './application/builders/customer-context';
 import { CustomerResource } from './application/builders/customer-resource';
+import { InvoiceResource } from './application/builders/invoice-resource';
 import { PriceResource } from './application/builders/price-resource';
 import { ProductResource } from './application/builders/product-resource';
 import { RefundResource } from './application/builders/refund-resource';
@@ -112,6 +113,10 @@ export class Payable {
 
   refunds(providerName?: string, tenantId?: string | null): RefundResource {
     return new RefundResource(this.dependencies(providerName, tenantId));
+  }
+
+  invoices(providerName?: string, tenantId?: string | null): InvoiceResource {
+    return new InvoiceResource(this.dependencies(providerName, tenantId));
   }
 
   async receiveWebhook(

@@ -74,6 +74,7 @@ constructor(
 | PATCH | `customers` | 200 | `updateCustomer` | Update a customer's email/name |
 | GET | `customers` | 200 | `getCustomer` | Get a customer by `billableType`+`billableId` |
 | GET | `invoices` | 200 | `invoices` | List a billable's invoices |
+| GET | `invoices/:id/pdf` | 200 | `getInvoicePdf` | Download an invoice PDF as a `StreamableFile` (`application/pdf`) |
 | GET | `payments` | 200 | `payments` | List a billable's payments |
 | POST | `products` | 201 | `createProduct` | Create a product at the provider |
 | PATCH | `products` | 200 | `updateProduct` | Update a product |

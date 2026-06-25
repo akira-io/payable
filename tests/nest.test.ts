@@ -349,4 +349,37 @@ describe('nest adapter', () => {
     expect(refunds[0]?.amount).toBe(4000);
     await db.destroy();
   });
+
+  it('downloads an invoice pdf as a streamable file', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
+    const controller = controllerFor(payable);
+    const customer = await payable.customers().create(billable);
+    await storage.invoices.create({
+      tenantId: null,
+      customerId: customer.id,
+      subscriptionId: null,
+      provider: 'stripe',
+      providerInvoiceId: 'in_fake',
+      status: 'paid',
+      currency: 'USD',
+      total: 9900,
+      amountPaid: 9900,
+      amountDue: 0,
+      number: null,
+      hostedInvoiceUrl: null,
+      invoicePdf: null,
+    });
+
+    const file = await controller.getInvoicePdf({ headers: {} }, 'in_fake');
+    expect(file.options.type).toBe('application/pdf');
+    expect(file.options.disposition).toContain('in_fake.pdf');
+
+    await expect(controller.getInvoicePdf({ headers: {} }, 'in_missing')).rejects.toMatchObject({
+      code: 'INVOICE_NOT_FOUND',
+    });
+    await db.destroy();
+  });
 });

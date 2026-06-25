@@ -47,6 +47,7 @@ export {
   type CustomerChanges,
   CustomerContext,
   CustomerResource,
+  InvoiceResource,
   PriceResource,
   ProductResource,
   RefundResource,

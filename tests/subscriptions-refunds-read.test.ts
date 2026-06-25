@@ -93,4 +93,32 @@ describe('payable subscription and refund reads', () => {
     expect(refunds[0]?.amount).toBe(4000);
     await db.destroy();
   });
+
+  it('downloads an invoice pdf by provider invoice id', async () => {
+    const { db, storage, payable, customer } = await setup();
+    await storage.invoices.create({
+      tenantId: null,
+      customerId: customer.id,
+      subscriptionId: null,
+      provider: 'stripe',
+      providerInvoiceId: 'in_fake',
+      status: 'paid',
+      currency: 'USD',
+      total: 9900,
+      amountPaid: 9900,
+      amountDue: 0,
+      number: null,
+      hostedInvoiceUrl: null,
+      invoicePdf: null,
+    });
+
+    const pdf = await payable.invoices().downloadPdf('in_fake');
+    expect(pdf.filename).toBe('in_fake.pdf');
+    expect(pdf.content).toEqual(new Uint8Array([1, 2, 3]));
+
+    await expect(payable.invoices().downloadPdf('in_missing')).rejects.toMatchObject({
+      code: 'INVOICE_NOT_FOUND',
+    });
+    await db.destroy();
+  });
 });
