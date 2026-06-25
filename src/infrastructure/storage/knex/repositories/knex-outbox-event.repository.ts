@@ -50,6 +50,7 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
         .select('id')
         .where((builder) => this.claimable(builder, nowIso))
         .orderBy('created_at', 'asc')
+        .orderBy('id', 'asc')
         .limit(limit);
       if (this.supportsRowLocking()) {
         select.forUpdate().skipLocked();
@@ -70,7 +71,8 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
         });
       const rows = (await trx(this.table)
         .where({ locked_by: token, status: 'processing' })
-        .orderBy('created_at', 'asc')) as Record<string, unknown>[];
+        .orderBy('created_at', 'asc')
+        .orderBy('id', 'asc')) as Record<string, unknown>[];
       return rows.map((row) => this.toEntity(row));
     });
   }
