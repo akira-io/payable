@@ -6,7 +6,7 @@ import type {
 } from '../../../../domain/contracts/audit-log-repository.contract';
 import type { Clock } from '../../../../domain/contracts/clock.contract';
 import type { AuditLog } from '../../../../domain/entities/audit-log.entity';
-import { auditEntryHash } from '../../../audit/audit-chain';
+import { auditEntryHash, auditLinkValid } from '../../../audit/audit-chain';
 import { fromJson, toDate, toJson } from '../mappers';
 
 const DEFAULT_AUDIT_LIST_LIMIT = 100;
@@ -33,13 +33,26 @@ export class KnexAuditLogRepository implements AuditLogRepository {
     const tenantId = data.tenantId ?? null;
     let lastError: unknown;
     for (let attempt = 0; attempt < MAX_CHAIN_RETRIES; attempt += 1) {
-      const id = globalThis.crypto.randomUUID();
-      const latest = await this.latest(tenantId);
+      try {
+        return await this.appendEntry(data, tenantId);
+      } catch (error) {
+        if (!isUniqueViolation(error)) {
+          throw error;
+        }
+        lastError = error;
+      }
+    }
+    throw lastError;
+  }
+
+  private appendEntry(data: NewAuditLog, tenantId: string | null): Promise<AuditLog> {
+    return this.knex.transaction(async (trx) => {
+      const latest = await this.latest(tenantId, trx);
       const previousHash = latest?.hash ?? null;
-      const hash = await auditEntryHash(previousHash, data);
       const sequence = (latest?.sequence ?? 0) + 1;
+      const hash = await auditEntryHash(previousHash, data);
       const record = {
-        id,
+        id: globalThis.crypto.randomUUID(),
         sequence,
         tenant_id: this.tenant(tenantId),
         correlation_id: data.correlationId,
@@ -57,30 +70,61 @@ export class KnexAuditLogRepository implements AuditLogRepository {
         hash,
         created_at: this.clock.now().toISOString(),
       };
-      try {
-        await this.knex(this.table).insert(record);
-        return this.toEntity(record as Record<string, unknown>);
-      } catch (error) {
-        if (!isUniqueViolation(error)) {
-          throw error;
+      await trx(this.table).insert(record);
+      return this.toEntity(record as Record<string, unknown>);
+    });
+  }
+
+  async verifyChain(tenantId: string | null): Promise<boolean> {
+    let previousHash: string | null = null;
+    let afterSequence = 0;
+    let rows = await this.chainPage(tenantId, afterSequence);
+    while (rows.length > 0) {
+      for (const row of rows) {
+        const entry = this.toEntity(row);
+        if (!(await auditLinkValid(previousHash, entry))) {
+          return false;
         }
-        lastError = error;
+        previousHash = entry.hash;
+        afterSequence = row.sequence as number;
       }
+      rows =
+        rows.length < MAX_AUDIT_LIST_LIMIT ? [] : await this.chainPage(tenantId, afterSequence);
     }
-    throw lastError;
+    return true;
+  }
+
+  private async chainPage(
+    tenantId: string | null,
+    afterSequence: number,
+  ): Promise<Record<string, unknown>[]> {
+    return (await this.knex(this.table)
+      .where({ tenant_id: this.tenant(tenantId) })
+      .andWhere('sequence', '>', afterSequence)
+      .orderBy('sequence', 'asc')
+      .limit(MAX_AUDIT_LIST_LIMIT)) as Record<string, unknown>[];
   }
 
   private tenant(tenantId: string | null): string {
     return tenantId ?? '';
   }
 
+  private supportsRowLocking(): boolean {
+    const dialect = (this.knex.client as { dialect?: string }).dialect;
+    return dialect === 'postgresql' || dialect === 'mysql' || dialect === 'mariadb';
+  }
+
   private async latest(
     tenantId: string | null,
+    executor: Knex = this.knex,
   ): Promise<{ hash: string | null; sequence: number } | null> {
-    const row = await this.knex(this.table)
+    const query = executor(this.table)
       .where({ tenant_id: this.tenant(tenantId) })
-      .orderBy('sequence', 'desc')
-      .first();
+      .orderBy('sequence', 'desc');
+    if (this.supportsRowLocking()) {
+      query.forUpdate();
+    }
+    const row = await query.first();
     if (!row) {
       return null;
     }
