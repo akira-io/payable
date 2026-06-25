@@ -1,11 +1,7 @@
 import type { Router } from 'express';
 import type { Payable } from '../../../payable';
-import {
-  listRefundsQuerySchema,
-  parseBody,
-  parseMoneyInput,
-  refundBodySchema,
-} from '../../shared/schemas';
+import { runRefund } from '../../shared/operations';
+import { listRefundsQuerySchema, parseBody, refundBodySchema } from '../../shared/schemas';
 import { asyncHandler, type ExpressPayableOptions, jsonBody } from '../helpers';
 
 export function registerRefundRoutes(
@@ -30,17 +26,8 @@ export function registerRefundRoutes(
     jsonBody(),
     asyncHandler(async (req, res) => {
       const body = parseBody(refundBodySchema, req.body);
-      const amount = body.amount ? parseMoneyInput(body.amount) : undefined;
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const refund = await payable.refund(
-        {
-          paymentId: body.paymentId,
-          amount,
-          reason: body.reason,
-          authorization: options.resolveAuthorization?.(req),
-        },
-        tenantId,
-      );
+      const refund = await runRefund(payable, body, tenantId, options.resolveAuthorization?.(req));
       res.status(201).json(refund);
     }),
   );

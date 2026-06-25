@@ -1,14 +1,17 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Payable } from '../../../payable';
 import {
+  type ManageSubscriptionAction as ManageAction,
+  runManageSubscription,
+  runSwapSubscription,
+} from '../../shared/operations';
+import {
   manageSubscriptionBodySchema,
   parseBody,
   swapSubscriptionBodySchema,
 } from '../../shared/schemas';
 import type { FastifyPayableOptions } from '../helpers';
 import { DEFAULT_BODY_LIMIT, DEFAULT_ROUTE_RATE_LIMIT } from '../limits';
-
-type ManageAction = 'cancel' | 'cancelNow' | 'resume';
 
 export async function registerSubscriptionRoutes(
   scope: FastifyInstance,
@@ -19,9 +22,15 @@ export async function registerSubscriptionRoutes(
     const body = parseBody(manageSubscriptionBodySchema, request.body);
     const params = request.params as { name: string };
     const tenantId = options.resolveTenant?.(request) ?? null;
-    const authorization = options.resolveAuthorization?.(request);
-    const manager = payable.customer(body.billable, undefined, tenantId).subscription(params.name);
-    reply.status(200).send(await manager[action](authorization));
+    const result = await runManageSubscription(
+      payable,
+      action,
+      params.name,
+      body,
+      tenantId,
+      options.resolveAuthorization?.(request),
+    );
+    reply.status(200).send(result);
   };
 
   const routeOptions = {
@@ -35,7 +44,13 @@ export async function registerSubscriptionRoutes(
     const body = parseBody(swapSubscriptionBodySchema, request.body);
     const params = request.params as { name: string };
     const tenantId = options.resolveTenant?.(request) ?? null;
-    const manager = payable.customer(body.billable, undefined, tenantId).subscription(params.name);
-    reply.status(200).send(await manager.swap(body.price, options.resolveAuthorization?.(request)));
+    const result = await runSwapSubscription(
+      payable,
+      params.name,
+      body,
+      tenantId,
+      options.resolveAuthorization?.(request),
+    );
+    reply.status(200).send(result);
   });
 }
