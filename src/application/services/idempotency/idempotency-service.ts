@@ -16,6 +16,7 @@ export interface IdempotentExecution<T> {
   resourceId?: string | null;
   tenantId?: string | null;
   retryFailed?: boolean;
+  reclaimStaleProcessing?: boolean;
   run: () => Promise<T>;
   revive?: (response: unknown) => Promise<T> | T;
 }
@@ -99,6 +100,9 @@ export class IdempotencyService {
       const replay = this.replay<T>(existing, requestHash, execution.key, retryFailed);
       if (replay.handled) {
         return replay.value as T;
+      }
+      if (existing?.status === 'processing' && !(execution.reclaimStaleProcessing ?? false)) {
+        throw new IdempotencyInProgressError(execution.key);
       }
       const claimed = await this.store.takeOver(record, execution.tenantId);
       if (!claimed) {
