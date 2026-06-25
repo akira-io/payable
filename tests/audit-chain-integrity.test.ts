@@ -42,9 +42,9 @@ describe('audit chain integrity', () => {
     const first = entry(1);
     const second = entry(2);
     const forgedGenesis = 'forged-genesis-hash';
-    const firstHash = await auditEntryHash(forgedGenesis, first);
-    const secondHash = await auditEntryHash(firstHash, second);
     const createdAt = new FakeClock().now().toISOString();
+    const firstHash = await auditEntryHash(forgedGenesis, 1, createdAt, first);
+    const secondHash = await auditEntryHash(firstHash, 2, createdAt, second);
 
     await db('payable_audit_logs').insert([
       {
@@ -86,6 +86,34 @@ describe('audit chain integrity', () => {
       .where({ sequence: 1 })
       .update({ after: JSON.stringify({ tampered: true }) });
     expect(await storage.auditLogs.verifyChain(null)).toBe(false);
+  });
+
+  it('detects created_at tampering', async () => {
+    await storage.auditLogs.create(entry(1));
+    await storage.auditLogs.create(entry(2));
+    expect(await storage.auditLogs.verifyChain(null)).toBe(true);
+
+    await db('payable_audit_logs')
+      .where({ sequence: 1 })
+      .update({ created_at: new Date('2000-01-01T00:00:00.000Z').toISOString() });
+    expect(await storage.auditLogs.verifyChain(null)).toBe(false);
+  });
+
+  it('rejects an unkeyed forgery when an audit key is configured', async () => {
+    const keyed = new KnexStorageDriver(db, new FakeClock(), undefined, 'audit-secret');
+    await keyed.auditLogs.create(entry(1));
+    await keyed.auditLogs.create(entry(2));
+    expect(await keyed.auditLogs.verifyChain(null)).toBe(true);
+
+    const tampered = { ...entry(1), after: { tampered: true } };
+    const createdAt = new FakeClock().now().toISOString();
+    const row = await db('payable_audit_logs').where({ sequence: 1 }).first();
+    const forgedHash = await auditEntryHash(row.previous_hash ?? null, 1, createdAt, tampered);
+    await db('payable_audit_logs')
+      .where({ sequence: 1 })
+      .update({ after: JSON.stringify({ tampered: true }), hash: forgedHash });
+
+    expect(await keyed.auditLogs.verifyChain(null)).toBe(false);
   });
 
   it('allocates contiguous sequences under concurrent writes', async () => {

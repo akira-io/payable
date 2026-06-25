@@ -1,4 +1,4 @@
-function canonicalize(value: unknown): string {
+export function canonicalize(value: unknown): string {
   if (typeof value === 'bigint') {
     return `${value}n`;
   }

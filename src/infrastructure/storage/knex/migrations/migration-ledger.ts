@@ -6,10 +6,16 @@ async function ensureLedger(knex: Knex): Promise<void> {
   if (await knex.schema.hasTable(LEDGER_TABLE)) {
     return;
   }
-  await knex.schema.createTable(LEDGER_TABLE, (table) => {
-    table.string('name').primary();
-    table.timestamp('applied_at', { useTz: true }).notNullable();
-  });
+  try {
+    await knex.schema.createTable(LEDGER_TABLE, (table) => {
+      table.string('name').primary();
+      table.timestamp('applied_at', { useTz: true }).notNullable();
+    });
+  } catch (error) {
+    if (!(await knex.schema.hasTable(LEDGER_TABLE))) {
+      throw error;
+    }
+  }
 }
 
 export async function runStep(knex: Knex, name: string, step: () => Promise<void>): Promise<void> {
