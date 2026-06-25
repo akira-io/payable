@@ -71,12 +71,22 @@ describe('BullMQQueueDriver', () => {
     const connection = { host: 'localhost', port: 6379 };
     expect(new BullMQQueueDriver({ connection }).jobOptions('job_1')).toMatchObject({
       jobId: 'job_1',
-      removeOnComplete: true,
       removeOnFail: { count: 1000 },
     });
     expect(
       new BullMQQueueDriver({ connection, removeOnFailCount: 50 }).jobOptions().removeOnFail,
     ).toEqual({ count: 50 });
+  });
+
+  it('keeps completed jobs for an age window so the jobId dedup outlives the job', () => {
+    const connection = { host: 'localhost', port: 6379 };
+    expect(new BullMQQueueDriver({ connection }).jobOptions('job_1').removeOnComplete).toEqual({
+      age: 86_400,
+    });
+    expect(
+      new BullMQQueueDriver({ connection, removeOnCompleteAgeSec: 600 }).jobOptions()
+        .removeOnComplete,
+    ).toEqual({ age: 600 });
   });
 
   it('treats a job as exhausted once attemptsMade reaches the attempt cap', () => {
@@ -134,12 +144,15 @@ describe('BullMQQueueDriver', () => {
     type FailedHandler = (job: unknown, error: Error) => void;
     let failedHandler: FailedHandler | undefined;
 
+    let deadLetterAdds = 0;
     class FakeQueue {
       constructor(public readonly queueName: string) {}
       add(): Promise<void> {
-        return this.queueName.endsWith(':dead')
-          ? Promise.reject(new Error('dlq down'))
-          : Promise.resolve();
+        if (this.queueName.endsWith(':dead')) {
+          deadLetterAdds += 1;
+          return Promise.reject(new Error('dlq down'));
+        }
+        return Promise.resolve();
       }
     }
     class FakeWorker {
@@ -166,6 +179,7 @@ describe('BullMQQueueDriver', () => {
     const driver = new TestDriver({
       connection: { host: 'localhost', port: 6379 },
       attempts: 1,
+      deadLetterAttempts: 3,
       onError: (name, error) => errors.push([name, error.message]),
     });
 
@@ -185,6 +199,7 @@ describe('BullMQQueueDriver', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(errors).toEqual([['webhook', 'dlq down']]);
+    expect(deadLetterAdds).toBe(3);
   });
 });
 
