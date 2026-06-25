@@ -28,7 +28,7 @@ export class SwapSubscriptionAction extends SubscriptionAction {
     return this.storage().transaction(async (repos) => {
       const updated = await repos.subscriptions.update(
         subscription.id,
-        { priceId, status: dto.status },
+        { priceId, status: this.reconcileStatus(subscription.status, dto.status) },
         this.deps.tenantId ?? null,
       );
       await repos.subscriptionItems.updatePrimary(subscription.id, { priceId });

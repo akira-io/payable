@@ -6,7 +6,9 @@ import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type { Subscription } from '../../../domain/entities/subscription.entity';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { SubscriptionNotFoundError } from '../../../domain/errors/subscription-not-found.error';
+import { reconcileSubscriptionStatus } from '../../../domain/states/subscription-state-machine';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
+import type { SubscriptionStatus } from '../../../domain/value-objects/subscription-status';
 import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
 import { assertAuthorized } from '../../policies/assert-authorized';
@@ -70,6 +72,13 @@ export abstract class SubscriptionAction {
       throw new SubscriptionNotFoundError(name);
     }
     return subscription as ManagedSubscription;
+  }
+
+  protected reconcileStatus(
+    current: SubscriptionStatus,
+    providerStatus: SubscriptionStatus,
+  ): SubscriptionStatus {
+    return reconcileSubscriptionStatus(current, providerStatus).status;
   }
 
   protected assertQuantity(quantity: number): void {

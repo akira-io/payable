@@ -29,7 +29,7 @@ export class UpdateSubscriptionQuantityAction extends SubscriptionAction {
     return this.storage().transaction(async (repos) => {
       const updated = await repos.subscriptions.update(
         subscription.id,
-        { quantity, status: dto.status },
+        { quantity, status: this.reconcileStatus(subscription.status, dto.status) },
         this.deps.tenantId ?? null,
       );
       await repos.subscriptionItems.updatePrimary(subscription.id, { quantity });

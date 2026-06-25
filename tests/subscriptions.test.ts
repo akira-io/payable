@@ -118,6 +118,27 @@ describe('subscription lifecycle', () => {
     await db.destroy();
   });
 
+  it('does not resurrect a canceled subscription when the provider reports active', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new FakeProvider();
+    const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
+    const payable = createPayable({
+      providers: { stripe: provider },
+      storage: new KnexStorageDriver(db, clock),
+      clock,
+    });
+    const subscriptionOf = () => payable.customer(billable).subscription('default');
+
+    await payable.customer(billable).newSubscription('default').price('price_pro').create();
+    const canceledNow = await subscriptionOf().cancelNow();
+    expect(canceledNow.status).toBe('canceled');
+
+    const resumed = await subscriptionOf().resume();
+    expect(resumed.status).toBe('canceled');
+    await db.destroy();
+  });
+
   it('treats a create with the same key but different quantity as a conflict', async () => {
     const db = createTestDb();
     await migrate(db);

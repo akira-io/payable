@@ -24,7 +24,7 @@ export class ResumeSubscriptionAction extends SubscriptionAction {
       const updated = await repos.subscriptions.update(
         subscription.id,
         {
-          status: dto.status,
+          status: this.reconcileStatus(subscription.status, dto.status),
           endsAt: null,
         },
         this.deps.tenantId ?? null,
