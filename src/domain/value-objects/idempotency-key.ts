@@ -81,9 +81,7 @@ export class IdempotencyKey {
 
   static forCheckout(parts: CheckoutKeyParts): IdempotencyKey {
     const base = `checkout:${tenantSegment(parts.tenantId)}:${segment(parts.provider)}:${segment(parts.billableType)}:${segment(parts.billableId)}:${segment(parts.price)}:${segment(parts.subscriptionName)}`;
-    return IdempotencyKey.of(
-      parts.reference === undefined ? base : `${base}:${segment(parts.reference)}`,
-    );
+    return IdempotencyKey.of(parts.reference ? `${base}:${segment(parts.reference)}` : base);
   }
 
   static forCharge(parts: ChargeKeyParts): IdempotencyKey {
