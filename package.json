@@ -67,6 +67,7 @@
     "zod": "^3.24.1"
   },
   "peerDependencies": {
+    "@fastify/rate-limit": ">=9",
     "@nestjs/common": ">=10",
     "@nestjs/core": ">=10",
     "@paddle/paddle-node-sdk": ">=2",
@@ -78,6 +79,9 @@
     "stripe": ">=15"
   },
   "peerDependenciesMeta": {
+    "@fastify/rate-limit": {
+      "optional": true
+    },
     "@nestjs/common": {
       "optional": true
     },
@@ -108,6 +112,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.0",
+    "@fastify/rate-limit": "^11.0.0",
     "@nestjs/common": "^11.1.27",
     "@nestjs/core": "^11.1.27",
     "@paddle/paddle-node-sdk": "^3.8.0",

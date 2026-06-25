@@ -93,6 +93,26 @@ describe('fastify adapter', () => {
     await app.close();
   });
 
+  it('rate-limits authenticated routes once the window is exceeded', async () => {
+    const app = await makeApp(createPayable({ providers: { stripe: new FakeProvider() } }), {
+      rateLimit: { max: 1, timeWindow: '1 minute' },
+    });
+    const payload = {
+      billable,
+      subscription: { name: 'default', price: 'price_pro' },
+      successUrl: 'https://app.test/s',
+      cancelUrl: 'https://app.test/c',
+    };
+
+    const first = await app.inject({ method: 'POST', url: '/payable/checkout', payload });
+    expect(first.statusCode).toBe(201);
+
+    const second = await app.inject({ method: 'POST', url: '/payable/checkout', payload });
+    expect(second.statusCode).toBe(429);
+
+    await app.close();
+  });
+
   it('processes a webhook from the raw body', async () => {
     const db = createTestDb();
     await migrate(db);
