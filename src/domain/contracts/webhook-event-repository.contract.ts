@@ -6,8 +6,17 @@ export interface ClaimOptions {
   replay?: boolean;
 }
 
+export interface WebhookEventQuery {
+  tenantId?: string | null;
+  provider?: string;
+  status?: WebhookEventStatus;
+  type?: string;
+  limit?: number;
+}
+
 export interface WebhookEventRepository {
   create(data: NewWebhookEvent): Promise<WebhookEvent>;
+  list(query: WebhookEventQuery): Promise<WebhookEvent[]>;
   findById(id: string, tenantId?: string | null): Promise<WebhookEvent | null>;
   findByProviderEvent(
     provider: string,

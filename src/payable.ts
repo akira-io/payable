@@ -20,6 +20,7 @@ import { ProductResource } from './application/builders/product-resource';
 import { RefundResource } from './application/builders/refund-resource';
 import type { WebhookDependencies } from './application/builders/webhook-dependencies';
 import { WebhookEndpointResource } from './application/builders/webhook-endpoint-resource';
+import { WebhookEventResource } from './application/builders/webhook-event-resource';
 import type { AuthorizationContext } from './application/policies/authorization-context';
 import type { ReplayWebhookContext } from './application/policies/can-replay-webhook.policy';
 import { IdempotencyService } from './application/services/idempotency/idempotency-service';
@@ -158,6 +159,20 @@ export class Payable {
       });
     }
     return new WebhookEndpointResource(this.resolved.storage, tenantId ?? null);
+  }
+
+  webhookEvents(tenantId?: string | null): WebhookEventResource {
+    if (!this.resolved.storage) {
+      throw new PayableError('Webhook events require a storage driver', {
+        code: 'WEBHOOK_STORAGE_REQUIRED',
+      });
+    }
+    if (this.resolved.tenantEnabled && (tenantId === undefined || tenantId === null)) {
+      throw new PayableError('A tenant id is required when tenancy is enabled', {
+        code: 'TENANT_REQUIRED',
+      });
+    }
+    return new WebhookEventResource(this.resolved.storage, tenantId ?? null);
   }
 
   private dependencies(providerName?: string, tenantId?: string | null): BillingDependencies {

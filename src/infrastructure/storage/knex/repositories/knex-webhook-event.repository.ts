@@ -4,6 +4,7 @@ import type { Encryption } from '../../../../domain/contracts/encryption.contrac
 import type {
   ClaimOptions,
   NewWebhookEvent,
+  WebhookEventQuery,
   WebhookEventRepository,
 } from '../../../../domain/contracts/webhook-event-repository.contract';
 import type {
@@ -13,6 +14,8 @@ import type {
 import { toDate, toJson, toNullableDate } from '../mappers';
 
 const CLAIM_TTL_MS = 300_000;
+const DEFAULT_WEBHOOK_LIST_LIMIT = 100;
+const MAX_WEBHOOK_LIST_LIMIT = 1000;
 
 export class KnexWebhookEventRepository implements WebhookEventRepository {
   private readonly table = 'payable_webhook_events';
@@ -41,6 +44,25 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
       processed_at: null,
     });
     return this.findByIdOrFail(id);
+  }
+
+  async list(query: WebhookEventQuery): Promise<WebhookEvent[]> {
+    let builder = this.knex(this.table).orderBy('received_at', 'desc').orderBy('id', 'desc');
+    if (query.tenantId !== undefined) {
+      builder = builder.where('tenant_id', this.tenant(query.tenantId));
+    }
+    if (query.provider) {
+      builder = builder.where('provider', query.provider);
+    }
+    if (query.status) {
+      builder = builder.where('status', query.status);
+    }
+    if (query.type) {
+      builder = builder.where('type', query.type);
+    }
+    const limit = Math.min(query.limit ?? DEFAULT_WEBHOOK_LIST_LIMIT, MAX_WEBHOOK_LIST_LIMIT);
+    const rows = (await builder.limit(limit)) as Record<string, unknown>[];
+    return Promise.all(rows.map((row) => this.hydrate(row)));
   }
 
   async findById(id: string, tenantId?: string | null): Promise<WebhookEvent | null> {

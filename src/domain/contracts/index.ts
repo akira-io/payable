@@ -56,5 +56,6 @@ export type {
 } from './webhook-endpoint-repository.contract';
 export type {
   NewWebhookEvent,
+  WebhookEventQuery,
   WebhookEventRepository,
 } from './webhook-event-repository.contract';

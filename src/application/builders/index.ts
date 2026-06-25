@@ -15,3 +15,4 @@ export {
   type RegisterWebhookEndpointInput,
   WebhookEndpointResource,
 } from './webhook-endpoint-resource';
+export { type ListWebhookEventsInput, WebhookEventResource } from './webhook-event-resource';

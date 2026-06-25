@@ -48,6 +48,7 @@ export {
   CustomerContext,
   CustomerResource,
   InvoiceResource,
+  type ListWebhookEventsInput,
   PriceResource,
   ProductResource,
   RefundResource,
@@ -56,6 +57,7 @@ export {
   SubscriptionManager,
   type WebhookDependencies,
   WebhookEndpointResource,
+  WebhookEventResource,
 } from './application/builders';
 export { ProcessWebhookPipeline } from './application/pipelines/webhooks/process-webhook.pipeline';
 export type { AuthorizationContext } from './application/policies/authorization-context';
@@ -132,6 +134,7 @@ export {
   type SubscriptionItemRepository,
   type SubscriptionRepository,
   type WebhookEndpointRepository,
+  type WebhookEventQuery,
   type WebhookEventRepository,
 } from './domain/contracts';
 export type {
