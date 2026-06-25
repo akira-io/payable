@@ -15,8 +15,16 @@ export class KnexRefundRepository
 {
   protected readonly table = 'payable_refunds';
 
-  findByProviderId(provider: string, providerRefundId: string): Promise<Refund | null> {
-    return this.firstWhere({ provider, provider_refund_id: providerRefundId });
+  findByProviderId(
+    provider: string,
+    providerRefundId: string,
+    tenantId?: string | null,
+  ): Promise<Refund | null> {
+    return this.firstWhere({
+      provider,
+      provider_refund_id: providerRefundId,
+      ...this.tenantClause(tenantId),
+    });
   }
 
   listByPayment(

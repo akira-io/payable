@@ -8,7 +8,11 @@ export interface PaymentRepository {
   update(id: string, patch: Partial<NewPayment>, tenantId?: string | null): Promise<Payment>;
   findById(id: string, tenantId?: string | null): Promise<Payment | null>;
   findByIdForUpdate(id: string, tenantId?: string | null): Promise<Payment | null>;
-  findByProviderId(provider: string, providerPaymentId: string): Promise<Payment | null>;
+  findByProviderId(
+    provider: string,
+    providerPaymentId: string,
+    tenantId?: string | null,
+  ): Promise<Payment | null>;
   listByCustomer(
     customerId: string,
     tenantId?: string | null,

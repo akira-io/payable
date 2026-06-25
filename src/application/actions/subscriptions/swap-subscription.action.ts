@@ -35,7 +35,11 @@ export class SwapSubscriptionAction extends SubscriptionAction {
         { priceId, status: this.reconcileStatus(subscription.status, dto.status) },
         this.deps.tenantId ?? null,
       );
-      await repos.subscriptionItems.updatePrimary(subscription.id, { priceId });
+      await repos.subscriptionItems.updatePrimary(
+        subscription.id,
+        { priceId },
+        this.deps.tenantId ?? null,
+      );
       await this.auditWith(repos, {
         action: 'subscription.swapped',
         subscriptionId: subscription.id,

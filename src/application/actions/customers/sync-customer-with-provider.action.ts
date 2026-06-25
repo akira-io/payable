@@ -85,7 +85,7 @@ export class SyncCustomerWithProviderAction {
       tenantId,
     );
     if (existing) {
-      await storage.customers.update(existing.id, { providerCustomerId });
+      await storage.customers.update(existing.id, { providerCustomerId }, tenantId);
       return;
     }
     try {
@@ -108,7 +108,7 @@ export class SyncCustomerWithProviderAction {
       if (!raced) {
         throw error;
       }
-      await storage.customers.update(raced.id, { providerCustomerId });
+      await storage.customers.update(raced.id, { providerCustomerId }, tenantId);
     }
   }
 }
