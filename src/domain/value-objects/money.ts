@@ -153,10 +153,12 @@ export class Money {
   }
 
   format(locale = 'en-US'): string {
+    // decimal must stay a string so Intl keeps full precision; Number() would round large values. Cast bypasses Intl's number-only type.
+    const decimal = toDecimal(this.value) as unknown as number;
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: this.code,
-    }).format(toDecimal(this.value) as unknown as number);
+    }).format(decimal);
   }
 
   toJSON(): { amount: number; currency: CurrencyCode } {
