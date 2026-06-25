@@ -64,31 +64,48 @@ export class OutboxService {
   ): Promise<void> {
     try {
       await deliver(event);
+    } catch (error) {
+      await this.handleDeliveryFailure(event, error, result);
+      return;
+    }
+    try {
       await this.repository.markPublished(event.id, event.lockToken);
       result.published += 1;
     } catch (error) {
-      const attempts = event.attempts + 1;
-      const message = error instanceof Error ? error.message : String(error);
-      if (attempts >= this.maxAttempts) {
-        this.logger?.error('Outbox event dead-lettered', {
-          eventId: event.id,
-          eventType: event.eventType,
-          attempts,
-          error: message,
-        });
-        await this.repository.markFailed(event.id, null, event.lockToken);
-        result.deadLettered += 1;
-        return;
-      }
-      this.logger?.warn('Outbox delivery failed, scheduling retry', {
+      this.logger?.error('Outbox event delivered but markPublished failed; leaving for reclaim', {
+        eventId: event.id,
+        eventType: event.eventType,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private async handleDeliveryFailure(
+    event: OutboxEvent,
+    error: unknown,
+    result: OutboxPublishResult,
+  ): Promise<void> {
+    const attempts = event.attempts + 1;
+    const message = error instanceof Error ? error.message : String(error);
+    if (attempts >= this.maxAttempts) {
+      this.logger?.error('Outbox event dead-lettered', {
         eventId: event.id,
         eventType: event.eventType,
         attempts,
         error: message,
       });
-      await this.repository.markFailed(event.id, this.nextRetry(attempts), event.lockToken);
-      result.retried += 1;
+      await this.repository.markFailed(event.id, null, event.lockToken);
+      result.deadLettered += 1;
+      return;
     }
+    this.logger?.warn('Outbox delivery failed, scheduling retry', {
+      eventId: event.id,
+      eventType: event.eventType,
+      attempts,
+      error: message,
+    });
+    await this.repository.markFailed(event.id, this.nextRetry(attempts), event.lockToken);
+    result.retried += 1;
   }
 
   private nextRetry(attempts: number): Date {
