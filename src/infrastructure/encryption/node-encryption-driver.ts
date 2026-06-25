@@ -31,6 +31,7 @@ export class NodeEncryptionDriver implements Encryption {
   async encrypt(plaintext: string): Promise<string> {
     const iv = randomBytes(IV_BYTES);
     const cipher = createCipheriv(ALGORITHM, this.key, iv);
+    cipher.setAAD(Buffer.from(ENVELOPE_VERSION, 'utf8'));
     const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
     const tag = cipher.getAuthTag();
     return `${ENVELOPE_VERSION}:${iv.toString('base64')}:${tag.toString('base64')}:${ciphertext.toString('base64')}`;
@@ -38,13 +39,13 @@ export class NodeEncryptionDriver implements Encryption {
 
   async decrypt(ciphertext: string): Promise<string> {
     const parts = ciphertext.split(':');
-    const versioned = parts.length === 4 && parts[0] === ENVELOPE_VERSION;
-    const [ivPart, tagPart, dataPart] = versioned ? parts.slice(1) : parts;
-    if ((!versioned && parts.length !== 3) || !ivPart || !tagPart || !dataPart) {
+    const [version, ivPart, tagPart, dataPart] = parts;
+    if (parts.length !== 4 || version !== ENVELOPE_VERSION || !ivPart || !tagPart || !dataPart) {
       throw new PayableError('Malformed ciphertext', { code: 'ENCRYPTION_INVALID_CIPHERTEXT' });
     }
     try {
       const decipher = createDecipheriv(ALGORITHM, this.key, Buffer.from(ivPart, 'base64'));
+      decipher.setAAD(Buffer.from(ENVELOPE_VERSION, 'utf8'));
       decipher.setAuthTag(Buffer.from(tagPart, 'base64'));
       const decrypted = Buffer.concat([
         decipher.update(Buffer.from(dataPart, 'base64')),

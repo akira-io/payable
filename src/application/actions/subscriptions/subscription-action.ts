@@ -8,6 +8,7 @@ import { PayableError } from '../../../domain/errors/payable-error';
 import { SubscriptionNotFoundError } from '../../../domain/errors/subscription-not-found.error';
 import { reconcileSubscriptionStatus } from '../../../domain/states/subscription-state-machine';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
+import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { SubscriptionStatus } from '../../../domain/value-objects/subscription-status';
 import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
@@ -97,11 +98,15 @@ export abstract class SubscriptionAction {
     perAttempt = false,
   ): OperationContext {
     const correlationId = CorrelationId.generate().toString();
-    const suffix = discriminator ? `:${discriminator}` : '';
-    const nonce = perAttempt ? `:${correlationId}` : '';
     return {
       correlationId,
-      idempotencyKey: `subscription:${operation}:${this.deps.providerName}:${providerSubscriptionId}${suffix}${nonce}`,
+      idempotencyKey: IdempotencyKey.forSubscriptionOperation({
+        operation,
+        provider: this.deps.providerName,
+        providerSubscriptionId,
+        discriminator,
+        nonce: perAttempt ? correlationId : undefined,
+      }).toString(),
     };
   }
 }

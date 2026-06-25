@@ -51,8 +51,13 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: bun install --frozen-lockfile
 
       - name: Typecheck on Node ${{ matrix.node-version }}
         run: npx tsc --noEmit

@@ -49,6 +49,14 @@ export interface WebhookKeyParts {
   providerEventId: string;
 }
 
+export interface SubscriptionOperationKeyParts {
+  operation: string;
+  provider: string;
+  providerSubscriptionId: string;
+  discriminator?: string;
+  nonce?: string;
+}
+
 function segment(value: string | number): string {
   return encodeURIComponent(String(value));
 }
@@ -107,6 +115,13 @@ export class IdempotencyKey {
     return IdempotencyKey.of(
       `refund:${tenantSegment(parts.tenantId)}:${segment(parts.provider)}:${segment(parts.paymentId)}:${amountSegment(parts.amount)}:${currencySegment(parts.currency)}`,
     );
+  }
+
+  static forSubscriptionOperation(parts: SubscriptionOperationKeyParts): IdempotencyKey {
+    const base = `subscription:${segment(parts.operation)}:${segment(parts.provider)}:${segment(parts.providerSubscriptionId)}`;
+    const discriminator = parts.discriminator ? `:${segment(parts.discriminator)}` : '';
+    const nonce = parts.nonce ? `:${segment(parts.nonce)}` : '';
+    return IdempotencyKey.of(`${base}${discriminator}${nonce}`);
   }
 
   static forWebhook(parts: WebhookKeyParts): IdempotencyKey {
