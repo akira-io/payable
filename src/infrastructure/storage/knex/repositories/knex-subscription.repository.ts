@@ -32,8 +32,12 @@ export class KnexSubscriptionRepository
     return this.firstWhere(tenantId == null ? where : { ...where, tenant_id: tenantId });
   }
 
-  listByCustomer(customerId: string, options?: ListOptions): Promise<Subscription[]> {
-    return this.manyWhere({ customer_id: customerId }, options);
+  listByCustomer(
+    customerId: string,
+    tenantId?: string | null,
+    options?: ListOptions,
+  ): Promise<Subscription[]> {
+    return this.manyWhere({ customer_id: customerId, ...this.tenantClause(tenantId) }, options);
   }
 
   protected toEntity(row: Record<string, unknown>): Subscription {

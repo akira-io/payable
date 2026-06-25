@@ -73,6 +73,10 @@ export abstract class KnexRepository<Entity, New> {
     return tenantId === undefined || tenantId === null ? { id } : { id, tenant_id: tenantId };
   }
 
+  protected tenantClause(tenantId?: string | null): Record<string, unknown> {
+    return tenantId === undefined || tenantId === null ? {} : { tenant_id: tenantId };
+  }
+
   protected async firstWhere(where: Record<string, unknown>): Promise<Entity | null> {
     const row = await this.knex(this.table).where(where).first();
     return row ? this.toEntity(row as Record<string, unknown>) : null;

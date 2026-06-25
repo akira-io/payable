@@ -14,6 +14,6 @@ export class ListRefundsQuery {
     if (!payment) {
       return [];
     }
-    return storage.refunds.listByPayment(paymentId, options);
+    return storage.refunds.listByPayment(paymentId, this.deps.tenantId ?? null, options);
   }
 }

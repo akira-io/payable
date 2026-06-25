@@ -19,8 +19,12 @@ export class KnexInvoiceRepository
     return this.firstWhere({ provider, provider_invoice_id: providerInvoiceId });
   }
 
-  listByCustomer(customerId: string, options?: ListOptions): Promise<Invoice[]> {
-    return this.manyWhere({ customer_id: customerId }, options);
+  listByCustomer(
+    customerId: string,
+    tenantId?: string | null,
+    options?: ListOptions,
+  ): Promise<Invoice[]> {
+    return this.manyWhere({ customer_id: customerId, ...this.tenantClause(tenantId) }, options);
   }
 
   protected toEntity(row: Record<string, unknown>): Invoice {

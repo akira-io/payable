@@ -38,11 +38,11 @@ describe('keyset pagination', () => {
       clock.advance(1000);
     }
 
-    const page1 = await storage.payments.listByCustomer(customer.id, { limit: 2 });
+    const page1 = await storage.payments.listByCustomer(customer.id, null, { limit: 2 });
     expect(page1.map((p) => p.reference)).toEqual(['c', 'b']);
 
     const last = page1[1];
-    const page2 = await storage.payments.listByCustomer(customer.id, {
+    const page2 = await storage.payments.listByCustomer(customer.id, null, {
       limit: 2,
       before: { createdAt: last?.createdAt as Date, id: last?.id as string },
     });
@@ -68,7 +68,10 @@ describe('keyset pagination', () => {
     const collected: string[] = [];
     let cursor: { createdAt: Date; id: string } | undefined;
     for (let page = 0; page < 4; page += 1) {
-      const rows = await storage.payments.listByCustomer(customer.id, { limit: 1, before: cursor });
+      const rows = await storage.payments.listByCustomer(customer.id, null, {
+        limit: 1,
+        before: cursor,
+      });
       const row = rows[0];
       if (!row) {
         break;

@@ -9,5 +9,9 @@ export interface PaymentRepository {
   findById(id: string, tenantId?: string | null): Promise<Payment | null>;
   findByIdForUpdate(id: string, tenantId?: string | null): Promise<Payment | null>;
   findByProviderId(provider: string, providerPaymentId: string): Promise<Payment | null>;
-  listByCustomer(customerId: string, options?: ListOptions): Promise<Payment[]>;
+  listByCustomer(
+    customerId: string,
+    tenantId?: string | null,
+    options?: ListOptions,
+  ): Promise<Payment[]>;
 }
