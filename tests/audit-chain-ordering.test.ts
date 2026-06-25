@@ -25,6 +25,32 @@ describe('audit chain ordering', () => {
     await db.destroy();
   });
 
+  it('keeps a single linear chain under concurrent writes', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock(new Date('2026-06-22T00:00:00.000Z')));
+    const audit = new AuditService(storage.auditLogs);
+
+    await Promise.all(
+      Array.from({ length: 12 }, (_, index) =>
+        audit.record({
+          action: 'payment.refunded',
+          resourceType: 'payment',
+          resourceId: `pay_${index}`,
+          correlationId: `corr_${index}`,
+        }),
+      ),
+    );
+
+    const rows = (await db('payable_audit_logs').orderBy('sequence', 'asc')) as {
+      sequence: number;
+    }[];
+    const sequences = rows.map((row) => row.sequence);
+    expect(sequences).toEqual(Array.from({ length: 12 }, (_, index) => index + 1));
+    expect(await audit.verify()).toBe(true);
+    await db.destroy();
+  });
+
   it('rejects a chain entry with a null hash or sequence', async () => {
     const db = createTestDb();
     await migrate(db);

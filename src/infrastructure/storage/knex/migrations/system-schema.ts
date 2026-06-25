@@ -41,7 +41,7 @@ export async function createSystemTables(knex: Knex): Promise<void> {
 
   await createIfMissing(knex, 'payable_audit_logs', (table) => {
     table.uuid('id').primary();
-    table.string('tenant_id').nullable();
+    table.string('tenant_id').notNullable().defaultTo('');
     table.string('correlation_id').notNullable();
     table.string('actor_type').nullable();
     table.string('actor_id').nullable();
@@ -59,7 +59,7 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.index(['resource_type', 'resource_id']);
     table.index('correlation_id');
-    table.index(['tenant_id', 'sequence']);
+    table.unique(['tenant_id', 'sequence']);
   });
 
   await createIfMissing(knex, 'payable_outbox_events', (table) => {
