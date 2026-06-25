@@ -42,6 +42,7 @@ export class CustomerContext {
       amount: request.amount,
       reference: request.reference,
       description: request.description,
+      authorization: request.authorization,
     });
   }
 

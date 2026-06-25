@@ -25,9 +25,25 @@ async function setup() {
 }
 
 describe('authorization enforcement', () => {
+  it('rejects a charge without an authorized context', async () => {
+    const { db, payable } = await setup();
+
+    await expect(
+      payable.customer(billable).charge({ amount: Money.of(1000, 'USD') }),
+    ).rejects.toThrow('Not authorized');
+
+    const payment = await payable
+      .customer(billable)
+      .charge({ amount: Money.of(1000, 'USD'), authorization: authorized });
+    expect(payment.amount).toBe(1000);
+    await db.destroy();
+  });
+
   it('rejects a refund without an authorized context', async () => {
     const { db, payable } = await setup();
-    const payment = await payable.customer(billable).charge({ amount: Money.of(1000, 'USD') });
+    const payment = await payable
+      .customer(billable)
+      .charge({ amount: Money.of(1000, 'USD'), authorization: authorized });
 
     await expect(
       payable.refund({ paymentId: payment.id, amount: Money.of(1000, 'USD') }),
