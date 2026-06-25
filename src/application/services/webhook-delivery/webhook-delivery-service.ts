@@ -8,11 +8,13 @@ import { signWebhookPayload } from '../../../support/hash/webhook-signature';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const MAX_RESPONSE_BODY = 2_000;
+const DEFAULT_MAX_ATTEMPTS = 10;
 const VERSION_SUFFIX = /\.v\d+$/;
 
 export interface WebhookDeliveryOptions {
   fetch?: typeof globalThis.fetch;
   timeoutMs?: number;
+  maxAttempts?: number;
   logger?: Logger;
 }
 
@@ -25,6 +27,7 @@ interface DeliveryOutcome {
 export class WebhookDeliveryService {
   private readonly fetch: typeof globalThis.fetch;
   private readonly timeoutMs: number;
+  private readonly maxAttempts: number;
   private readonly logger?: Logger;
 
   constructor(
@@ -34,6 +37,7 @@ export class WebhookDeliveryService {
   ) {
     this.fetch = options.fetch ?? globalThis.fetch;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    this.maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
     this.logger = options.logger;
   }
 
@@ -62,8 +66,10 @@ export class WebhookDeliveryService {
       if (delivered.has(endpoint.id)) {
         continue;
       }
-      const previousAttempts =
-        prior.find((entry) => entry.endpointId === endpoint.id)?.attempts ?? 0;
+      const previousAttempts = prior
+        .filter((entry) => entry.endpointId === endpoint.id)
+        .reduce((max, entry) => Math.max(max, entry.attempts), 0);
+      const attempts = previousAttempts + 1;
       const outcome = await this.post(endpoint, eventType, event.id, body, timestamp);
       await this.storage.webhookDeliveries.record({
         tenantId: event.tenantId,
@@ -72,13 +78,23 @@ export class WebhookDeliveryService {
         eventType,
         payload: event.payload,
         status: outcome.ok ? 'delivered' : 'failed',
-        attempts: previousAttempts + 1,
+        attempts,
         responseCode: outcome.responseCode,
         responseBody: outcome.responseBody,
       });
-      if (!outcome.ok) {
-        incomplete = true;
+      if (outcome.ok) {
+        continue;
       }
+      if (attempts >= this.maxAttempts) {
+        await this.storage.webhookEndpoints.setStatus(endpoint.id, 'disabled', event.tenantId);
+        this.logger?.warn('Webhook endpoint disabled after reaching the delivery attempt limit', {
+          endpointId: endpoint.id,
+          eventId: event.id,
+          attempts,
+        });
+        continue;
+      }
+      incomplete = true;
     }
     if (incomplete) {
       throw new PayableError('One or more webhook endpoints failed delivery', {

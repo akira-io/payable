@@ -225,4 +225,50 @@ describe('webhook subscription reconciliation (C1)', () => {
     const reloaded = await storage.subscriptions.findByProviderId('stripe', 'sub_fake');
     expect(reloaded?.status).toBe(subscription.status);
   });
+
+  it('keeps a webhook processed when the post-commit event emit fails', async () => {
+    const seeded = await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_emit',
+      type: 'customer.subscription.updated',
+      normalizedType: 'subscription.updated',
+      payload: '{}',
+      data: {},
+      headers: {},
+      status: 'processing',
+      correlationId: 'corr_emit',
+      receivedAt: clock.now(),
+    });
+
+    const failingBus = new InMemoryEventBus();
+    failingBus.emit = async () => {
+      throw new Error('bus down');
+    };
+    const deps: WebhookDependencies = {
+      provider,
+      providerName: 'stripe',
+      storage,
+      queue: new SyncQueueDriver(),
+      events: failingBus,
+      clock,
+    };
+
+    await expect(
+      new ProcessWebhookPipeline(deps).handle({
+        verified: {
+          providerEventId: 'evt_emit',
+          type: 'customer.subscription.updated',
+          normalizedType: 'subscription.updated',
+          data: {},
+        },
+        webhookEventId: seeded.id,
+        correlationId: 'corr_emit',
+        tenantId: null,
+      }),
+    ).resolves.toBeUndefined();
+
+    const reloaded = await storage.webhookEvents.findById(seeded.id, null);
+    expect(reloaded?.status).toBe('processed');
+  });
 });

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { WebhookDeliveryService } from '../src/application/services/webhook-delivery/webhook-delivery-service';
 import { createPayable } from '../src/create-payable';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
@@ -99,6 +100,25 @@ describe('outbound webhook delivery', () => {
 
     const deliveries = await storage.webhookDeliveries.listForEvent(event.id);
     expect(deliveries.every((entry) => entry.status === 'delivered')).toBe(true);
+    await db.destroy();
+  });
+
+  it('disables an endpoint and stops failing the event once the delivery attempt cap is reached', async () => {
+    const { db, clock, storage, payable } = await setup();
+    const endpoint = await payable
+      .webhookEndpoints()
+      .register({ url: 'https://hooks.test/dead', events: ['invoice.paid'] });
+    const event = await storage.outboxEvents.create(outboxEvent('invoice.paid.v1'));
+    const { calls, impl } = recordingFetch(() => ({ ok: false, status: 500 }));
+    const service = new WebhookDeliveryService(storage, clock, { fetch: impl, maxAttempts: 1 });
+
+    await expect(service.handle(event)).resolves.toBeUndefined();
+
+    expect(calls).toHaveLength(1);
+    const reloaded = await storage.webhookEndpoints.findById(endpoint.id);
+    expect(reloaded?.status).toBe('disabled');
+    const deliveries = await storage.webhookDeliveries.listForEvent(event.id);
+    expect(deliveries[0]?.status).toBe('failed');
     await db.destroy();
   });
 
