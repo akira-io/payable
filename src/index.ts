@@ -49,6 +49,7 @@ export {
   CustomerResource,
   PriceResource,
   ProductResource,
+  RefundResource,
   SubscriptionBuilder,
   SubscriptionManager,
   type WebhookDependencies,

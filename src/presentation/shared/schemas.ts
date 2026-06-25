@@ -38,6 +38,15 @@ export const listInvoicesQuerySchema = billableLookupSchema.extend({
   limit: z.coerce.number().int().positive().optional(),
 });
 
+export const listSubscriptionsQuerySchema = billableLookupSchema.extend({
+  limit: z.coerce.number().int().positive().optional(),
+});
+
+export const listRefundsQuerySchema = z.object({
+  paymentId: z.string().min(1),
+  limit: z.coerce.number().int().positive().optional(),
+});
+
 export const productBodySchema = z.object({
   name: z.string().min(1),
   description: z.string().min(1).optional(),

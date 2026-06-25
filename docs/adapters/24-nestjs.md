@@ -78,29 +78,20 @@ constructor(
 | POST | `products` | 201 | `createProduct` | Create a product at the provider |
 | PATCH | `products` | 200 | `updateProduct` | Update a product |
 | POST | `prices` | 201 | `createPrice` | Create a price for a product |
-| POST | `refunds` | 501 | `refunds` | Reserved; throws `NOT_IMPLEMENTED` |
+| GET | `subscriptions` | 200 | `subscriptions` | List a billable's subscriptions |
+| GET | `subscriptions/:name` | 200 | `getSubscription` | Get one subscription by name (404 if absent) |
+| GET | `refunds` | 200 | `listRefunds` | List a payment's refunds |
+| POST | `refunds` | 201 | `refunds` | Refund a payment |
 
 ## Scope and parity vs Express
 
-The NestJS adapter is a single controller. Its scope matches Fastify, not Express:
+The NestJS adapter is a single controller exposing the same route set as Express: webhooks, checkout,
+subscription management (`cancel`, `cancel-now`, `resume`, `swap`), subscription reads, customers,
+invoices, payments, products, prices, and refunds (create and list).
 
-- Implemented: webhooks, checkout, subscription management (`cancel`, `cancel-now`, `resume`,
-  `swap`).
-- Reserved (throw `PayableError.notImplemented(...)`, mapped to 501): `customers`, `invoices`,
-  `payments`, and `refunds`.
-
-```ts
-@Post('refunds')
-refunds(): never {
-  throw PayableError.notImplemented('POST /refunds');
-}
-```
-
-Only Express implements `POST /refunds`. In NestJS (as in Fastify) `/refunds` returns 501. To
-process refunds, use the Express adapter or call `payable.refund(...)` directly.
-
-Like Fastify, the controller casts request bodies to TypeScript interfaces rather than validating
-with the shared Zod schemas, so malformed bodies are not rejected with `VALIDATION_FAILED`.
+Every JSON route validates its body or query with the shared Zod schemas in
+`src/presentation/shared/schemas.ts` via `parseBody`, so a malformed body is rejected with
+`VALIDATION_FAILED` (HTTP 422), the same as Express.
 
 ## Request body limits
 
@@ -219,7 +210,7 @@ adapter.
 - Forgetting `rawBody: true` yields an empty webhook payload and a verification failure.
 - Multiple registered providers with no `:provider` route param surface
   `WEBHOOK_PROVIDER_AMBIGUOUS` (400) from the facade.
-- The reserved 501 routes are intentional placeholders.
+- `GET subscriptions/:name` returns 404 when the named subscription does not exist.
 
 ---
 

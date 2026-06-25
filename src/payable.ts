@@ -16,6 +16,7 @@ import { CustomerContext } from './application/builders/customer-context';
 import { CustomerResource } from './application/builders/customer-resource';
 import { PriceResource } from './application/builders/price-resource';
 import { ProductResource } from './application/builders/product-resource';
+import { RefundResource } from './application/builders/refund-resource';
 import type { WebhookDependencies } from './application/builders/webhook-dependencies';
 import type { AuthorizationContext } from './application/policies/authorization-context';
 import type { ReplayWebhookContext } from './application/policies/can-replay-webhook.policy';
@@ -107,6 +108,10 @@ export class Payable {
 
   prices(providerName?: string, tenantId?: string | null): PriceResource {
     return new PriceResource(this.dependencies(providerName, tenantId));
+  }
+
+  refunds(providerName?: string, tenantId?: string | null): RefundResource {
+    return new RefundResource(this.dependencies(providerName, tenantId));
   }
 
   async receiveWebhook(
