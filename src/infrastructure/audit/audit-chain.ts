@@ -1,4 +1,5 @@
 import type { NewAuditLog } from '../../domain/contracts/audit-log-repository.contract';
+import type { AuditLog } from '../../domain/entities/audit-log.entity';
 import { hashRequest } from '../../support/hash/request-hash';
 
 export function auditEntryHash(previousHash: string | null, data: NewAuditLog): Promise<string> {
@@ -15,4 +16,14 @@ export function auditEntryHash(previousHash: string | null, data: NewAuditLog): 
     after: data.after ?? null,
     metadata: data.metadata ?? null,
   });
+}
+
+export async function auditLinkValid(
+  previousHash: string | null,
+  entry: AuditLog,
+): Promise<boolean> {
+  if (entry.previousHash !== previousHash) {
+    return false;
+  }
+  return entry.hash === (await auditEntryHash(previousHash, entry));
 }

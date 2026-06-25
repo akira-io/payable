@@ -3,7 +3,6 @@ import type {
   NewAuditLog,
 } from '../../domain/contracts/audit-log-repository.contract';
 import type { AuditLog } from '../../domain/entities/audit-log.entity';
-import { auditEntryHash } from './audit-chain';
 
 export interface AuditEntryInput {
   action: string;
@@ -28,18 +27,7 @@ export class AuditService {
   }
 
   async verify(tenantId: string | null = null): Promise<boolean> {
-    const entries = (await this.repository.list({ tenantId, limit: Number.MAX_SAFE_INTEGER }))
-      .slice()
-      .reverse();
-    let previousHash: string | null = entries[0]?.previousHash ?? null;
-    for (const entry of entries) {
-      const expected = await auditEntryHash(previousHash, entry);
-      if (entry.previousHash !== previousHash || entry.hash !== expected) {
-        return false;
-      }
-      previousHash = entry.hash;
-    }
-    return true;
+    return this.repository.verifyChain(tenantId);
   }
 
   private toRecord(input: AuditEntryInput): NewAuditLog {
