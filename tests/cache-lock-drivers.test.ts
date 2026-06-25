@@ -51,6 +51,23 @@ describe('MemoryLockDriver', () => {
     expect(result).toBe('done');
     expect(await locks.acquire('key', 1000)).not.toBeNull();
   });
+
+  it('does not release a lock a later holder owns after the ttl lapsed', async () => {
+    let now = 0;
+    const locks = new MemoryLockDriver(() => now);
+    const first = await locks.acquire('key', 1000);
+    expect(first).not.toBeNull();
+
+    now = 1001;
+    const second = await locks.acquire('key', 1000);
+    expect(second).not.toBeNull();
+
+    await first?.release();
+    expect(await locks.acquire('key', 1000)).toBeNull();
+
+    await second?.release();
+    expect(await locks.acquire('key', 1000)).not.toBeNull();
+  });
 });
 
 describe('Redis drivers fail fast', () => {

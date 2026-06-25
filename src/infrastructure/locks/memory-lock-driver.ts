@@ -1,20 +1,29 @@
 import type { Lock, LockDriver } from '../../domain/contracts/lock-driver.contract';
 import { PayableError } from '../../domain/errors/payable-error';
 
+interface HeldLock {
+  token: string;
+  expiresAt: number;
+}
+
 export class MemoryLockDriver implements LockDriver {
-  private readonly held = new Map<string, number>();
+  private readonly held = new Map<string, HeldLock>();
 
   constructor(private readonly now: () => number = () => Date.now()) {}
 
   async acquire(key: string, ttlMs: number): Promise<Lock | null> {
-    const expiresAt = this.held.get(key);
-    if (expiresAt !== undefined && expiresAt > this.now()) {
+    const current = this.held.get(key);
+    if (current !== undefined && current.expiresAt > this.now()) {
       return null;
     }
-    this.held.set(key, this.now() + ttlMs);
+    const token = globalThis.crypto.randomUUID();
+    this.held.set(key, { token, expiresAt: this.now() + ttlMs });
     return {
       release: async () => {
-        this.held.delete(key);
+        const owned = this.held.get(key);
+        if (owned?.token === token && owned.expiresAt > this.now()) {
+          this.held.delete(key);
+        }
       },
     };
   }
