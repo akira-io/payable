@@ -2,6 +2,7 @@ import type { Repositories } from '../../../domain/contracts/storage-driver.cont
 import type { NewSubscription } from '../../../domain/contracts/subscription-repository.contract';
 import type { VerifiedWebhook } from '../../../domain/dtos/webhook.dto';
 import { WebhookProcessedEvent } from '../../../domain/events/webhook-processed.event';
+import { reconcileSubscriptionStatus } from '../../../domain/states/subscription-state-machine';
 import type { WebhookDependencies } from '../../builders/webhook-dependencies';
 
 export interface ProcessWebhookInput {
@@ -79,11 +80,12 @@ export class ProcessWebhookPipeline {
     if (!local) {
       return;
     }
+    const status = reconcileSubscriptionStatus(local.status, dto.status).status;
     const patch: Partial<NewSubscription> = {
-      status: dto.status,
+      status,
       currentPeriodEnd: dto.currentPeriodEnd,
       trialEndsAt: dto.trialEndsAt,
-      ...(dto.status === 'canceled' ? { endsAt: dto.currentPeriodEnd ?? occurredAt } : {}),
+      ...(status === 'canceled' ? { endsAt: dto.currentPeriodEnd ?? occurredAt } : {}),
     };
     await repos.subscriptions.update(local.id, patch);
   }
