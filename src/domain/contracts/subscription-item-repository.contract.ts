@@ -10,6 +10,10 @@ export interface SubscriptionItemPatch {
 export interface SubscriptionItemRepository {
   create(data: NewSubscriptionItem): Promise<SubscriptionItem>;
   createMany(data: NewSubscriptionItem[]): Promise<void>;
-  updatePrimary(subscriptionId: string, patch: SubscriptionItemPatch): Promise<void>;
-  listBySubscription(subscriptionId: string): Promise<SubscriptionItem[]>;
+  updatePrimary(
+    subscriptionId: string,
+    patch: SubscriptionItemPatch,
+    tenantId?: string | null,
+  ): Promise<void>;
+  listBySubscription(subscriptionId: string, tenantId?: string | null): Promise<SubscriptionItem[]>;
 }
