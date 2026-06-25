@@ -2,15 +2,24 @@ import type { LogContext, Logger } from '../../domain/contracts/logger.contract'
 import { isSensitiveKey } from '../redact';
 
 const REDACTED = '[redacted]';
+const CIRCULAR = '[circular]';
 
-function redactValue(value: unknown): unknown {
+function redactValue(value: unknown, seen: WeakSet<object>): unknown {
   if (Array.isArray(value)) {
-    return value.map(redactValue);
+    if (seen.has(value)) {
+      return CIRCULAR;
+    }
+    seen.add(value);
+    return value.map((entry) => redactValue(entry, seen));
   }
   if (value !== null && typeof value === 'object') {
+    if (seen.has(value)) {
+      return CIRCULAR;
+    }
+    seen.add(value);
     const result: Record<string, unknown> = {};
     for (const [key, nested] of Object.entries(value)) {
-      result[key] = isSensitiveKey(key) ? REDACTED : redactValue(nested);
+      result[key] = isSensitiveKey(key) ? REDACTED : redactValue(nested, seen);
     }
     return result;
   }
@@ -18,9 +27,10 @@ function redactValue(value: unknown): unknown {
 }
 
 export function redactContext(context: LogContext): LogContext {
+  const seen = new WeakSet<object>();
   const result: LogContext = {};
   for (const [key, value] of Object.entries(context)) {
-    result[key] = isSensitiveKey(key) ? REDACTED : redactValue(value);
+    result[key] = isSensitiveKey(key) ? REDACTED : redactValue(value, seen);
   }
   return result;
 }

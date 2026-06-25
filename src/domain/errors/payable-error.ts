@@ -5,6 +5,9 @@ export interface PayableErrorOptions {
   cause?: unknown;
 }
 
+const SENSITIVE_CONTEXT_KEY =
+  /(authorization|password|secret|token|signature|api[-_]?key|cookie|card|cvv|cvc|pin)/i;
+
 export class PayableError extends Error {
   readonly code: string;
   readonly context?: Record<string, unknown>;
@@ -17,6 +20,7 @@ export class PayableError extends Error {
     this.context = options.context;
     this.correlationId = options.correlationId;
     Object.setPrototypeOf(this, new.target.prototype);
+    Error.captureStackTrace?.(this, new.target);
   }
 
   static notImplemented(symbol: string): PayableError {
@@ -35,7 +39,15 @@ export class PayableError extends Error {
       code: this.code,
       message: this.message,
       correlationId: this.correlationId,
-      context: this.context,
+      context: this.context ? redactContext(this.context) : undefined,
     };
   }
+}
+
+function redactContext(context: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(context)) {
+    result[key] = SENSITIVE_CONTEXT_KEY.test(key) ? '[redacted]' : value;
+  }
+  return result;
 }
