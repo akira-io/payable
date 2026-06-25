@@ -101,7 +101,7 @@ Status and body follow the same `STATUS_BY_CODE` table and `{ error, message }` 
 As with Express, the plugin installs no authentication or authorization. The checkout and
 subscription routes are unprotected; webhook routes are protected only by provider signature
 verification. The caller must authenticate the request and verify ownership of the billable. See
-`docs/26-security.md`.
+`docs/27-security.md`.
 
 ## Registration example
 

@@ -86,4 +86,4 @@ peer guarantee: the core entry must not pull a provider or framework into every 
 
 ---
 
-[Previous: Security](26-security.md) | [Index](00-index.md) | [Next: Operations](28-operations.md)
+[Previous: Security](27-security.md) | [Index](00-index.md) | [Next: Operations](29-operations.md)

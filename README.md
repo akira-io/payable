@@ -26,6 +26,7 @@ minor units through a `Money` value object backed by Dinero.js, so monetary logi
 - **Reliability**: idempotency by default, an immutable audit log, and a transactional outbox.
 - **Storage / queue**: Knex storage driver; synchronous or BullMQ queue driver.
 - **HTTP adapters**: Express, Fastify, and NestJS, each on its own subpath export.
+- **MCP adapter**: expose billing to AI clients (Claude Desktop/Code) over stdio or HTTP.
 
 Every provider, storage, queue, and framework dependency is an **optional peer** - the core runtime
 bundle imports none of them. You install only what you use.
@@ -47,6 +48,7 @@ Then add the optional peers for the features you use:
 | Express adapter | `npm i express`                                      |
 | Fastify adapter | `npm i fastify`                                      |
 | NestJS adapter  | `npm i @nestjs/common reflect-metadata`              |
+| MCP adapter     | `npm i @modelcontextprotocol/sdk`                    |
 
 ## Quick start
 
@@ -111,6 +113,9 @@ Adapter coverage is not yet at parity: Express also implements `POST /refunds`, 
 `customers` / `invoices` / `payments` (and `refunds` on Fastify/NestJS) are reserved and respond `501`.
 See [docs/adapters](docs/adapters/22-express.md) for the exact route table per adapter.
 
+The MCP adapter (`@akira-io/payable/mcp`) exposes the facade to AI clients as tools over stdio or
+streamable HTTP, with money movement off by default. See [docs/adapters/25-mcp.md](docs/adapters/25-mcp.md).
+
 > **Raw body required.** Webhook signature verification needs the exact unparsed request body. Mount
 > the webhook route before any global JSON body parser, and for NestJS create the app with
 > `rawBody: true`.
@@ -158,7 +163,7 @@ codes to HTTP status with a `{ error, message }` body.
 - `src/domain` - contracts, entities, DTOs, value objects, events, state machines, errors.
 - `src/application` - actions, queries, builders, pipelines, policies, services.
 - `src/infrastructure` - providers, storage, queue, cache, locks, encryption, event bus, audit, outbox.
-- `src/presentation` - Express, Fastify, and NestJS adapters.
+- `src/presentation` - Express, Fastify, NestJS, and MCP adapters.
 - `src/support` - config, logger, result, clock.
 
 The public surface is exported from the package root; the fluent entry point is `createPayable(...)`.
@@ -186,7 +191,7 @@ Full documentation lives in [docs/](docs/00-index.md). Start with the
 - Integrations: [providers](docs/integrations/17-providers.md), [Stripe](docs/integrations/18-stripe.md), [Paddle](docs/integrations/19-paddle.md)
 - Persistence: [Knex storage](docs/persistence/20-storage-knex.md), [queue](docs/persistence/21-queue.md)
 - Adapters: [Express](docs/adapters/22-express.md), [Fastify](docs/adapters/23-fastify.md), [NestJS](docs/adapters/24-nestjs.md)
-- Cross-cutting: [data flows](docs/25-data-flows.md), [security](docs/26-security.md), [development](docs/27-development.md), [operations](docs/28-operations.md), [troubleshooting](docs/29-troubleshooting.md), [FAQ](docs/30-faq.md)
+- Cross-cutting: [data flows](docs/26-data-flows.md), [security](docs/27-security.md), [development](docs/28-development.md), [operations](docs/29-operations.md), [troubleshooting](docs/30-troubleshooting.md), [FAQ](docs/31-faq.md)
 
 ## Testing
 

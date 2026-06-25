@@ -52,7 +52,7 @@ No. No adapter installs authentication or guards. The only cryptographic check i
 verification. Authorization policies exist, but only `CanReplayWebhookPolicy` is wired into an
 action today, and policies enforce business rules from an explicit context rather than
 authenticating requests. You authenticate the caller and verify ownership of the billable. See
-`docs/26-security.md`.
+`docs/27-security.md`.
 
 ## Which HTTP routes does each adapter expose?
 
@@ -84,8 +84,8 @@ Node `>=20`. CI runs the suite on Node 20 and 22, and the build targets `node20`
 
 `bun run test --filter=name` passes through to Vitest, or use Vitest directly:
 `npx vitest run -t "test name"` to select by name, or `npx vitest run tests/express.test.ts` to
-select by file. See `docs/27-development.md`.
+select by file. See `docs/28-development.md`.
 
 ---
 
-[Previous: Troubleshooting](29-troubleshooting.md) | [Index](00-index.md)
+[Previous: Troubleshooting](30-troubleshooting.md) | [Index](00-index.md)

@@ -109,7 +109,7 @@ if (entries.length === 0) {
 - **Required.** Optional.
 - **Default.** `undefined`.
 - **Behavior.** Used to encrypt/decrypt sensitive stored values when supplied. The bundled
-  implementation is `NodeEncryptionDriver`. See [26-security.md](26-security.md).
+  implementation is `NodeEncryptionDriver`. See [27-security.md](27-security.md).
 
 ### `idempotency?: IdempotencyConfig`
 

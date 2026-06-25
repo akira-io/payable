@@ -173,7 +173,7 @@ It uses the same `STATUS_BY_CODE` table and `{ error, message }` body shape docu
 
 The controller installs no guards. Checkout and subscription routes are unprotected; webhook routes
 are protected only by provider signature verification. Add NestJS guards and verify ownership of the
-billable yourself. See `docs/26-security.md`.
+billable yourself. See `docs/27-security.md`.
 
 ## Module example
 
@@ -215,4 +215,4 @@ adapter.
 
 ---
 
-[Previous: Fastify](23-fastify.md) | [Index](../00-index.md) | [Next: Data Flows](../25-data-flows.md)
+[Previous: Fastify](23-fastify.md) | [Index](../00-index.md) | [Next: MCP](25-mcp.md)
