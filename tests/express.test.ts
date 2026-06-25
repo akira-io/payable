@@ -37,6 +37,33 @@ describe('express adapter', () => {
     expect(provider.lastCheckout?.input.trialDays).toBe(14);
   });
 
+  it('threads resolveAuthorization so authorized writes pass and absent context is denied', async () => {
+    const payable = createPayable({
+      providers: { stripe: new FakeProvider() },
+      authorization: { enabled: true },
+    });
+    const body = {
+      billable,
+      subscription: { name: 'default', price: 'price_pro' },
+      successUrl: 'https://app.test/s',
+      cancelUrl: 'https://app.test/c',
+    };
+
+    const authorized = express();
+    authorized.use(
+      '/payable',
+      createExpressPayableRoutes(payable, {
+        resolveAuthorization: () => ({ allowed: true, actorId: 'admin' }),
+      }),
+    );
+    const ok = await request(authorized).post('/payable/checkout').send(body);
+    expect(ok.status).toBe(201);
+
+    const denied = await request(makeApp(payable)).post('/payable/checkout').send(body);
+    expect(denied.status).toBe(403);
+    expect(denied.body.error).toBe('AUTHORIZATION_DENIED');
+  });
+
   it('threads a resolved tenant id so writes work under tenancy', async () => {
     const payable = createPayable({
       providers: { stripe: new FakeProvider() },

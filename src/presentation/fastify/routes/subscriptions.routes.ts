@@ -19,8 +19,9 @@ export async function registerSubscriptionRoutes(
     const body = parseBody(manageSubscriptionBodySchema, request.body);
     const params = request.params as { name: string };
     const tenantId = options.resolveTenant?.(request) ?? null;
+    const authorization = options.resolveAuthorization?.(request);
     const manager = payable.customer(body.billable, undefined, tenantId).subscription(params.name);
-    reply.status(200).send(await manager[action]());
+    reply.status(200).send(await manager[action](authorization));
   };
 
   const routeOptions = { bodyLimit: DEFAULT_BODY_LIMIT };
@@ -32,6 +33,6 @@ export async function registerSubscriptionRoutes(
     const params = request.params as { name: string };
     const tenantId = options.resolveTenant?.(request) ?? null;
     const manager = payable.customer(body.billable, undefined, tenantId).subscription(params.name);
-    reply.status(200).send(await manager.swap(body.price));
+    reply.status(200).send(await manager.swap(body.price, options.resolveAuthorization?.(request)));
   });
 }

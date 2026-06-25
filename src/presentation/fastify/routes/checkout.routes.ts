@@ -25,6 +25,7 @@ export async function registerCheckoutRoutes(
     const session = await builder.checkout({
       successUrl: body.successUrl,
       cancelUrl: body.cancelUrl,
+      authorization: options.resolveAuthorization?.(request),
     });
     reply.status(201).send(session);
   });

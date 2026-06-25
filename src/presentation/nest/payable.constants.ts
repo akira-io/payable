@@ -1,5 +1,6 @@
 import type { IncomingHttpHeaders } from 'node:http';
 import type { CanActivate, Type } from '@nestjs/common';
+import type { AuthorizationContext } from '../../application/policies/authorization-context';
 
 export { flattenHeaders } from '../shared/payable-http';
 
@@ -16,4 +17,5 @@ export interface NestPayableOptions {
   webhookSignatureHeader?: string;
   authenticate?: Type<CanActivate>;
   resolveTenant?: (request: PayableHttpRequest) => string | null | undefined;
+  resolveAuthorization?: (request: PayableHttpRequest) => AuthorizationContext | undefined;
 }

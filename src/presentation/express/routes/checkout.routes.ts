@@ -27,6 +27,7 @@ export function registerCheckoutRoutes(
       const session = await builder.checkout({
         successUrl: body.successUrl,
         cancelUrl: body.cancelUrl,
+        authorization: options.resolveAuthorization?.(req),
       });
       res.status(201).json(session);
     }),

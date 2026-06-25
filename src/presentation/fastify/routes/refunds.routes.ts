@@ -14,7 +14,12 @@ export async function registerRefundRoutes(
     const amount = body.amount ? parseMoneyInput(body.amount) : undefined;
     const tenantId = options.resolveTenant?.(request) ?? null;
     const refund = await payable.refund(
-      { paymentId: body.paymentId, amount, reason: body.reason },
+      {
+        paymentId: body.paymentId,
+        amount,
+        reason: body.reason,
+        authorization: options.resolveAuthorization?.(request),
+      },
       tenantId,
     );
     reply.status(201).send(refund);

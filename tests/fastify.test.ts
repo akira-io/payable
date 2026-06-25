@@ -55,6 +55,32 @@ describe('fastify adapter', () => {
     await app.close();
   });
 
+  it('threads resolveAuthorization so authorized writes pass and absent context is denied', async () => {
+    const payable = createPayable({
+      providers: { stripe: new FakeProvider() },
+      authorization: { enabled: true },
+    });
+    const payload = {
+      billable,
+      subscription: { name: 'default', price: 'price_pro' },
+      successUrl: 'https://app.test/s',
+      cancelUrl: 'https://app.test/c',
+    };
+
+    const authorized = await makeApp(payable, {
+      resolveAuthorization: () => ({ allowed: true, actorId: 'admin' }),
+    });
+    const ok = await authorized.inject({ method: 'POST', url: '/payable/checkout', payload });
+    expect(ok.statusCode).toBe(201);
+    await authorized.close();
+
+    const denied = await makeApp(payable);
+    const blocked = await denied.inject({ method: 'POST', url: '/payable/checkout', payload });
+    expect(blocked.statusCode).toBe(403);
+    expect(blocked.json().error).toBe('AUTHORIZATION_DENIED');
+    await denied.close();
+  });
+
   it('rejects checkout with an invalid body', async () => {
     const app = await makeApp(createPayable({ providers: { stripe: new FakeProvider() } }));
     const res = await app.inject({
