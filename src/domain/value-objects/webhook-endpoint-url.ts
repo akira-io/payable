@@ -77,10 +77,23 @@ function isBlockedIpv6(host: string): boolean {
   if (host === '::1' || host === '::') {
     return true;
   }
-  const mapped = host.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped?.[1]) {
-    const ipv4 = parseIpv4(mapped[1]);
-    return ipv4 ? isBlockedIpv4(ipv4) : false;
+  const embedded = embeddedIpv4(host);
+  if (embedded) {
+    return isBlockedIpv4(embedded);
   }
   return /^(fc|fd|fe8|fe9|fea|feb)/.test(host);
+}
+
+function embeddedIpv4(host: string): [number, number, number, number] | null {
+  const dotted = host.match(/^(?:::ffff:|64:ff9b::)(\d+\.\d+\.\d+\.\d+)$/);
+  if (dotted?.[1]) {
+    return parseIpv4(dotted[1]);
+  }
+  const hex = host.match(/^(?:::ffff:|64:ff9b::)([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (hex?.[1] && hex[2]) {
+    const high = Number.parseInt(hex[1], 16);
+    const low = Number.parseInt(hex[2], 16);
+    return [(high >> 8) & 0xff, high & 0xff, (low >> 8) & 0xff, low & 0xff];
+  }
+  return null;
 }
