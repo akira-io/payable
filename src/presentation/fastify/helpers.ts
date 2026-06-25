@@ -1,6 +1,7 @@
 import type { RateLimitPluginOptions } from '@fastify/rate-limit';
 import type { FastifyReply, FastifyRequest, onRequestHookHandler } from 'fastify';
 import type { AuthorizationContext } from '../../application/policies/authorization-context';
+import { PayableError } from '../../domain/errors/payable-error';
 import { payableErrorBody, payableErrorStatus } from '../shared/payable-http';
 
 export { flattenHeaders } from '../shared/payable-http';
@@ -18,7 +19,11 @@ export function payableErrorReply(
   _request: FastifyRequest,
   reply: FastifyReply,
 ): void {
-  reply.status(frameworkStatus(error) ?? payableErrorStatus(error)).send(payableErrorBody(error));
+  const status =
+    error instanceof PayableError
+      ? payableErrorStatus(error)
+      : (frameworkStatus(error) ?? payableErrorStatus(error));
+  reply.status(status).send(payableErrorBody(error));
 }
 
 function frameworkStatus(error: unknown): number | undefined {
