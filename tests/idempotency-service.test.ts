@@ -71,6 +71,26 @@ describe('IdempotencyService', () => {
     expect(record?.expiresAt?.toISOString()).toBe('2026-06-22T00:01:00.000Z');
   });
 
+  it('honors a per-operation lockTtlMs over the service default', async () => {
+    const store = new InMemoryIdempotencyStore();
+    const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
+    const service = new IdempotencyService(store, clock, { lockTtlMs: 30_000 });
+    let lockedUntilDuringRun: Date | null = null;
+
+    await service.execute({
+      ...execution('charge:lockttl', { amount: 100 }, async () => {
+        lockedUntilDuringRun = (await store.find('charge:lockttl'))?.lockedUntil ?? null;
+        return 'ok';
+      }),
+      lockTtlMs: 120_000,
+    });
+
+    expect(lockedUntilDuringRun).not.toBeNull();
+    expect((lockedUntilDuringRun as unknown as Date).toISOString()).toBe(
+      '2026-06-22T00:02:00.000Z',
+    );
+  });
+
   it('throws on a reused key with a different request', async () => {
     const service = new IdempotencyService(new InMemoryIdempotencyStore(), new FakeClock());
     await service.execute(execution('charge:2', { amount: 100 }, async () => 'ok'));

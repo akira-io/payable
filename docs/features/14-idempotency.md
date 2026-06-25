@@ -131,7 +131,13 @@ A record has `status` of `processing | completed | failed | expired`, the `reque
 ## Execution flow
 
 `IdempotencyService` (`src/application/services/idempotency/idempotency-service.ts`) ties it
-together. Options: `lockTtlMs` (default `30_000`) and `retryFailed` (default `true`).
+together. Service options: `lockTtlMs` (default `30_000`) and `retryFailed` (default `true`).
+
+`lockTtlMs` is the window before a held lock is considered stale. Set it comfortably above the
+slowest provider call so a long-running operation never lapses while in flight — a lapsed lock now
+fails closed (see above) rather than re-running. Any single execution can override the service
+default per operation with `lockTtlMs` on the `IdempotentExecution`, so a slow charge can claim a
+longer lock than a fast lookup without widening the window for everything.
 
 ```ts
 async execute<T>(execution: IdempotentExecution<T>): Promise<T> {
