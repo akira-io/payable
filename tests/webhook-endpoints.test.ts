@@ -59,7 +59,9 @@ describe('webhook endpoint lifecycle (#460)', () => {
       .webhookEndpoints('tenant-b')
       .register({ url: 'https://b.test/hook', events: ['invoice.paid'] });
 
-    expect(await payable.webhookEndpoints('tenant-a').list()).toHaveLength(1);
+    const listed = await payable.webhookEndpoints('tenant-a').list();
+    expect(listed).toHaveLength(1);
+    expect(listed[0]).not.toHaveProperty('secret');
     expect(await payable.webhookEndpoints('tenant-b').list()).toHaveLength(1);
 
     const disabled = await payable.webhookEndpoints('tenant-a').disable(a.id);
