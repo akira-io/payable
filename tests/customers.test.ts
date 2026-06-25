@@ -94,4 +94,20 @@ describe('payable.customers', () => {
       code: 'CUSTOMER_STORAGE_REQUIRED',
     });
   });
+
+  it('rejects customer operations when the provider lacks the capability', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new FakeProvider();
+    provider.supportedCapabilities.delete('customers');
+    const payable = createPayable({
+      providers: { stripe: provider },
+      storage: new KnexStorageDriver(db, new FakeClock()),
+    });
+
+    await expect(payable.customers().create(billable)).rejects.toMatchObject({
+      code: 'PROVIDER_CAPABILITY_NOT_SUPPORTED',
+    });
+    await db.destroy();
+  });
 });

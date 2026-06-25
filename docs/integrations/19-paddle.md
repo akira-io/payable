@@ -28,24 +28,15 @@ type. The provider only depends on the methods it calls (`customers`, `products`
 
 ```ts
 capabilities(): ProviderCapabilities {
-  return {
-    checkout: true,
-    subscriptions: true,
-    trials: true,
-    refunds: true,
-    coupons: true,
-    billingPortal: true,
-    meteredBilling: false,
-    invoicePdf: false,
-  };
+  return new Set(['checkout', 'subscriptions', 'refunds', 'billingPortal', 'customers', 'catalog']);
 }
 ```
 
 ### Capability gaps versus Stripe
 
-The differences are:
+Paddle's set omits `trials`, `coupons`, `meteredBilling`, and `invoicePdf`. The differences are:
 
-- **`invoicePdf: false`** (Stripe is `true`). Paddle does not implement `InvoiceCapable`, so there is no
+- **No `invoicePdf`** (Stripe declares it). Paddle does not implement `InvoiceCapable`, so there is no
   `listInvoices` / `downloadInvoicePdf`. `isInvoiceCapable(paddleProvider)` returns `false`.
 - **No `ChargeCapable`.** Paddle has no `charge` method; one-off direct charges are not available.
   `isChargeCapable(paddleProvider)` returns `false`.
@@ -53,7 +44,7 @@ The differences are:
   created through the checkout/transaction flow, not a direct API call.
   `isDirectSubscriptionCapable(paddleProvider)` returns `false`.
 - **Partial refunds are not supported.** `refund` throws when `input.amount` is set (see Failure
-  scenarios). `meteredBilling: false`, the same as Stripe.
+  scenarios). `meteredBilling` is absent, the same as Stripe.
 
 ## Mappers
 

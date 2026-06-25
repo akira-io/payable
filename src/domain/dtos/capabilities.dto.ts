@@ -1,12 +1,15 @@
-export interface ProviderCapabilities {
-  checkout: boolean;
-  subscriptions: boolean;
-  trials: boolean;
-  refunds: boolean;
-  coupons: boolean;
-  billingPortal: boolean;
-  meteredBilling: boolean;
-  invoicePdf: boolean;
-}
+export type ProviderCapability =
+  | 'checkout'
+  | 'subscriptions'
+  | 'trials'
+  | 'refunds'
+  | 'coupons'
+  | 'billingPortal'
+  | 'meteredBilling'
+  | 'invoicePdf'
+  | 'customers'
+  | 'catalog';
 
-export type ProviderCapability = keyof ProviderCapabilities;
+export type ProviderCapabilityValue = ProviderCapability | (string & {});
+
+export type ProviderCapabilities = ReadonlySet<ProviderCapabilityValue>;

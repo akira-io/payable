@@ -56,7 +56,7 @@ const provider = (client: Stripe) =>
 describe('StripeProvider', () => {
   it('reports Stripe capabilities', () => {
     const { client } = fakeStripe();
-    expect(provider(client).capabilities().checkout).toBe(true);
+    expect(provider(client).capabilities().has('checkout')).toBe(true);
   });
 
   it('does not leak secrets when serialized or inspected', () => {

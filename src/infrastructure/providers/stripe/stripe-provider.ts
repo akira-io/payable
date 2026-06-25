@@ -103,16 +103,17 @@ export class StripeProvider
   }
 
   capabilities(): ProviderCapabilities {
-    return {
-      checkout: true,
-      subscriptions: true,
-      trials: true,
-      refunds: true,
-      coupons: true,
-      billingPortal: true,
-      meteredBilling: false,
-      invoicePdf: true,
-    };
+    return new Set([
+      'checkout',
+      'subscriptions',
+      'trials',
+      'refunds',
+      'coupons',
+      'billingPortal',
+      'invoicePdf',
+      'customers',
+      'catalog',
+    ]);
   }
 
   async createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {

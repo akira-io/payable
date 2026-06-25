@@ -1,5 +1,9 @@
 export type { BillingPortalDTO, BillingPortalInput } from './billing-portal.dto';
-export type { ProviderCapabilities, ProviderCapability } from './capabilities.dto';
+export type {
+  ProviderCapabilities,
+  ProviderCapability,
+  ProviderCapabilityValue,
+} from './capabilities.dto';
 export type { ChargeInput, ChargeResultDTO } from './charge.dto';
 export type {
   CheckoutLineItem,
