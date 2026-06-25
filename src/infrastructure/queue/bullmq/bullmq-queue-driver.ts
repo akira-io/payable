@@ -11,10 +11,15 @@ export interface BullMQQueueOptions {
   attempts?: number;
   backoffMs?: number;
   removeOnFailCount?: number;
+  removeOnCompleteAgeSec?: number;
   deadLetterSuffix?: string;
+  deadLetterAttempts?: number;
   onFailed?: (jobName: string, error: Error) => void;
   onError?: (name: string, error: Error) => void;
 }
+
+const DEFAULT_REMOVE_ON_COMPLETE_AGE_SEC = 86_400;
+const DEFAULT_DEAD_LETTER_ATTEMPTS = 3;
 
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
@@ -26,7 +31,7 @@ export function isJobExhausted(attemptsMade: number, attempts: number): boolean 
 
 export interface BullMQJobOptions extends BullMQRetryOptions {
   jobId?: string;
-  removeOnComplete: true;
+  removeOnComplete: { age: number };
   removeOnFail: { count: number };
 }
 
@@ -51,7 +56,9 @@ export class BullMQQueueDriver implements QueueDriver {
   jobOptions(jobId?: string): BullMQJobOptions {
     return {
       jobId,
-      removeOnComplete: true,
+      removeOnComplete: {
+        age: this.options.removeOnCompleteAgeSec ?? DEFAULT_REMOVE_ON_COMPLETE_AGE_SEC,
+      },
       removeOnFail: { count: this.options.removeOnFailCount ?? 1000 },
       ...this.retryOptions(),
     };
@@ -118,6 +125,20 @@ export class BullMQQueueDriver implements QueueDriver {
   }
 
   private async deadLetter(name: string, job: Job, error: Error): Promise<void> {
+    const attempts = Math.max(this.options.deadLetterAttempts ?? DEFAULT_DEAD_LETTER_ATTEMPTS, 1);
+    let lastError: unknown;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      try {
+        await this.writeDeadLetter(name, job, error);
+        return;
+      } catch (writeError) {
+        lastError = writeError;
+      }
+    }
+    throw asError(lastError);
+  }
+
+  private async writeDeadLetter(name: string, job: Job, error: Error): Promise<void> {
     const queue = await this.queueFor(`${name}${this.options.deadLetterSuffix ?? ':dead'}`);
     const data = job.data as { payload: unknown; correlationId: string };
     await queue.add(
