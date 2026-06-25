@@ -45,6 +45,29 @@ describe('domain events', () => {
     expect(event.name).toBe('invoice.paid');
     expect(event.payload.total.amount()).toBe(2550);
   });
+
+  it('assign a unique event id and a default schema version', () => {
+    const make = () =>
+      new CustomerCreatedEvent(
+        { customerId: 'cus_1', billableType: 'User', billableId: '1' },
+        meta,
+      );
+    const first = make();
+    const second = make();
+    expect(first.eventId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(first.eventId).not.toBe(second.eventId);
+    expect(first.version).toBe(1);
+  });
+
+  it('freeze the payload so a listener cannot mutate it', () => {
+    const event = new CustomerCreatedEvent(
+      { customerId: 'cus_1', billableType: 'User', billableId: '1' },
+      meta,
+    );
+    expect(() => {
+      (event.payload as { customerId: string }).customerId = 'tampered';
+    }).toThrow(TypeError);
+  });
 });
 
 describe('InMemoryEventBus', () => {

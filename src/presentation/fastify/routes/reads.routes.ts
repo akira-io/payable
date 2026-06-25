@@ -19,7 +19,7 @@ export async function registerReadRoutes(
     const tenantId = options.resolveTenant?.(request) ?? null;
     const invoices = await payable
       .customer(
-        { billableType: query.billableType, billableId: query.billableId, email: '' },
+        { billableType: query.billableType, billableId: query.billableId },
         undefined,
         tenantId,
       )
@@ -41,9 +41,7 @@ export async function registerReadRoutes(
   scope.get('/payments', async (request, reply) => {
     const query = parseBody(billableLookupSchema, request.query);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    const payments = await payable
-      .customer({ ...query, email: '' }, undefined, tenantId)
-      .payments();
+    const payments = await payable.customer({ ...query }, undefined, tenantId).payments();
     reply.status(200).send(payments);
   });
 
@@ -52,7 +50,7 @@ export async function registerReadRoutes(
     const tenantId = options.resolveTenant?.(request) ?? null;
     const subscriptions = await payable
       .customer(
-        { billableType: query.billableType, billableId: query.billableId, email: '' },
+        { billableType: query.billableType, billableId: query.billableId },
         undefined,
         tenantId,
       )
@@ -65,7 +63,7 @@ export async function registerReadRoutes(
     const tenantId = options.resolveTenant?.(request) ?? null;
     const name = String((request.params as { name: string }).name);
     const subscription = await payable
-      .customer({ ...query, email: '' }, undefined, tenantId)
+      .customer({ ...query }, undefined, tenantId)
       .subscription(name)
       .get();
     if (!subscription) {

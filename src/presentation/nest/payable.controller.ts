@@ -189,7 +189,7 @@ export class PayableController {
     const lookup = parseBody(billableLookupSchema, query);
     const customer = await this.payable
       .customers(undefined, this.tenantOf(request))
-      .get({ ...lookup, email: '' });
+      .get({ ...lookup });
     if (!customer) {
       throw new PayableError(`Customer not found: ${lookup.billableId}`, {
         code: 'CUSTOMER_NOT_FOUND',
@@ -204,7 +204,7 @@ export class PayableController {
     const lookup = parseBody(listInvoicesQuerySchema, query);
     return this.payable
       .customer(
-        { billableType: lookup.billableType, billableId: lookup.billableId, email: '' },
+        { billableType: lookup.billableType, billableId: lookup.billableId },
         undefined,
         this.tenantOf(request),
       )
@@ -228,9 +228,7 @@ export class PayableController {
   @UseGuards(PayableAuthGuard)
   payments(@Req() request: PayableHttpRequest, @Query() query: unknown): Promise<Payment[]> {
     const lookup = parseBody(billableLookupSchema, query);
-    return this.payable
-      .customer({ ...lookup, email: '' }, undefined, this.tenantOf(request))
-      .payments();
+    return this.payable.customer({ ...lookup }, undefined, this.tenantOf(request)).payments();
   }
 
   @Get('subscriptions')
@@ -242,7 +240,7 @@ export class PayableController {
     const lookup = parseBody(listSubscriptionsQuerySchema, query);
     return this.payable
       .customer(
-        { billableType: lookup.billableType, billableId: lookup.billableId, email: '' },
+        { billableType: lookup.billableType, billableId: lookup.billableId },
         undefined,
         this.tenantOf(request),
       )
@@ -258,7 +256,7 @@ export class PayableController {
   ): Promise<Subscription> {
     const lookup = parseBody(billableLookupSchema, query);
     const subscription = await this.payable
-      .customer({ ...lookup, email: '' }, undefined, this.tenantOf(request))
+      .customer({ ...lookup }, undefined, this.tenantOf(request))
       .subscription(name)
       .get();
     if (!subscription) {

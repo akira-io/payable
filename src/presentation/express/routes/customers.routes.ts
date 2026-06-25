@@ -42,7 +42,7 @@ export function registerCustomerRoutes(
     asyncHandler(async (req, res) => {
       const query = parseBody(billableLookupSchema, req.query);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const customer = await payable.customers(undefined, tenantId).get({ ...query, email: '' });
+      const customer = await payable.customers(undefined, tenantId).get({ ...query });
       if (!customer) {
         res.status(404).json({ error: 'CUSTOMER_NOT_FOUND', message: 'Customer not found' });
         return;

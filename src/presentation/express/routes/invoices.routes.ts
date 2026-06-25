@@ -15,7 +15,7 @@ export function registerInvoiceRoutes(
       const tenantId = options.resolveTenant?.(req) ?? null;
       const invoices = await payable
         .customer(
-          { billableType: query.billableType, billableId: query.billableId, email: '' },
+          { billableType: query.billableType, billableId: query.billableId },
           undefined,
           tenantId,
         )
