@@ -15,7 +15,11 @@ interface StripeLikeError {
 }
 
 function isStripeError(error: unknown): error is StripeLikeError {
-  return typeof error === 'object' && error !== null && 'type' in error;
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+  const type = (error as StripeLikeError).type;
+  return typeof type === 'string' && type.startsWith('Stripe');
 }
 
 export async function withStripeErrors<T>(fn: () => Promise<T>): Promise<T> {

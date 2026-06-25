@@ -1,15 +1,18 @@
 import type Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
 import {
+  toCustomerDTO as toPaddleCustomerDTO,
   toPriceDTO as toPaddlePriceDTO,
   toRefundResultDTO as toPaddleRefundDTO,
   toSubscriptionDTO as toPaddleSubscriptionDTO,
 } from '../src/infrastructure/providers/paddle/paddle-mappers';
 import type {
   PaddleAdjustment,
+  PaddleCustomer,
   PaddlePriceEntity,
   PaddleSubscriptionEntity,
 } from '../src/infrastructure/providers/paddle/paddle-types';
+import { withStripeErrors } from '../src/infrastructure/providers/stripe/stripe-errors';
 import {
   toCustomerDTO as toStripeCustomerDTO,
   toInvoiceDTO as toStripeInvoiceDTO,
@@ -102,6 +105,18 @@ describe('stripe subscription mapping', () => {
       status: 'active',
       items: { data: [] },
       current_period_end: 1_750_000_000,
+      trial_end: null,
+    } as unknown as Stripe.Subscription);
+    expect(dto.currentPeriodEnd?.toISOString()).toBe(new Date(1_750_000_000 * 1000).toISOString());
+  });
+
+  it('reports the earliest period end across multi-item subscriptions', () => {
+    const dto = toStripeSubscriptionDTO({
+      id: 'sub_4',
+      status: 'active',
+      items: {
+        data: [{ current_period_end: 1_760_000_000 }, { current_period_end: 1_750_000_000 }],
+      },
       trial_end: null,
     } as unknown as Stripe.Subscription);
     expect(dto.currentPeriodEnd?.toISOString()).toBe(new Date(1_750_000_000 * 1000).toISOString());
@@ -229,5 +244,35 @@ describe('stripe invoice mapping', () => {
       currency: 'usd',
     } as unknown as Stripe.Invoice);
     expect(dto.status).toBe('draft');
+  });
+});
+
+describe('paddle customer mapping', () => {
+  it('maps a missing name to null rather than undefined', () => {
+    const dto = toPaddleCustomerDTO({
+      id: 'ctm_1',
+      email: 'a@b.test',
+      name: null,
+    } as PaddleCustomer);
+    expect(dto.name).toBeNull();
+  });
+});
+
+describe('stripe error detection', () => {
+  it('rethrows a non-stripe error that merely has a type field', async () => {
+    const foreign = { type: 'something_else', message: 'not stripe' };
+    await expect(
+      withStripeErrors(async () => {
+        throw foreign;
+      }),
+    ).rejects.toBe(foreign);
+  });
+
+  it('wraps a stripe-shaped error in a PayableError', async () => {
+    await expect(
+      withStripeErrors(async () => {
+        throw { type: 'StripeCardError', code: 'card_declined', message: 'declined' };
+      }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_CARD_DECLINED' });
   });
 });

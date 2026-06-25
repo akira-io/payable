@@ -37,7 +37,11 @@ function toMinorUnits(value: string | number | null | undefined): number {
 }
 
 export function toCustomerDTO(customer: PaddleCustomer): CustomerDTO {
-  return { providerCustomerId: customer.id, email: customer.email ?? null, name: customer.name };
+  return {
+    providerCustomerId: customer.id,
+    email: customer.email ?? null,
+    name: customer.name ?? null,
+  };
 }
 
 export function toProductDTO(product: PaddleProductEntity): ProductDTO {
