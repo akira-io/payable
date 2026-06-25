@@ -24,22 +24,25 @@ export class KnexWebhookEndpointRepository implements WebhookEndpointRepository 
   async create(data: NewWebhookEndpoint): Promise<WebhookEndpoint> {
     const id = globalThis.crypto.randomUUID();
     const timestamp = this.clock.now().toISOString();
-    await this.knex(this.table).insert({
-      id,
-      tenant_id: data.tenantId,
-      url: data.url,
-      events: JSON.stringify(data.events),
-      secret: await this.seal(data.secret),
-      status: data.status,
-      created_at: timestamp,
-      updated_at: timestamp,
+    const secret = await this.seal(data.secret);
+    await this.knex.transaction(async (trx) => {
+      await trx(this.table).insert({
+        id,
+        tenant_id: data.tenantId,
+        url: data.url,
+        events: JSON.stringify(data.events),
+        secret,
+        status: data.status,
+        created_at: timestamp,
+        updated_at: timestamp,
+      });
+      for (const eventType of data.events) {
+        await trx(this.eventsTable)
+          .insert({ endpoint_id: id, event_type: eventType })
+          .onConflict(['endpoint_id', 'event_type'])
+          .ignore();
+      }
     });
-    for (const eventType of data.events) {
-      await this.knex(this.eventsTable)
-        .insert({ endpoint_id: id, event_type: eventType })
-        .onConflict(['endpoint_id', 'event_type'])
-        .ignore();
-    }
     return this.findByIdOrFail(id, data.tenantId);
   }
 
