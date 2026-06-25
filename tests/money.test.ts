@@ -128,6 +128,13 @@ describe('Money', () => {
     expect(() => large.percentage(1_000_000)).toThrow(RangeError);
   });
 
+  it('rejects add and subtract results that overflow the safe integer range', () => {
+    const near = Money.of(Number.MAX_SAFE_INTEGER - 1, 'JPY');
+    expect(() => near.add(Money.of(100, 'JPY'))).toThrow(RangeError);
+    const negative = Money.of(-(Number.MAX_SAFE_INTEGER - 1), 'JPY');
+    expect(() => negative.subtract(Money.of(100, 'JPY'))).toThrow(RangeError);
+  });
+
   it('treats minor units correctly for zero-decimal currencies', () => {
     const yen = Money.of(1000, 'JPY');
     expect(yen.amount()).toBe(1000);

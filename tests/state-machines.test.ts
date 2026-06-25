@@ -24,10 +24,18 @@ describe('SubscriptionStateMachine', () => {
     expect(new SubscriptionStateMachine('trialing').markPastDue().current()).toBe('past_due');
   });
 
-  it('covers the provider dunning edges active to unpaid and paused to past_due', () => {
+  it('covers the provider dunning edges active to unpaid and trialing to unpaid', () => {
     expect(new SubscriptionStateMachine('active').markUnpaid().current()).toBe('unpaid');
-    expect(new SubscriptionStateMachine('paused').markPastDue().current()).toBe('past_due');
     expect(new SubscriptionStateMachine('trialing').markUnpaid().current()).toBe('unpaid');
+  });
+
+  it('only lets a paused subscription resume or cancel', () => {
+    expect(new SubscriptionStateMachine('paused').can('resume')).toBe(true);
+    expect(new SubscriptionStateMachine('paused').can('cancel')).toBe(true);
+    expect(new SubscriptionStateMachine('paused').can('mark_past_due')).toBe(false);
+    expect(() => new SubscriptionStateMachine('paused').markPastDue()).toThrow(
+      InvalidStateTransitionError,
+    );
   });
 
   it('treats canceled as terminal', () => {
@@ -68,6 +76,14 @@ describe('SubscriptionStateMachine', () => {
       applied: false,
       event: null,
     });
+  });
+
+  it('maps each reconcilable target to a single deterministic event', () => {
+    expect(reconcileSubscriptionStatus('active', 'past_due').event).toBe('mark_past_due');
+    expect(reconcileSubscriptionStatus('active', 'unpaid').event).toBe('mark_unpaid');
+    expect(reconcileSubscriptionStatus('active', 'paused').event).toBe('pause');
+    expect(reconcileSubscriptionStatus('trialing', 'active').event).toBe('activate');
+    expect(reconcileSubscriptionStatus('past_due', 'active').event).toBe('activate');
   });
 
   it('treats an unchanged provider status as applied without an event', () => {
