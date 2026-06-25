@@ -24,7 +24,7 @@ export class ResumeSubscriptionAction extends SubscriptionAction {
       'resume subscription',
     );
     const subscription = await this.resolve(billable, name);
-    const dto = await this.deps.provider.resumeSubscription(
+    const dto = await this.subscriptionProvider().resumeSubscription(
       { providerSubscriptionId: subscription.providerSubscriptionId },
       this.context('resume', subscription.providerSubscriptionId),
     );

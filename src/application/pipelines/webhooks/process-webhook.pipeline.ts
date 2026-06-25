@@ -1,3 +1,4 @@
+import { isWebhookCapable } from '../../../domain/contracts/payment-provider.contract';
 import type { Repositories } from '../../../domain/contracts/storage-driver.contract';
 import type { NewSubscription } from '../../../domain/contracts/subscription-repository.contract';
 import type { VerifiedWebhook } from '../../../domain/dtos/webhook.dto';
@@ -72,6 +73,9 @@ export class ProcessWebhookPipeline {
     tenantId: string | null,
   ): Promise<void> {
     const { provider, providerName } = this.deps;
+    if (!isWebhookCapable(provider)) {
+      return;
+    }
     const dto = provider.reconcileSubscription(verified);
     if (!dto) {
       return;

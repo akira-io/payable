@@ -137,7 +137,7 @@ describe('payable.customers', () => {
     });
   });
 
-  it('rejects customer operations when the provider lacks the capability', async () => {
+  it('creates a local customer when the provider lacks the customers capability', async () => {
     const db = createTestDb();
     await migrate(db);
     const provider = new FakeProvider();
@@ -147,9 +147,13 @@ describe('payable.customers', () => {
       storage: new KnexStorageDriver(db, new FakeClock()),
     });
 
-    await expect(payable.customers().create(billable)).rejects.toMatchObject({
-      code: 'PROVIDER_CAPABILITY_NOT_SUPPORTED',
-    });
+    const customer = await payable.customers().create(billable);
+    expect(customer.providerCustomerId).toBeNull();
+    expect(customer.email).toBe('user@example.com');
+
+    const updated = await payable.customers().update(billable, { name: 'Renamed' });
+    expect(updated.name).toBe('Renamed');
+    expect(updated.providerCustomerId).toBeNull();
     await db.destroy();
   });
 });

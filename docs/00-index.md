@@ -31,9 +31,10 @@ tree.
 
 ## Integrations
 
-17. [integrations/17-providers.md](integrations/17-providers.md) - The `PaymentProvider` contract and capability detection.
+17. [integrations/17-providers.md](integrations/17-providers.md) - The `PaymentProvider` contract, optional capability interfaces, and capability detection.
 18. [integrations/18-stripe.md](integrations/18-stripe.md) - The Stripe provider, webhook verifier, and normalizer.
 19. [integrations/19-paddle.md](integrations/19-paddle.md) - The Paddle provider, webhook verifier, and normalizer.
+20. [integrations/20-sisp.md](integrations/20-sisp.md) - The SISP (Cabo Verde / vinti4) provider: redirect checkout, callback reconciliation, and the optional `@akira-io/payable/sisp` subpath.
 
 ## Persistence
 

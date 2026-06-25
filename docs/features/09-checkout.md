@@ -71,9 +71,40 @@ const session = await payable
   });
 ```
 
+### Redirect/amount checkout - `redirectCheckout(amount)`
+
+Catalog-less providers (SISP) have no prices, so the `checkout()`/`create()` builders (which require
+line items and a provider customer) do not fit. `payable.customer(billable).redirectCheckout(amount)`
+is a separate, amount-based entry for hosted-redirect providers:
+
+| Method | Effect |
+| --- | --- |
+| `redirectCheckout(amount: Money)` | Starts an amount-based, payment-mode redirect checkout. |
+| `create(request)` | Ensures a local customer, records a pending `Payment`, and returns the session. |
+
+```ts
+const session = await payable
+  .customer(billable)
+  .redirectCheckout(Money.of(150000, 'CVE'))
+  .create({ reference: 'order-42' });
+
+res.send(session.html); // hosted-form providers return a ready auto-submit form
+```
+
+Unlike the catalog pipeline it does not call the provider customer sync (the provider may have no
+`customers` capability); it ensures a local customer, then records a pending `Payment` keyed by the
+session id so the later callback can reconcile it. The provider-specific callback is processed with
+`payable.receiveRedirectCallback(...)`. See [SISP](../integrations/20-sisp.md).
+
+### The `CheckoutSessionDTO`
+
+`CheckoutSessionDTO` is `{ id, url, html? }`. Stripe and Paddle return `id` + `url` (a hosted page to
+redirect to). Redirect-form providers (SISP) additionally return `html` - a ready auto-submit form to
+send to the browser, which POSTs to the gateway in `url`.
+
 ## The pipeline and action
 
-`CreateCheckoutPipeline` composes two steps:
+`CreateCheckoutPipeline` (the catalog `checkout()` path) composes two steps:
 
 1. **Sync the customer.** `SyncCustomerWithProviderAction` resolves (and persists) the
    `providerCustomerId` for the `Billable` - see [08-customers-billable.md](08-customers-billable.md).

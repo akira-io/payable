@@ -24,7 +24,7 @@ export class CancelSubscriptionNowAction extends SubscriptionAction {
       'cancel subscription',
     );
     const subscription = await this.resolve(billable, name);
-    const dto = await this.deps.provider.cancelSubscription(
+    const dto = await this.subscriptionProvider().cancelSubscription(
       { providerSubscriptionId: subscription.providerSubscriptionId, immediately: true },
       this.context('cancel-now', subscription.providerSubscriptionId),
     );

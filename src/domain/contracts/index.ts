@@ -28,16 +28,29 @@ export type {
   OutboxStatus,
 } from './outbox-event-repository.contract';
 export type {
+  BillingPortalCapable,
+  CatalogCapable,
   ChargeCapable,
+  CustomerCapable,
   DirectSubscriptionCapable,
   InvoiceCapable,
   PaymentProvider,
+  RedirectCallbackCapable,
+  RedirectCallbackResult,
   ResumeSubscriptionInput,
+  SubscriptionManagementCapable,
+  WebhookCapable,
 } from './payment-provider.contract';
 export {
+  isBillingPortalCapable,
+  isCatalogCapable,
   isChargeCapable,
+  isCustomerCapable,
   isDirectSubscriptionCapable,
   isInvoiceCapable,
+  isRedirectCallbackCapable,
+  isSubscriptionManagementCapable,
+  isWebhookCapable,
 } from './payment-provider.contract';
 export type { NewPayment, PaymentRepository } from './payment-repository.contract';
 export type { NewPrice, PriceRepository } from './price-repository.contract';

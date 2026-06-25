@@ -1,3 +1,8 @@
+import {
+  isSubscriptionManagementCapable,
+  type PaymentProvider,
+  type SubscriptionManagementCapable,
+} from '../../../domain/contracts/payment-provider.contract';
 import type {
   Repositories,
   StorageDriver,
@@ -15,7 +20,7 @@ import type { BillingDependencies } from '../../builders/billing-dependencies';
 import { assertAuthorized } from '../../policies/assert-authorized';
 import type { AuthorizationContext } from '../../policies/authorization-context';
 import { FindSubscriptionQuery } from '../../queries/subscriptions/find-subscription.query';
-import { assertProviderCapability } from '../../services/provider-capabilities/assert-provider-capability';
+import { assertCapableProvider } from '../../services/provider-capabilities/assert-provider-capability';
 
 export type ManagedSubscription = Subscription & { providerSubscriptionId: string };
 
@@ -65,8 +70,14 @@ export abstract class SubscriptionAction {
     });
   }
 
+  protected subscriptionProvider(): PaymentProvider & SubscriptionManagementCapable {
+    const provider = this.deps.provider;
+    assertCapableProvider(provider, 'subscriptions', isSubscriptionManagementCapable);
+    return provider;
+  }
+
   protected async resolve(billable: Billable, name: string): Promise<ManagedSubscription> {
-    assertProviderCapability(this.deps.provider, 'subscriptions');
+    this.subscriptionProvider();
     this.storage();
     const subscription = await new FindSubscriptionQuery(this.deps).run(billable, name);
     if (!subscription?.providerSubscriptionId) {

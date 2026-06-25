@@ -10,3 +10,13 @@ export function assertProviderCapability(
     throw new ProviderCapabilityNotSupportedError(provider.name, capability);
   }
 }
+
+export function assertCapableProvider<T>(
+  provider: PaymentProvider,
+  capability: ProviderCapabilityValue,
+  guard: (candidate: PaymentProvider) => candidate is PaymentProvider & T,
+): asserts provider is PaymentProvider & T {
+  if (!provider.capabilities().has(capability) || !guard(provider)) {
+    throw new ProviderCapabilityNotSupportedError(provider.name, capability);
+  }
+}

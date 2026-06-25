@@ -21,4 +21,5 @@ export interface CreateCheckoutSessionInput {
 export interface CheckoutSessionDTO {
   id: string;
   url: string;
+  html?: string;
 }

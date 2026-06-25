@@ -41,6 +41,11 @@
       "types": "./dist/mcp/index.d.ts",
       "import": "./dist/mcp/index.js",
       "require": "./dist/mcp/index.cjs"
+    },
+    "./sisp": {
+      "types": "./dist/sisp/index.d.ts",
+      "import": "./dist/sisp/index.js",
+      "require": "./dist/sisp/index.cjs"
     }
   },
   "bin": {
@@ -75,6 +80,7 @@
     "zod": "^3.24.1"
   },
   "peerDependencies": {
+    "@akira-io/sisp": ">=1.0.0-beta.1",
     "@fastify/rate-limit": ">=9",
     "@modelcontextprotocol/sdk": ">=1.18",
     "@nestjs/common": ">=10",
@@ -120,9 +126,13 @@
     },
     "stripe": {
       "optional": true
+    },
+    "@akira-io/sisp": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "@akira-io/sisp": "^1.0.0-beta.1",
     "@biomejs/biome": "^2.3.0",
     "@fastify/rate-limit": "^11.0.0",
     "@modelcontextprotocol/sdk": "^1.29.0",

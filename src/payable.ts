@@ -1,3 +1,8 @@
+import {
+  ReconcileRedirectPaymentAction,
+  type ReconcileRedirectPaymentResult,
+  type RedirectCallbackInput,
+} from './application/actions/checkout/reconcile-redirect-payment.action';
 import { RefundPaymentAction } from './application/actions/refunds/refund-payment.action';
 import {
   PROCESS_WEBHOOK_JOB,
@@ -143,6 +148,14 @@ export class Payable {
     input: ReceiveWebhookInput & { provider?: string },
   ): Promise<ReceiveWebhookResult> {
     return new ReceiveWebhookAction(this.webhookDependencies(input.provider)).handle(input);
+  }
+
+  async receiveRedirectCallback(
+    input: RedirectCallbackInput & { provider?: string },
+  ): Promise<ReconcileRedirectPaymentResult> {
+    return new ReconcileRedirectPaymentAction(
+      this.dependencies(input.provider, input.tenantId),
+    ).handle(input);
   }
 
   replayWebhook(

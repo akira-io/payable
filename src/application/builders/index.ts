@@ -7,6 +7,10 @@ export { type CustomerChanges, CustomerResource } from './customer-resource';
 export { InvoiceResource } from './invoice-resource';
 export { PriceResource } from './price-resource';
 export { ProductResource } from './product-resource';
+export {
+  RedirectCheckoutBuilder,
+  type RedirectCheckoutRequest,
+} from './redirect-checkout-builder';
 export { RefundResource } from './refund-resource';
 export { SubscriptionBuilder } from './subscription-builder';
 export { SubscriptionManager } from './subscription-manager';

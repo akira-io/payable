@@ -10,49 +10,81 @@ The contract lives in `src/domain/contracts/payment-provider.contract.ts`.
 
 ## The `PaymentProvider` contract
 
-`PaymentProvider` is the mandatory surface every provider implements. All methods that reach a provider
-API are asynchronous and receive an `OperationContext` (`ctx`) carrying the idempotency key.
+`PaymentProvider` is deliberately small. It declares only the surface that **every** provider can
+honour, regardless of its business model. A subscription/SaaS gateway (Stripe, Paddle) and a one-time
+hosted-redirect gateway (SISP) both satisfy it. All methods that reach a provider API are asynchronous
+and receive an `OperationContext` (`ctx`) carrying the idempotency key.
 
-| Method | Input | Output |
+| Member | Input | Output |
 | --- | --- | --- |
 | `name` (readonly property) | - | `string` - the registry key, e.g. `'stripe'` |
 | `capabilities()` | - | `ProviderCapabilities` |
-| `createCustomer(input, ctx)` | `CreateCustomerInput` | `Promise<CustomerDTO>` |
-| `updateCustomer(input, ctx)` | `UpdateCustomerInput` | `Promise<CustomerDTO>` |
-| `createProduct(input, ctx)` | `CreateProductInput` | `Promise<ProductDTO>` |
-| `updateProduct(input, ctx)` | `UpdateProductInput` | `Promise<ProductDTO>` |
-| `createPrice(input, ctx)` | `CreatePriceInput` | `Promise<PriceDTO>` |
 | `createCheckoutSession(input, ctx)` | `CreateCheckoutSessionInput` | `Promise<CheckoutSessionDTO>` |
-| `updateSubscription(input, ctx)` | `UpdateSubscriptionInput` | `Promise<SubscriptionDTO>` |
-| `cancelSubscription(input, ctx)` | `CancelSubscriptionInput` | `Promise<SubscriptionDTO>` |
-| `resumeSubscription(input, ctx)` | `ResumeSubscriptionInput` | `Promise<SubscriptionDTO>` |
 | `refund(input, ctx)` | `RefundInput` | `Promise<RefundResultDTO>` |
-| `verifyWebhook(input)` | `WebhookVerificationInput` | `Promise<VerifiedWebhook>` |
-| `reconcileSubscription(verified)` | `VerifiedWebhook` | `SubscriptionDTO \| null` (synchronous) |
-| `billingPortal(input, ctx)` | `BillingPortalInput` | `Promise<BillingPortalDTO>` |
 
-Notes on the non-obvious members:
-
-- `verifyWebhook` takes no `ctx`. Its input is `{ payload, signature, headers? }` and it returns a
-  `VerifiedWebhook` with `providerEventId`, raw `type`, the engine's `normalizedType`, and the event
-  `data`. A failed signature throws `InvalidWebhookSignatureError`.
-- `reconcileSubscription` is synchronous and pure. Given an already-verified webhook it returns a
-  `SubscriptionDTO` when the normalized type starts with `subscription.`, otherwise `null`.
+Everything else - customers, catalog, subscription management, webhooks, the billing portal - is an
+**optional capability interface**. A provider implements only the ones it genuinely supports, and the
+engine narrows to them at runtime with a type guard before calling. This is why SISP (which has no
+customers API, no catalog, no subscriptions, and no asynchronous signed webhook) can be a first-class
+provider: it implements the slim core plus the one optional interface that fits its redirect flow.
 
 ### Optional capability interfaces
 
-Three operations are not part of the base contract because not every provider supports them. They are
-modelled as separate interfaces and detected at runtime with type guards.
+Each interface lives in `src/domain/contracts/payment-provider.contract.ts` and ships with a structural
+`isXCapable` guard (duck-typing on method presence). Calling code narrows first, then either calls the
+method or throws `ProviderCapabilityNotSupportedError`.
 
 | Interface | Method(s) | Guard |
 | --- | --- | --- |
-| `ChargeCapable` | `charge(input, ctx): Promise<ChargeResultDTO>` | `isChargeCapable(provider)` |
-| `DirectSubscriptionCapable` | `createSubscription(input, ctx): Promise<SubscriptionDTO>` | `isDirectSubscriptionCapable(provider)` |
-| `InvoiceCapable` | `listInvoices(input): Promise<InvoiceDTO[]>`, `downloadInvoicePdf(id): Promise<InvoicePdfDTO>` | `isInvoiceCapable(provider)` |
+| `CustomerCapable` | `createCustomer(input, ctx)`, `updateCustomer(input, ctx)` | `isCustomerCapable(provider)` |
+| `CatalogCapable` | `createProduct`, `updateProduct`, `createPrice` | `isCatalogCapable(provider)` |
+| `SubscriptionManagementCapable` | `updateSubscription`, `cancelSubscription`, `resumeSubscription` | `isSubscriptionManagementCapable(provider)` |
+| `WebhookCapable` | `verifyWebhook(input)`, `reconcileSubscription(verified)` | `isWebhookCapable(provider)` |
+| `BillingPortalCapable` | `billingPortal(input, ctx)` | `isBillingPortalCapable(provider)` |
+| `RedirectCallbackCapable` | `verifyCallback(payload)`, `handleRedirectCallback(payload)` | `isRedirectCallbackCapable(provider)` |
+| `ChargeCapable` | `charge(input, ctx)` | `isChargeCapable(provider)` |
+| `DirectSubscriptionCapable` | `createSubscription(input, ctx)` | `isDirectSubscriptionCapable(provider)` |
+| `InvoiceCapable` | `listInvoices(input)`, `downloadInvoicePdf(id)` | `isInvoiceCapable(provider)` |
 
-The guards are structural duck-typing checks. For example, `isChargeCapable` returns `true` when
-`typeof provider.charge === 'function'`. Code that needs a one-off charge or direct subscription
-creation calls the guard first and falls back or errors when the provider does not implement it.
+Notes on the non-obvious members:
+
+- `verifyWebhook` (on `WebhookCapable`) takes no `ctx`. Its input is `{ payload, signature, headers? }`
+  and it returns a `VerifiedWebhook` with `providerEventId`, raw `type`, the engine's `normalizedType`,
+  and the event `data`. A failed signature throws `InvalidWebhookSignatureError`.
+- `reconcileSubscription` is synchronous and pure. Given an already-verified webhook it returns a
+  `SubscriptionDTO` when the normalized type starts with `subscription.`, otherwise `null`.
+- `RedirectCallbackCapable` models a synchronous browser-POST callback (SISP), not an asynchronous
+  signed webhook. `handleRedirectCallback` returns a normalized `{ providerPaymentId, status }` the
+  engine uses to reconcile a local payment. See [SISP](20-sisp.md).
+
+### Narrowing helper
+
+For capabilities that are also declared in the `ProviderCapabilities` set (customers, catalog,
+subscriptions, billingPortal), the engine uses `assertCapableProvider`
+(`src/application/services/provider-capabilities/assert-provider-capability.ts`), which checks the set
+**and** narrows the type in one step:
+
+```ts
+assertCapableProvider(provider, 'customers', isCustomerCapable);
+// provider is now PaymentProvider & CustomerCapable
+```
+
+Capabilities with no string in the set (charge, redirect callback) are gated by the guard alone.
+
+### Capability matrix
+
+| Capability | Stripe | Paddle | SISP |
+| --- | --- | --- | --- |
+| `checkout` | yes | yes | yes (redirect form) |
+| `refunds` | yes | yes | yes |
+| `customers` | yes | yes | no (local-only customers) |
+| `catalog` | yes | yes | no |
+| `subscriptions` | yes | yes | no |
+| `billingPortal` | yes | yes | no |
+| webhooks (`WebhookCapable`) | yes | yes | no (uses redirect callback) |
+| `RedirectCallbackCapable` | no | no | yes |
+| `ChargeCapable` | yes | no | no |
+| `InvoiceCapable` | yes | no | no |
 
 ## The capabilities system
 
@@ -153,36 +185,44 @@ flowchart TD
   Registry -->|get name| Contract[PaymentProvider contract]
   Contract -. implemented by .-> Stripe[StripeProvider]
   Contract -. implemented by .-> Paddle[PaddleProvider]
+  Contract -. implemented by .-> Sisp[SispProvider]
   Contract -. implemented by .-> Custom[Your provider]
   Stripe --> StripeAPI[Stripe SDK]
   Paddle --> PaddleAPI[Paddle SDK]
+  Sisp --> SispPkg["@akira-io/sisp (node-sisp)"]
 ```
 
 ## Implementing a custom provider
 
-A minimal provider implements `PaymentProvider`, declares its `name` and `capabilities()`, and maps
-domain DTOs to its API. Add the optional interfaces only for the operations it genuinely supports.
+A minimal provider implements the slim `PaymentProvider` core, declares its `name` and `capabilities()`,
+and adds only the optional interfaces it genuinely supports. The `implements` list and the
+`capabilities()` set must agree.
 
 ```ts
 import type {
   PaymentProvider,
+  CustomerCapable,
   ChargeCapable,
 } from '@akira-io/payable';
 
-export class AcmeProvider implements PaymentProvider, ChargeCapable {
+export class AcmeProvider implements PaymentProvider, CustomerCapable, ChargeCapable {
   readonly name = 'acme';
 
   capabilities() {
     return new Set(['checkout', 'refunds', 'customers', 'x-acme-dunning']);
   }
 
+  async createCheckoutSession(input, ctx) { /* ...map to Acme hosted checkout... */ }
+  async refund(input, ctx) { /* ...map to Acme refund... */ }
+
+  // CustomerCapable
   async createCustomer(input, ctx) {
     const customer = await this.api.createCustomer(input.email, ctx.idempotencyKey);
     return { providerCustomerId: customer.id, email: customer.email, name: customer.name ?? null };
   }
+  async updateCustomer(input, ctx) { /* ... */ }
 
-  // ...implement the remaining contract methods, mapping to ProviderName-safe identifiers...
-
+  // ChargeCapable
   async charge(input, ctx) {
     const charge = await this.api.charge(input.amount.amount(), ctx.idempotencyKey);
     return { providerPaymentId: charge.id, status: 'succeeded', amount: input.amount };
@@ -194,8 +234,11 @@ Constraints to honour:
 
 - `name` must be a valid `ProviderName` (`src/domain/value-objects/provider-name.ts`): lower-case,
   matching `^[a-z][a-z0-9_-]*$`. It is also the registry key callers pass to `customer(billable, name)`.
-- `verifyWebhook` must throw `InvalidWebhookSignatureError` (not a generic error) on a bad signature so
-  the webhook pipeline can reject it cleanly.
+- Implement `createCheckoutSession` and `refund` (the required core) plus exactly the optional
+  interfaces your `capabilities()` set claims. A guard narrows on method presence, so a declared
+  capability whose method is missing fails at call time.
+- `verifyWebhook` (if `WebhookCapable`) must throw `InvalidWebhookSignatureError` (not a generic error)
+  on a bad signature so the webhook pipeline can reject it cleanly.
 - `reconcileSubscription` should return `null` for non-subscription events.
 - Keep `capabilities()` honest. The engine trusts it to gate features; lying produces failures at the
   provider API instead of a clean `ProviderCapabilityNotSupportedError`.
