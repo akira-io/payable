@@ -51,16 +51,18 @@ export class ProcessWebhookPipeline {
       await repos.webhookEvents.markStatus(input.webhookEventId, 'processed', occurredAt, tenantId);
     });
 
-    await events.emit(
-      new WebhookProcessedEvent(
-        {
-          webhookEventId: input.webhookEventId,
-          provider: providerName,
-          providerEventId: input.verified.providerEventId,
-        },
-        { correlationId: input.correlationId, occurredAt },
-      ),
-    );
+    await events
+      .emit(
+        new WebhookProcessedEvent(
+          {
+            webhookEventId: input.webhookEventId,
+            provider: providerName,
+            providerEventId: input.verified.providerEventId,
+          },
+          { correlationId: input.correlationId, occurredAt },
+        ),
+      )
+      .catch(() => {});
   }
 
   private async reconcile(

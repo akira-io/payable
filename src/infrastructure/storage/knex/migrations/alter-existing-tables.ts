@@ -129,15 +129,29 @@ interface IndexSpec {
 }
 
 async function ensureIndexes(knex: Knex, specs: IndexSpec[]): Promise<void> {
+  const dialect = (knex.client as { dialect?: string }).dialect;
+  const isMysql = dialect === 'mysql' || dialect === 'mariadb';
   for (const spec of specs) {
     if (!(await knex.schema.hasTable(spec.table))) {
       continue;
     }
+    if (isMysql && (await mysqlIndexExists(knex, spec.table, spec.name))) {
+      continue;
+    }
     const placeholders = spec.columns.map(() => '??').join(', ');
-    await knex.raw(`CREATE INDEX IF NOT EXISTS ?? ON ?? (${placeholders})`, [
+    const ifNotExists = isMysql ? '' : 'IF NOT EXISTS ';
+    await knex.raw(`CREATE INDEX ${ifNotExists}?? ON ?? (${placeholders})`, [
       spec.name,
       spec.table,
       ...spec.columns,
     ]);
   }
+}
+
+async function mysqlIndexExists(knex: Knex, table: string, name: string): Promise<boolean> {
+  const [rows] = (await knex.raw(
+    'SELECT COUNT(*) AS count FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?',
+    [table, name],
+  )) as [{ count: number }[], unknown];
+  return Number(rows[0]?.count ?? 0) > 0;
 }

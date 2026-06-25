@@ -50,6 +50,23 @@ describe('webhook encryption at rest', () => {
     expect(event?.headers).toEqual({ 'x-trace-id': 'trace-abc' });
   });
 
+  it('stores the webhook endpoint signing secret as ciphertext and decrypts on read', async () => {
+    const encryption = new NodeEncryptionDriver({ key: 'a-storage-key' });
+    const storage = new KnexStorageDriver(db, new FakeClock(), encryption);
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
+
+    const endpoint = await payable
+      .webhookEndpoints()
+      .register({ url: 'https://hooks.test/in', events: ['invoice.paid'] });
+
+    const raw = await db('payable_webhook_endpoints').where({ id: endpoint.id }).first();
+    expect(raw?.secret).not.toBe(endpoint.secret);
+    expect(raw?.secret).not.toContain('whsec_');
+
+    const reloaded = await storage.webhookEndpoints.findById(endpoint.id);
+    expect(reloaded?.secret).toBe(endpoint.secret);
+  });
+
   it('leaves data plaintext when no encryption is configured', async () => {
     const storage = new KnexStorageDriver(db, new FakeClock());
     const provider = new FakeProvider();

@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 import type { Clock } from '../../../../domain/contracts/clock.contract';
+import type { Encryption } from '../../../../domain/contracts/encryption.contract';
 import type {
   NewWebhookEndpoint,
   WebhookEndpointRepository,
@@ -16,6 +17,7 @@ export class KnexWebhookEndpointRepository implements WebhookEndpointRepository 
   constructor(
     private readonly knex: Knex,
     private readonly clock: Clock,
+    private readonly encryption?: Encryption,
   ) {}
 
   async create(data: NewWebhookEndpoint): Promise<WebhookEndpoint> {
@@ -26,7 +28,7 @@ export class KnexWebhookEndpointRepository implements WebhookEndpointRepository 
       tenant_id: data.tenantId,
       url: data.url,
       events: JSON.stringify(data.events),
-      secret: data.secret,
+      secret: await this.seal(data.secret),
       status: data.status,
       created_at: timestamp,
       updated_at: timestamp,
@@ -36,7 +38,7 @@ export class KnexWebhookEndpointRepository implements WebhookEndpointRepository 
 
   async findById(id: string, tenantId?: string | null): Promise<WebhookEndpoint | null> {
     const row = await this.knex(this.table).where(this.scopedWhere(id, tenantId)).first();
-    return row ? this.toEntity(row) : null;
+    return row ? this.hydrate(row) : null;
   }
 
   async list(tenantId?: string | null): Promise<WebhookEndpoint[]> {
@@ -44,7 +46,7 @@ export class KnexWebhookEndpointRepository implements WebhookEndpointRepository 
       .where(this.tenantClause(tenantId))
       .orderBy('created_at', 'desc')
       .orderBy('id', 'desc')) as Record<string, unknown>[];
-    return rows.map((row) => this.toEntity(row));
+    return Promise.all(rows.map((row) => this.hydrate(row)));
   }
 
   async listEnabledForEvent(
@@ -55,9 +57,8 @@ export class KnexWebhookEndpointRepository implements WebhookEndpointRepository 
       .where({ status: 'enabled', ...this.tenantClause(tenantId) })
       .orderBy('created_at', 'asc')
       .orderBy('id', 'asc')) as Record<string, unknown>[];
-    return rows
-      .map((row) => this.toEntity(row))
-      .filter((endpoint) => endpoint.events.includes(eventType));
+    const endpoints = await Promise.all(rows.map((row) => this.hydrate(row)));
+    return endpoints.filter((endpoint) => endpoint.events.includes(eventType));
   }
 
   async setStatus(
@@ -79,6 +80,14 @@ export class KnexWebhookEndpointRepository implements WebhookEndpointRepository 
     return tenantId === undefined ? {} : { tenant_id: tenantId };
   }
 
+  private seal(value: string): Promise<string> | string {
+    return this.encryption ? this.encryption.encrypt(value) : value;
+  }
+
+  private open(value: string): Promise<string> | string {
+    return this.encryption ? this.encryption.decrypt(value) : value;
+  }
+
   private async findByIdOrFail(id: string, tenantId?: string | null): Promise<WebhookEndpoint> {
     const found = await this.findById(id, tenantId);
     if (!found) {
@@ -87,13 +96,13 @@ export class KnexWebhookEndpointRepository implements WebhookEndpointRepository 
     return found;
   }
 
-  private toEntity(row: Record<string, unknown>): WebhookEndpoint {
+  private async hydrate(row: Record<string, unknown>): Promise<WebhookEndpoint> {
     return {
       id: row.id as string,
       tenantId: (row.tenant_id as string | null) ?? null,
       url: row.url as string,
       events: this.parseEvents(row.events),
-      secret: row.secret as string,
+      secret: await this.open(row.secret as string),
       status: row.status as WebhookEndpointStatus,
       createdAt: toDate(row.created_at),
       updatedAt: toDate(row.updated_at),
@@ -104,7 +113,11 @@ export class KnexWebhookEndpointRepository implements WebhookEndpointRepository 
     if (typeof value !== 'string') {
       return [];
     }
-    const parsed = JSON.parse(value) as unknown;
-    return Array.isArray(parsed) ? (parsed as string[]) : [];
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return Array.isArray(parsed) ? (parsed as string[]) : [];
+    } catch {
+      return [];
+    }
   }
 }
