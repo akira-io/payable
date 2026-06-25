@@ -19,6 +19,6 @@ export class ListSubscriptionsQuery {
     if (!customer) {
       return [];
     }
-    return storage.subscriptions.listByCustomer(customer.id, options);
+    return storage.subscriptions.listByCustomer(customer.id, this.deps.tenantId ?? null, options);
   }
 }

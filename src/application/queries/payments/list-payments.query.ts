@@ -19,6 +19,6 @@ export class ListPaymentsQuery {
     if (!customer) {
       return [];
     }
-    return storage.payments.listByCustomer(customer.id, options);
+    return storage.payments.listByCustomer(customer.id, this.deps.tenantId ?? null, options);
   }
 }

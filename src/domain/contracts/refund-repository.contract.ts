@@ -8,5 +8,9 @@ export interface RefundRepository {
   update(id: string, patch: Partial<NewRefund>): Promise<Refund>;
   findById(id: string): Promise<Refund | null>;
   findByProviderId(provider: string, providerRefundId: string): Promise<Refund | null>;
-  listByPayment(paymentId: string, options?: ListOptions): Promise<Refund[]>;
+  listByPayment(
+    paymentId: string,
+    tenantId?: string | null,
+    options?: ListOptions,
+  ): Promise<Refund[]>;
 }

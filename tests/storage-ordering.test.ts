@@ -56,8 +56,8 @@ describe('storage list ordering and batch insert (perf)', () => {
     await storage.payments.create({ ...base, providerPaymentId: 'pi_a', reference: 'a' });
     await storage.payments.create({ ...base, providerPaymentId: 'pi_b', reference: 'b' });
 
-    expect(await storage.payments.listByCustomer(customer.id, { limit: 0 })).toHaveLength(2);
-    expect(await storage.payments.listByCustomer(customer.id, { limit: -5 })).toHaveLength(2);
+    expect(await storage.payments.listByCustomer(customer.id, null, { limit: 0 })).toHaveLength(2);
+    expect(await storage.payments.listByCustomer(customer.id, null, { limit: -5 })).toHaveLength(2);
   });
 
   it('batch-inserts subscription items in a single call', async () => {

@@ -19,8 +19,12 @@ export class KnexRefundRepository
     return this.firstWhere({ provider, provider_refund_id: providerRefundId });
   }
 
-  listByPayment(paymentId: string, options?: ListOptions): Promise<Refund[]> {
-    return this.manyWhere({ payment_id: paymentId }, options);
+  listByPayment(
+    paymentId: string,
+    tenantId?: string | null,
+    options?: ListOptions,
+  ): Promise<Refund[]> {
+    return this.manyWhere({ payment_id: paymentId, ...this.tenantClause(tenantId) }, options);
   }
 
   protected toEntity(row: Record<string, unknown>): Refund {

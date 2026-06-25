@@ -21,5 +21,9 @@ export interface SubscriptionRepository {
     providerSubscriptionId: string,
     tenantId?: string | null,
   ): Promise<Subscription | null>;
-  listByCustomer(customerId: string, options?: ListOptions): Promise<Subscription[]>;
+  listByCustomer(
+    customerId: string,
+    tenantId?: string | null,
+    options?: ListOptions,
+  ): Promise<Subscription[]>;
 }

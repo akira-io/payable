@@ -8,5 +8,9 @@ export interface InvoiceRepository {
   update(id: string, patch: Partial<NewInvoice>): Promise<Invoice>;
   findById(id: string): Promise<Invoice | null>;
   findByProviderId(provider: string, providerInvoiceId: string): Promise<Invoice | null>;
-  listByCustomer(customerId: string, options?: ListOptions): Promise<Invoice[]>;
+  listByCustomer(
+    customerId: string,
+    tenantId?: string | null,
+    options?: ListOptions,
+  ): Promise<Invoice[]>;
 }

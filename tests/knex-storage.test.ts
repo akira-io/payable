@@ -147,7 +147,7 @@ describe('KnexStorageDriver catalog', () => {
       });
     }
     expect(await storage.payments.listByCustomer('cus_cap')).toHaveLength(100);
-    expect(await storage.payments.listByCustomer('cus_cap', { limit: 5 })).toHaveLength(5);
+    expect(await storage.payments.listByCustomer('cus_cap', null, { limit: 5 })).toHaveLength(5);
   });
 
   it('stores money amounts beyond the 32-bit integer range', async () => {
