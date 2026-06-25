@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
+import { IdempotencyKey } from '../src/domain/value-objects/idempotency-key';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
+import { KnexIdempotencyRepository } from '../src/infrastructure/storage/knex/repositories/knex-idempotency.repository';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
@@ -40,6 +42,32 @@ describe('payable.customers', () => {
 
     expect(provider.createCustomerCalls).toBe(1);
     expect(second.id).toBe(first.id);
+    await db.destroy();
+  });
+
+  it('routes the first-time sync through the idempotency service when configured', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock();
+    const provider = new FakeProvider();
+    const payable = createPayable({
+      providers: { stripe: provider },
+      storage: new KnexStorageDriver(db, clock),
+      idempotency: { store: new KnexIdempotencyRepository(db, clock) },
+    });
+
+    await payable.customers().create(billable);
+
+    const key = IdempotencyKey.forCustomer({
+      tenantId: null,
+      provider: 'stripe',
+      billableType: 'User',
+      billableId: '1',
+    });
+    const record = await new KnexIdempotencyRepository(db, clock).find(key.toString(), undefined);
+    expect(provider.createCustomerCalls).toBe(1);
+    expect(record?.status).toBe('completed');
+    expect(record?.response).toBe('cus_fake');
     await db.destroy();
   });
 

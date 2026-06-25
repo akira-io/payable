@@ -7,7 +7,7 @@ export class SyncCustomerWithProviderAction {
   constructor(private readonly deps: BillingDependencies) {}
 
   async handle(billable: Billable): Promise<string> {
-    const { provider, providerName, storage } = this.deps;
+    const { provider, providerName, storage, idempotency } = this.deps;
     const tenantId = this.deps.tenantId ?? null;
     if (storage) {
       const existing = await storage.customers.findByBillable(
@@ -25,20 +25,34 @@ export class SyncCustomerWithProviderAction {
       billableType: billable.billableType,
       billableId: billable.billableId,
     });
-    const dto = await provider.createCustomer(
-      {
-        email: billable.email,
-        name: billable.name,
-        billableType: billable.billableType,
-        billableId: billable.billableId,
-      },
-      {
-        correlationId: CorrelationId.generate().toString(),
-        idempotencyKey: key.toString(),
-      },
-    );
-    await this.persist(billable, dto.providerCustomerId);
-    return dto.providerCustomerId;
+    const run = async (): Promise<string> => {
+      const dto = await provider.createCustomer(
+        {
+          email: billable.email,
+          name: billable.name,
+          billableType: billable.billableType,
+          billableId: billable.billableId,
+        },
+        {
+          correlationId: CorrelationId.generate().toString(),
+          idempotencyKey: key.toString(),
+        },
+      );
+      await this.persist(billable, dto.providerCustomerId);
+      return dto.providerCustomerId;
+    };
+    if (!idempotency) {
+      return run();
+    }
+    return idempotency.execute({
+      key: key.toString(),
+      scope: 'customer',
+      operation: 'sync',
+      request: { billableType: billable.billableType, billableId: billable.billableId },
+      resourceType: 'customer',
+      tenantId: this.deps.tenantId,
+      run,
+    });
   }
 
   private async persist(billable: Billable, providerCustomerId: string): Promise<void> {

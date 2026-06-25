@@ -1,21 +1,25 @@
 import type { Subscription } from '../../../domain/entities/subscription.entity';
 import type { Billable } from '../../builders/billable';
+import type { BillingDependencies } from '../../builders/billing-dependencies';
 import type { AuthorizationContext } from '../../policies/authorization-context';
 import { CanUpdateSubscriptionPolicy } from '../../policies/can-update-subscription.policy';
 import { SubscriptionAction } from './subscription-action';
 
 export class SwapSubscriptionAction extends SubscriptionAction {
+  constructor(
+    deps: BillingDependencies,
+    private readonly policy = new CanUpdateSubscriptionPolicy(),
+  ) {
+    super(deps);
+  }
+
   async handle(
     billable: Billable,
     name: string,
     priceId: string,
     authorization?: AuthorizationContext,
   ): Promise<Subscription> {
-    this.authorize(
-      (context) => new CanUpdateSubscriptionPolicy().authorize(context),
-      authorization,
-      'swap subscription',
-    );
+    this.authorize((context) => this.policy.authorize(context), authorization, 'swap subscription');
     const subscription = await this.resolve(billable, name);
     const dto = await this.deps.provider.updateSubscription(
       {
