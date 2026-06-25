@@ -57,13 +57,13 @@ export async function alterExistingTables(knex: Knex): Promise<void> {
     },
     {
       table: 'payable_outbox_events',
-      name: 'payable_outbox_events_status_locked_index',
-      columns: ['status', 'locked_until'],
+      name: 'payable_outbox_events_pending_claim_index',
+      columns: ['status', 'next_retry_at', 'created_at', 'id'],
     },
     {
       table: 'payable_outbox_events',
-      name: 'payable_outbox_events_pending_claim_index',
-      columns: ['status', 'next_retry_at', 'created_at', 'id'],
+      name: 'payable_outbox_events_stale_claim_index',
+      columns: ['status', 'locked_until', 'created_at', 'id'],
     },
   ]);
   if (await knex.schema.hasTable('payable_customers')) {
