@@ -4,6 +4,8 @@ export type { ChargeRequest } from './charge-request';
 export { CheckoutBuilder, type CheckoutRequest } from './checkout-builder';
 export { CustomerContext } from './customer-context';
 export { type CustomerChanges, CustomerResource } from './customer-resource';
+export { PriceResource } from './price-resource';
+export { ProductResource } from './product-resource';
 export { SubscriptionBuilder } from './subscription-builder';
 export { SubscriptionManager } from './subscription-manager';
 export type { WebhookDependencies } from './webhook-dependencies';

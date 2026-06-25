@@ -15,6 +15,8 @@ import {
 import type { Billable } from '../../application/builders/billable';
 import type { CheckoutSessionDTO } from '../../domain/dtos/checkout.dto';
 import type { InvoiceDTO } from '../../domain/dtos/invoice.dto';
+import type { PriceDTO } from '../../domain/dtos/price.dto';
+import type { ProductDTO } from '../../domain/dtos/product.dto';
 import type { Customer } from '../../domain/entities/customer.entity';
 import type { Payment } from '../../domain/entities/payment.entity';
 import type { Refund } from '../../domain/entities/refund.entity';
@@ -30,6 +32,9 @@ import {
   manageSubscriptionBodySchema,
   parseBody,
   parseMoneyInput,
+  priceBodySchema,
+  productBodySchema,
+  productUpdateBodySchema,
   refundBodySchema,
   swapSubscriptionBodySchema,
 } from '../shared/schemas';
@@ -204,6 +209,35 @@ export class PayableController {
       { paymentId: body.paymentId, amount, reason: body.reason },
       this.tenantOf(request),
     );
+  }
+
+  @Post('products')
+  @HttpCode(201)
+  @UseGuards(PayableAuthGuard)
+  createProduct(@Req() request: PayableHttpRequest, @Body() rawBody: unknown): Promise<ProductDTO> {
+    const body = parseBody(productBodySchema, rawBody);
+    return this.payable.products(undefined, this.tenantOf(request)).create(body);
+  }
+
+  @Patch('products')
+  @UseGuards(PayableAuthGuard)
+  updateProduct(@Req() request: PayableHttpRequest, @Body() rawBody: unknown): Promise<ProductDTO> {
+    const body = parseBody(productUpdateBodySchema, rawBody);
+    return this.payable.products(undefined, this.tenantOf(request)).update(body);
+  }
+
+  @Post('prices')
+  @HttpCode(201)
+  @UseGuards(PayableAuthGuard)
+  createPrice(@Req() request: PayableHttpRequest, @Body() rawBody: unknown): Promise<PriceDTO> {
+    const body = parseBody(priceBodySchema, rawBody);
+    return this.payable.prices(undefined, this.tenantOf(request)).create({
+      providerProductId: body.providerProductId,
+      unitAmount: parseMoneyInput(body.amount),
+      interval: body.interval,
+      intervalCount: body.intervalCount,
+      description: body.description,
+    });
   }
 
   private receive(request: PayableHttpRequest, provider: string | undefined) {

@@ -226,6 +226,24 @@ describe('express adapter', () => {
     await db.destroy();
   });
 
+  it('creates products and prices over HTTP', async () => {
+    const app = makeApp(createPayable({ providers: { stripe: new FakeProvider() } }));
+
+    const product = await request(app).post('/payable/products').send({ name: 'Pro' });
+    expect(product.status).toBe(201);
+    expect(product.body.providerProductId).toBe('prod_fake');
+
+    const price = await request(app)
+      .post('/payable/prices')
+      .send({
+        providerProductId: 'prod_fake',
+        amount: { amount: 9900, currency: 'USD' },
+        interval: 'month',
+      });
+    expect(price.status).toBe(201);
+    expect(price.body.providerPriceId).toBe('price_fake');
+  });
+
   it('rejects a webhook whose body was parsed by an upstream JSON parser', async () => {
     const provider = new FakeProvider();
     const app = express();

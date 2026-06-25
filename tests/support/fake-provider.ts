@@ -20,8 +20,12 @@ import type {
   InvoicePdfDTO,
   ListInvoicesInput,
 } from '../../src/domain/dtos/invoice.dto';
-import type { PriceDTO } from '../../src/domain/dtos/price.dto';
-import type { ProductDTO } from '../../src/domain/dtos/product.dto';
+import type { CreatePriceInput, PriceDTO } from '../../src/domain/dtos/price.dto';
+import type {
+  CreateProductInput,
+  ProductDTO,
+  UpdateProductInput,
+} from '../../src/domain/dtos/product.dto';
 import type { RefundInput, RefundResultDTO } from '../../src/domain/dtos/refund.dto';
 import type {
   CancelSubscriptionInput,
@@ -49,6 +53,9 @@ export class FakeProvider implements PaymentProvider {
   lastSubscriptionUpdate?: UpdateSubscriptionInput;
   lastSubscriptionUpdateCtx?: OperationContext;
   lastCreateSubscription?: CreateSubscriptionInput;
+  lastCreateProduct?: CreateProductInput;
+  lastUpdateProduct?: UpdateProductInput;
+  lastCreatePrice?: CreatePriceInput;
   lastChargeCtx?: OperationContext;
   lastRefundInput?: RefundInput;
   lastRefundCtx?: OperationContext;
@@ -91,16 +98,28 @@ export class FakeProvider implements PaymentProvider {
     };
   }
 
-  createProduct(): Promise<ProductDTO> {
-    return this.unused('createProduct');
+  async createProduct(input: CreateProductInput): Promise<ProductDTO> {
+    this.lastCreateProduct = input;
+    return { providerProductId: 'prod_fake', name: input.name, active: input.active ?? true };
   }
 
-  updateProduct(): Promise<ProductDTO> {
-    return this.unused('updateProduct');
+  async updateProduct(input: UpdateProductInput): Promise<ProductDTO> {
+    this.lastUpdateProduct = input;
+    return {
+      providerProductId: input.providerProductId,
+      name: input.name ?? 'Product',
+      active: input.active ?? true,
+    };
   }
 
-  createPrice(): Promise<PriceDTO> {
-    return this.unused('createPrice');
+  async createPrice(input: CreatePriceInput): Promise<PriceDTO> {
+    this.lastCreatePrice = input;
+    return {
+      providerPriceId: 'price_fake',
+      providerProductId: input.providerProductId,
+      unitAmount: input.unitAmount,
+      interval: input.interval ?? null,
+    };
   }
 
   async createSubscription(input: CreateSubscriptionInput): Promise<SubscriptionDTO> {

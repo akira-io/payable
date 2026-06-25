@@ -46,6 +46,9 @@ The plugin performs, in order:
 | GET | `/customers` | 200 | Get a customer by `billableType`+`billableId` (query) |
 | GET | `/invoices` | 200 | List a billable's invoices (query: billableType, billableId, limit?) |
 | GET | `/payments` | 200 | List a billable's payments (query: billableType, billableId) |
+| POST | `/products` | 201 | Create a product at the provider |
+| PATCH | `/products` | 200 | Update a product |
+| POST | `/prices` | 201 | Create a price for a product |
 | POST | `/refunds` | 501 | Reserved; throws `NOT_IMPLEMENTED` |
 
 ## Parity gap vs Express

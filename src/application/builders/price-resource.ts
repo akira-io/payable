@@ -1,0 +1,16 @@
+import type { OperationContext } from '../../domain/dtos/common.dto';
+import type { CreatePriceInput, PriceDTO } from '../../domain/dtos/price.dto';
+import { CorrelationId } from '../../domain/value-objects/correlation-id';
+import type { BillingDependencies } from './billing-dependencies';
+
+export class PriceResource {
+  constructor(private readonly deps: BillingDependencies) {}
+
+  create(input: CreatePriceInput): Promise<PriceDTO> {
+    return this.deps.provider.createPrice(input, this.context());
+  }
+
+  private context(): OperationContext {
+    return { correlationId: CorrelationId.generate().toString() };
+  }
+}

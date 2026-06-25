@@ -38,6 +38,27 @@ export const listInvoicesQuerySchema = billableLookupSchema.extend({
   limit: z.coerce.number().int().positive().optional(),
 });
 
+export const productBodySchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1).optional(),
+  active: z.boolean().optional(),
+});
+
+export const productUpdateBodySchema = z.object({
+  providerProductId: z.string().min(1),
+  name: z.string().min(1).optional(),
+  description: z.string().min(1).optional(),
+  active: z.boolean().optional(),
+});
+
+export const priceBodySchema = z.object({
+  providerProductId: z.string().min(1),
+  amount: z.object({ amount: z.number().int(), currency: z.string().min(1) }),
+  interval: z.enum(['day', 'week', 'month', 'year']).optional(),
+  intervalCount: z.number().int().positive().optional(),
+  description: z.string().min(1).optional(),
+});
+
 export const manageSubscriptionBodySchema = z.object({ billable: billableSchema });
 
 export const swapSubscriptionBodySchema = z.object({

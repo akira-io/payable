@@ -263,4 +263,29 @@ describe('fastify adapter', () => {
     await app.close();
     await db.destroy();
   });
+
+  it('creates products and prices over HTTP', async () => {
+    const app = await makeApp(createPayable({ providers: { stripe: new FakeProvider() } }));
+
+    const product = await app.inject({
+      method: 'POST',
+      url: '/payable/products',
+      payload: { name: 'Pro' },
+    });
+    expect(product.statusCode).toBe(201);
+    expect(product.json().providerProductId).toBe('prod_fake');
+
+    const price = await app.inject({
+      method: 'POST',
+      url: '/payable/prices',
+      payload: {
+        providerProductId: 'prod_fake',
+        amount: { amount: 9900, currency: 'USD' },
+        interval: 'month',
+      },
+    });
+    expect(price.statusCode).toBe(201);
+    expect(price.json().providerPriceId).toBe('price_fake');
+    await app.close();
+  });
 });
