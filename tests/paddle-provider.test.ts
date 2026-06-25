@@ -85,7 +85,12 @@ function fakePaddle(unmarshal?: () => Promise<PaddleWebhookEvent | null>) {
           })),
     },
   };
-  return { client: client as unknown as PaddleClient, calls };
+  const typed = client as unknown as PaddleClient;
+  typed.withIdempotencyKey = (idempotencyKey: string) => {
+    calls.set('idempotencyKey', idempotencyKey);
+    return typed;
+  };
+  return { client: typed, calls };
 }
 
 const provider = (client: PaddleClient): PaymentProvider =>
@@ -141,8 +146,8 @@ describe('PaddleProvider', () => {
     expect(calls.get('prices.create')).toMatchObject({ description: 'Pro monthly' });
   });
 
-  it('opens a checkout via a transaction', async () => {
-    const { client } = fakePaddle();
+  it('opens a checkout via a transaction and forwards the idempotency key', async () => {
+    const { client, calls } = fakePaddle();
     const dto = await provider(client).createCheckoutSession(
       {
         providerCustomerId: 'ctm_1',
@@ -154,6 +159,7 @@ describe('PaddleProvider', () => {
       ctx,
     );
     expect(dto).toEqual({ id: 'txn_1', url: 'https://pay.paddle.test/txn_1' });
+    expect(calls.get('idempotencyKey')).toBe('idem-1');
   });
 
   it('sends a quantity-only update as an items array carrying the price id', async () => {
@@ -190,6 +196,7 @@ describe('PaddleProvider', () => {
     expect(dto.providerRefundId).toBe('adj_1');
     expect(dto.status).toBe('succeeded');
     expect(dto.amount.amount()).toBe(9900);
+    expect(calls.get('idempotencyKey')).toBe('idem-1');
   });
 
   it('rejects a partial refund instead of silently refunding in full', async () => {
