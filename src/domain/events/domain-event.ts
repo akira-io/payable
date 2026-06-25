@@ -24,10 +24,17 @@ export interface DomainEventMeta {
 }
 
 export abstract class DomainEvent<P = unknown> {
+  readonly eventId: string;
+  readonly payload: Readonly<P>;
+
   constructor(
     readonly name: NormalizedEventName,
-    readonly payload: P,
+    payload: P,
     readonly correlationId: string,
     readonly occurredAt: Date,
-  ) {}
+    readonly version: number = 1,
+  ) {
+    this.eventId = globalThis.crypto.randomUUID();
+    this.payload = Object.freeze(payload) as Readonly<P>;
+  }
 }
