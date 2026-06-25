@@ -13,6 +13,11 @@ export function toMinor(value: unknown, column: string): number {
 }
 
 export function toDate(value: unknown): Date {
+  if (value === null || value === undefined) {
+    throw new TypeError(
+      'toDate received a null/undefined timestamp; use toNullableDate for nullable columns',
+    );
+  }
   return new Date(value as string | number);
 }
 
