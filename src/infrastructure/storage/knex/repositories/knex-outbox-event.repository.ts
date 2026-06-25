@@ -9,6 +9,8 @@ import type {
 import { toDate, toJson, toNullableDate } from '../mappers';
 
 const CLAIM_TTL_MS = 300_000;
+const FAIR_OVERFETCH_FACTOR = 5;
+const MAX_FAIR_OVERFETCH = 1000;
 
 export class KnexOutboxEventRepository implements OutboxEventRepository {
   private readonly table = 'payable_outbox_events';
@@ -45,18 +47,19 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
     const nowIso = now.toISOString();
     const token = globalThis.crypto.randomUUID();
     const lockedUntil = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
+    const fetchLimit = Math.min(limit * FAIR_OVERFETCH_FACTOR, MAX_FAIR_OVERFETCH);
     return this.knex.transaction(async (trx) => {
       const select = trx(this.table)
-        .select('id')
+        .select('id', 'tenant_id')
         .where((builder) => this.claimable(builder, nowIso))
         .orderBy('created_at', 'asc')
         .orderBy('id', 'asc')
-        .limit(limit);
+        .limit(fetchLimit);
       if (this.supportsRowLocking()) {
         select.forUpdate().skipLocked();
       }
       const candidates = (await select) as Record<string, unknown>[];
-      const ids = candidates.map((row) => row.id as string);
+      const ids = this.fairlyOrdered(candidates, limit);
       if (ids.length === 0) {
         return [];
       }
@@ -75,6 +78,38 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
         .orderBy('id', 'asc')) as Record<string, unknown>[];
       return rows.map((row) => this.toEntity(row));
     });
+  }
+
+  private fairlyOrdered(candidates: Record<string, unknown>[], limit: number): string[] {
+    const queues = new Map<string, string[]>();
+    for (const row of candidates) {
+      const key = (row.tenant_id as string | null) ?? '';
+      const bucket = queues.get(key);
+      if (bucket) {
+        bucket.push(row.id as string);
+      } else {
+        queues.set(key, [row.id as string]);
+      }
+    }
+    const ordered: string[] = [];
+    const buckets = [...queues.values()];
+    while (ordered.length < limit) {
+      let progressed = false;
+      for (const bucket of buckets) {
+        if (ordered.length >= limit) {
+          break;
+        }
+        const id = bucket.shift();
+        if (id !== undefined) {
+          ordered.push(id);
+          progressed = true;
+        }
+      }
+      if (!progressed) {
+        break;
+      }
+    }
+    return ordered;
   }
 
   private supportsRowLocking(): boolean {

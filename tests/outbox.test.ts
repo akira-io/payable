@@ -54,6 +54,20 @@ describe('OutboxService', () => {
     expect(ids).toEqual([...ids].sort());
   });
 
+  it('does not let a busy tenant starve another in a single claim batch', async () => {
+    for (let i = 0; i < 8; i += 1) {
+      await storage.outboxEvents.create({ ...newOutbox(`busy.${i}.v1`), tenantId: 'tenant-busy' });
+    }
+    await storage.outboxEvents.create({ ...newOutbox('quiet.0.v1'), tenantId: 'tenant-quiet' });
+
+    const claimed = await storage.outboxEvents.claimPending(2);
+    const tenants = claimed.map((event) => event.tenantId);
+
+    expect(claimed).toHaveLength(2);
+    expect(tenants).toContain('tenant-quiet');
+    expect(tenants).toContain('tenant-busy');
+  });
+
   it('isolates a per-event store-write failure instead of aborting the batch', async () => {
     await storage.outboxEvents.create(newOutbox('a.v1'));
     await storage.outboxEvents.create(newOutbox('b.v1'));
