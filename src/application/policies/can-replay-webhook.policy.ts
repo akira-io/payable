@@ -1,16 +1,9 @@
-export interface ReplayWebhookContext {
-  actorType?: string;
-  actorId?: string;
-  allowed?: boolean;
-  tenantId?: string | null;
-}
+import { type AuthorizationContext, isAuthorized } from './authorization-context';
+
+export type ReplayWebhookContext = AuthorizationContext;
 
 export class CanReplayWebhookPolicy {
   authorize(context: ReplayWebhookContext = {}): boolean {
-    return context.allowed === true && this.hasActor(context);
-  }
-
-  private hasActor(context: ReplayWebhookContext): boolean {
-    return typeof context.actorId === 'string' && context.actorId.length > 0;
+    return isAuthorized(context);
   }
 }

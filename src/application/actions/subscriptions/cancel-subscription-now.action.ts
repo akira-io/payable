@@ -1,17 +1,25 @@
 import type { Subscription } from '../../../domain/entities/subscription.entity';
 import type { Billable } from '../../builders/billable';
+import type { BillingDependencies } from '../../builders/billing-dependencies';
 import type { AuthorizationContext } from '../../policies/authorization-context';
 import { CanCancelSubscriptionPolicy } from '../../policies/can-cancel-subscription.policy';
 import { SubscriptionAction } from './subscription-action';
 
 export class CancelSubscriptionNowAction extends SubscriptionAction {
+  constructor(
+    deps: BillingDependencies,
+    private readonly policy = new CanCancelSubscriptionPolicy(),
+  ) {
+    super(deps);
+  }
+
   async handle(
     billable: Billable,
     name: string,
     authorization?: AuthorizationContext,
   ): Promise<Subscription> {
     this.authorize(
-      (context) => new CanCancelSubscriptionPolicy().authorize(context),
+      (context) => this.policy.authorize(context),
       authorization,
       'cancel subscription',
     );
