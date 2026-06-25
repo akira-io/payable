@@ -23,7 +23,8 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
   async create(data: NewOutboxEvent): Promise<OutboxEvent> {
     const id = globalThis.crypto.randomUUID();
     const timestamp = this.clock.now().toISOString();
-    await this.knex(this.table).insert({
+    const dedupeKey = data.dedupeKey ?? null;
+    const insert = this.knex(this.table).insert({
       id,
       tenant_id: data.tenantId,
       correlation_id: data.correlationId,
@@ -35,9 +36,16 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
       next_retry_at: null,
       locked_by: null,
       locked_until: null,
+      dedupe_key: dedupeKey,
       created_at: timestamp,
       updated_at: timestamp,
     });
+    if (dedupeKey !== null) {
+      await insert.onConflict('dedupe_key').ignore();
+      const existing = await this.knex(this.table).where({ dedupe_key: dedupeKey }).first();
+      return this.toEntity(existing as Record<string, unknown>);
+    }
+    await insert;
     const row = await this.knex(this.table).where({ id }).first();
     return this.toEntity(row as Record<string, unknown>);
   }
@@ -172,6 +180,7 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
       attempts: row.attempts as number,
       nextRetryAt: toNullableDate(row.next_retry_at),
       lockToken: (row.locked_by as string | null) ?? null,
+      dedupeKey: (row.dedupe_key as string | null) ?? null,
       createdAt: toDate(row.created_at),
       updatedAt: toDate(row.updated_at),
     };

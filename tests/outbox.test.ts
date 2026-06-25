@@ -42,6 +42,23 @@ describe('OutboxService', () => {
     expect(await countDuePendingOutbox(db, clock)).toBe(0);
   });
 
+  it('deduplicates events sharing a dedupe key', async () => {
+    const first = await storage.outboxEvents.create({
+      ...newOutbox('invoice.paid.v1'),
+      dedupeKey: 'webhook:evt_1:invoice.paid',
+    });
+    const second = await storage.outboxEvents.create({
+      ...newOutbox('invoice.paid.v1'),
+      dedupeKey: 'webhook:evt_1:invoice.paid',
+    });
+
+    expect(second.id).toBe(first.id);
+    const rows = await db('payable_outbox_events').where({
+      dedupe_key: 'webhook:evt_1:invoice.paid',
+    });
+    expect(rows).toHaveLength(1);
+  });
+
   it('claims same-timestamp events in a deterministic id order', async () => {
     for (let i = 0; i < 6; i += 1) {
       await storage.outboxEvents.create(newOutbox(`evt.${i}.v1`));
@@ -218,7 +235,7 @@ describe('webhook replay', () => {
     });
     expect(processed).toBe(2);
     expect(await storage.auditLogs.list({ resourceType: 'webhook_event' })).toHaveLength(2);
-    expect(await countDuePendingOutbox(db, clock)).toBe(2);
+    expect(await countDuePendingOutbox(db, clock)).toBe(1);
 
     await expect(payable.replayWebhook(received.webhookEventId)).rejects.toThrow('not permitted');
     await expect(payable.replayWebhook(received.webhookEventId, { allowed: true })).rejects.toThrow(
@@ -274,7 +291,7 @@ describe('webhook replay', () => {
       correlationId: 'corr_live',
       receivedAt: clock.now(),
     });
-    expect(await storage.webhookEvents.claim(event.id)).toBe(true);
+    expect(await storage.webhookEvents.claim(event.id)).toEqual(expect.any(String));
     const auditBefore = (await storage.auditLogs.list({ resourceType: 'webhook_event' })).length;
 
     await payable.replayWebhook(event.id, { allowed: true, actorType: 'user', actorId: 'admin-1' });

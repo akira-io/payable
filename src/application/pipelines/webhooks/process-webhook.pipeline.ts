@@ -11,6 +11,7 @@ export interface ProcessWebhookInput {
   webhookEventId: string;
   correlationId: string;
   tenantId?: string | null;
+  claimToken?: string | null;
 }
 
 export class ProcessWebhookPipeline {
@@ -46,10 +47,17 @@ export class ProcessWebhookPipeline {
           eventType: `${input.verified.normalizedType}.v1`,
           eventVersion: 1,
           payload: { providerEventId: input.verified.providerEventId, data: input.verified.data },
+          dedupeKey: `webhook:${input.webhookEventId}:${input.verified.normalizedType}`,
         });
       }
 
-      await repos.webhookEvents.markStatus(input.webhookEventId, 'processed', occurredAt, tenantId);
+      await repos.webhookEvents.markStatus(
+        input.webhookEventId,
+        'processed',
+        occurredAt,
+        tenantId,
+        input.claimToken,
+      );
     });
 
     await events

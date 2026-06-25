@@ -23,11 +23,12 @@ export interface WebhookEventRepository {
     providerEventId: string,
     tenantId?: string | null,
   ): Promise<WebhookEvent | null>;
-  claim(id: string, tenantId?: string | null, options?: ClaimOptions): Promise<boolean>;
+  claim(id: string, tenantId?: string | null, options?: ClaimOptions): Promise<string | null>;
   markStatus(
     id: string,
     status: WebhookEventStatus,
     processedAt: Date | null,
     tenantId?: string | null,
+    claimToken?: string | null,
   ): Promise<WebhookEvent>;
 }
