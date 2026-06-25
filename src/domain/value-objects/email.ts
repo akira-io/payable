@@ -1,14 +1,16 @@
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { z } from 'zod';
+
+const emailSchema = z.string().trim().email();
 
 export class Email {
   private constructor(private readonly value: string) {}
 
   static of(value: string): Email {
-    const normalized = value.trim().toLowerCase();
-    if (!EMAIL_PATTERN.test(normalized)) {
+    const result = emailSchema.safeParse(value);
+    if (!result.success) {
       throw new TypeError(`Invalid email address: ${value}`);
     }
-    return new Email(normalized);
+    return new Email(result.data.toLowerCase());
   }
 
   toString(): string {
