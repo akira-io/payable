@@ -2,6 +2,7 @@ import type { Knex } from 'knex';
 import type { Clock } from '../../../../domain/contracts/clock.contract';
 import type { Encryption } from '../../../../domain/contracts/encryption.contract';
 import type {
+  ClaimOptions,
   NewWebhookEvent,
   WebhookEventRepository,
 } from '../../../../domain/contracts/webhook-event-repository.contract';
@@ -80,15 +81,18 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
     });
   }
 
-  async claim(id: string, tenantId?: string | null): Promise<boolean> {
+  async claim(id: string, tenantId?: string | null, options?: ClaimOptions): Promise<boolean> {
     const where = tenantId === undefined ? { id } : { id, tenant_id: this.tenant(tenantId) };
     const now = this.clock.now();
     const claimedUntil = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
+    const claimable: WebhookEventStatus[] = options?.replay
+      ? ['pending', 'failed', 'processed']
+      : ['pending', 'failed'];
     const affected = await this.knex(this.table)
       .where(where)
       .where((builder) =>
         builder
-          .whereIn('status', ['pending', 'failed'])
+          .whereIn('status', claimable)
           .orWhere((stale) =>
             stale.where('status', 'processing').andWhere('claimed_until', '<', now.toISOString()),
           ),
