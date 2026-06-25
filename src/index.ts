@@ -155,6 +155,7 @@ export type {
   ProductDTO,
   ProviderCapabilities,
   ProviderCapability,
+  ProviderCapabilityValue,
   RefundInput,
   RefundResultDTO,
   SubscriptionDTO,

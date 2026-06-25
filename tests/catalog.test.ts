@@ -32,4 +32,19 @@ describe('payable.products / payable.prices', () => {
     expect(provider.lastCreatePrice?.unitAmount.amount()).toBe(9900);
     expect(provider.lastCreatePrice?.interval).toBe('month');
   });
+
+  it('rejects catalog operations when the provider lacks the capability', async () => {
+    const provider = new FakeProvider();
+    provider.supportedCapabilities.delete('catalog');
+    const payable = createPayable({ providers: { stripe: provider } });
+
+    await expect(payable.products().create({ name: 'Pro' })).rejects.toMatchObject({
+      code: 'PROVIDER_CAPABILITY_NOT_SUPPORTED',
+    });
+    await expect(
+      payable
+        .prices()
+        .create({ providerProductId: 'prod_fake', unitAmount: Money.of(9900, 'USD') }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_CAPABILITY_NOT_SUPPORTED' });
+  });
 });

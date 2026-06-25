@@ -4,6 +4,7 @@ import { PayableError } from '../../domain/errors/payable-error';
 import { CorrelationId } from '../../domain/value-objects/correlation-id';
 import { IdempotencyKey } from '../../domain/value-objects/idempotency-key';
 import { SyncCustomerWithProviderAction } from '../actions/customers/sync-customer-with-provider.action';
+import { assertProviderCapability } from '../services/provider-capabilities/assert-provider-capability';
 import type { Billable } from './billable';
 import type { BillingDependencies } from './billing-dependencies';
 
@@ -16,6 +17,7 @@ export class CustomerResource {
   constructor(private readonly deps: BillingDependencies) {}
 
   async create(billable: Billable): Promise<Customer> {
+    assertProviderCapability(this.deps.provider, 'customers');
     const storage = this.requireStorage();
     await new SyncCustomerWithProviderAction(this.deps).handle(billable);
     const customer = await storage.customers.findByBillable(
@@ -38,6 +40,7 @@ export class CustomerResource {
   }
 
   async update(billable: Billable, changes: CustomerChanges): Promise<Customer> {
+    assertProviderCapability(this.deps.provider, 'customers');
     const storage = this.requireStorage();
     const existing = await storage.customers.findByBillable(
       billable.billableType,

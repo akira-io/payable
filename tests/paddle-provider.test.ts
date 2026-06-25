@@ -95,10 +95,10 @@ describe('PaddleProvider', () => {
   it('reports Paddle capabilities', () => {
     const { client } = fakePaddle();
     const capabilities = provider(client).capabilities();
-    expect(capabilities.checkout).toBe(true);
-    expect(capabilities.invoicePdf).toBe(false);
-    expect(capabilities.trials).toBe(false);
-    expect(capabilities.coupons).toBe(false);
+    expect(capabilities.has('checkout')).toBe(true);
+    expect(capabilities.has('invoicePdf')).toBe(false);
+    expect(capabilities.has('trials')).toBe(false);
+    expect(capabilities.has('coupons')).toBe(false);
   });
 
   it('creates a customer', async () => {

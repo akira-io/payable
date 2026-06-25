@@ -214,7 +214,9 @@ describe('subscription lifecycle', () => {
   it('rejects management when the provider lacks the subscriptions capability', async () => {
     class NoSubscriptionsProvider extends FakeProvider {
       override capabilities() {
-        return { ...super.capabilities(), subscriptions: false };
+        const caps = new Set(super.capabilities());
+        caps.delete('subscriptions');
+        return caps;
       }
     }
     const db = createTestDb();

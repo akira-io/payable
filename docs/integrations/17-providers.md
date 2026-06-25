@@ -56,23 +56,32 @@ creation calls the guard first and falls back or errors when the provider does n
 
 ## The capabilities system
 
-A provider declares a coarse-grained feature matrix through `capabilities()`, which returns a
+A provider declares the feature set it supports through `capabilities()`, which returns a
 `ProviderCapabilities` (`src/domain/dtos/capabilities.dto.ts`):
 
 ```ts
-export interface ProviderCapabilities {
-  checkout: boolean;
-  subscriptions: boolean;
-  trials: boolean;
-  refunds: boolean;
-  coupons: boolean;
-  billingPortal: boolean;
-  meteredBilling: boolean;
-  invoicePdf: boolean;
-}
+export type ProviderCapability =
+  | 'checkout'
+  | 'subscriptions'
+  | 'trials'
+  | 'refunds'
+  | 'coupons'
+  | 'billingPortal'
+  | 'meteredBilling'
+  | 'invoicePdf'
+  | 'customers'
+  | 'catalog';
 
-export type ProviderCapability = keyof ProviderCapabilities;
+export type ProviderCapabilityValue = ProviderCapability | (string & {});
+
+export type ProviderCapabilities = ReadonlySet<ProviderCapabilityValue>;
 ```
+
+It is a set, not a fixed matrix. A provider lists only what it supports; an absent capability means
+unsupported (opt-in by presence). `ProviderCapabilityValue` is the union of known capabilities plus an
+open `string` arm, so a provider may declare custom capabilities the core does not know about (for
+example `'x-acme-dunning'`) while the known names keep autocomplete. Adding a new core capability is a
+new union member, not a new required field, so it does not break existing custom providers.
 
 This is distinct from the optional interfaces above. The interfaces answer "does this method exist?";
 `ProviderCapabilities` answers "does the provider claim to support this feature?". The engine guards a
@@ -82,15 +91,15 @@ declared capability with `assertProviderCapability`
 ```ts
 export function assertProviderCapability(
   provider: PaymentProvider,
-  capability: ProviderCapability,
+  capability: ProviderCapabilityValue,
 ): void {
-  if (!provider.capabilities()[capability]) {
+  if (!provider.capabilities().has(capability)) {
     throw new ProviderCapabilityNotSupportedError(provider.name, capability);
   }
 }
 ```
 
-When the flag is `false`, it throws `ProviderCapabilityNotSupportedError`
+When the capability is absent from the set, it throws `ProviderCapabilityNotSupportedError`
 (`src/domain/errors/provider-capability-not-supported.error.ts`) with code
 `PROVIDER_CAPABILITY_NOT_SUPPORTED` and a message of the form
 `Provider '<name>' does not support capability: <capability>`. The error context carries
@@ -99,6 +108,16 @@ When the flag is `false`, it throws `ProviderCapabilityNotSupportedError`
 - Purpose: fail fast and explicitly before reaching the provider API for an unsupported operation.
 - Edge case: a provider may also throw `ProviderCapabilityNotSupportedError` from inside a method for a
   partial limitation. Paddle does this for partial refunds (see the Paddle integration page).
+
+`customers` and `catalog` gate the resource managers, not all providers expose customer or catalog
+write APIs:
+
+- **`customers`** guards `payable.customers().create(...)` and `.update(...)`. A read with `.get(...)`
+  comes from local storage and is not gated.
+- **`catalog`** guards `payable.products().create(...) / .update(...)` and `payable.prices().create(...)`.
+
+A provider whose set omits either rejects the corresponding manager call with
+`PROVIDER_CAPABILITY_NOT_SUPPORTED` (HTTP 422) before any network call.
 
 ## The provider registry
 
@@ -154,16 +173,7 @@ export class AcmeProvider implements PaymentProvider, ChargeCapable {
   readonly name = 'acme';
 
   capabilities() {
-    return {
-      checkout: true,
-      subscriptions: false,
-      trials: false,
-      refunds: true,
-      coupons: false,
-      billingPortal: false,
-      meteredBilling: false,
-      invoicePdf: false,
-    };
+    return new Set(['checkout', 'refunds', 'customers', 'x-acme-dunning']);
   }
 
   async createCustomer(input, ctx) {

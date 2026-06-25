@@ -3,7 +3,10 @@ import type {
   BillingPortalDTO,
   BillingPortalInput,
 } from '../../src/domain/dtos/billing-portal.dto';
-import type { ProviderCapabilities } from '../../src/domain/dtos/capabilities.dto';
+import type {
+  ProviderCapabilities,
+  ProviderCapabilityValue,
+} from '../../src/domain/dtos/capabilities.dto';
 import type { ChargeInput, ChargeResultDTO } from '../../src/domain/dtos/charge.dto';
 import type {
   CheckoutSessionDTO,
@@ -61,18 +64,20 @@ export class FakeProvider implements PaymentProvider {
   lastRefundCtx?: OperationContext;
   chargeCalls = 0;
   refundCalls = 0;
+  readonly supportedCapabilities = new Set<ProviderCapabilityValue>([
+    'checkout',
+    'subscriptions',
+    'trials',
+    'refunds',
+    'coupons',
+    'billingPortal',
+    'invoicePdf',
+    'customers',
+    'catalog',
+  ]);
 
   capabilities(): ProviderCapabilities {
-    return {
-      checkout: true,
-      subscriptions: true,
-      trials: true,
-      refunds: true,
-      coupons: true,
-      billingPortal: true,
-      meteredBilling: false,
-      invoicePdf: true,
-    };
+    return new Set(this.supportedCapabilities);
   }
 
   async createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {

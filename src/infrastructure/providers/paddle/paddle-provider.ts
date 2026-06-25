@@ -74,16 +74,14 @@ export class PaddleProvider implements PaymentProvider {
   }
 
   capabilities(): ProviderCapabilities {
-    return {
-      checkout: true,
-      subscriptions: true,
-      trials: false,
-      refunds: true,
-      coupons: false,
-      billingPortal: true,
-      meteredBilling: false,
-      invoicePdf: false,
-    };
+    return new Set([
+      'checkout',
+      'subscriptions',
+      'refunds',
+      'billingPortal',
+      'customers',
+      'catalog',
+    ]);
   }
 
   async createCustomer(input: CreateCustomerInput): Promise<CustomerDTO> {
