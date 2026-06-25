@@ -334,8 +334,9 @@ export {
   type TenantConfig,
 } from './support/config/payable-config';
 export { hashRequest } from './support/hash/request-hash';
-export { ConsoleLogger } from './support/logger/console-logger';
+export { ConsoleLogger, redactContext } from './support/logger/console-logger';
 export { NullLogger } from './support/logger/null-logger';
+export { redactHeaders } from './support/redact-headers';
 export {
   type Err,
   err,

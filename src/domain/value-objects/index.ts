@@ -7,6 +7,7 @@ export {
   type KnownCurrencyCode,
 } from './currency';
 export {
+  type BillableKeyParts,
   type ChargeKeyParts,
   type CheckoutKeyParts,
   IdempotencyKey,
