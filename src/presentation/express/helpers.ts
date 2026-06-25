@@ -1,4 +1,5 @@
 import { json, type NextFunction, type Request, type RequestHandler, type Response } from 'express';
+import type { AuthorizationContext } from '../../application/policies/authorization-context';
 import { payableErrorBody, payableErrorStatus } from '../shared/payable-http';
 
 export { flattenHeaders } from '../shared/payable-http';
@@ -13,6 +14,7 @@ export interface ExpressPayableOptions {
   webhookSignatureHeader?: string;
   authenticate?: RequestHandler;
   resolveTenant?: (req: Request) => string | null | undefined;
+  resolveAuthorization?: (req: Request) => AuthorizationContext | undefined;
 }
 
 export type AsyncRouteHandler = (req: Request, res: Response) => Promise<void>;

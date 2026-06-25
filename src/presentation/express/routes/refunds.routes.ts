@@ -37,6 +37,7 @@ export function registerRefundRoutes(
           paymentId: body.paymentId,
           amount,
           reason: body.reason,
+          authorization: options.resolveAuthorization?.(req),
         },
         tenantId,
       );

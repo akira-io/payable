@@ -44,6 +44,30 @@ describe('nest adapter', () => {
     expect(provider.lastCheckout?.input.trialDays).toBe(14);
   });
 
+  it('threads resolveAuthorization so authorized writes pass and absent context is denied', async () => {
+    const payable = createPayable({
+      providers: { stripe: new FakeProvider() },
+      authorization: { enabled: true },
+    });
+    const body = {
+      billable,
+      subscription: { name: 'default', price: 'price_pro' },
+      successUrl: 'https://app.test/s',
+      cancelUrl: 'https://app.test/c',
+    };
+
+    const authorized = controllerFor(payable, {
+      resolveAuthorization: () => ({ allowed: true, actorId: 'admin' }),
+    });
+    const session = await authorized.checkout({ headers: {} }, body);
+    expect(session).toEqual({ id: 'cs_fake', url: 'https://fake.test/cs' });
+
+    const denied = controllerFor(payable);
+    await expect(denied.checkout({ headers: {} }, body)).rejects.toMatchObject({
+      code: 'AUTHORIZATION_DENIED',
+    });
+  });
+
   it('processes a webhook from the raw body', async () => {
     const db = createTestDb();
     await migrate(db);

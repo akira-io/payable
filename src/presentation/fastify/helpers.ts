@@ -1,4 +1,6 @@
+import type { RateLimitPluginOptions } from '@fastify/rate-limit';
 import type { FastifyReply, FastifyRequest, onRequestHookHandler } from 'fastify';
+import type { AuthorizationContext } from '../../application/policies/authorization-context';
 import { payableErrorBody, payableErrorStatus } from '../shared/payable-http';
 
 export { flattenHeaders } from '../shared/payable-http';
@@ -7,6 +9,8 @@ export interface FastifyPayableOptions {
   webhookSignatureHeader?: string;
   authenticate?: onRequestHookHandler;
   resolveTenant?: (request: FastifyRequest) => string | null | undefined;
+  resolveAuthorization?: (request: FastifyRequest) => AuthorizationContext | undefined;
+  rateLimit?: RateLimitPluginOptions;
 }
 
 export function payableErrorReply(

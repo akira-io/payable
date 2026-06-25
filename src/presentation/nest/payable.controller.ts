@@ -14,6 +14,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Billable } from '../../application/builders/billable';
+import type { AuthorizationContext } from '../../application/policies/authorization-context';
 import type { CheckoutSessionDTO } from '../../domain/dtos/checkout.dto';
 import type { InvoiceDTO } from '../../domain/dtos/invoice.dto';
 import type { PriceDTO } from '../../domain/dtos/price.dto';
@@ -91,7 +92,11 @@ export class PayableController {
     if (body.subscription.coupon) {
       builder.coupon(body.subscription.coupon);
     }
-    return builder.checkout({ successUrl: body.successUrl, cancelUrl: body.cancelUrl });
+    return builder.checkout({
+      successUrl: body.successUrl,
+      cancelUrl: body.cancelUrl,
+      authorization: this.authorizationOf(request),
+    });
   }
 
   @Post('subscriptions/:name/cancel')
@@ -103,7 +108,13 @@ export class PayableController {
     @Body() rawBody: unknown,
   ): Promise<Subscription> {
     const body = parseBody(manageSubscriptionBodySchema, rawBody);
-    return this.manage('cancel', name, body.billable, this.tenantOf(request));
+    return this.manage(
+      'cancel',
+      name,
+      body.billable,
+      this.tenantOf(request),
+      this.authorizationOf(request),
+    );
   }
 
   @Post('subscriptions/:name/cancel-now')
@@ -115,7 +126,13 @@ export class PayableController {
     @Body() rawBody: unknown,
   ): Promise<Subscription> {
     const body = parseBody(manageSubscriptionBodySchema, rawBody);
-    return this.manage('cancelNow', name, body.billable, this.tenantOf(request));
+    return this.manage(
+      'cancelNow',
+      name,
+      body.billable,
+      this.tenantOf(request),
+      this.authorizationOf(request),
+    );
   }
 
   @Post('subscriptions/:name/resume')
@@ -127,7 +144,13 @@ export class PayableController {
     @Body() rawBody: unknown,
   ): Promise<Subscription> {
     const body = parseBody(manageSubscriptionBodySchema, rawBody);
-    return this.manage('resume', name, body.billable, this.tenantOf(request));
+    return this.manage(
+      'resume',
+      name,
+      body.billable,
+      this.tenantOf(request),
+      this.authorizationOf(request),
+    );
   }
 
   @Post('subscriptions/:name/swap')
@@ -142,7 +165,7 @@ export class PayableController {
     return this.payable
       .customer(body.billable, undefined, this.tenantOf(request))
       .subscription(name)
-      .swap(body.price);
+      .swap(body.price, this.authorizationOf(request));
   }
 
   @Post('customers')
@@ -267,7 +290,12 @@ export class PayableController {
     const body = parseBody(refundBodySchema, rawBody);
     const amount = body.amount ? parseMoneyInput(body.amount) : undefined;
     return this.payable.refund(
-      { paymentId: body.paymentId, amount, reason: body.reason },
+      {
+        paymentId: body.paymentId,
+        amount,
+        reason: body.reason,
+        authorization: this.authorizationOf(request),
+      },
       this.tenantOf(request),
     );
   }
@@ -327,8 +355,16 @@ export class PayableController {
     name: string,
     billable: Billable,
     tenantId: string | null,
+    authorization?: AuthorizationContext,
   ): Promise<Subscription> {
-    return this.payable.customer(billable, undefined, tenantId).subscription(name)[action]();
+    return this.payable
+      .customer(billable, undefined, tenantId)
+      .subscription(name)
+      [action](authorization);
+  }
+
+  private authorizationOf(request: PayableHttpRequest): AuthorizationContext | undefined {
+    return this.options.resolveAuthorization?.(request);
   }
 
   private tenantOf(request: PayableHttpRequest): string | null {

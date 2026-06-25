@@ -66,6 +66,24 @@ explicit context. It is not request authentication, and it is not applied to
 checkout/subscription/refund routes by default. Request authentication and ownership-of-billable
 checks remain entirely on you.
 
+When `authorization: { enabled: true }` is configured, charge/checkout/subscription/refund calls
+require an `AuthorizationContext` with `allowed: true` and a non-empty `actorId`. Each HTTP adapter
+exposes a `resolveAuthorization(req)` option (sibling to `resolveTenant`) that maps the authenticated
+request to that context and threads it into the write calls:
+
+```ts
+createExpressPayableRoutes(payable, {
+  resolveAuthorization: (req) => ({
+    allowed: true,
+    actorId: req.user.id,
+    tenantId: req.user.tenantId,
+  }),
+});
+```
+
+The same option exists on the Fastify plugin and the Nest module. Without it, every write returns
+`AUTHORIZATION_DENIED` (HTTP 403) while authorization is enabled.
+
 ## Webhook signature verification
 
 The webhook route is the only route protected by a cryptographic check. Verification happens inside

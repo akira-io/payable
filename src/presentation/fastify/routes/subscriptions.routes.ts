@@ -6,7 +6,7 @@ import {
   swapSubscriptionBodySchema,
 } from '../../shared/schemas';
 import type { FastifyPayableOptions } from '../helpers';
-import { DEFAULT_BODY_LIMIT } from '../limits';
+import { DEFAULT_BODY_LIMIT, DEFAULT_ROUTE_RATE_LIMIT } from '../limits';
 
 type ManageAction = 'cancel' | 'cancelNow' | 'resume';
 
@@ -19,11 +19,15 @@ export async function registerSubscriptionRoutes(
     const body = parseBody(manageSubscriptionBodySchema, request.body);
     const params = request.params as { name: string };
     const tenantId = options.resolveTenant?.(request) ?? null;
+    const authorization = options.resolveAuthorization?.(request);
     const manager = payable.customer(body.billable, undefined, tenantId).subscription(params.name);
-    reply.status(200).send(await manager[action]());
+    reply.status(200).send(await manager[action](authorization));
   };
 
-  const routeOptions = { bodyLimit: DEFAULT_BODY_LIMIT };
+  const routeOptions = {
+    bodyLimit: DEFAULT_BODY_LIMIT,
+    config: { rateLimit: options.rateLimit ?? DEFAULT_ROUTE_RATE_LIMIT },
+  };
   scope.post('/subscriptions/:name/cancel', routeOptions, manage('cancel'));
   scope.post('/subscriptions/:name/cancel-now', routeOptions, manage('cancelNow'));
   scope.post('/subscriptions/:name/resume', routeOptions, manage('resume'));
@@ -32,6 +36,6 @@ export async function registerSubscriptionRoutes(
     const params = request.params as { name: string };
     const tenantId = options.resolveTenant?.(request) ?? null;
     const manager = payable.customer(body.billable, undefined, tenantId).subscription(params.name);
-    reply.status(200).send(await manager.swap(body.price));
+    reply.status(200).send(await manager.swap(body.price, options.resolveAuthorization?.(request)));
   });
 }

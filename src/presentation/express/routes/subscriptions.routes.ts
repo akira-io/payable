@@ -55,10 +55,11 @@ export function registerSubscriptionRoutes(
     asyncHandler(async (req, res) => {
       const body = parseBody(manageSubscriptionBodySchema, req.body);
       const tenantId = options.resolveTenant?.(req) ?? null;
+      const authorization = options.resolveAuthorization?.(req);
       const manager = payable
         .customer(body.billable, undefined, tenantId)
         .subscription(String(req.params.name));
-      res.status(200).json(await manager[action]());
+      res.status(200).json(await manager[action](authorization));
     });
 
   router.post('/subscriptions/:name/cancel', jsonBody(), manage('cancel'));
@@ -73,7 +74,7 @@ export function registerSubscriptionRoutes(
       const manager = payable
         .customer(body.billable, undefined, tenantId)
         .subscription(String(req.params.name));
-      res.status(200).json(await manager.swap(body.price));
+      res.status(200).json(await manager.swap(body.price, options.resolveAuthorization?.(req)));
     }),
   );
 }
