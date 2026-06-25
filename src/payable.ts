@@ -23,6 +23,7 @@ import { WebhookEndpointResource } from './application/builders/webhook-endpoint
 import type { AuthorizationContext } from './application/policies/authorization-context';
 import type { ReplayWebhookContext } from './application/policies/can-replay-webhook.policy';
 import { IdempotencyService } from './application/services/idempotency/idempotency-service';
+import { WebhookDeliveryService } from './application/services/webhook-delivery/webhook-delivery-service';
 import type { Clock } from './domain/contracts/clock.contract';
 import type { EventBus } from './domain/contracts/event-bus.contract';
 import type { Logger } from './domain/contracts/logger.contract';
@@ -32,7 +33,11 @@ import type { Refund } from './domain/entities/refund.entity';
 import { PayableError } from './domain/errors/payable-error';
 import { ProviderNotFoundError } from './domain/errors/provider-not-found.error';
 import type { Money } from './domain/value-objects/money';
-import { OutboxService, type OutboxServiceOptions } from './infrastructure/outbox/outbox-service';
+import {
+  type OutboxPublishResult,
+  OutboxService,
+  type OutboxServiceOptions,
+} from './infrastructure/outbox/outbox-service';
 import type { ResolvedConfig } from './support/config/payable-config';
 
 export interface RefundRequest {
@@ -40,6 +45,13 @@ export interface RefundRequest {
   amount?: Money;
   reason?: string;
   authorization?: AuthorizationContext;
+}
+
+export interface DeliverWebhooksOptions {
+  limit?: number;
+  timeoutMs?: number;
+  fetch?: typeof globalThis.fetch;
+  outbox?: OutboxServiceOptions;
 }
 
 export class ProviderRegistry {
@@ -144,6 +156,24 @@ export class Payable {
       });
     }
     return new OutboxService(this.resolved.storage.outboxEvents, this.resolved.clock, options);
+  }
+
+  deliverPendingWebhooks(options?: DeliverWebhooksOptions): Promise<OutboxPublishResult> {
+    const storage = this.resolved.storage;
+    if (!storage) {
+      throw new PayableError('Webhook delivery requires a storage driver', {
+        code: 'WEBHOOK_DELIVERY_STORAGE_REQUIRED',
+      });
+    }
+    const service = new WebhookDeliveryService(storage, this.resolved.clock, {
+      fetch: options?.fetch,
+      timeoutMs: options?.timeoutMs,
+      logger: this.resolved.logger,
+    });
+    return this.outbox(options?.outbox).publishPending(
+      (event) => service.handle(event),
+      options?.limit,
+    );
   }
 
   webhookEndpoints(tenantId?: string | null): WebhookEndpointResource {

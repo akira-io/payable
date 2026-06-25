@@ -93,6 +93,7 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.uuid('id').primary();
     table.string('tenant_id').nullable();
     table.uuid('endpoint_id').notNullable();
+    table.uuid('event_id').nullable();
     table.string('event_type').notNullable();
     table.text('payload').notNullable();
     table.string('status').notNullable();
@@ -103,5 +104,6 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.timestamp('updated_at', { useTz: true }).notNullable();
     table.index('endpoint_id');
+    table.index(['endpoint_id', 'event_id']);
   });
 }

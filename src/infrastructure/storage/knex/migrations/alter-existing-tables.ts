@@ -34,7 +34,15 @@ export async function alterExistingTables(knex: Knex): Promise<void> {
     { name: 'hash', apply: (table) => table.string('hash').nullable() },
     { name: 'sequence', apply: (table) => table.integer('sequence').nullable() },
   ]);
+  await ensureColumns(knex, 'payable_webhook_deliveries', [
+    { name: 'event_id', apply: (table) => table.uuid('event_id').nullable() },
+  ]);
   await ensureIndexes(knex, [
+    {
+      table: 'payable_webhook_deliveries',
+      name: 'payable_webhook_deliveries_endpoint_event_index',
+      columns: ['endpoint_id', 'event_id'],
+    },
     {
       table: 'payable_subscriptions',
       name: 'payable_subscriptions_customer_created_id_index',
