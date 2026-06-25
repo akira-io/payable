@@ -8,6 +8,7 @@ import type { ProductRepository } from './product-repository.contract';
 import type { RefundRepository } from './refund-repository.contract';
 import type { SubscriptionItemRepository } from './subscription-item-repository.contract';
 import type { SubscriptionRepository } from './subscription-repository.contract';
+import type { WebhookEndpointRepository } from './webhook-endpoint-repository.contract';
 import type { WebhookEventRepository } from './webhook-event-repository.contract';
 
 export interface Repositories {
@@ -20,6 +21,7 @@ export interface Repositories {
   readonly payments: PaymentRepository;
   readonly refunds: RefundRepository;
   readonly webhookEvents: WebhookEventRepository;
+  readonly webhookEndpoints: WebhookEndpointRepository;
   readonly auditLogs: AuditLogRepository;
   readonly outboxEvents: OutboxEventRepository;
 }

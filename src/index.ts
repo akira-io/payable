@@ -51,9 +51,11 @@ export {
   PriceResource,
   ProductResource,
   RefundResource,
+  type RegisterWebhookEndpointInput,
   SubscriptionBuilder,
   SubscriptionManager,
   type WebhookDependencies,
+  WebhookEndpointResource,
 } from './application/builders';
 export { ProcessWebhookPipeline } from './application/pipelines/webhooks/process-webhook.pipeline';
 export type { AuthorizationContext } from './application/policies/authorization-context';
@@ -112,6 +114,7 @@ export {
   type NewRefund,
   type NewSubscription,
   type NewSubscriptionItem,
+  type NewWebhookEndpoint,
   type NewWebhookEvent,
   type OutboxEvent,
   type OutboxEventRepository,
@@ -128,6 +131,7 @@ export {
   type StorageDriver,
   type SubscriptionItemRepository,
   type SubscriptionRepository,
+  type WebhookEndpointRepository,
   type WebhookEventRepository,
 } from './domain/contracts';
 export type {
@@ -182,6 +186,8 @@ export type {
   SubscriptionItem,
   TenantScoped,
   Timestamps,
+  WebhookEndpoint,
+  WebhookEndpointStatus,
   WebhookEvent,
   WebhookEventStatus,
 } from './domain/entities';

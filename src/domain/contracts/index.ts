@@ -51,6 +51,10 @@ export type {
 } from './subscription-item-repository.contract';
 export type { NewSubscription, SubscriptionRepository } from './subscription-repository.contract';
 export type {
+  NewWebhookEndpoint,
+  WebhookEndpointRepository,
+} from './webhook-endpoint-repository.contract';
+export type {
   NewWebhookEvent,
   WebhookEventRepository,
 } from './webhook-event-repository.contract';
