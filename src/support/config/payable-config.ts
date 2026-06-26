@@ -90,6 +90,17 @@ export function resolveConfig(config: PayableConfig): ResolvedConfig {
   if (entries.length === 0) {
     throw new TypeError('Payable requires at least one payment provider');
   }
+  const logger = config.logger ?? new NullLogger();
+  const idempotency: ResolvedIdempotency = {
+    enabled: config.idempotency?.enabled ?? true,
+    strategy: config.idempotency?.strategy ?? 'auto',
+    store: config.idempotency?.store,
+  };
+  if (idempotency.enabled && idempotency.strategy !== 'manual' && !idempotency.store) {
+    logger.warn(
+      'Idempotency is enabled but no idempotency store is configured; charges and other operations will run without idempotency protection',
+    );
+  }
   return {
     tenantEnabled: config.tenant?.enabled ?? false,
     tenantResolver: config.tenant?.resolver,
@@ -100,13 +111,9 @@ export function resolveConfig(config: PayableConfig): ResolvedConfig {
     locks: config.locks,
     queue: config.queue ?? new SyncQueueDriver(),
     clock: config.clock ?? new SystemClock(),
-    logger: config.logger ?? new NullLogger(),
+    logger,
     events: config.events ?? new InMemoryEventBus(),
     encryption: config.encryption,
-    idempotency: {
-      enabled: config.idempotency?.enabled ?? true,
-      strategy: config.idempotency?.strategy ?? 'auto',
-      store: config.idempotency?.store,
-    },
+    idempotency,
   };
 }

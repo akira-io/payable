@@ -1,3 +1,4 @@
+import { lookup } from 'node:dns/promises';
 import type { Clock } from '../../../domain/contracts/clock.contract';
 import type { Logger } from '../../../domain/contracts/logger.contract';
 import type { OutboxEvent } from '../../../domain/contracts/outbox-event-repository.contract';
@@ -5,18 +6,27 @@ import type { StorageDriver } from '../../../domain/contracts/storage-driver.con
 import type { WebhookEndpoint } from '../../../domain/entities/webhook-endpoint.entity';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { signWebhookPayload } from '../../../support/hash/webhook-signature';
+import { isBlockedHostname, isBlockedIp } from '../../../support/net/blocked-host';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const MAX_RESPONSE_BODY = 2_000;
 export const DEFAULT_WEBHOOK_DELIVERY_ATTEMPTS = 10;
 const VERSION_SUFFIX = /\.v\d+$/;
 
+export type HostResolver = (hostname: string) => Promise<string[]>;
+
 export interface WebhookDeliveryOptions {
   fetch?: typeof globalThis.fetch;
   timeoutMs?: number;
   maxAttempts?: number;
   logger?: Logger;
+  resolveHost?: HostResolver;
 }
+
+const defaultResolveHost: HostResolver = async (hostname) => {
+  const records = await lookup(hostname, { all: true });
+  return records.map((record) => record.address);
+};
 
 interface DeliveryOutcome {
   ok: boolean;
@@ -29,6 +39,7 @@ export class WebhookDeliveryService {
   private readonly timeoutMs: number;
   private readonly maxAttempts: number;
   private readonly logger?: Logger;
+  private readonly resolveHost: HostResolver;
 
   constructor(
     private readonly storage: StorageDriver,
@@ -39,6 +50,7 @@ export class WebhookDeliveryService {
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.maxAttempts = options.maxAttempts ?? DEFAULT_WEBHOOK_DELIVERY_ATTEMPTS;
     this.logger = options.logger;
+    this.resolveHost = options.resolveHost ?? defaultResolveHost;
   }
 
   async handle(event: OutboxEvent): Promise<void> {
@@ -112,6 +124,15 @@ export class WebhookDeliveryService {
     timestamp: number,
   ): Promise<DeliveryOutcome> {
     const signature = await signWebhookPayload(endpoint.secret, `${timestamp}.${body}`);
+    const blocked = await this.blockedTarget(endpoint.url);
+    if (blocked) {
+      this.logger?.warn('Webhook delivery blocked: endpoint resolves to a non-routable host', {
+        endpointId: endpoint.id,
+        eventId,
+        host: blocked,
+      });
+      return { ok: false, responseCode: null, responseBody: `blocked host: ${blocked}` };
+    }
     try {
       const response = await this.fetch(endpoint.url, {
         method: 'POST',
@@ -138,6 +159,20 @@ export class WebhookDeliveryService {
       });
       return { ok: false, responseCode: null, responseBody: message };
     }
+  }
+
+  private async blockedTarget(url: string): Promise<string | null> {
+    const hostname = new URL(url).hostname;
+    if (isBlockedHostname(hostname)) {
+      return hostname;
+    }
+    let addresses: string[];
+    try {
+      addresses = await this.resolveHost(hostname);
+    } catch {
+      return hostname;
+    }
+    return addresses.find((address) => isBlockedIp(address)) ?? null;
   }
 
   private async read(response: Response): Promise<string | null> {

@@ -2,6 +2,7 @@ import { isWebhookCapable } from '../../../domain/contracts/payment-provider.con
 import type { Repositories } from '../../../domain/contracts/storage-driver.contract';
 import type { NewSubscription } from '../../../domain/contracts/subscription-repository.contract';
 import type { VerifiedWebhook } from '../../../domain/dtos/webhook.dto';
+import { PayableError } from '../../../domain/errors/payable-error';
 import { WebhookProcessedEvent } from '../../../domain/events/webhook-processed.event';
 import { reconcileSubscriptionStatus } from '../../../domain/states/subscription-state-machine';
 import type { WebhookDependencies } from '../../builders/webhook-dependencies';
@@ -51,13 +52,19 @@ export class ProcessWebhookPipeline {
         });
       }
 
-      await repos.webhookEvents.markStatus(
+      const marked = await repos.webhookEvents.markStatus(
         input.webhookEventId,
         'processed',
         occurredAt,
         tenantId,
         input.claimToken,
       );
+      if (input.claimToken != null && marked === null) {
+        throw new PayableError('Webhook claim lost before marking processed', {
+          code: 'WEBHOOK_CLAIM_LOST',
+          context: { webhookEventId: input.webhookEventId },
+        });
+      }
     });
 
     await events

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  toCheckoutSessionDTO,
   toPaddleSubscriptionEntity,
   toSubscriptionDTO,
 } from '../src/infrastructure/providers/paddle/paddle-mappers';
+import type { PaddleTransaction } from '../src/infrastructure/providers/paddle/paddle-types';
 
 describe('paddle subscription trial mapping', () => {
   it('reads the real trial end from subscription items, not the period end', () => {
@@ -33,5 +35,21 @@ describe('paddle subscription trial mapping', () => {
       items: [{ trial_dates: { ends_at: '2026-06-20T00:00:00.000Z' } }],
     });
     expect(toSubscriptionDTO(entity).trialEndsAt?.toISOString()).toBe('2026-06-20T00:00:00.000Z');
+  });
+});
+
+describe('paddle checkout session mapping', () => {
+  it('returns the checkout url when present', () => {
+    const dto = toCheckoutSessionDTO({
+      id: 'txn_1',
+      checkout: { url: 'https://pay.paddle.test/txn_1' },
+    } as PaddleTransaction);
+    expect(dto).toEqual({ id: 'txn_1', url: 'https://pay.paddle.test/txn_1' });
+  });
+
+  it('throws when the transaction has no checkout url', () => {
+    expect(() => toCheckoutSessionDTO({ id: 'txn_2' } as PaddleTransaction)).toThrow(
+      'missing a checkout url',
+    );
   });
 });

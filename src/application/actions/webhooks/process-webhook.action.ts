@@ -52,6 +52,9 @@ export class ProcessWebhookAction {
         claimToken,
       });
     } catch (error) {
+      if (error instanceof PayableError && error.code === 'WEBHOOK_CLAIM_LOST') {
+        return;
+      }
       await this.deps.storage.webhookEvents
         .markStatus(payload.webhookEventId, 'failed', null, payload.tenantId, claimToken)
         .catch(() => {});

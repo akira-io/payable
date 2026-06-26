@@ -68,8 +68,10 @@ function tenantSegment(value: string | null | undefined): string {
 }
 
 function amountSegment(value: number): string {
-  if (!Number.isFinite(value)) {
-    throw new TypeError(`Idempotency key amount must be finite, got ${value}`);
+  if (!Number.isSafeInteger(value)) {
+    throw new TypeError(
+      `Idempotency key amount must be a safe integer (minor units), got ${value}`,
+    );
   }
   return segment(value);
 }

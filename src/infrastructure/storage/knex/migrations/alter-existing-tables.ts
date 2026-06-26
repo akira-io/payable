@@ -19,7 +19,12 @@ async function ensureColumns(knex: Knex, table: string, columns: ColumnSpec[]): 
 
 export async function alterExistingTables(knex: Knex): Promise<void> {
   await ensureColumns(knex, 'payable_webhook_events', [
+    {
+      name: 'tenant_id',
+      apply: (table) => table.string('tenant_id').notNullable().defaultTo(''),
+    },
     { name: 'normalized_type', apply: (table) => table.string('normalized_type').nullable() },
+    { name: 'signature', apply: (table) => table.text('signature').nullable() },
     { name: 'data', apply: (table) => table.text('data').notNullable().defaultTo('{}') },
     {
       name: 'claimed_until',
@@ -47,6 +52,11 @@ export async function alterExistingTables(knex: Knex): Promise<void> {
       name: 'payable_audit_logs_tenant_sequence_unique',
       columns: ['tenant_id', 'sequence'],
       unique: true,
+    },
+    {
+      table: 'payable_webhook_events',
+      name: 'payable_webhook_events_tenant_received_id_index',
+      columns: ['tenant_id', 'received_at', 'id'],
     },
     {
       table: 'payable_subscriptions',

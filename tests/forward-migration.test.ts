@@ -116,6 +116,7 @@ describe('forward migrations (C5)', () => {
     expect(names).toContain('payable_refunds_payment_created_id_index');
     expect(names).toContain('payable_outbox_events_pending_claim_index');
     expect(names).toContain('payable_outbox_events_stale_claim_index');
+    expect(names).toContain('payable_webhook_events_tenant_received_id_index');
     expect(names).toContain('payable_outbox_events_tenant_dedupe_unique');
     expect(names).toContain('payable_webhook_deliveries_tenant_endpoint_event_unique');
     expect(names).toContain('payable_audit_logs_tenant_sequence_unique');

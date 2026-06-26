@@ -63,6 +63,20 @@ describe('KnexStorageDriver customers', () => {
       ),
     ).rejects.toThrow();
   });
+
+  it('matches a billable lookup regardless of null versus empty-string tenant', async () => {
+    const nullTenant = await storage.customers.create(
+      makeCustomer({ tenantId: null, billableId: 'n1', providerCustomerId: 'cus_n' }),
+    );
+    expect((await storage.customers.findByBillable('User', 'n1', null))?.id).toBe(nullTenant.id);
+    expect((await storage.customers.findByBillable('User', 'n1', ''))?.id).toBe(nullTenant.id);
+
+    const emptyTenant = await storage.customers.create(
+      makeCustomer({ tenantId: '', billableId: 'e1', providerCustomerId: 'cus_e' }),
+    );
+    expect((await storage.customers.findByBillable('User', 'e1', null))?.id).toBe(emptyTenant.id);
+    expect((await storage.customers.findByBillable('User', 'e1', ''))?.id).toBe(emptyTenant.id);
+  });
 });
 
 describe('KnexStorageDriver catalog', () => {

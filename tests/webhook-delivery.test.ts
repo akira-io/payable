@@ -14,6 +14,8 @@ interface FetchCall {
   body: string;
 }
 
+const publicHost = async () => ['93.184.216.34'];
+
 function recordingFetch(responder: (url: string) => { ok: boolean; status: number }) {
   const calls: FetchCall[] = [];
   const impl = (async (url: string | URL, init?: RequestInit) => {
@@ -51,7 +53,7 @@ describe('outbound webhook delivery', () => {
     const event = await storage.outboxEvents.create(outboxEvent('invoice.paid.v1'));
     const { calls, impl } = recordingFetch(() => ({ ok: true, status: 200 }));
 
-    const result = await payable.deliverPendingWebhooks({ fetch: impl });
+    const result = await payable.deliverPendingWebhooks({ fetch: impl, resolveHost: publicHost });
 
     expect(result.published).toBe(1);
     expect(calls).toHaveLength(1);
@@ -82,6 +84,7 @@ describe('outbound webhook delivery', () => {
     }));
     const failed = await payable.deliverPendingWebhooks({
       fetch: first.impl,
+      resolveHost: publicHost,
       outbox: { maxAttempts: 3 },
     });
     expect(failed.retried).toBe(1);
@@ -91,6 +94,7 @@ describe('outbound webhook delivery', () => {
     const second = recordingFetch(() => ({ ok: true, status: 200 }));
     const recovered = await payable.deliverPendingWebhooks({
       fetch: second.impl,
+      resolveHost: publicHost,
       outbox: { maxAttempts: 3 },
     });
 
@@ -110,7 +114,11 @@ describe('outbound webhook delivery', () => {
       .register({ url: 'https://hooks.test/dead', events: ['invoice.paid'] });
     const event = await storage.outboxEvents.create(outboxEvent('invoice.paid.v1'));
     const { calls, impl } = recordingFetch(() => ({ ok: false, status: 500 }));
-    const service = new WebhookDeliveryService(storage, clock, { fetch: impl, maxAttempts: 1 });
+    const service = new WebhookDeliveryService(storage, clock, {
+      fetch: impl,
+      maxAttempts: 1,
+      resolveHost: publicHost,
+    });
 
     await expect(service.handle(event)).resolves.toBeUndefined();
 
@@ -132,7 +140,7 @@ describe('outbound webhook delivery', () => {
 
     let lastResult = { published: 0, retried: 0, deadLettered: 0 };
     for (let cycle = 0; cycle < 5; cycle += 1) {
-      lastResult = await payable.deliverPendingWebhooks({ fetch: impl });
+      lastResult = await payable.deliverPendingWebhooks({ fetch: impl, resolveHost: publicHost });
       clock.advance(120_000);
     }
 
@@ -140,6 +148,24 @@ describe('outbound webhook delivery', () => {
     expect(lastResult.retried).toBe(1);
     const reloaded = await storage.webhookEndpoints.findById(endpoint.id);
     expect(reloaded?.status).toBe('enabled');
+    await db.destroy();
+  });
+
+  it('blocks delivery without an HTTP call when the endpoint host resolves to a private ip', async () => {
+    const { db, storage, payable } = await setup();
+    const endpoint = await payable
+      .webhookEndpoints()
+      .register({ url: 'https://hooks.test/rebind', events: ['invoice.paid'] });
+    const event = await storage.outboxEvents.create(outboxEvent('invoice.paid.v1'));
+    const { calls, impl } = recordingFetch(() => ({ ok: true, status: 200 }));
+
+    await payable.deliverPendingWebhooks({ fetch: impl, resolveHost: async () => ['127.0.0.1'] });
+
+    expect(calls).toHaveLength(0);
+    const deliveries = await storage.webhookDeliveries.listForEvent(event.id);
+    expect(deliveries[0]?.status).toBe('failed');
+    expect(deliveries[0]?.responseBody).toContain('blocked host');
+    await storage.webhookEndpoints.findById(endpoint.id);
     await db.destroy();
   });
 

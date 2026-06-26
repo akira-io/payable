@@ -1,6 +1,8 @@
 import type { WebhookEvent, WebhookEventStatus } from '../entities/webhook-event.entity';
 
-export type NewWebhookEvent = Omit<WebhookEvent, 'id' | 'processedAt'>;
+export type NewWebhookEvent = Omit<WebhookEvent, 'id' | 'processedAt' | 'signature'> & {
+  signature?: string | null;
+};
 
 export interface ClaimOptions {
   replay?: boolean;
@@ -30,5 +32,5 @@ export interface WebhookEventRepository {
     processedAt: Date | null,
     tenantId?: string | null,
     claimToken?: string | null,
-  ): Promise<WebhookEvent>;
+  ): Promise<WebhookEvent | null>;
 }

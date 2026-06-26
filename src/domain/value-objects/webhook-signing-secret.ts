@@ -1,4 +1,4 @@
-import { timingSafeEqual as cryptoTimingSafeEqual } from 'node:crypto';
+import { timingSafeEqual } from '../../support/hash/timing-safe-equal';
 
 const SECRET_BYTES = 32;
 const SECRET_PREFIX = 'whsec_';
@@ -27,13 +27,4 @@ export class WebhookSigningSecret {
   equals(other: WebhookSigningSecret): boolean {
     return timingSafeEqual(this.value, other.value);
   }
-}
-
-function timingSafeEqual(left: string, right: string): boolean {
-  const a = Buffer.from(left, 'utf8');
-  const b = Buffer.from(right, 'utf8');
-  if (a.length !== b.length) {
-    return false;
-  }
-  return cryptoTimingSafeEqual(a, b);
 }

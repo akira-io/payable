@@ -34,6 +34,7 @@ import { ListAllSubscriptionsQuery } from './application/queries/subscriptions/l
 import { IdempotencyService } from './application/services/idempotency/idempotency-service';
 import {
   DEFAULT_WEBHOOK_DELIVERY_ATTEMPTS,
+  type HostResolver,
   WebhookDeliveryService,
 } from './application/services/webhook-delivery/webhook-delivery-service';
 import type { Clock } from './domain/contracts/clock.contract';
@@ -67,6 +68,7 @@ export interface DeliverWebhooksOptions {
   limit?: number;
   timeoutMs?: number;
   fetch?: typeof globalThis.fetch;
+  resolveHost?: HostResolver;
   outbox?: OutboxServiceOptions;
 }
 
@@ -192,6 +194,7 @@ export class Payable {
     const service = new WebhookDeliveryService(storage, this.resolved.clock, {
       fetch: options?.fetch,
       timeoutMs: options?.timeoutMs,
+      resolveHost: options?.resolveHost,
       logger: this.resolved.logger,
     });
     const outboxOptions: OutboxServiceOptions = {

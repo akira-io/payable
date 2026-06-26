@@ -58,7 +58,14 @@ export function toPriceDTO(price: PaddlePriceEntity): PriceDTO {
 }
 
 export function toCheckoutSessionDTO(transaction: PaddleTransaction): CheckoutSessionDTO {
-  return { id: transaction.id, url: transaction.checkout?.url ?? '' };
+  const url = transaction.checkout?.url;
+  if (!url) {
+    throw new PayableError('Paddle transaction is missing a checkout url', {
+      code: 'PROVIDER_PADDLE_CHECKOUT_URL_MISSING',
+      context: { provider: 'paddle', transactionId: transaction.id },
+    });
+  }
+  return { id: transaction.id, url };
 }
 
 export function toPaddleSubscriptionEntity(

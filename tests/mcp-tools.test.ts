@@ -158,7 +158,17 @@ describe('mcp tenantFrom', () => {
     ).toBe('tenant-b');
   });
 
-  it('falls back to the client tenantId when no default is pinned', () => {
-    expect(tenantFrom({ tenantId: 'tenant-c' }, {})).toBe('tenant-c');
+  it('ignores a client tenantId when no default is pinned and override is disallowed', () => {
+    expect(tenantFrom({ tenantId: 'attacker' }, {})).toBeUndefined();
+  });
+
+  it('honors the client tenantId when override is allowed and no default is pinned', () => {
+    expect(tenantFrom({ tenantId: 'tenant-c' }, { allowTenantOverride: true })).toBe('tenant-c');
+  });
+
+  it('uses the pinned default when override is allowed but no client tenantId is given', () => {
+    expect(tenantFrom({}, { defaultTenantId: 'tenant-a', allowTenantOverride: true })).toBe(
+      'tenant-a',
+    );
   });
 });

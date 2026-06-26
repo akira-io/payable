@@ -1,3 +1,4 @@
+import type { Knex } from 'knex';
 import type {
   NewSubscriptionItem,
   SubscriptionItemPatch,
@@ -6,6 +7,8 @@ import type {
 import type { SubscriptionItem } from '../../../../domain/entities/subscription-item.entity';
 import { KnexRepository } from '../knex-repository';
 import { toDate } from '../mappers';
+
+const SUBSCRIPTION_ITEM_LIST_LIMIT = 100;
 
 export class KnexSubscriptionItemRepository
   extends KnexRepository<SubscriptionItem, NewSubscriptionItem>
@@ -17,10 +20,16 @@ export class KnexSubscriptionItemRepository
     subscriptionId: string,
     tenantId?: string | null,
   ): Promise<SubscriptionItem[]> {
-    if (tenantId !== undefined && !(await this.subscriptionInTenant(subscriptionId, tenantId))) {
-      return [];
+    const query = this.knex(this.table)
+      .where({ subscription_id: subscriptionId })
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc')
+      .limit(SUBSCRIPTION_ITEM_LIST_LIMIT);
+    if (tenantId !== undefined) {
+      query.whereExists(this.subscriptionScope(subscriptionId, tenantId));
     }
-    return this.manyWhere({ subscription_id: subscriptionId });
+    const rows = (await query) as Record<string, unknown>[];
+    return rows.map((row) => this.toEntity(row));
   }
 
   async updatePrimary(
@@ -28,14 +37,14 @@ export class KnexSubscriptionItemRepository
     patch: SubscriptionItemPatch,
     tenantId?: string | null,
   ): Promise<void> {
-    if (tenantId !== undefined && !(await this.subscriptionInTenant(subscriptionId, tenantId))) {
-      return;
-    }
-    const first = await this.knex(this.table)
+    const query = this.knex(this.table)
       .where({ subscription_id: subscriptionId })
       .orderBy('created_at', 'asc')
-      .orderBy('id', 'asc')
-      .first();
+      .orderBy('id', 'asc');
+    if (tenantId !== undefined) {
+      query.whereExists(this.subscriptionScope(subscriptionId, tenantId));
+    }
+    const first = await query.first();
     if (!first) {
       return;
     }
@@ -49,14 +58,10 @@ export class KnexSubscriptionItemRepository
     await this.knex(this.table).where({ id: first.id }).update(changes);
   }
 
-  private async subscriptionInTenant(
-    subscriptionId: string,
-    tenantId: string | null,
-  ): Promise<boolean> {
+  private subscriptionScope(subscriptionId: string, tenantId: string | null): Knex.QueryBuilder {
     const where =
       tenantId === null ? { id: subscriptionId } : { id: subscriptionId, tenant_id: tenantId };
-    const row = await this.knex('payable_subscriptions').where(where).first();
-    return Boolean(row);
+    return this.knex('payable_subscriptions').select(this.knex.raw('1')).where(where);
   }
 
   protected toEntity(row: Record<string, unknown>): SubscriptionItem {

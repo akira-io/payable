@@ -10,6 +10,7 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.string('type').notNullable();
     table.string('normalized_type').nullable();
     table.text('payload').notNullable();
+    table.text('signature').nullable();
     table.text('data').notNullable();
     table.text('headers').notNullable();
     table.string('status').notNullable();
@@ -85,7 +86,7 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.string('tenant_id').nullable();
     table.string('url').notNullable();
     table.text('events').notNullable();
-    table.string('secret').nullable();
+    table.text('secret').nullable();
     table.string('status').notNullable();
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.timestamp('updated_at', { useTz: true }).notNullable();

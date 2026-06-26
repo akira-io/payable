@@ -12,16 +12,17 @@ export class KnexCustomerRepository
 {
   protected readonly table = 'payable_customers';
 
-  findByBillable(
+  async findByBillable(
     billableType: string,
     billableId: string,
     tenantId: string | null = null,
   ): Promise<Customer | null> {
-    return this.firstWhere({
-      billable_type: billableType,
-      billable_id: billableId,
-      tenant_id: tenantId,
-    });
+    const row = await this.knex(this.table)
+      .where('billable_type', billableType)
+      .where('billable_id', billableId)
+      .whereRaw("COALESCE(tenant_id, '') = ?", [tenantId ?? ''])
+      .first();
+    return row ? this.toEntity(row as Record<string, unknown>) : null;
   }
 
   findByProviderId(
