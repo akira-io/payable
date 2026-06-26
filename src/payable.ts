@@ -32,7 +32,10 @@ import { ListAuditLogsQuery } from './application/queries/audit/list-audit-logs.
 import { ListAllPaymentsQuery } from './application/queries/payments/list-all-payments.query';
 import { ListAllSubscriptionsQuery } from './application/queries/subscriptions/list-all-subscriptions.query';
 import { IdempotencyService } from './application/services/idempotency/idempotency-service';
-import { WebhookDeliveryService } from './application/services/webhook-delivery/webhook-delivery-service';
+import {
+  DEFAULT_WEBHOOK_DELIVERY_ATTEMPTS,
+  WebhookDeliveryService,
+} from './application/services/webhook-delivery/webhook-delivery-service';
 import type { Clock } from './domain/contracts/clock.contract';
 import type { EventBus } from './domain/contracts/event-bus.contract';
 import type { ListOptions } from './domain/contracts/list-options.contract';
@@ -191,7 +194,11 @@ export class Payable {
       timeoutMs: options?.timeoutMs,
       logger: this.resolved.logger,
     });
-    return this.outbox(options?.outbox).publishPending(
+    const outboxOptions: OutboxServiceOptions = {
+      maxAttempts: DEFAULT_WEBHOOK_DELIVERY_ATTEMPTS,
+      ...options?.outbox,
+    };
+    return this.outbox(outboxOptions).publishPending(
       (event) => service.handle(event),
       options?.limit,
     );

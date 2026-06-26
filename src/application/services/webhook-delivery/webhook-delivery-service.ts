@@ -8,7 +8,7 @@ import { signWebhookPayload } from '../../../support/hash/webhook-signature';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const MAX_RESPONSE_BODY = 2_000;
-const DEFAULT_MAX_ATTEMPTS = 10;
+export const DEFAULT_WEBHOOK_DELIVERY_ATTEMPTS = 10;
 const VERSION_SUFFIX = /\.v\d+$/;
 
 export interface WebhookDeliveryOptions {
@@ -37,7 +37,7 @@ export class WebhookDeliveryService {
   ) {
     this.fetch = options.fetch ?? globalThis.fetch;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    this.maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
+    this.maxAttempts = options.maxAttempts ?? DEFAULT_WEBHOOK_DELIVERY_ATTEMPTS;
     this.logger = options.logger;
   }
 

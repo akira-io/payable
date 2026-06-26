@@ -122,6 +122,27 @@ describe('outbound webhook delivery', () => {
     await db.destroy();
   });
 
+  it('keeps retrying a flaky endpoint instead of dead-lettering at the lower outbox budget', async () => {
+    const { db, clock, storage, payable } = await setup();
+    const endpoint = await payable
+      .webhookEndpoints()
+      .register({ url: 'https://hooks.test/flaky', events: ['invoice.paid'] });
+    await storage.outboxEvents.create(outboxEvent('invoice.paid.v1'));
+    const { impl } = recordingFetch(() => ({ ok: false, status: 500 }));
+
+    let lastResult = { published: 0, retried: 0, deadLettered: 0 };
+    for (let cycle = 0; cycle < 5; cycle += 1) {
+      lastResult = await payable.deliverPendingWebhooks({ fetch: impl });
+      clock.advance(120_000);
+    }
+
+    expect(lastResult.deadLettered).toBe(0);
+    expect(lastResult.retried).toBe(1);
+    const reloaded = await storage.webhookEndpoints.findById(endpoint.id);
+    expect(reloaded?.status).toBe('enabled');
+    await db.destroy();
+  });
+
   it('publishes without any HTTP call when no endpoint subscribes to the event', async () => {
     const { db, storage, payable } = await setup();
     await payable
