@@ -2,6 +2,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { PayableError } from '../../domain/errors/payable-error';
 import type { Payable } from '../../payable';
 import { isMissingMcpDependency, MCP_DEPENDENCY_HINT } from './dependencies';
 import type { McpPayableOptions } from './options';
@@ -57,12 +58,27 @@ async function loadConfig(path: string): Promise<PayableMcpConfig> {
   return { payable: exported as Payable };
 }
 
+function parsePort(port: string | undefined): number | undefined {
+  if (!port) {
+    return undefined;
+  }
+  const parsed = Number(port);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
+    throw new PayableError(`Invalid --http port: ${port}`, { code: 'MCP_INVALID_PORT' });
+  }
+  return parsed;
+}
+
 function parseHost(value: string | boolean | undefined): { host?: string; port?: number } {
   if (typeof value !== 'string') {
     return {};
   }
   const [host, port] = value.split(':');
-  return { host: host || undefined, port: port ? Number(port) : undefined };
+  return { host: host || undefined, port: parsePort(port) };
+}
+
+function isLoopbackHost(host: string | undefined): boolean {
+  return host === undefined || host === '127.0.0.1' || host === 'localhost' || host === '::1';
 }
 
 async function main(): Promise<void> {
@@ -81,6 +97,14 @@ async function main(): Promise<void> {
   if (httpFlag) {
     const { host, port } = parseHost(httpFlag);
     const token = process.env.PAYABLE_MCP_TOKEN;
+    if (!token) {
+      if (!isLoopbackHost(host)) {
+        notify(`refusing to bind ${host} without PAYABLE_MCP_TOKEN; HTTP transport would be open`);
+        process.exitCode = 1;
+        return;
+      }
+      notify('WARNING: no PAYABLE_MCP_TOKEN set; HTTP transport is unauthenticated');
+    }
     await serveHttp(() => createPayableMcpServer(payable, mcp), {
       host,
       port,
