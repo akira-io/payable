@@ -1,3 +1,5 @@
+import { timingSafeEqual as cryptoTimingSafeEqual } from 'node:crypto';
+
 const SECRET_BYTES = 32;
 const SECRET_PREFIX = 'whsec_';
 
@@ -28,12 +30,10 @@ export class WebhookSigningSecret {
 }
 
 function timingSafeEqual(left: string, right: string): boolean {
-  if (left.length !== right.length) {
+  const a = Buffer.from(left, 'utf8');
+  const b = Buffer.from(right, 'utf8');
+  if (a.length !== b.length) {
     return false;
   }
-  let mismatch = 0;
-  for (let index = 0; index < left.length; index += 1) {
-    mismatch |= left.charCodeAt(index) ^ right.charCodeAt(index);
-  }
-  return mismatch === 0;
+  return cryptoTimingSafeEqual(a, b);
 }

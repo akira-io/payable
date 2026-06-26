@@ -65,4 +65,19 @@ describe('hashRequest', () => {
     await expect(hashRequest({ a: Number.NaN })).rejects.toThrow(/non-finite/);
     await expect(hashRequest({ a: Number.POSITIVE_INFINITY })).rejects.toThrow(/non-finite/);
   });
+
+  it('rejects deeply nested or cyclic structures instead of overflowing the stack', async () => {
+    let head: Record<string, unknown> = {};
+    const deep = head;
+    for (let index = 0; index < 200; index += 1) {
+      const next: Record<string, unknown> = {};
+      head.next = next;
+      head = next;
+    }
+    await expect(hashRequest(deep)).rejects.toThrow(/nested deeper/);
+
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    await expect(hashRequest(cyclic)).rejects.toThrow(/nested deeper/);
+  });
 });
