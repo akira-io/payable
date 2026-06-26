@@ -323,7 +323,10 @@ export {
 } from './domain/value-objects';
 export { type AuditEntryInput, AuditService } from './infrastructure/audit/audit-service';
 export { MemoryCacheDriver } from './infrastructure/cache/memory/memory-cache-driver';
-export { NodeEncryptionDriver } from './infrastructure/encryption/node-encryption-driver';
+export {
+  generateEncryptionKey,
+  NodeEncryptionDriver,
+} from './infrastructure/encryption/node-encryption-driver';
 export { InMemoryEventBus } from './infrastructure/event-bus/in-memory-event-bus';
 export { MemoryLockDriver } from './infrastructure/locks/memory-lock-driver';
 export {

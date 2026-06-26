@@ -21,7 +21,7 @@ afterEach(async () => {
 
 describe('webhook encryption at rest', () => {
   it('stores the payload and data as ciphertext and decrypts on read', async () => {
-    const encryption = new NodeEncryptionDriver({ key: 'a-storage-key' });
+    const encryption = new NodeEncryptionDriver({ key: 'a-storage-key', salt: 'a-storage-salt' });
     const storage = new KnexStorageDriver(db, new FakeClock(), encryption);
     const provider = new FakeProvider();
     provider.verifyResult = {
@@ -51,7 +51,7 @@ describe('webhook encryption at rest', () => {
   });
 
   it('stores the webhook endpoint signing secret as ciphertext and decrypts on read', async () => {
-    const encryption = new NodeEncryptionDriver({ key: 'a-storage-key' });
+    const encryption = new NodeEncryptionDriver({ key: 'a-storage-key', salt: 'a-storage-salt' });
     const storage = new KnexStorageDriver(db, new FakeClock(), encryption);
     const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
 
