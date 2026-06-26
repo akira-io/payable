@@ -8,6 +8,7 @@ export interface QueueJob<T = unknown> {
 export type JobHandler<T = unknown> = (job: QueueJob<T>) => Promise<void>;
 
 export interface QueueDriver {
+  readonly inline?: boolean;
   dispatch<T>(job: QueueJob<T>): Promise<void>;
   process<T>(name: string, handler: JobHandler<T>): void;
 }

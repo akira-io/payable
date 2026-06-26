@@ -56,6 +56,9 @@ export class ReceiveWebhookAction {
       correlationId: stored.correlationId,
       tenantId,
     });
+    if (!this.deps.queue.inline) {
+      return { webhookEventId: stored.id, duplicate: stored.duplicate, status: stored.status };
+    }
     const settled = await this.deps.storage.webhookEvents.findById(stored.id, tenantId);
     const status = settled?.status ?? stored.status;
     if (status === 'failed') {

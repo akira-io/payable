@@ -189,7 +189,7 @@ describe('payable.receiveWebhook', () => {
     await db.destroy();
   });
 
-  it('signals a non-2xx when a redelivered event is still failed after dispatch', async () => {
+  it('signals a non-2xx when a redelivered event is still failed after dispatch on an inline queue', async () => {
     const db = createTestDb();
     await migrate(db);
     const provider = new FakeProvider();
@@ -202,6 +202,7 @@ describe('payable.receiveWebhook', () => {
     const clock = new FakeClock();
     const storage = new KnexStorageDriver(db, clock);
     const idleQueue: QueueDriver = {
+      inline: true,
       dispatch: async () => {},
       process: () => {},
     };
@@ -226,6 +227,43 @@ describe('payable.receiveWebhook', () => {
         code: 'WEBHOOK_PROCESSING_FAILED',
       },
     );
+    await db.destroy();
+  });
+
+  it('returns the stored status without signalling failure on an asynchronous queue', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new FakeProvider();
+    provider.verifyResult = {
+      providerEventId: 'evt_async',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      data: { id: 'in_1' },
+    };
+    const clock = new FakeClock();
+    const storage = new KnexStorageDriver(db, clock);
+    const asyncQueue: QueueDriver = {
+      dispatch: async () => {},
+      process: () => {},
+    };
+    const payable = createPayable({ providers: { stripe: provider }, storage, queue: asyncQueue });
+
+    await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_async',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      payload: '{}',
+      data: { id: 'in_1' },
+      headers: {},
+      status: 'failed',
+      correlationId: 'corr_async',
+      receivedAt: clock.now(),
+    });
+
+    const result = await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
+    expect(result.webhookEventId).toBeDefined();
     await db.destroy();
   });
 

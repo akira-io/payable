@@ -26,12 +26,14 @@ export interface IdempotencyServiceOptions {
   lockTtlMs?: number;
   retryFailed?: boolean;
   completedTtlMs?: number;
+  failedTtlMs?: number;
 }
 
 export class IdempotencyService {
   private readonly lockTtlMs: number;
   private readonly retryFailed: boolean;
   private readonly completedTtlMs: number;
+  private readonly failedTtlMs: number;
 
   constructor(
     private readonly store: IdempotencyStore,
@@ -41,6 +43,7 @@ export class IdempotencyService {
     this.lockTtlMs = options.lockTtlMs ?? 30_000;
     this.retryFailed = options.retryFailed ?? true;
     this.completedTtlMs = options.completedTtlMs ?? 86_400_000;
+    this.failedTtlMs = options.failedTtlMs ?? this.lockTtlMs;
   }
 
   async execute<T>(execution: IdempotentExecution<T>): Promise<T> {
@@ -127,7 +130,10 @@ export class IdempotencyService {
       );
       return result;
     } catch (error) {
-      await this.store.markFailed(scopedKey, execution.tenantId, record.lockToken).catch(() => {});
+      const failedExpiresAt = new Date(this.clock.now().getTime() + this.failedTtlMs);
+      await this.store
+        .markFailed(scopedKey, execution.tenantId, record.lockToken, failedExpiresAt)
+        .catch(() => {});
       throw error;
     }
   }

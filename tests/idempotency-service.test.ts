@@ -340,4 +340,34 @@ describe('IdempotencyService', () => {
     ).rejects.toBeInstanceOf(IdempotencyConflictError);
     expect(attempts).toBe(1);
   });
+
+  it('lets a retryFailed:false record retry once its failure ttl elapses', async () => {
+    const clock = new FakeClock();
+    const service = new IdempotencyService(new InMemoryIdempotencyStore(), clock, {
+      failedTtlMs: 1_000,
+    });
+    let attempts = 0;
+    const request = { amount: 100 };
+    const run = async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new Error('provider down');
+      }
+      return 'recovered';
+    };
+
+    await expect(
+      service.execute({ ...execution('charge:ttl', request, run), retryFailed: false }),
+    ).rejects.toThrow('provider down');
+    await expect(
+      service.execute({ ...execution('charge:ttl', request, run), retryFailed: false }),
+    ).rejects.toBeInstanceOf(IdempotencyConflictError);
+
+    clock.advance(1_500);
+
+    expect(
+      await service.execute({ ...execution('charge:ttl', request, run), retryFailed: false }),
+    ).toBe('recovered');
+    expect(attempts).toBe(2);
+  });
 });

@@ -6,6 +6,7 @@ import type {
 import { PayableError } from '../../../domain/errors/payable-error';
 
 export class SyncQueueDriver implements QueueDriver {
+  readonly inline = true;
   private readonly handlers = new Map<string, JobHandler>();
 
   async dispatch<T>(job: QueueJob<T>): Promise<void> {

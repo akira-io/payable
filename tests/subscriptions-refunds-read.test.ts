@@ -112,11 +112,14 @@ describe('payable subscription and refund reads', () => {
       invoicePdf: null,
     });
 
-    const pdf = await payable.invoices().downloadPdf('in_fake');
+    const pdf = await payable.invoices().downloadPdf('in_fake', billable);
     expect(pdf.filename).toBe('in_fake.pdf');
     expect(pdf.content).toEqual(new Uint8Array([1, 2, 3]));
 
-    await expect(payable.invoices().downloadPdf('in_missing')).rejects.toMatchObject({
+    await expect(payable.invoices().downloadPdf('in_fake')).rejects.toMatchObject({
+      code: 'INVOICE_NOT_FOUND',
+    });
+    await expect(payable.invoices().downloadPdf('in_missing', billable)).rejects.toMatchObject({
       code: 'INVOICE_NOT_FOUND',
     });
     await db.destroy();
