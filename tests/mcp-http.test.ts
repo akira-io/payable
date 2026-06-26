@@ -61,4 +61,38 @@ describe('mcp http transport', () => {
     expect(status).toBe(413);
     await new Promise<void>((resolve) => http.close(() => resolve()));
   });
+
+  it('rejects a chunked request whose streamed body exceeds the size cap', async () => {
+    const payable = createPayable({ providers: { stripe: new FakeProvider() } });
+    const http = await serveHttp(() => createPayableMcpServer(payable), {
+      port: 0,
+      maxBodyBytes: 16,
+    });
+    const { port } = http.address() as AddressInfo;
+
+    const status = await new Promise<number>((resolve) => {
+      const request = nodeRequest(
+        {
+          host: '127.0.0.1',
+          port,
+          path: '/mcp',
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            accept: 'application/json, text/event-stream',
+          },
+        },
+        (response) => {
+          response.resume();
+          resolve(response.statusCode ?? 0);
+        },
+      );
+      request.on('error', () => resolve(413));
+      request.write('x'.repeat(64));
+      request.end();
+    });
+
+    expect(status).toBe(413);
+    await new Promise<void>((resolve) => http.close(() => resolve()));
+  });
 });

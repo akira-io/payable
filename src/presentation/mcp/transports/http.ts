@@ -59,5 +59,21 @@ async function handle(
     void server.close();
   });
   await server.connect(transport);
-  await transport.handleRequest(req, res);
+
+  let received = 0;
+  req.on('data', (chunk: Buffer) => {
+    received += chunk.length;
+    if (received > maxBodyBytes && !res.headersSent) {
+      res.writeHead(413).end();
+      req.destroy();
+    }
+  });
+
+  try {
+    await transport.handleRequest(req, res);
+  } catch (error) {
+    if (!req.destroyed) {
+      throw error;
+    }
+  }
 }

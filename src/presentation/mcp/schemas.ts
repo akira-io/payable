@@ -4,7 +4,7 @@ import { Money } from '../../domain/value-objects/money';
 export const billableObject = z.object({
   billableType: z.string().min(1),
   billableId: z.string().min(1),
-  email: z.string().min(1),
+  email: z.string().email(),
   name: z.string().optional(),
 });
 
