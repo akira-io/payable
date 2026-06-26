@@ -33,6 +33,7 @@ import { ListAllPaymentsQuery } from './application/queries/payments/list-all-pa
 import { ListAllSubscriptionsQuery } from './application/queries/subscriptions/list-all-subscriptions.query';
 import { IdempotencyService } from './application/services/idempotency/idempotency-service';
 import {
+  DEFAULT_WEBHOOK_DELIVERY_ATTEMPTS,
   type HostResolver,
   WebhookDeliveryService,
 } from './application/services/webhook-delivery/webhook-delivery-service';
@@ -196,7 +197,11 @@ export class Payable {
       resolveHost: options?.resolveHost,
       logger: this.resolved.logger,
     });
-    return this.outbox(options?.outbox).publishPending(
+    const outboxOptions: OutboxServiceOptions = {
+      maxAttempts: DEFAULT_WEBHOOK_DELIVERY_ATTEMPTS,
+      ...options?.outbox,
+    };
+    return this.outbox(outboxOptions).publishPending(
       (event) => service.handle(event),
       options?.limit,
     );
