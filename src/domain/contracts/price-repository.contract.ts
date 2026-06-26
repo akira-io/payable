@@ -6,6 +6,10 @@ export interface PriceRepository {
   create(data: NewPrice): Promise<Price>;
   update(id: string, patch: Partial<NewPrice>): Promise<Price>;
   findById(id: string): Promise<Price | null>;
-  findByProviderId(provider: string, providerPriceId: string): Promise<Price | null>;
-  listByProduct(productId: string): Promise<Price[]>;
+  findByProviderId(
+    provider: string,
+    providerPriceId: string,
+    tenantId?: string | null,
+  ): Promise<Price | null>;
+  listByProduct(productId: string, tenantId?: string | null): Promise<Price[]>;
 }

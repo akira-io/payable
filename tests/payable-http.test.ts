@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { PayableError } from '../src/domain/errors/payable-error';
 import { errorResult } from '../src/presentation/mcp/context';
-import { payableErrorBody, payableErrorStatus } from '../src/presentation/shared/payable-http';
+import {
+  payableErrorBody,
+  payableErrorStatus,
+  safeContentDispositionFilename,
+} from '../src/presentation/shared/payable-http';
 import { parseBody } from '../src/presentation/shared/schemas';
 
 describe('payableErrorStatus', () => {
@@ -70,6 +74,22 @@ describe('payableErrorBody', () => {
       error: 'INTERNAL_ERROR',
       message: 'Unexpected error',
     });
+  });
+});
+
+describe('safeContentDispositionFilename', () => {
+  it('passes through a safe provider id filename', () => {
+    expect(safeContentDispositionFilename('in_ABC-123.pdf')).toBe('in_ABC-123.pdf');
+  });
+
+  it('neutralizes quotes and CRLF used for header injection', () => {
+    expect(safeContentDispositionFilename('a".pdf\r\nSet-Cookie: x=1')).toBe(
+      'a_.pdf__Set-Cookie__x_1',
+    );
+  });
+
+  it('falls back when nothing safe remains', () => {
+    expect(safeContentDispositionFilename('"\r\n')).toBe('invoice.pdf');
   });
 });
 

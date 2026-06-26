@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { Payable } from '../../../payable';
+import { safeContentDispositionFilename } from '../../shared/payable-http';
 import {
   billableLookupSchema,
   listInvoicesQuerySchema,
@@ -30,11 +31,13 @@ export async function registerReadRoutes(
   scope.get('/invoices/:id/pdf', async (request, reply) => {
     const tenantId = options.resolveTenant?.(request) ?? null;
     const id = String((request.params as { id: string }).id);
-    const pdf = await payable.invoices(undefined, tenantId).downloadPdf(id);
+    const billable = parseBody(billableLookupSchema, request.query);
+    const pdf = await payable.invoices(undefined, tenantId).downloadPdf(id, billable);
+    const filename = safeContentDispositionFilename(pdf.filename);
     reply
       .status(200)
       .header('content-type', 'application/pdf')
-      .header('content-disposition', `attachment; filename="${pdf.filename}"`)
+      .header('content-disposition', `attachment; filename="${filename}"`)
       .send(Buffer.from(pdf.content));
   });
 

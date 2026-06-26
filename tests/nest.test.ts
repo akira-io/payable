@@ -15,6 +15,7 @@ import type {
 import { PayableController } from '../src/presentation/nest/payable.controller';
 import { PayableExceptionFilter } from '../src/presentation/nest/payable.exception-filter';
 import { PayableAuthGuard } from '../src/presentation/nest/payable-auth.guard';
+import { PayableReadController } from '../src/presentation/nest/payable-read.controller';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
@@ -23,6 +24,13 @@ const billable = { billableType: 'User', billableId: '1', email: 'user@example.c
 
 function controllerFor(payable: Payable, options: NestPayableOptions = {}): PayableController {
   return new PayableController(payable, options);
+}
+
+function readControllerFor(
+  payable: Payable,
+  options: NestPayableOptions = {},
+): PayableReadController {
+  return new PayableReadController(payable, options);
 }
 
 describe('nest adapter', () => {
@@ -163,7 +171,9 @@ describe('nest adapter', () => {
   });
 
   it('lists invoices and payments (empty without storage)', async () => {
-    const controller = controllerFor(createPayable({ providers: { stripe: new FakeProvider() } }));
+    const controller = readControllerFor(
+      createPayable({ providers: { stripe: new FakeProvider() } }),
+    );
     await expect(
       controller.invoices({ headers: {} }, { billableType: 'User', billableId: '1' }),
     ).resolves.toEqual([]);
@@ -272,21 +282,21 @@ describe('nest adapter', () => {
   it('creates, reads, and updates a customer', async () => {
     const db = createTestDb();
     await migrate(db);
-    const controller = controllerFor(
-      createPayable({
-        providers: { stripe: new FakeProvider() },
-        storage: new KnexStorageDriver(db, new FakeClock()),
-      }),
-    );
+    const payable = createPayable({
+      providers: { stripe: new FakeProvider() },
+      storage: new KnexStorageDriver(db, new FakeClock()),
+    });
+    const controller = controllerFor(payable);
+    const readController = readControllerFor(payable);
 
     await expect(
-      controller.getCustomer({ headers: {} }, { billableType: 'User', billableId: '1' }),
+      readController.getCustomer({ headers: {} }, { billableType: 'User', billableId: '1' }),
     ).rejects.toMatchObject({ code: 'CUSTOMER_NOT_FOUND' });
 
     const created = await controller.createCustomer({ headers: {} }, { billable });
     expect(created.providerCustomerId).toBe('cus_fake');
 
-    const fetched = await controller.getCustomer(
+    const fetched = await readController.getCustomer(
       { headers: {} },
       { billableType: 'User', billableId: '1' },
     );
@@ -319,7 +329,7 @@ describe('nest adapter', () => {
     await migrate(db);
     const storage = new KnexStorageDriver(db, new FakeClock());
     const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
-    const controller = controllerFor(payable);
+    const controller = readControllerFor(payable);
     const customer = await payable.customers().create(billable);
     await storage.subscriptions.create({
       tenantId: null,
@@ -379,7 +389,7 @@ describe('nest adapter', () => {
     await migrate(db);
     const storage = new KnexStorageDriver(db, new FakeClock());
     const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
-    const controller = controllerFor(payable);
+    const controller = readControllerFor(payable);
     const customer = await payable.customers().create(billable);
     await storage.invoices.create({
       tenantId: null,
@@ -397,13 +407,20 @@ describe('nest adapter', () => {
       invoicePdf: null,
     });
 
-    const file = await controller.getInvoicePdf({ headers: {} }, 'in_fake');
+    const file = await controller.getInvoicePdf({ headers: {} }, 'in_fake', billable);
     expect(file.options.type).toBe('application/pdf');
     expect(file.options.disposition).toContain('in_fake.pdf');
 
-    await expect(controller.getInvoicePdf({ headers: {} }, 'in_missing')).rejects.toMatchObject({
-      code: 'INVOICE_NOT_FOUND',
-    });
+    await expect(
+      controller.getInvoicePdf({ headers: {} }, 'in_fake', {
+        billableType: 'User',
+        billableId: '2',
+      }),
+    ).rejects.toMatchObject({ code: 'INVOICE_NOT_FOUND' });
+
+    await expect(
+      controller.getInvoicePdf({ headers: {} }, 'in_missing', billable),
+    ).rejects.toMatchObject({ code: 'INVOICE_NOT_FOUND' });
     await db.destroy();
   });
 });

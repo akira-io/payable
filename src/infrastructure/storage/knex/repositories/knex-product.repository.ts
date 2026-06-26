@@ -12,8 +12,16 @@ export class KnexProductRepository
 {
   protected readonly table = 'payable_products';
 
-  findByProviderId(provider: string, providerProductId: string): Promise<Product | null> {
-    return this.firstWhere({ provider, provider_product_id: providerProductId });
+  findByProviderId(
+    provider: string,
+    providerProductId: string,
+    tenantId?: string | null,
+  ): Promise<Product | null> {
+    return this.firstWhere({
+      provider,
+      provider_product_id: providerProductId,
+      ...this.tenantClause(tenantId),
+    });
   }
 
   protected toEntity(row: Record<string, unknown>): Product {

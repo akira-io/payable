@@ -73,6 +73,11 @@ export function payableErrorBody(error: unknown): PayableErrorBody {
   return nonPayableErrorBody(error);
 }
 
+export function safeContentDispositionFilename(filename: string): string {
+  const cleaned = filename.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 128);
+  return /[A-Za-z0-9]/.test(cleaned) ? cleaned : 'invoice.pdf';
+}
+
 export function flattenHeaders(headers: IncomingHttpHeaders): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(headers)) {
