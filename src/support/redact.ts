@@ -5,6 +5,10 @@ const SENSITIVE_NAMES = new Set([
   'set-cookie',
   'stripe-signature',
   'paddle-signature',
+  'pan',
+  'iban',
+  'ssn',
+  'pin',
 ]);
 
 const SENSITIVE_PATTERNS = [
@@ -17,6 +21,11 @@ const SENSITIVE_PATTERNS = [
   'api_key',
   'cookie',
   'password',
+  'card',
+  'cvv',
+  'cvc',
+  'bearer',
+  'credential',
 ];
 
 export function isSensitiveKey(name: string): boolean {

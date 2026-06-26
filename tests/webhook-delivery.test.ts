@@ -186,6 +186,24 @@ describe('outbound webhook delivery', () => {
     await db.destroy();
   });
 
+  it('does not follow redirects and records the delivery as failed', async () => {
+    const { db, storage, payable } = await setup();
+    await payable
+      .webhookEndpoints()
+      .register({ url: 'https://hooks.test/redirect', events: ['invoice.paid'] });
+    const event = await storage.outboxEvents.create(outboxEvent('invoice.paid.v1'));
+    const { calls, impl } = recordingFetch(() => ({ ok: false, status: 302 }));
+
+    await payable.deliverPendingWebhooks({ fetch: impl, resolveHost: publicHost });
+
+    expect(calls).toHaveLength(1);
+    const deliveries = await storage.webhookDeliveries.listForEvent(event.id);
+    expect(deliveries[0]?.status).toBe('failed');
+    expect(deliveries[0]?.responseCode).toBe(302);
+    expect(deliveries[0]?.responseBody).toBe('redirect not followed');
+    await db.destroy();
+  });
+
   it('publishes without any HTTP call when no endpoint subscribes to the event', async () => {
     const { db, storage, payable } = await setup();
     await payable
