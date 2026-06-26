@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync } from 'node:crypto';
 import type { Encryption } from '../../domain/contracts/encryption.contract';
 import { PayableError } from '../../domain/errors/payable-error';
 
@@ -12,11 +12,15 @@ const RAW_KEY_PATTERN = /^[0-9a-f]{64}$/i;
 
 export interface NodeEncryptionOptions {
   key: string;
-  salt?: string;
+  salt?: string | Buffer;
 }
 
 export function generateEncryptionKey(): string {
   return randomBytes(KEY_BYTES).toString('hex');
+}
+
+export function legacyDerivedSalt(key: string): Buffer {
+  return createHash('sha256').update(`payable.encryption.kdf.v1:${key}`).digest();
 }
 
 export class NodeEncryptionDriver implements Encryption {
@@ -32,13 +36,17 @@ export class NodeEncryptionDriver implements Encryption {
       this.key = Buffer.from(options.key, 'hex');
       return;
     }
-    if (!options.salt || options.salt.trim().length === 0) {
+    const salt = options.salt;
+    if (
+      salt === undefined ||
+      (typeof salt === 'string' ? salt.trim().length === 0 : salt.length === 0)
+    ) {
       throw new PayableError(
         'A passphrase encryption key requires an explicit salt; provide a unique salt or use a 32-byte raw hex key from generateEncryptionKey()',
         { code: 'ENCRYPTION_SALT_REQUIRED' },
       );
     }
-    this.key = scryptSync(options.key, options.salt, KEY_BYTES, {
+    this.key = scryptSync(options.key, salt, KEY_BYTES, {
       N: SCRYPT_COST,
       r: 8,
       p: 1,
