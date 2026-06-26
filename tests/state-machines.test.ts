@@ -96,6 +96,19 @@ describe('SubscriptionStateMachine', () => {
       event: null,
     });
   });
+
+  it('converges to a multi-hop reachable provider status without dropping it', () => {
+    expect(reconcileSubscriptionStatus('incomplete', 'past_due')).toEqual({
+      status: 'past_due',
+      applied: true,
+      event: null,
+    });
+    expect(reconcileSubscriptionStatus('trialing', 'unpaid')).toEqual({
+      status: 'unpaid',
+      applied: true,
+      event: 'mark_unpaid',
+    });
+  });
 });
 
 describe('InvoiceStateMachine', () => {

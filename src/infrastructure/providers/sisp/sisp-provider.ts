@@ -106,10 +106,20 @@ export class SispProvider implements PaymentProvider, RedirectCallbackCapable {
 
   async verifyCallback(payload: SispCallbackPayload): Promise<boolean> {
     const client = await this.sisp();
-    return client.validateCallback(payload);
+    try {
+      return await client.validateCallback(payload);
+    } catch {
+      return false;
+    }
   }
 
   async handleRedirectCallback(payload: SispCallbackPayload): Promise<RedirectCallbackResult> {
+    if (!(await this.verifyCallback(payload))) {
+      throw new PayableError('SISP callback signature is invalid', {
+        code: 'PROVIDER_SISP_INVALID_CALLBACK',
+        context: { provider: this.name },
+      });
+    }
     const client = await this.sisp();
     const record = await withSispErrors(() => client.handlePaymentCallback(payload));
     return { providerPaymentId: record.merchant_ref, status: toPaymentStatus(record.status) };

@@ -92,6 +92,24 @@ export interface SubscriptionStatusReconciliation {
   event: SubscriptionEvent | null;
 }
 
+function isReachable(from: SubscriptionStatus, to: SubscriptionStatus): boolean {
+  const visited = new Set<SubscriptionStatus>([from]);
+  const queue: SubscriptionStatus[] = [from];
+  while (queue.length > 0) {
+    const node = queue.shift() as SubscriptionStatus;
+    for (const next of Object.values(MAP[node] ?? {})) {
+      if (next === to) {
+        return true;
+      }
+      if (!visited.has(next)) {
+        visited.add(next);
+        queue.push(next);
+      }
+    }
+  }
+  return false;
+}
+
 export function reconcileSubscriptionStatus(
   current: SubscriptionStatus,
   target: SubscriptionStatus,
@@ -103,6 +121,9 @@ export function reconcileSubscriptionStatus(
     if (next === target) {
       return { status: target, applied: true, event: event as SubscriptionEvent };
     }
+  }
+  if (isReachable(current, target)) {
+    return { status: target, applied: true, event: null };
   }
   return { status: current, applied: false, event: null };
 }

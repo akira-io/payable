@@ -155,12 +155,21 @@ export class Money {
   }
 
   format(locale = 'en-US'): string {
-    // decimal must stay a string so Intl keeps full precision; Number() would round large values. Cast bypasses Intl's number-only type.
-    const decimal = toDecimal(this.value) as unknown as number;
+    const value = CurrencyManager.isDecimalBase(this.code)
+      ? (toDecimal(this.value) as unknown as number)
+      : this.nonDecimalUnits();
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: this.code,
-    }).format(decimal);
+    }).format(value);
+  }
+
+  private nonDecimalUnits(): number {
+    const { base, exponent } = CurrencyManager.resolve(this.code);
+    const divisor = Array.isArray(base)
+      ? base.reduce((unit, value) => unit * value, 1)
+      : base ** exponent;
+    return this.amount() / divisor;
   }
 
   toJSON(): { amount: number; currency: CurrencyCode } {

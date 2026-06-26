@@ -104,7 +104,7 @@ export function toSubscriptionDTO(subscription: Stripe.Subscription): Subscripti
 }
 
 function earliestPeriodEnd(subscription: Stripe.Subscription): number | null | undefined {
-  const ends = subscription.items.data
+  const ends = (subscription.items?.data ?? [])
     .map((item) => item.current_period_end)
     .filter((end): end is number => typeof end === 'number');
   if (ends.length === 0) {

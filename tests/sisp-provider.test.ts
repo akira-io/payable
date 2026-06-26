@@ -184,8 +184,25 @@ describe('SispProvider', () => {
     const provider = new SispProvider(OPTIONS, client);
     expect(await provider.verifyCallback({ ok: true })).toBe(true);
     expect(await provider.verifyCallback({ ok: false })).toBe(false);
-    const result = await provider.handleRedirectCallback({ merchantRef: 'R-cb' });
+    const result = await provider.handleRedirectCallback({ ok: true, merchantRef: 'R-cb' });
     expect(result).toEqual({ providerPaymentId: 'R-cb', status: 'succeeded' });
+  });
+
+  it('rejects an unsigned redirect callback before completing the payment', async () => {
+    const { client, calls } = fakeSisp();
+    await expect(
+      new SispProvider(OPTIONS, client).handleRedirectCallback({ ok: false, merchantRef: 'R-cb' }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_SISP_INVALID_CALLBACK' });
+    expect(calls.refund).toBeUndefined();
+  });
+
+  it('treats a callback that throws during validation as invalid', async () => {
+    const { client } = fakeSisp();
+    client.validateCallback = () => {
+      throw new Error('malformed payload');
+    };
+    const provider = new SispProvider(OPTIONS, client);
+    expect(await provider.verifyCallback({ ok: true })).toBe(false);
   });
 
   it('never serializes the wrapped client', () => {
