@@ -16,6 +16,7 @@ describe('migration ledger', () => {
       '001-billing-tables',
       '002-system-tables',
       '003-alter-existing-tables',
+      '004-widen-endpoint-secret',
     ]);
     await db.destroy();
   });
