@@ -102,10 +102,13 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
           updated_at: nowIso,
         });
       const rows = (await trx(this.table)
-        .where({ locked_by: token, status: 'processing' })
-        .orderBy('created_at', 'asc')
-        .orderBy('id', 'asc')) as Record<string, unknown>[];
-      return rows.map((row) => this.toEntity(row));
+        .whereIn('id', ids)
+        .where({ locked_by: token, status: 'processing' })) as Record<string, unknown>[];
+      const byId = new Map(rows.map((row) => [row.id as string, row]));
+      return ids
+        .map((id) => byId.get(id))
+        .filter((row): row is Record<string, unknown> => row !== undefined)
+        .map((row) => this.toEntity(row));
     });
   }
 
@@ -160,10 +163,11 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
     nextRetryAt: Date | null,
     lockToken: string | null = null,
   ): Promise<number> {
+    const retry = nextRetryAt !== null && nextRetryAt.getTime() > this.clock.now().getTime();
     return this.owned(id, lockToken).update({
-      status: nextRetryAt ? 'pending' : 'failed',
+      status: retry ? 'pending' : 'failed',
       attempts: this.knex.raw('attempts + 1'),
-      next_retry_at: nextRetryAt ? nextRetryAt.toISOString() : null,
+      next_retry_at: retry ? (nextRetryAt as Date).toISOString() : null,
       locked_by: null,
       locked_until: null,
       updated_at: this.clock.now().toISOString(),

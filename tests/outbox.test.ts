@@ -107,6 +107,37 @@ describe('OutboxService', () => {
     expect(tenants).toContain('tenant-busy');
   });
 
+  it('returns the claimed batch in fair round-robin order across tenants', async () => {
+    await storage.outboxEvents.create({ ...newOutbox('a.0.v1'), tenantId: 'tenant-a' });
+    clock.advance(1000);
+    await storage.outboxEvents.create({ ...newOutbox('a.1.v1'), tenantId: 'tenant-a' });
+    clock.advance(1000);
+    await storage.outboxEvents.create({ ...newOutbox('b.0.v1'), tenantId: 'tenant-b' });
+    clock.advance(1000);
+    await storage.outboxEvents.create({ ...newOutbox('b.1.v1'), tenantId: 'tenant-b' });
+
+    const claimed = await storage.outboxEvents.claimPending(10);
+
+    expect(claimed.map((event) => event.tenantId)).toEqual([
+      'tenant-a',
+      'tenant-b',
+      'tenant-a',
+      'tenant-b',
+    ]);
+  });
+
+  it('treats a non-future retry time as terminal failure instead of infinite retry', async () => {
+    const event = await storage.outboxEvents.create(newOutbox('x.0.v1'));
+    const [claimed] = await storage.outboxEvents.claimPending(10);
+    const past = new Date(clock.now().getTime() - 1000);
+
+    await storage.outboxEvents.markFailed(event.id, past, claimed?.lockToken ?? null);
+
+    const row = await db('payable_outbox_events').where({ id: event.id }).first();
+    expect(row.status).toBe('failed');
+    expect(row.next_retry_at).toBeNull();
+  });
+
   it('isolates a per-event store-write failure instead of aborting the batch', async () => {
     await storage.outboxEvents.create(newOutbox('a.v1'));
     await storage.outboxEvents.create(newOutbox('b.v1'));

@@ -202,6 +202,59 @@ describe('BullMQQueueDriver', () => {
     expect(deadLetterAdds).toBe(3);
   });
 
+  it('writes the dead-letter with a deterministic jobId so re-delivery dedupes', async () => {
+    type FailedHandler = (job: unknown, error: Error) => void;
+    let failedHandler: FailedHandler | undefined;
+    const addOptions: Array<Record<string, unknown>> = [];
+    class FakeQueue {
+      constructor(public readonly queueName: string) {}
+      add(_name: string, _data: unknown, options: Record<string, unknown>): Promise<void> {
+        if (this.queueName.endsWith(':dead')) {
+          addOptions.push(options);
+        }
+        return Promise.resolve();
+      }
+    }
+    class FakeWorker {
+      constructor(
+        public readonly workerName: string,
+        public readonly processor: unknown,
+      ) {}
+      on(event: string, cb: FailedHandler): void {
+        if (event === 'failed') {
+          failedHandler = cb;
+        }
+      }
+    }
+    class TestDriver extends BullMQQueueDriver {
+      protected override loadBullmq(): Promise<typeof import('bullmq')> {
+        return Promise.resolve({
+          Queue: FakeQueue,
+          Worker: FakeWorker,
+        } as unknown as typeof import('bullmq'));
+      }
+    }
+
+    const driver = new TestDriver({ connection: { host: 'localhost', port: 6379 }, attempts: 1 });
+    driver.process('webhook', async () => {});
+    await driver.settle();
+
+    failedHandler?.(
+      {
+        name: 'webhook',
+        attemptsMade: 1,
+        opts: { attempts: 1 },
+        data: { payload: {}, correlationId: 'c' },
+        id: 'job_1',
+      },
+      new Error('boom'),
+    );
+    await driver.settle();
+
+    expect(addOptions).toHaveLength(1);
+    expect(addOptions[0]?.jobId).toBe('job_1:dead');
+  });
+
   it('starts a single worker when process is called concurrently for the same job', async () => {
     let workerCount = 0;
     class FakeQueue {
