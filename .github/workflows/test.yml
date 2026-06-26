@@ -37,6 +37,9 @@ jobs:
       - name: Verify core bundle excludes optional peers
         run: bun run verify:bundle
 
+      - name: Verify dist exports map and core entry imports
+        run: bun run verify:exports
+
   node:
     runs-on: ubuntu-latest
     strategy:
@@ -64,3 +67,9 @@ jobs:
 
       - name: Test on Node ${{ matrix.node-version }}
         run: npx vitest run
+
+      - name: Build on Node ${{ matrix.node-version }}
+        run: bun run build
+
+      - name: Verify dist imports under Node ${{ matrix.node-version }}
+        run: node scripts/check-exports.mjs

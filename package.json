@@ -62,7 +62,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "verify:bundle": "node scripts/check-core-bundle.mjs",
-    "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run build && npm run verify:bundle"
+    "verify:exports": "node scripts/check-exports.mjs",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run build && npm run verify:bundle && npm run verify:exports"
   },
   "keywords": [
     "billing",

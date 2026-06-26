@@ -42,6 +42,9 @@ jobs:
       - name: Verify bundle
         run: bun run verify:bundle
 
+      - name: Verify dist exports
+        run: bun run verify:exports
+
       - name: Install git-cliff
         uses: taiki-e/install-action@9e1e5806d4a4822de933115878265be9aaa786d9 # v2
         with:
