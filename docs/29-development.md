@@ -87,4 +87,4 @@ entry must not pull a provider or framework into every consumer's bundle.
 
 ---
 
-[Previous: Security](27-security.md) | [Index](00-index.md) | [Next: Operations](29-operations.md)
+[Previous: Security](28-security.md) | [Index](00-index.md) | [Next: Operations](30-operations.md)

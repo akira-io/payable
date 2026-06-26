@@ -2,7 +2,7 @@
 
 This page traces the main runtime paths through the system, from HTTP entry to provider, storage,
 queue, and event bus. Each flow names the real components involved. For the conceptual webhook
-contract see `features/13-webhooks.md`; for queue behavior see `persistence/21-queue.md`.
+contract see `features/13-webhooks.md`; for queue behavior see `persistence/22-queue.md`.
 
 ## Layering recap
 
@@ -173,4 +173,4 @@ flowchart TD
 
 ---
 
-[Previous: MCP](adapters/25-mcp.md) | [Index](00-index.md) | [Next: Security](27-security.md)
+[Previous: MCP](adapters/26-mcp.md) | [Index](00-index.md) | [Next: Security](28-security.md)

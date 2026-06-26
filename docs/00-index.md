@@ -38,24 +38,24 @@ tree.
 
 ## Persistence
 
-21. [persistence/20-storage-knex.md](persistence/20-storage-knex.md) - The Knex storage driver, repositories, and migrations.
-22. [persistence/21-queue.md](persistence/21-queue.md) - The sync and BullMQ queue drivers.
+21. [persistence/21-storage-knex.md](persistence/21-storage-knex.md) - The Knex storage driver, repositories, and migrations.
+22. [persistence/22-queue.md](persistence/22-queue.md) - The sync and BullMQ queue drivers.
 
 ## Adapters
 
-23. [adapters/22-express.md](adapters/22-express.md) - Express routes adapter.
-24. [adapters/23-fastify.md](adapters/23-fastify.md) - Fastify plugin adapter.
-25. [adapters/24-nestjs.md](adapters/24-nestjs.md) - NestJS module adapter.
-26. [adapters/25-mcp.md](adapters/25-mcp.md) - MCP server adapter for AI clients.
+23. [adapters/23-express.md](adapters/23-express.md) - Express routes adapter.
+24. [adapters/24-fastify.md](adapters/24-fastify.md) - Fastify plugin adapter.
+25. [adapters/25-nestjs.md](adapters/25-nestjs.md) - NestJS module adapter.
+26. [adapters/26-mcp.md](adapters/26-mcp.md) - MCP server adapter for AI clients.
 
 ## Cross-cutting
 
-27. [26-data-flows.md](26-data-flows.md) - End-to-end data flows for the main operations.
-28. [27-security.md](27-security.md) - Signature verification, auth boundaries, encryption, and header redaction.
-29. [28-development.md](28-development.md) - Build, lint, test, and the bundle check.
-30. [29-operations.md](29-operations.md) - Running migrations, queue workers, and the outbox.
-31. [30-troubleshooting.md](30-troubleshooting.md) - Common errors and their causes.
-32. [31-faq.md](31-faq.md) - Frequently asked questions.
+27. [27-data-flows.md](27-data-flows.md) - End-to-end data flows for the main operations.
+28. [28-security.md](28-security.md) - Signature verification, auth boundaries, encryption, and header redaction.
+29. [29-development.md](29-development.md) - Build, lint, test, and the bundle check.
+30. [30-operations.md](30-operations.md) - Running migrations, queue workers, and the outbox.
+31. [31-troubleshooting.md](31-troubleshooting.md) - Common errors and their causes.
+32. [32-faq.md](32-faq.md) - Frequently asked questions.
 
 ---
 

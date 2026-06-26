@@ -37,7 +37,7 @@ Both implement the same `QueueDriver` contract. `SyncQueueDriver` runs the job h
 dispatch, in-process, with no Redis and no retries - ideal for tests and simple deployments.
 `BullMQQueueDriver` enqueues to Redis and runs jobs on a worker with configurable attempts and
 exponential backoff - for production async processing. Webhook processing uses the job name
-`webhook.process` either way. See `docs/persistence/21-queue.md`.
+`webhook.process` either way. See `docs/persistence/22-queue.md`.
 
 ## Stripe vs Paddle - are they at parity?
 
@@ -52,14 +52,14 @@ No. No adapter installs authentication or guards. The only cryptographic check i
 verification. Authorization policies exist, but only `CanReplayWebhookPolicy` is wired into an
 action today, and policies enforce business rules from an explicit context rather than
 authenticating requests. You authenticate the caller and verify ownership of the billable. See
-`docs/27-security.md`.
+`docs/28-security.md`.
 
 ## Which HTTP routes does each adapter expose?
 
 They are not identical. Express implements the full set including a working `POST /refunds`. Fastify
 and NestJS implement webhooks, checkout, and subscription management, but `/refunds` (and
 `/customers`, `/invoices`, `/payments`) are 501 placeholders. The adapters do not all mount the same
-routes. See `docs/adapters/22-express.md`, `23-fastify.md`, and `24-nestjs.md`.
+routes. See `docs/adapters/23-express.md`, `24-fastify.md`, and `25-nestjs.md`.
 
 ## How do I add a provider?
 
@@ -84,8 +84,8 @@ Node `>=20`. CI runs the suite on Node 20 and 22, and the build targets `node20`
 
 `bun run test --filter=name` passes through to Vitest, or use Vitest directly:
 `npx vitest run -t "test name"` to select by name, or `npx vitest run tests/express.test.ts` to
-select by file. See `docs/28-development.md`.
+select by file. See `docs/29-development.md`.
 
 ---
 
-[Previous: Troubleshooting](30-troubleshooting.md) | [Index](00-index.md)
+[Previous: Troubleshooting](31-troubleshooting.md) | [Index](00-index.md)

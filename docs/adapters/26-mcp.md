@@ -140,4 +140,4 @@ await serveHttp(() => createPayableMcpServer(payable), { port: 3333 });
 
 ---
 
-[Previous: NestJS](24-nestjs.md) | [Index](../00-index.md) | [Next: Data Flows](../26-data-flows.md)
+[Previous: NestJS](25-nestjs.md) | [Index](../00-index.md) | [Next: Data Flows](../27-data-flows.md)
