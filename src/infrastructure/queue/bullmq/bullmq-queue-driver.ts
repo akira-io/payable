@@ -43,8 +43,20 @@ export interface BullMQRetryOptions {
 export class BullMQQueueDriver implements QueueDriver {
   private readonly queues = new Map<string, Promise<Queue>>();
   private readonly workers = new Map<string, Promise<Worker>>();
+  private readonly background = new Set<Promise<unknown>>();
 
   constructor(private readonly options: BullMQQueueOptions) {}
+
+  async settle(): Promise<void> {
+    while (this.background.size > 0) {
+      await Promise.allSettled([...this.background]);
+    }
+  }
+
+  private track(task: Promise<unknown>): void {
+    this.background.add(task);
+    task.finally(() => this.background.delete(task));
+  }
 
   retryOptions(): BullMQRetryOptions {
     return {
@@ -74,9 +86,11 @@ export class BullMQQueueDriver implements QueueDriver {
   }
 
   process<T>(name: string, handler: JobHandler<T>): void {
-    this.startWorker(name, handler as JobHandler).catch((error) => {
-      this.options.onError?.(name, asError(error));
-    });
+    this.track(
+      this.startWorker(name, handler as JobHandler).catch((error) => {
+        this.options.onError?.(name, asError(error));
+      }),
+    );
   }
 
   protected loadBullmq(): Promise<typeof import('bullmq')> {
@@ -136,9 +150,11 @@ export class BullMQQueueDriver implements QueueDriver {
   }
 
   private deadLetterExhausted(name: string, job: Job, error: Error): void {
-    this.deadLetter(name, job, error).catch((deadLetterError) => {
-      this.options.onError?.(name, asError(deadLetterError));
-    });
+    this.track(
+      this.deadLetter(name, job, error).catch((deadLetterError) => {
+        this.options.onError?.(name, asError(deadLetterError));
+      }),
+    );
   }
 
   private async deadLetter(name: string, job: Job, error: Error): Promise<void> {
