@@ -32,7 +32,10 @@ import { ListAuditLogsQuery } from './application/queries/audit/list-audit-logs.
 import { ListAllPaymentsQuery } from './application/queries/payments/list-all-payments.query';
 import { ListAllSubscriptionsQuery } from './application/queries/subscriptions/list-all-subscriptions.query';
 import { IdempotencyService } from './application/services/idempotency/idempotency-service';
-import { WebhookDeliveryService } from './application/services/webhook-delivery/webhook-delivery-service';
+import {
+  type HostResolver,
+  WebhookDeliveryService,
+} from './application/services/webhook-delivery/webhook-delivery-service';
 import type { Clock } from './domain/contracts/clock.contract';
 import type { EventBus } from './domain/contracts/event-bus.contract';
 import type { ListOptions } from './domain/contracts/list-options.contract';
@@ -64,6 +67,7 @@ export interface DeliverWebhooksOptions {
   limit?: number;
   timeoutMs?: number;
   fetch?: typeof globalThis.fetch;
+  resolveHost?: HostResolver;
   outbox?: OutboxServiceOptions;
 }
 
@@ -189,6 +193,7 @@ export class Payable {
     const service = new WebhookDeliveryService(storage, this.resolved.clock, {
       fetch: options?.fetch,
       timeoutMs: options?.timeoutMs,
+      resolveHost: options?.resolveHost,
       logger: this.resolved.logger,
     });
     return this.outbox(options?.outbox).publishPending(
