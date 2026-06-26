@@ -128,10 +128,19 @@ describe('Money', () => {
     expect(() => Money.of(Number.MAX_SAFE_INTEGER + 1, 'USD')).toThrow(RangeError);
   });
 
-  it('rejects multiply and percentage products that overflow the safe integer range', () => {
+  it('rejects multiply products that overflow the safe integer range', () => {
     const large = Money.of(90_000_000_000, 'JPY');
     expect(() => large.multiply(1_000_000)).toThrow(RangeError);
-    expect(() => large.percentage(1_000_000)).toThrow(RangeError);
+  });
+
+  it('computes a percentage whose result is safe even when the intermediate product is not', () => {
+    const large = Money.of(90_000_000_000, 'JPY');
+    expect(large.percentage(1_000_000).amount()).toBe(9_000_000_000_000);
+  });
+
+  it('rejects a percentage whose result overflows the safe integer range', () => {
+    const large = Money.of(90_000_000_000, 'JPY');
+    expect(() => large.percentage(10_000_000_000)).toThrow(RangeError);
   });
 
   it('rejects add and subtract results that overflow the safe integer range', () => {
