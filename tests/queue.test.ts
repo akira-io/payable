@@ -109,7 +109,7 @@ describe('BullMQQueueDriver', () => {
     });
 
     driver.process('webhook', async () => {});
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await driver.settle();
 
     expect(errors).toEqual([['webhook', 'bullmq unavailable']]);
   });
@@ -135,7 +135,7 @@ describe('BullMQQueueDriver', () => {
     });
 
     driver.runDeadLetter({ data: { payload: {}, correlationId: 'c1' }, name: 'job', id: '1' });
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await driver.settle();
 
     expect(errors).toEqual(['dead-letter unavailable']);
   });
@@ -184,7 +184,7 @@ describe('BullMQQueueDriver', () => {
     });
 
     driver.process('webhook', async () => {});
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await driver.settle();
 
     failedHandler?.(
       {
@@ -196,7 +196,7 @@ describe('BullMQQueueDriver', () => {
       },
       new Error('boom'),
     );
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await driver.settle();
 
     expect(errors).toEqual([['webhook', 'dlq down']]);
     expect(deadLetterAdds).toBe(3);
@@ -227,7 +227,7 @@ describe('BullMQQueueDriver', () => {
     const driver = new TestDriver({ connection: { host: 'localhost', port: 6379 } });
     driver.process('webhook', async () => {});
     driver.process('webhook', async () => {});
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await driver.settle();
 
     expect(workerCount).toBe(1);
   });
