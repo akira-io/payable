@@ -41,8 +41,8 @@ export interface BullMQRetryOptions {
 }
 
 export class BullMQQueueDriver implements QueueDriver {
-  private readonly queues = new Map<string, Queue>();
-  private readonly workers = new Map<string, Worker>();
+  private readonly queues = new Map<string, Promise<Queue>>();
+  private readonly workers = new Map<string, Promise<Worker>>();
 
   constructor(private readonly options: BullMQQueueOptions) {}
 
@@ -83,24 +83,41 @@ export class BullMQQueueDriver implements QueueDriver {
     return import('bullmq');
   }
 
-  private async queueFor(name: string): Promise<Queue> {
+  private queueFor(name: string): Promise<Queue> {
     const existing = this.queues.get(name);
     if (existing) {
       return existing;
     }
+    const created = this.createQueue(name).catch((error) => {
+      this.queues.delete(name);
+      throw error;
+    });
+    this.queues.set(name, created);
+    return created;
+  }
+
+  private async createQueue(name: string): Promise<Queue> {
     const { Queue: QueueClass } = await this.loadBullmq();
-    const queue = new QueueClass(name, {
+    return new QueueClass(name, {
       connection: this.options.connection,
       prefix: this.options.prefix,
     });
-    this.queues.set(name, queue);
-    return queue;
   }
 
-  private async startWorker(name: string, handler: JobHandler): Promise<void> {
-    if (this.workers.has(name)) {
-      return;
+  private startWorker(name: string, handler: JobHandler): Promise<Worker> {
+    const existing = this.workers.get(name);
+    if (existing) {
+      return existing;
     }
+    const created = this.createWorker(name, handler).catch((error) => {
+      this.workers.delete(name);
+      throw error;
+    });
+    this.workers.set(name, created);
+    return created;
+  }
+
+  private async createWorker(name: string, handler: JobHandler): Promise<Worker> {
     const { Worker: WorkerClass } = await this.loadBullmq();
     const worker = new WorkerClass(name, (job: Job) => this.run(handler, job), {
       connection: this.options.connection,
@@ -115,7 +132,7 @@ export class BullMQQueueDriver implements QueueDriver {
     worker.on('error', (error: Error) => {
       this.options.onError?.(name, asError(error));
     });
-    this.workers.set(name, worker);
+    return worker;
   }
 
   private deadLetterExhausted(name: string, job: Job, error: Error): void {
