@@ -143,8 +143,17 @@ export class WebhookDeliveryService {
           'payable-signature': `t=${timestamp},v1=${signature}`,
         },
         body,
+        redirect: 'manual',
         signal: AbortSignal.timeout(this.timeoutMs),
       });
+      if (response.status >= 300 && response.status < 400) {
+        this.logger?.warn('Webhook delivery blocked: endpoint returned a redirect', {
+          endpointId: endpoint.id,
+          eventId,
+          responseCode: response.status,
+        });
+        return { ok: false, responseCode: response.status, responseBody: 'redirect not followed' };
+      }
       return {
         ok: response.ok,
         responseCode: response.status,

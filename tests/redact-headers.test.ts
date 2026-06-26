@@ -29,6 +29,22 @@ describe('redactHeaders', () => {
     });
     expect(result).toEqual({ 'content-type': 'application/json' });
   });
+
+  it('drops cardholder and PII-bearing fields', () => {
+    const result = redactHeaders({
+      cardNumber: '4111111111111111',
+      pan: '4111111111111111',
+      cvv: '123',
+      cvc: '123',
+      iban: 'PT50000000000000000000000',
+      ssn: '000-00-0000',
+      pin: '0000',
+      bearer: 'token',
+      credential: 'c',
+      'content-type': 'application/json',
+    });
+    expect(result).toEqual({ 'content-type': 'application/json' });
+  });
 });
 
 describe('webhook header persistence', () => {
