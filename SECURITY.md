@@ -9,6 +9,23 @@ opt-in via the adapter `authenticate` hook; identity and tenant should be
 derived from the authenticated principal rather than the request body. The
 Express adapter caps non-webhook JSON bodies at 64kb and webhooks at 1mb.
 
+## Outbound webhook delivery and SSRF
+
+`deliverPendingWebhooks` POSTs to caller-registered endpoint URLs, so they are
+an SSRF vector. As defense-in-depth, registration rejects non-routable hosts
+(loopback, link-local, private, multicast, reserved, and documentation ranges,
+including numeric/octal/hex IPv4 and IPv4-mapped IPv6), and delivery re-resolves
+the host and refuses to connect when any resolved address is non-routable,
+failing closed on resolution errors.
+
+This is best-effort and does not fully close DNS rebinding: the validated
+resolution is distinct from the connection the runtime's `fetch` makes, so a
+precisely timed re-resolution between check and connect can still differ. SSRF
+egress is ultimately a deployment concern. Enforce it at the network layer:
+block outbound traffic to internal ranges with an egress proxy or firewall, and
+require IMDSv2 (token-authenticated metadata) so `169.254.169.254` is not
+reachable unauthenticated.
+
 ## Reporting a vulnerability
 
 Please report security vulnerabilities by email to
