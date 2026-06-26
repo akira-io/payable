@@ -149,4 +149,32 @@ describe('subscription item tenant guard', () => {
     const items = await storage.subscriptionItems.listBySubscription(subscription.id, 'acme');
     expect(items[0]?.quantity).toBe(1);
   });
+
+  it('scopes a tenant item list in a single query', async () => {
+    const subscription = await storage.subscriptions.create({
+      tenantId: 'acme',
+      customerId: 'cus_single',
+      name: 'default',
+      provider: 'stripe',
+      providerSubscriptionId: 'sub_single',
+      status: 'active',
+      priceId: 'price_pro',
+      quantity: 1,
+      trialEndsAt: null,
+      endsAt: null,
+      currentPeriodStart: null,
+      currentPeriodEnd: null,
+    });
+    await storage.subscriptionItems.create({
+      subscriptionId: subscription.id,
+      priceId: 'price_pro',
+      providerItemId: null,
+      quantity: 1,
+    });
+
+    const statements: string[] = [];
+    db.on('query', (query: { sql: string }) => statements.push(query.sql));
+    await storage.subscriptionItems.listBySubscription(subscription.id, 'acme');
+    expect(statements).toHaveLength(1);
+  });
 });
