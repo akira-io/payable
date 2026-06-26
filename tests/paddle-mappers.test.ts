@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   toCheckoutSessionDTO,
   toPaddleSubscriptionEntity,
+  toPriceDTO,
   toSubscriptionDTO,
 } from '../src/infrastructure/providers/paddle/paddle-mappers';
 import type { PaddleTransaction } from '../src/infrastructure/providers/paddle/paddle-types';
@@ -35,6 +36,18 @@ describe('paddle subscription trial mapping', () => {
       items: [{ trial_dates: { ends_at: '2026-06-20T00:00:00.000Z' } }],
     });
     expect(toSubscriptionDTO(entity).trialEndsAt?.toISOString()).toBe('2026-06-20T00:00:00.000Z');
+  });
+});
+
+describe('paddle amount bounds', () => {
+  it('rejects an out-of-range minor-unit amount as a typed PayableError', () => {
+    expect(() =>
+      toPriceDTO({
+        id: 'pri_1',
+        productId: 'pro_1',
+        unitPrice: { amount: '99999999999999999999', currencyCode: 'USD' },
+      }),
+    ).toThrow('exceeds the safe integer range');
   });
 });
 

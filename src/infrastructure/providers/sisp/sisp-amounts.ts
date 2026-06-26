@@ -3,9 +3,7 @@ import { Money } from '../../../domain/value-objects/money';
 import { assertDecimalCurrency } from '../assert-decimal-currency';
 
 export function sispAmount(money: Money): number {
-  assertDecimalCurrency('SISP', money.currency());
-  const exponent = CurrencyManager.precision(money.currency());
-  return money.amount() / 10 ** exponent;
+  return Number(sispDecimal(money));
 }
 
 export function sispDecimal(money: Money): string {

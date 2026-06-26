@@ -52,7 +52,7 @@ import {
   toPriceDTO,
   toProductDTO,
   toRefundResultDTO,
-  toSubscriptionDTO,
+  toSubscriptionDTOFromWebhook,
 } from './stripe-mappers';
 import { StripeSubscriptions } from './stripe-subscriptions';
 import { StripeWebhookVerifier } from './stripe-webhook-verifier';
@@ -283,7 +283,7 @@ export class StripeProvider
       return null;
     }
     assertSubscriptionPayload(verified.data, 'stripe');
-    return toSubscriptionDTO(verified.data as unknown as Stripe.Subscription);
+    return toSubscriptionDTOFromWebhook(verified.data);
   }
 
   async billingPortal(input: BillingPortalInput, ctx: OperationContext): Promise<BillingPortalDTO> {
