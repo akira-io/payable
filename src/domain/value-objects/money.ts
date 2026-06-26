@@ -33,6 +33,8 @@ function divideMinor(amount: number, divisor: number): number {
   return sign * rounded;
 }
 
+const MAX_SAFE_MINOR = BigInt(Number.MAX_SAFE_INTEGER);
+
 function divideMinorBig(amount: bigint, divisor: bigint): number {
   if (divisor === 0n) {
     throw new RangeError('Cannot divide money by zero');
@@ -43,7 +45,13 @@ function divideMinorBig(amount: bigint, divisor: bigint): number {
   const quotient = a / d;
   const remainder = a - quotient * d;
   const rounded = remainder * 2n >= d ? quotient + 1n : quotient;
-  return Number(sign * rounded);
+  const signed = sign * rounded;
+  if (signed > MAX_SAFE_MINOR || signed < -MAX_SAFE_MINOR) {
+    throw new RangeError(
+      `Money percentage (${signed}) exceeds the safe integer range; values beyond 2^53-1 lose precision`,
+    );
+  }
+  return Number(signed);
 }
 
 export class Money {
@@ -108,7 +116,6 @@ export class Money {
       throw new TypeError(`Basis points must be an integer, got ${basisPoints}`);
     }
     const result = divideMinorBig(BigInt(this.amount()) * BigInt(basisPoints), 10_000n);
-    assertSafeMinor(result, 'percentage');
     return Money.of(result, this.code);
   }
 
@@ -169,13 +176,14 @@ export class Money {
   }
 
   format(locale = 'en-US'): string {
-    const value: string | number = CurrencyManager.isDecimalBase(this.code)
-      ? toDecimal(this.value)
-      : this.nonDecimalUnits();
-    return new Intl.NumberFormat(locale, {
+    const formatter = new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: this.code,
-    }).format(value as number);
+    });
+    const formatValue = formatter.format as (value: string | number) => string;
+    return CurrencyManager.isDecimalBase(this.code)
+      ? formatValue(toDecimal(this.value))
+      : formatValue(this.nonDecimalUnits());
   }
 
   private nonDecimalUnits(): number {

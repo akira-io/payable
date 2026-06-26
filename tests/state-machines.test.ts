@@ -59,12 +59,12 @@ describe('SubscriptionStateMachine', () => {
     expect(reconcileSubscriptionStatus('active', 'canceled')).toEqual({
       status: 'canceled',
       applied: true,
-      event: 'cancel',
+      events: ['cancel'],
     });
     expect(reconcileSubscriptionStatus('paused', 'active')).toEqual({
       status: 'active',
       applied: true,
-      event: 'resume',
+      events: ['resume'],
     });
   });
 
@@ -72,41 +72,41 @@ describe('SubscriptionStateMachine', () => {
     expect(reconcileSubscriptionStatus('canceled', 'active')).toEqual({
       status: 'canceled',
       applied: false,
-      event: null,
+      events: [],
     });
     expect(reconcileSubscriptionStatus('canceled', 'incomplete')).toEqual({
       status: 'canceled',
       applied: false,
-      event: null,
+      events: [],
     });
   });
 
-  it('maps each reconcilable target to a single deterministic event', () => {
-    expect(reconcileSubscriptionStatus('active', 'past_due').event).toBe('mark_past_due');
-    expect(reconcileSubscriptionStatus('active', 'unpaid').event).toBe('mark_unpaid');
-    expect(reconcileSubscriptionStatus('active', 'paused').event).toBe('pause');
-    expect(reconcileSubscriptionStatus('trialing', 'active').event).toBe('activate');
-    expect(reconcileSubscriptionStatus('past_due', 'active').event).toBe('activate');
+  it('maps each single-hop reconcilable target to its deterministic event', () => {
+    expect(reconcileSubscriptionStatus('active', 'past_due').events).toEqual(['mark_past_due']);
+    expect(reconcileSubscriptionStatus('active', 'unpaid').events).toEqual(['mark_unpaid']);
+    expect(reconcileSubscriptionStatus('active', 'paused').events).toEqual(['pause']);
+    expect(reconcileSubscriptionStatus('trialing', 'active').events).toEqual(['activate']);
+    expect(reconcileSubscriptionStatus('past_due', 'active').events).toEqual(['activate']);
   });
 
-  it('treats an unchanged provider status as applied without an event', () => {
+  it('treats an unchanged provider status as applied without any event', () => {
     expect(reconcileSubscriptionStatus('active', 'active')).toEqual({
       status: 'active',
       applied: true,
-      event: null,
+      events: [],
     });
   });
 
-  it('converges to a multi-hop reachable provider status without dropping it', () => {
+  it('converges to a multi-hop reachable provider status through the full event path', () => {
     expect(reconcileSubscriptionStatus('incomplete', 'past_due')).toEqual({
       status: 'past_due',
       applied: true,
-      event: null,
+      events: ['start_trial', 'mark_past_due'],
     });
     expect(reconcileSubscriptionStatus('trialing', 'unpaid')).toEqual({
       status: 'unpaid',
       applied: true,
-      event: 'mark_unpaid',
+      events: ['mark_unpaid'],
     });
   });
 });
