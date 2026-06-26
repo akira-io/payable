@@ -89,6 +89,38 @@ export class KnexAuditLogRepository implements AuditLogRepository {
     return true;
   }
 
+  async backfillChain(tenantId: string | null): Promise<number> {
+    return this.knex.transaction(async (trx) => {
+      const legacy = (await trx(this.table)
+        .where({ tenant_id: this.tenant(tenantId) })
+        .whereNull('sequence')
+        .orderBy('created_at', 'asc')
+        .orderBy('id', 'asc')) as Record<string, unknown>[];
+      if (legacy.length === 0) {
+        return 0;
+      }
+      const latest = await this.latest(tenantId, trx);
+      let previousHash = latest?.hash ?? null;
+      let sequence = latest?.sequence ?? 0;
+      for (const row of legacy) {
+        sequence += 1;
+        const entry = this.toEntity(row);
+        const hash = await auditEntryHash(
+          previousHash,
+          sequence,
+          entry.createdAt.toISOString(),
+          entry,
+          this.auditKey,
+        );
+        await trx(this.table)
+          .where({ id: entry.id })
+          .update({ sequence, previous_hash: previousHash, hash });
+        previousHash = hash;
+      }
+      return legacy.length;
+    });
+  }
+
   private async chainPage(
     tenantId: string | null,
     afterSequence: number,

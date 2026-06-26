@@ -143,4 +143,8 @@ export class InMemoryAuditLogRepository implements AuditLogRepository {
     }
     return true;
   }
+
+  async backfillChain(_tenantId: string | null): Promise<number> {
+    return 0;
+  }
 }
