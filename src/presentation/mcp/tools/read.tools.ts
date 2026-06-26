@@ -129,13 +129,18 @@ export function registerReadTools(
       'invoice_pdf',
       {
         description: 'Resolve the downloadable PDF for a provider invoice id.',
-        inputSchema: { providerInvoiceId: z.string().min(1), ...providerShape, ...tenantShape },
+        inputSchema: {
+          billable: billableObject,
+          providerInvoiceId: z.string().min(1),
+          ...providerShape,
+          ...tenantShape,
+        },
       },
       (args) =>
         respond(() =>
           payable
             .invoices(providerFrom(args, options), tenantFrom(args, options))
-            .downloadPdf(args.providerInvoiceId),
+            .downloadPdf(args.providerInvoiceId, args.billable),
         ),
     );
   }

@@ -9,6 +9,7 @@ import type { CreateCustomerInput } from '../src/domain/dtos/customer.dto';
 import { Money } from '../src/domain/value-objects/money';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
+import { tenantFrom } from '../src/presentation/mcp/context';
 import { createPayableMcpServer } from '../src/presentation/mcp/index';
 import type { McpPayableOptions } from '../src/presentation/mcp/options';
 import { FakeClock } from '../src/support/clock/fake-clock';
@@ -42,7 +43,7 @@ async function connect(options?: McpPayableOptions) {
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test', version: '0' });
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
-  return { client, payable, provider, db };
+  return { client, payable, provider, storage, db };
 }
 
 function parse(result: CallToolResult): unknown {
@@ -103,5 +104,61 @@ describe('mcp tools', () => {
     })) as CallToolResult;
     expect(parse(result)).toEqual([]);
     await db.destroy();
+  });
+
+  it('refuses invoice_pdf for an invoice owned by another billable', async () => {
+    const { client, payable, storage, db } = await connect();
+    const owner = await payable.customers().create(billable);
+    await storage.invoices.create({
+      tenantId: null,
+      customerId: owner.id,
+      subscriptionId: null,
+      provider: 'stripe',
+      providerInvoiceId: 'in_owned',
+      status: 'paid',
+      currency: 'USD',
+      total: 9900,
+      amountPaid: 9900,
+      amountDue: 0,
+      number: null,
+      hostedInvoiceUrl: null,
+      invoicePdf: null,
+    });
+
+    const intruder = (await client.callTool({
+      name: 'invoice_pdf',
+      arguments: {
+        billable: { billableType: 'User', billableId: '2', email: 'intruder@test.dev' },
+        providerInvoiceId: 'in_owned',
+      },
+    })) as CallToolResult;
+    expect(intruder.isError).toBe(true);
+    expect((parse(intruder) as { error: string }).error).toBe('INVOICE_NOT_FOUND');
+
+    const granted = (await client.callTool({
+      name: 'invoice_pdf',
+      arguments: { billable, providerInvoiceId: 'in_owned' },
+    })) as CallToolResult;
+    expect(granted.isError).toBeUndefined();
+    await db.destroy();
+  });
+});
+
+describe('mcp tenantFrom', () => {
+  it('ignores a client tenantId when a default is pinned', () => {
+    expect(tenantFrom({ tenantId: 'attacker' }, { defaultTenantId: 'tenant-a' })).toBe('tenant-a');
+  });
+
+  it('honors the client tenantId when override is explicitly allowed', () => {
+    expect(
+      tenantFrom(
+        { tenantId: 'tenant-b' },
+        { defaultTenantId: 'tenant-a', allowTenantOverride: true },
+      ),
+    ).toBe('tenant-b');
+  });
+
+  it('falls back to the client tenantId when no default is pinned', () => {
+    expect(tenantFrom({ tenantId: 'tenant-c' }, {})).toBe('tenant-c');
   });
 });

@@ -18,5 +18,6 @@ export interface McpPayableOptions {
   serverInfo?: McpServerInfo;
   defaultProvider?: string;
   defaultTenantId?: string | null;
+  allowTenantOverride?: boolean;
   policy?: McpPolicy;
 }
