@@ -8,11 +8,7 @@ export function providerFrom(args: ToolArgs, options: McpPayableOptions): string
 }
 
 export function tenantFrom(args: ToolArgs, options: McpPayableOptions): string | null | undefined {
-  const pinned = options.defaultTenantId !== undefined;
-  if (pinned && options.allowTenantOverride !== true) {
-    return options.defaultTenantId;
-  }
-  if (args.tenantId !== undefined) {
+  if (options.allowTenantOverride === true && args.tenantId !== undefined) {
     return args.tenantId as string | null;
   }
   return options.defaultTenantId;

@@ -43,4 +43,26 @@ describe('mcp policy gating', () => {
     const names = await toolNames({ policy: { enabledTools: ['providers_list'] } });
     expect(names).toEqual(['providers_list']);
   });
+
+  it('hides mutate and money tools when authorization is required but no callback is set', async () => {
+    const names = await toolNames({
+      policy: { allowMoneyMovement: true, requireAuthorization: true },
+    });
+    expect(names).toContain('subscriptions_list');
+    expect(names).not.toContain('charge');
+    expect(names).not.toContain('subscription_create');
+    expect(names).not.toContain('webhook_replay');
+  });
+
+  it('exposes mutate and money tools when authorization is required and a callback is set', async () => {
+    const names = await toolNames({
+      policy: {
+        allowMoneyMovement: true,
+        requireAuthorization: true,
+        authorization: () => ({ allowed: true, actorId: 'svc' }),
+      },
+    });
+    expect(names).toContain('charge');
+    expect(names).toContain('subscription_create');
+  });
 });
