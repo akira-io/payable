@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { InvalidStateTransitionError } from '../src/domain/errors/invalid-state-transition.error';
 import { InvoiceStateMachine } from '../src/domain/states/invoice-state-machine';
 import { PaymentStateMachine } from '../src/domain/states/payment-state-machine';
-import { RefundStateMachine } from '../src/domain/states/refund-state-machine';
+import {
+  RefundStateMachine,
+  resolveInitialRefundStatus,
+} from '../src/domain/states/refund-state-machine';
 import {
   reconcileSubscriptionStatus,
   SubscriptionStateMachine,
@@ -150,5 +153,13 @@ describe('RefundStateMachine', () => {
 
   it('cannot transition out of a terminal state', () => {
     expect(() => new RefundStateMachine('succeeded').fail()).toThrow(InvalidStateTransitionError);
+  });
+
+  it('resolves and validates an initial refund status', () => {
+    expect(resolveInitialRefundStatus('pending')).toBe('pending');
+    expect(resolveInitialRefundStatus('succeeded')).toBe('succeeded');
+    expect(resolveInitialRefundStatus('failed')).toBe('failed');
+    expect(resolveInitialRefundStatus('canceled')).toBe('canceled');
+    expect(() => resolveInitialRefundStatus('garbage')).toThrow(InvalidStateTransitionError);
   });
 });

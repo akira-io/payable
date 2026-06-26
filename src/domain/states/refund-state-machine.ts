@@ -1,4 +1,5 @@
-import type { RefundStatus } from '../value-objects/refund-status';
+import { InvalidStateTransitionError } from '../errors/invalid-state-transition.error';
+import { isRefundStatus, type RefundStatus } from '../value-objects/refund-status';
 import { applyTransition, canTransition, type TransitionMap } from './transition';
 
 export type RefundEvent = 'succeed' | 'fail' | 'cancel';
@@ -34,4 +35,21 @@ export class RefundStateMachine {
   cancel(): this {
     return this.to('cancel');
   }
+}
+
+export function resolveInitialRefundStatus(status: string): RefundStatus {
+  if (!isRefundStatus(status)) {
+    throw new InvalidStateTransitionError('refund', 'pending', status);
+  }
+  const machine = new RefundStateMachine('pending');
+  if (status === 'pending') {
+    return machine.current();
+  }
+  if (status === 'succeeded') {
+    return machine.succeed().current();
+  }
+  if (status === 'failed') {
+    return machine.fail().current();
+  }
+  return machine.cancel().current();
 }
