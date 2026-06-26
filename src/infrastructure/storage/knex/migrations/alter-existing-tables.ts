@@ -50,8 +50,9 @@ export async function alterExistingTables(knex: Knex): Promise<void> {
     },
     {
       table: 'payable_webhook_deliveries',
-      name: 'payable_webhook_deliveries_endpoint_event_index',
+      name: 'payable_webhook_deliveries_endpoint_event_unique',
       columns: ['endpoint_id', 'event_id'],
+      unique: true,
     },
     {
       table: 'payable_subscriptions',
