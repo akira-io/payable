@@ -27,13 +27,55 @@ describe('NodeEncryptionDriver', () => {
     expect(await new NodeEncryptionDriver({ key: rawKey }).decrypt(token)).toBe('secret');
   });
 
-  it('binds the envelope version into the authentication tag', async () => {
+  it('binds the envelope version and key id into the authentication tag', async () => {
     const driver = new NodeEncryptionDriver({ key: 'a-secret-key', salt: 'a-salt' });
     const token = await driver.encrypt('secret');
 
-    expect(token.startsWith('v1:')).toBe(true);
+    expect(token.startsWith('v1:default:')).toBe(true);
     const stripped = token.slice('v1:'.length);
     await expect(driver.decrypt(stripped)).rejects.toThrow('Malformed ciphertext');
+  });
+
+  it('rotates keys: old ciphertext decrypts by its embedded key id, new uses the active key', async () => {
+    const k1 = generateEncryptionKey();
+    const k2 = generateEncryptionKey();
+    const before = new NodeEncryptionDriver({ keys: [{ id: 'k1', key: k1 }], activeKeyId: 'k1' });
+    const legacyToken = await before.encrypt('secret');
+
+    const rotated = new NodeEncryptionDriver({
+      keys: [
+        { id: 'k1', key: k1 },
+        { id: 'k2', key: k2 },
+      ],
+      activeKeyId: 'k2',
+    });
+    expect(await rotated.decrypt(legacyToken)).toBe('secret');
+    const freshToken = await rotated.encrypt('secret');
+    expect(freshToken.startsWith('v1:k2:')).toBe(true);
+    expect(await rotated.decrypt(freshToken)).toBe('secret');
+  });
+
+  it('fails to decrypt when the embedded key id is not in the keyring', async () => {
+    const k1 = generateEncryptionKey();
+    const k2 = generateEncryptionKey();
+    const token = await new NodeEncryptionDriver({
+      keys: [{ id: 'k1', key: k1 }],
+      activeKeyId: 'k1',
+    }).encrypt('secret');
+
+    await expect(
+      new NodeEncryptionDriver({ keys: [{ id: 'k2', key: k2 }], activeKeyId: 'k2' }).decrypt(token),
+    ).rejects.toMatchObject({ code: 'ENCRYPTION_KEY_UNKNOWN' });
+  });
+
+  it('rejects an active key id missing from the keyring', () => {
+    expect(
+      () =>
+        new NodeEncryptionDriver({
+          keys: [{ id: 'k1', key: generateEncryptionKey() }],
+          activeKeyId: 'k2',
+        }),
+    ).toThrowError(expect.objectContaining({ code: 'ENCRYPTION_ACTIVE_KEY_UNKNOWN' }));
   });
 
   it('produces a fresh ciphertext per call', async () => {
