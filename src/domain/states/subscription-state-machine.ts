@@ -89,41 +89,70 @@ export class SubscriptionStateMachine {
 export interface SubscriptionStatusReconciliation {
   status: SubscriptionStatus;
   applied: boolean;
-  event: SubscriptionEvent | null;
+  events: SubscriptionEvent[];
 }
 
-function isReachable(from: SubscriptionStatus, to: SubscriptionStatus): boolean {
+interface PathStep {
+  status: SubscriptionStatus;
+  event: SubscriptionEvent;
+}
+
+function shortestEventPath(
+  from: SubscriptionStatus,
+  to: SubscriptionStatus,
+): SubscriptionEvent[] | null {
+  if (from === to) {
+    return [];
+  }
   const visited = new Set<SubscriptionStatus>([from]);
   const queue: SubscriptionStatus[] = [from];
+  const predecessor = new Map<SubscriptionStatus, PathStep>();
   while (queue.length > 0) {
     const node = queue.shift() as SubscriptionStatus;
-    for (const next of Object.values(MAP[node] ?? {})) {
+    const transitions = Object.entries(MAP[node] ?? {}) as [
+      SubscriptionEvent,
+      SubscriptionStatus,
+    ][];
+    for (const [event, next] of transitions) {
+      if (visited.has(next)) {
+        continue;
+      }
+      visited.add(next);
+      predecessor.set(next, { status: node, event });
       if (next === to) {
-        return true;
+        return reconstructPath(predecessor, from, to);
       }
-      if (!visited.has(next)) {
-        visited.add(next);
-        queue.push(next);
-      }
+      queue.push(next);
     }
   }
-  return false;
+  return null;
+}
+
+function reconstructPath(
+  predecessor: Map<SubscriptionStatus, PathStep>,
+  from: SubscriptionStatus,
+  to: SubscriptionStatus,
+): SubscriptionEvent[] {
+  const path: SubscriptionEvent[] = [];
+  let cursor = to;
+  while (cursor !== from) {
+    const step = predecessor.get(cursor);
+    if (!step) {
+      return [];
+    }
+    path.unshift(step.event);
+    cursor = step.status;
+  }
+  return path;
 }
 
 export function reconcileSubscriptionStatus(
   current: SubscriptionStatus,
   target: SubscriptionStatus,
 ): SubscriptionStatusReconciliation {
-  if (current === target) {
-    return { status: current, applied: true, event: null };
+  const events = shortestEventPath(current, target);
+  if (events === null) {
+    return { status: current, applied: false, events: [] };
   }
-  for (const [event, next] of Object.entries(MAP[current] ?? {})) {
-    if (next === target) {
-      return { status: target, applied: true, event: event as SubscriptionEvent };
-    }
-  }
-  if (isReachable(current, target)) {
-    return { status: target, applied: true, event: null };
-  }
-  return { status: current, applied: false, event: null };
+  return { status: target, applied: true, events };
 }

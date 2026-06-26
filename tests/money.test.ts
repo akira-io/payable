@@ -71,6 +71,7 @@ describe('Money', () => {
 
   it('keeps the last minor unit for very large amounts', () => {
     expect(Money.of(9007199254740991, 'USD').format()).toBe('$90,071,992,547,409.91');
+    expect(Money.of(-9007199254740991, 'EUR').format('en-US')).toBe('-€90,071,992,547,409.91');
   });
 
   it('formats non-decimal-base currencies instead of throwing', () => {
