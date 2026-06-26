@@ -66,6 +66,11 @@ describe('hashRequest', () => {
     await expect(hashRequest({ a: Number.POSITIVE_INFINITY })).rejects.toThrow(/non-finite/);
   });
 
+  it('rejects Map and Set instead of collapsing them to an empty object', async () => {
+    await expect(hashRequest({ a: new Map([['k', 1]]) })).rejects.toThrow(/non-serializable Map/);
+    await expect(hashRequest({ a: new Set([1, 2]) })).rejects.toThrow(/non-serializable Set/);
+  });
+
   it('rejects deeply nested or cyclic structures instead of overflowing the stack', async () => {
     let head: Record<string, unknown> = {};
     const deep = head;

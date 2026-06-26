@@ -393,6 +393,49 @@ describe('refund idempotency key', () => {
     expect(provider.lastRefundCtx?.idempotencyKey).toBe('refund::stripe:pi_x:6000:USD');
     await db.destroy();
   });
+
+  it('appends a reference segment so an identical amount issues a distinct refund', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock();
+    const storage = new KnexStorageDriver(db, clock);
+    const provider = new FakeProvider();
+    const payable = createPayable({
+      providers: { stripe: provider },
+      storage,
+      clock,
+      idempotency: { store: new KnexIdempotencyRepository(db, clock) },
+    });
+    const payment = await storage.payments.create({
+      tenantId: null,
+      customerId: null,
+      provider: 'stripe',
+      providerPaymentId: 'pi_ref',
+      status: 'succeeded',
+      currency: 'USD',
+      amount: 10_000,
+      refundedAmount: 0,
+      reference: null,
+      description: null,
+    });
+
+    await payable.refund({ paymentId: payment.id, amount: Money.of(4_000, 'USD') });
+    const replay = await payable.refund({ paymentId: payment.id, amount: Money.of(4_000, 'USD') });
+    const afterReplay = await storage.payments.findById(payment.id);
+    expect(afterReplay?.refundedAmount).toBe(4_000);
+    expect(provider.refundCalls).toBe(1);
+
+    const distinct = await payable.refund({
+      paymentId: payment.id,
+      amount: Money.of(4_000, 'USD'),
+      reference: 'second',
+    });
+    expect(distinct.id).not.toBe(replay.id);
+    expect(provider.lastRefundCtx?.idempotencyKey).toBe('refund::stripe:pi_ref:4000:USD:second');
+    const afterDistinct = await storage.payments.findById(payment.id);
+    expect(afterDistinct?.refundedAmount).toBe(8_000);
+    await db.destroy();
+  });
 });
 
 describe('charge and refund lifecycle', () => {

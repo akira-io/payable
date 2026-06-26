@@ -25,6 +25,9 @@ export function canonicalize(value: unknown, depth = 0): string {
   if (typeof serializable.toJSON === 'function') {
     return canonicalize(serializable.toJSON(), depth + 1);
   }
+  if (value instanceof Map || value instanceof Set) {
+    throw new TypeError(`Cannot hash a non-serializable ${value.constructor.name} value`);
+  }
   const entries = Object.entries(value as Record<string, unknown>)
     .filter(([, v]) => v !== undefined)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
