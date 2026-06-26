@@ -7,6 +7,7 @@ interface HeldLock {
 }
 
 export class MemoryLockDriver implements LockDriver {
+  readonly distributed = false;
   private readonly held = new Map<string, HeldLock>();
 
   constructor(private readonly now: () => number = () => Date.now()) {}

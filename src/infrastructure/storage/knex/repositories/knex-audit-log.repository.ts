@@ -6,6 +6,7 @@ import type {
 } from '../../../../domain/contracts/audit-log-repository.contract';
 import type { Clock } from '../../../../domain/contracts/clock.contract';
 import type { AuditLog } from '../../../../domain/entities/audit-log.entity';
+import { PayableError } from '../../../../domain/errors/payable-error';
 import { auditEntryHash, auditLinkValid } from '../../../audit/audit-chain';
 import { fromJson, toDate, toJson } from '../mappers';
 import { isUniqueViolation } from '../unique-violation';
@@ -36,7 +37,10 @@ export class KnexAuditLogRepository implements AuditLogRepository {
         lastError = error;
       }
     }
-    throw lastError;
+    throw new PayableError(
+      `Audit chain insert exhausted ${MAX_CHAIN_RETRIES} retries under sequence contention`,
+      { code: 'AUDIT_CHAIN_CONTENTION', cause: lastError },
+    );
   }
 
   private appendEntry(data: NewAuditLog, tenantId: string | null): Promise<AuditLog> {
