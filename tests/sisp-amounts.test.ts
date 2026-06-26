@@ -1,11 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { Money } from '../src/domain/value-objects/money';
-import { sispAmount, sispMoney } from '../src/infrastructure/providers/sisp/sisp-amounts';
+import {
+  sispAmount,
+  sispDecimal,
+  sispMoney,
+} from '../src/infrastructure/providers/sisp/sisp-amounts';
 
 describe('sisp amounts', () => {
   it('converts payable minor units to SISP major units', () => {
     expect(sispAmount(Money.of(150000, 'CVE'))).toBe(1500);
     expect(sispAmount(Money.of(1550, 'CVE'))).toBe(15.5);
+  });
+
+  it('formats a precise decimal string without floating-point drift', () => {
+    expect(sispDecimal(Money.of(150000, 'CVE'))).toBe('1500.00');
+    expect(sispDecimal(Money.of(1550, 'CVE'))).toBe('15.50');
+    expect(sispDecimal(Money.of(1559, 'CVE'))).toBe('15.59');
+    expect(sispDecimal(Money.of(5, 'CVE'))).toBe('0.05');
+    expect(sispMoney(Number(sispDecimal(Money.of(123456, 'CVE'))), 'CVE').amount()).toBe(123456);
   });
 
   it('converts SISP major units back to payable minor units', () => {

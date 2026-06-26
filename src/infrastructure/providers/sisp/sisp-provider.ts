@@ -12,7 +12,7 @@ import type {
 import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
-import { sispAmount, sispMoney } from './sisp-amounts';
+import { sispAmount, sispDecimal, sispMoney } from './sisp-amounts';
 import { withSispErrors } from './sisp-errors';
 import { toCheckoutSessionDTO, toPaymentStatus, toRefundResultDTO } from './sisp-mappers';
 import type { SispCallbackPayload, SispClient, SispHttpRequestInfo } from './sisp-types';
@@ -59,7 +59,7 @@ export class SispProvider implements PaymentProvider, RedirectCallbackCapable {
       });
     }
     const client = await this.sisp();
-    const amount = sispAmount(input.amount);
+    const amount = sispDecimal(input.amount);
     const merchantRef = client.config.generators.merchantReference();
     const request = this.paymentRequest({
       merchantRef,

@@ -63,7 +63,7 @@ describe('payable redirect checkout (SISP)', () => {
     expect(session.id).toBe('R-CHECKOUT');
     expect(session.url).toBe('https://mc.vinti4net.cv/gateway');
     expect(session.html).toContain('R-CHECKOUT');
-    expect(seen.body?.amount).toBe(1500);
+    expect(seen.body?.amount).toBe('1500.00');
 
     const customer = await payable.customers().get(billable);
     expect(customer?.providerCustomerId).toBeNull();

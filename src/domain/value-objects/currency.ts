@@ -41,6 +41,10 @@ export const CurrencyManager = {
     return CurrencyManager.resolve(code).exponent;
   },
 
+  isDecimalBase(code: CurrencyCode): boolean {
+    return CurrencyManager.resolve(code).base === 10;
+  },
+
   normalize(code: CurrencyCode): CurrencyCode {
     return CurrencyManager.resolve(code).code;
   },
