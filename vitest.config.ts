@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module';
 import { configDefaults, defineConfig } from 'vitest/config';
+import { optionalSuiteExcludes } from './vitest.suites';
 
 const require = createRequire(import.meta.url);
 
@@ -12,13 +13,7 @@ function isInstalled(name: string): boolean {
   }
 }
 
-const exclude = [...configDefaults.exclude];
-if (!isInstalled('@modelcontextprotocol/sdk/client/index.js')) {
-  exclude.push('tests/mcp-tools.test.ts', 'tests/mcp-http.test.ts', 'tests/mcp-policy.test.ts');
-}
-if (!isInstalled('@nestjs/common')) {
-  exclude.push('tests/nest.test.ts');
-}
+const exclude = [...configDefaults.exclude, ...optionalSuiteExcludes(isInstalled)];
 
 export default defineConfig({
   test: {
