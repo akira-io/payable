@@ -134,16 +134,19 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
     processedAt: Date | null,
     tenantId?: string | null,
     claimToken?: string | null,
-  ): Promise<WebhookEvent> {
+  ): Promise<WebhookEvent | null> {
     const where = tenantId === undefined ? { id } : { id, tenant_id: this.tenant(tenantId) };
     let builder = this.knex(this.table).where(where);
     if (claimToken != null) {
       builder = builder.where('claim_token', claimToken);
     }
-    await builder.update({
+    const affected = await builder.update({
       status,
       processed_at: processedAt ? processedAt.toISOString() : null,
     });
+    if (claimToken != null && affected === 0) {
+      return null;
+    }
     return this.findByIdOrFail(id, tenantId);
   }
 

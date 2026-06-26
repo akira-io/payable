@@ -119,7 +119,7 @@ describe('webhook tenancy', () => {
       null,
       'acme',
     );
-    expect(flipped.status).toBe('failed');
+    expect(flipped?.status).toBe('failed');
   });
 
   it('rejects a webhook when tenancy is enabled but no tenant resolves', async () => {
