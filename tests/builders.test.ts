@@ -128,4 +128,13 @@ describe('payment-mode checkout builder', () => {
     expect(first).toContain(':order_1');
     expect(first).not.toBe(second);
   });
+
+  it('rejects a non-positive or non-integer line-item quantity', () => {
+    const payable = createPayable({ providers: { stripe: new FakeProvider() } });
+    const builder = payable.customer(billable).checkout().mode('payment');
+
+    expect(() => builder.addPrice('price_one', 0)).toThrow(/positive integer/);
+    expect(() => builder.addPrice('price_one', -1)).toThrow(/positive integer/);
+    expect(() => builder.addPrice('price_one', 1.5)).toThrow(/positive integer/);
+  });
 });

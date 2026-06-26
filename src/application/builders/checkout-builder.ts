@@ -32,6 +32,12 @@ export class CheckoutBuilder {
   }
 
   addPrice(priceId: string, quantity = 1): this {
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      throw new PayableError(`Checkout quantity must be a positive integer, got ${quantity}`, {
+        code: 'CHECKOUT_INVALID_QUANTITY',
+        context: { quantity },
+      });
+    }
     this.state.lineItems.push({ priceId, quantity });
     return this;
   }
