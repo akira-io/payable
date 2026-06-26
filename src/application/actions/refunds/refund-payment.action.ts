@@ -1,6 +1,7 @@
 import type { Refund } from '../../../domain/entities/refund.entity';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { PaymentStateMachine } from '../../../domain/states/payment-state-machine';
+import { resolveInitialRefundStatus } from '../../../domain/states/refund-state-machine';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { Money } from '../../../domain/value-objects/money';
@@ -143,7 +144,7 @@ export class RefundPaymentAction {
         paymentId: fresh.id,
         provider: this.deps.providerName,
         providerRefundId: dto.providerRefundId,
-        status: dto.status,
+        status: resolveInitialRefundStatus(dto.status),
         currency: dto.amount.currency(),
         amount: dto.amount.amount(),
         reason: input.reason ?? null,
