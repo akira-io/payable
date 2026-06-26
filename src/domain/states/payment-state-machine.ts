@@ -16,6 +16,15 @@ const MAP: TransitionMap<PaymentStatus, PaymentEvent> = {
   partially_refunded: { refund: 'refunded', partially_refund: 'partially_refunded' },
 };
 
+const EVENT_BY_TARGET: Partial<Record<PaymentStatus, PaymentEvent>> = {
+  processing: 'process',
+  succeeded: 'succeed',
+  failed: 'fail',
+  canceled: 'cancel',
+  refunded: 'refund',
+  partially_refunded: 'partially_refund',
+};
+
 export class PaymentStateMachine {
   constructor(private state: PaymentStatus = 'pending') {}
 
@@ -25,6 +34,18 @@ export class PaymentStateMachine {
 
   can(event: PaymentEvent): boolean {
     return canTransition(MAP, this.state, event);
+  }
+
+  tryTransitionTo(target: PaymentStatus): boolean {
+    if (this.state === target) {
+      return false;
+    }
+    const event = EVENT_BY_TARGET[target];
+    if (!event || !this.can(event)) {
+      return false;
+    }
+    this.to(event);
+    return true;
   }
 
   private to(event: PaymentEvent): this {
