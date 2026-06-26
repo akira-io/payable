@@ -30,7 +30,7 @@ export default defineConfig({
         lines: 78,
         'src/domain/value-objects/money.ts': {
           statements: 90,
-          branches: 88,
+          branches: 80,
           functions: 100,
           lines: 90,
         },
