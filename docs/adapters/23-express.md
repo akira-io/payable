@@ -166,7 +166,7 @@ routes is unprotected at the adapter level:
 Authenticating the request and verifying ownership of the billable or payment is the caller's
 responsibility. Pass an `authenticate` middleware in `ExpressPayableOptions` to have it applied
 inside the router after the webhook routes and before checkout/subscription/refund, or mount your
-own middleware ahead of the Payable router. See `docs/27-security.md`.
+own middleware ahead of the Payable router. See `docs/28-security.md`.
 
 ```ts
 app.use(
@@ -215,4 +215,4 @@ app.use(
 
 ---
 
-[Previous: Queue](../persistence/21-queue.md) | [Index](../00-index.md) | [Next: Fastify](23-fastify.md)
+[Previous: Queue](../persistence/22-queue.md) | [Index](../00-index.md) | [Next: Fastify](24-fastify.md)

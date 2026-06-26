@@ -15,7 +15,7 @@ Causes and resolutions:
   `express.raw(...)` for the webhook routes.
 - NestJS app not bootstrapped with `rawBody: true`. The controller reads `request.rawBody`; without
   it the payload is empty and verification fails. Create the app with
-  `NestFactory.create(AppModule, { rawBody: true })`. See `docs/adapters/24-nestjs.md`.
+  `NestFactory.create(AppModule, { rawBody: true })`. See `docs/adapters/25-nestjs.md`.
 - Wrong signing secret or wrong provider. The verifier uses the provider's configured secret.
   Confirm the secret matches the endpoint and the request is routed to the right provider.
 - Wrong signature header. The header defaults to `stripe-signature`; if your provider sends a
@@ -81,7 +81,7 @@ Cause: webhooks, the outbox, idempotency, charges, and subscriptions all need pe
 `storage` driver was configured.
 
 Resolution: pass a storage driver to `createPayable({ ..., storage })`. For Knex, construct
-`KnexStorageDriver(db, clock)` and run `migrate(db)` first. See `docs/persistence/20-storage-knex.md`.
+`KnexStorageDriver(db, clock)` and run `migrate(db)` first. See `docs/persistence/21-storage-knex.md`.
 
 ## BullMQ jobs not processing
 
@@ -111,8 +111,8 @@ a placeholder that throws `NOT_IMPLEMENTED`. `/customers`, `/invoices`, and `/pa
 
 Resolution: for refunds over HTTP, use the Express adapter, or call `payable.refund(...)` directly
 from your own handler. A genuine 404 (not 501) means the route was never mounted - check the mount
-prefix and that you registered the plugin/module. See `docs/adapters/23-fastify.md` and
-`24-nestjs.md`.
+prefix and that you registered the plugin/module. See `docs/adapters/24-fastify.md` and
+`25-nestjs.md`.
 
 ## Migration did not create tables
 
@@ -126,4 +126,4 @@ creates billing and system tables and applies additive alters; it is safe to re-
 
 ---
 
-[Previous: Operations](29-operations.md) | [Index](00-index.md) | [Next: FAQ](31-faq.md)
+[Previous: Operations](30-operations.md) | [Index](00-index.md) | [Next: FAQ](32-faq.md)

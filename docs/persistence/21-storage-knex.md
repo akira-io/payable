@@ -204,4 +204,4 @@ PostgreSQL.
 
 ---
 
-[Previous: Paddle](../integrations/19-paddle.md) · [Index](../00-index.md) · [Next: Queue](21-queue.md)
+[Previous: Paddle](../integrations/19-paddle.md) · [Index](../00-index.md) · [Next: Queue](22-queue.md)

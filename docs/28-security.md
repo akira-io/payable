@@ -94,7 +94,7 @@ the provider before any storage write (`ReceiveWebhookAction` ->
 
 The signature is read from a configurable header (`webhookSignatureHeader`, default
 `stripe-signature`) and the raw, unparsed body must reach the verifier. See the adapter docs for
-raw-body handling: `docs/adapters/22-express.md`, `23-fastify.md`, `24-nestjs.md`.
+raw-body handling: `docs/adapters/23-express.md`, `24-fastify.md`, `25-nestjs.md`.
 
 ## Encryption at rest
 
@@ -150,4 +150,4 @@ signature header and any auth cookies never land in storage even when encryption
 
 ---
 
-[Previous: Data Flows](26-data-flows.md) | [Index](00-index.md) | [Next: Development](28-development.md)
+[Previous: Data Flows](27-data-flows.md) | [Index](00-index.md) | [Next: Development](29-development.md)

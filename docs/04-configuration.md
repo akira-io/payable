@@ -60,7 +60,7 @@ if (entries.length === 0) {
   via `queue.process(PROCESS_WEBHOOK_JOB, …)`.
 - **Behavior.** Drives async webhook processing. `SyncQueueDriver` runs the handler inline on
   `dispatch`, so webhook processing happens synchronously in-process. Supplying `BullMQQueueDriver`
-  moves processing onto a BullMQ queue/worker. See [persistence/21-queue.md](persistence/21-queue.md).
+  moves processing onto a BullMQ queue/worker. See [persistence/22-queue.md](persistence/22-queue.md).
 
 ### `cache?: CacheDriver`
 
@@ -109,7 +109,7 @@ if (entries.length === 0) {
 - **Required.** Optional.
 - **Default.** `undefined`.
 - **Behavior.** Used to encrypt/decrypt sensitive stored values when supplied. The bundled
-  implementation is `NodeEncryptionDriver`. See [27-security.md](27-security.md).
+  implementation is `NodeEncryptionDriver`. See [28-security.md](28-security.md).
 
 ### `idempotency?: IdempotencyConfig`
 

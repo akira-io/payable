@@ -204,4 +204,4 @@ the fingerprint, so passing minor units would double-scale.
 
 ---
 
-[Previous: Paddle](19-paddle.md) · [Index](../00-index.md) · [Next: Storage (Knex)](../persistence/20-storage-knex.md)
+[Previous: Paddle](19-paddle.md) · [Index](../00-index.md) · [Next: Storage (Knex)](../persistence/21-storage-knex.md)

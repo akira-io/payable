@@ -52,8 +52,7 @@
     "payable-mcp": "./dist/mcp/bin.cjs"
   },
   "files": [
-    "dist",
-    "assets"
+    "dist"
   ],
   "scripts": {
     "build": "tsup",

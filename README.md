@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="@akira-io/payable" />
+  <img src="https://raw.githubusercontent.com/akira-io/payable/main/assets/banner.svg" alt="@akira-io/payable" />
 </p>
 
 <p align="center">
@@ -48,7 +48,7 @@ Then add the optional peers for the features you use:
 | BullMQ queue    | `npm i bullmq`                                        |
 | Express adapter | `npm i express`                                      |
 | Fastify adapter | `npm i fastify`                                      |
-| NestJS adapter  | `npm i @nestjs/common reflect-metadata`              |
+| NestJS adapter  | `npm i @nestjs/common @nestjs/core reflect-metadata` |
 | MCP adapter     | `npm i @modelcontextprotocol/sdk`                    |
 
 ## Quick start
@@ -112,10 +112,10 @@ Each adapter ships on its own subpath. All three mount the core routes: `POST /w
 `POST /webhooks/:provider`, `POST /checkout`, and `POST /subscriptions/:name/{cancel,cancel-now,resume,swap}`.
 Adapter coverage is not yet at parity: Express also implements `POST /refunds`, while
 `customers` / `invoices` / `payments` (and `refunds` on Fastify/NestJS) are reserved and respond `501`.
-See [docs/adapters](docs/adapters/22-express.md) for the exact route table per adapter.
+See [docs/adapters](docs/adapters/23-express.md) for the exact route table per adapter.
 
 The MCP adapter (`@akira-io/payable/mcp`) exposes the facade to AI clients as tools over stdio or
-streamable HTTP, with money movement off by default. See [docs/adapters/25-mcp.md](docs/adapters/25-mcp.md).
+streamable HTTP, with money movement off by default. See [docs/adapters/26-mcp.md](docs/adapters/26-mcp.md).
 
 > **Raw body required.** Webhook signature verification needs the exact unparsed request body. Mount
 > the webhook route before any global JSON body parser, and for NestJS create the app with
@@ -190,9 +190,9 @@ Full documentation lives in [docs/](docs/00-index.md). Start with the
 - Domain: [model](docs/domain/05-domain-model.md), [value objects](docs/domain/06-value-objects.md), [state machines](docs/domain/07-state-machines.md)
 - Features: [subscriptions](docs/features/10-subscriptions.md), [charges and refunds](docs/features/11-charges-refunds.md), [webhooks](docs/features/13-webhooks.md), [idempotency](docs/features/14-idempotency.md), [reliability](docs/features/15-reliability.md), [multi-tenancy](docs/features/16-multi-tenancy.md)
 - Integrations: [providers](docs/integrations/17-providers.md), [Stripe](docs/integrations/18-stripe.md), [Paddle](docs/integrations/19-paddle.md), [SISP](docs/integrations/20-sisp.md)
-- Persistence: [Knex storage](docs/persistence/20-storage-knex.md), [queue](docs/persistence/21-queue.md)
-- Adapters: [Express](docs/adapters/22-express.md), [Fastify](docs/adapters/23-fastify.md), [NestJS](docs/adapters/24-nestjs.md)
-- Cross-cutting: [data flows](docs/26-data-flows.md), [security](docs/27-security.md), [development](docs/28-development.md), [operations](docs/29-operations.md), [troubleshooting](docs/30-troubleshooting.md), [FAQ](docs/31-faq.md)
+- Persistence: [Knex storage](docs/persistence/21-storage-knex.md), [queue](docs/persistence/22-queue.md)
+- Adapters: [Express](docs/adapters/23-express.md), [Fastify](docs/adapters/24-fastify.md), [NestJS](docs/adapters/25-nestjs.md)
+- Cross-cutting: [data flows](docs/27-data-flows.md), [security](docs/28-security.md), [development](docs/29-development.md), [operations](docs/30-operations.md), [troubleshooting](docs/31-troubleshooting.md), [FAQ](docs/32-faq.md)
 
 ## Testing
 

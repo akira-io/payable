@@ -94,14 +94,14 @@ export function payableErrorReply(error, _request, reply): void {
 ```
 
 Status and body follow the same `STATUS_BY_CODE` table and `{ error, message }` shape documented in
-`docs/adapters/22-express.md`. `INVALID_WEBHOOK_SIGNATURE` maps to 400 and `VALIDATION_FAILED` to 422.
+`docs/adapters/23-express.md`. `INVALID_WEBHOOK_SIGNATURE` maps to 400 and `VALIDATION_FAILED` to 422.
 
 ## No built-in authentication
 
 As with Express, the plugin installs no authentication or authorization. The checkout and
 subscription routes are unprotected; webhook routes are protected only by provider signature
 verification. The caller must authenticate the request and verify ownership of the billable. See
-`docs/27-security.md`.
+`docs/28-security.md`.
 
 ## Registration example
 
@@ -138,4 +138,4 @@ The `prefix` option is Fastify's standard register option; all routes above are 
 
 ---
 
-[Previous: Express](22-express.md) | [Index](../00-index.md) | [Next: NestJS](24-nestjs.md)
+[Previous: Express](23-express.md) | [Index](../00-index.md) | [Next: NestJS](25-nestjs.md)

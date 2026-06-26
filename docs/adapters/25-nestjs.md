@@ -165,7 +165,7 @@ export class PayableExceptionFilter implements ExceptionFilter {
 ```
 
 It uses the same `STATUS_BY_CODE` table and `{ error, message }` body shape documented in
-`docs/adapters/22-express.md`. An `InvalidWebhookSignatureError` maps to 400 with
+`docs/adapters/23-express.md`. An `InvalidWebhookSignatureError` maps to 400 with
 `error: 'INVALID_WEBHOOK_SIGNATURE'`, and a plain `TypeError` maps to 500 with
 `error: 'INTERNAL_ERROR'`.
 
@@ -173,7 +173,7 @@ It uses the same `STATUS_BY_CODE` table and `{ error, message }` body shape docu
 
 The controller installs no guards. Checkout and subscription routes are unprotected; webhook routes
 are protected only by provider signature verification. Add NestJS guards and verify ownership of the
-billable yourself. See `docs/27-security.md`.
+billable yourself. See `docs/28-security.md`.
 
 ## Module example
 
@@ -215,4 +215,4 @@ adapter.
 
 ---
 
-[Previous: Fastify](23-fastify.md) | [Index](../00-index.md) | [Next: MCP](25-mcp.md)
+[Previous: Fastify](24-fastify.md) | [Index](../00-index.md) | [Next: MCP](26-mcp.md)
