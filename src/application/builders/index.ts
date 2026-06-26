@@ -19,4 +19,8 @@ export {
   type RegisterWebhookEndpointInput,
   WebhookEndpointResource,
 } from './webhook-endpoint-resource';
-export { type ListWebhookEventsInput, WebhookEventResource } from './webhook-event-resource';
+export {
+  type ListWebhookEventsInput,
+  WebhookEventResource,
+  type WebhookEventView,
+} from './webhook-event-resource';
