@@ -1,4 +1,6 @@
+import { isWebhookCapable } from '../../../domain/contracts/payment-provider.contract';
 import type { VerifiedWebhook } from '../../../domain/dtos/webhook.dto';
+import type { WebhookEvent } from '../../../domain/entities/webhook-event.entity';
 import { PayableError } from '../../../domain/errors/payable-error';
 import type { NormalizedEventName } from '../../../domain/events/domain-event';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
@@ -28,12 +30,7 @@ export class ReplayWebhookAction {
     if ((event.tenantId ?? null) !== (context.tenantId ?? null)) {
       throw new PayableError('Webhook replay not permitted', { code: 'WEBHOOK_REPLAY_DENIED' });
     }
-    const verified: VerifiedWebhook = {
-      providerEventId: event.providerEventId,
-      type: event.type,
-      normalizedType: event.normalizedType as NormalizedEventName | null,
-      data: event.data,
-    };
+    const verified = await this.verify(event);
     const claimToken = await this.deps.storage.webhookEvents.claim(event.id, context.tenantId, {
       replay: true,
     });
@@ -58,5 +55,22 @@ export class ReplayWebhookAction {
       );
       throw error;
     }
+  }
+
+  private async verify(event: WebhookEvent): Promise<VerifiedWebhook> {
+    const provider = this.deps.provider;
+    if (event.signature !== null && isWebhookCapable(provider)) {
+      return provider.verifyWebhook({
+        payload: event.payload,
+        signature: event.signature,
+        headers: event.headers,
+      });
+    }
+    return {
+      providerEventId: event.providerEventId,
+      type: event.type,
+      normalizedType: event.normalizedType as NormalizedEventName | null,
+      data: event.data,
+    };
   }
 }

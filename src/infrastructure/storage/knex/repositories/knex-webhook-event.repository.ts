@@ -36,6 +36,7 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
       type: data.type,
       normalized_type: data.normalizedType,
       payload: await this.seal(data.payload),
+      signature: data.signature == null ? null : await this.seal(data.signature),
       data: await this.seal(JSON.stringify(data.data)),
       headers: await this.seal(JSON.stringify(data.headers)),
       status: data.status,
@@ -98,6 +99,7 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
     return this.toEntity({
       ...row,
       payload: await this.open(row.payload as string),
+      signature: row.signature == null ? null : await this.open(row.signature as string),
       data: await this.open(row.data as string),
       headers: await this.open(row.headers as string),
     });
@@ -156,6 +158,7 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
       type: row.type as string,
       normalizedType: (row.normalized_type as string | null) ?? null,
       payload: row.payload as string,
+      signature: (row.signature as string | null) ?? null,
       data: toJson<Record<string, unknown>>(row.data) ?? {},
       headers: toJson<Record<string, string>>(row.headers) ?? {},
       status: row.status as WebhookEventStatus,
