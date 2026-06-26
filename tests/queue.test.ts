@@ -201,6 +201,36 @@ describe('BullMQQueueDriver', () => {
     expect(errors).toEqual([['webhook', 'dlq down']]);
     expect(deadLetterAdds).toBe(3);
   });
+
+  it('starts a single worker when process is called concurrently for the same job', async () => {
+    let workerCount = 0;
+    class FakeQueue {
+      add(): Promise<void> {
+        return Promise.resolve();
+      }
+    }
+    class FakeWorker {
+      constructor() {
+        workerCount += 1;
+      }
+      on(): void {}
+    }
+    class TestDriver extends BullMQQueueDriver {
+      protected override loadBullmq(): Promise<typeof import('bullmq')> {
+        return Promise.resolve({
+          Queue: FakeQueue,
+          Worker: FakeWorker,
+        } as unknown as typeof import('bullmq'));
+      }
+    }
+
+    const driver = new TestDriver({ connection: { host: 'localhost', port: 6379 } });
+    driver.process('webhook', async () => {});
+    driver.process('webhook', async () => {});
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(workerCount).toBe(1);
+  });
 });
 
 describe('async webhook processing', () => {
