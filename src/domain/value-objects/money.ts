@@ -169,13 +169,13 @@ export class Money {
   }
 
   format(locale = 'en-US'): string {
-    const value = CurrencyManager.isDecimalBase(this.code)
-      ? (toDecimal(this.value) as unknown as number)
+    const value: string | number = CurrencyManager.isDecimalBase(this.code)
+      ? toDecimal(this.value)
       : this.nonDecimalUnits();
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: this.code,
-    }).format(value);
+    }).format(value as number);
   }
 
   private nonDecimalUnits(): number {
