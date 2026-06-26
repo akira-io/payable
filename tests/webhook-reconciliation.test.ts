@@ -133,9 +133,10 @@ describe('webhook subscription reconciliation (C1)', () => {
     expect(reloaded?.status).toBe(subscription.status);
   });
 
-  it('does not resurrect a canceled subscription from an out-of-order provider event', async () => {
+  it('does not resurrect a canceled subscription or overwrite its dates from an out-of-order event', async () => {
     await seedSubscription();
     await payable.customer(billable).subscription('default').cancelNow();
+    const before = await storage.subscriptions.findByProviderId('stripe', 'sub_fake');
     provider.verifyResult = {
       providerEventId: 'evt_stale',
       type: 'customer.subscription.updated',
@@ -146,13 +147,19 @@ describe('webhook subscription reconciliation (C1)', () => {
       providerSubscriptionId: 'sub_fake',
       status: 'active',
       currentPeriodEnd: new Date('2026-07-22T00:00:00.000Z'),
-      trialEndsAt: null,
+      trialEndsAt: new Date('2026-08-01T00:00:00.000Z'),
     };
 
     await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
 
     const reloaded = await storage.subscriptions.findByProviderId('stripe', 'sub_fake');
     expect(reloaded?.status).toBe('canceled');
+    expect(reloaded?.currentPeriodEnd?.toISOString() ?? null).toBe(
+      before?.currentPeriodEnd?.toISOString() ?? null,
+    );
+    expect(reloaded?.trialEndsAt?.toISOString() ?? null).toBe(
+      before?.trialEndsAt?.toISOString() ?? null,
+    );
   });
 
   it('does not reconcile a subscription owned by a different tenant', async () => {

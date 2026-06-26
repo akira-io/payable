@@ -96,7 +96,11 @@ export class ProcessWebhookPipeline {
     if (!local) {
       return;
     }
-    const status = reconcileSubscriptionStatus(local.status, dto.status).status;
+    const reconciliation = reconcileSubscriptionStatus(local.status, dto.status);
+    if (!reconciliation.applied) {
+      return;
+    }
+    const status = reconciliation.status;
     const patch: Partial<NewSubscription> = {
       status,
       currentPeriodEnd: dto.currentPeriodEnd,
