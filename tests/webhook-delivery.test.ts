@@ -169,6 +169,23 @@ describe('outbound webhook delivery', () => {
     await db.destroy();
   });
 
+  it('blocks delivery when the endpoint host resolves to nothing', async () => {
+    const { db, storage, payable } = await setup();
+    await payable
+      .webhookEndpoints()
+      .register({ url: 'https://hooks.test/empty', events: ['invoice.paid'] });
+    const event = await storage.outboxEvents.create(outboxEvent('invoice.paid.v1'));
+    const { calls, impl } = recordingFetch(() => ({ ok: true, status: 200 }));
+
+    await payable.deliverPendingWebhooks({ fetch: impl, resolveHost: async () => [] });
+
+    expect(calls).toHaveLength(0);
+    const deliveries = await storage.webhookDeliveries.listForEvent(event.id);
+    expect(deliveries[0]?.status).toBe('failed');
+    expect(deliveries[0]?.responseBody).toContain('blocked host');
+    await db.destroy();
+  });
+
   it('publishes without any HTTP call when no endpoint subscribes to the event', async () => {
     const { db, storage, payable } = await setup();
     await payable
