@@ -56,6 +56,7 @@ export interface RefundRequest {
   paymentId: string;
   amount?: Money;
   reason?: string;
+  reference?: string;
   authorization?: AuthorizationContext;
 }
 
@@ -320,6 +321,7 @@ export class Payable {
       paymentId: request.paymentId,
       amount: request.amount,
       reason: request.reason,
+      reference: request.reference,
       authorization: request.authorization,
     });
   }

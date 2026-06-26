@@ -15,6 +15,7 @@ export interface RefundPaymentActionInput {
   paymentId: string;
   amount?: Money;
   reason?: string;
+  reference?: string;
   authorization?: AuthorizationContext;
 }
 
@@ -70,6 +71,7 @@ export class RefundPaymentAction {
       paymentId: payment.providerPaymentId,
       amount: requested,
       currency: payment.currency,
+      reference: input.reference,
     });
     const correlationId = CorrelationId.generate().toString();
     const refundable = {

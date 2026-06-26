@@ -42,6 +42,7 @@ export interface RefundKeyParts {
   paymentId: string;
   amount: number;
   currency: CurrencyCode;
+  reference?: string;
 }
 
 export interface WebhookKeyParts {
@@ -113,9 +114,8 @@ export class IdempotencyKey {
   }
 
   static forRefund(parts: RefundKeyParts): IdempotencyKey {
-    return IdempotencyKey.of(
-      `refund:${tenantSegment(parts.tenantId)}:${segment(parts.provider)}:${segment(parts.paymentId)}:${amountSegment(parts.amount)}:${currencySegment(parts.currency)}`,
-    );
+    const base = `refund:${tenantSegment(parts.tenantId)}:${segment(parts.provider)}:${segment(parts.paymentId)}:${amountSegment(parts.amount)}:${currencySegment(parts.currency)}`;
+    return IdempotencyKey.of(parts.reference ? `${base}:${segment(parts.reference)}` : base);
   }
 
   static forSubscriptionOperation(parts: SubscriptionOperationKeyParts): IdempotencyKey {

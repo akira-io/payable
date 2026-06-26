@@ -6,6 +6,7 @@ import type {
   IdempotencyStore,
 } from '../../../../domain/contracts/idempotency-store.contract';
 import { fromJson, toJson, toNullableDate } from '../mappers';
+import { isUniqueViolation } from '../unique-violation';
 
 export class KnexIdempotencyRepository implements IdempotencyStore {
   private readonly table = 'payable_idempotency_keys';
@@ -71,19 +72,15 @@ export class KnexIdempotencyRepository implements IdempotencyStore {
   async put(record: IdempotencyRecord, tenantId: string | null = null): Promise<void> {
     const tenant = this.tenant(tenantId);
     const timestamp = this.clock.now().toISOString();
-    const existing = await this.knex(this.table)
-      .where({ key: record.key, tenant_id: tenant })
-      .first();
-    if (existing) {
-      await this.knex(this.table).where({ id: existing.id }).update(this.row(record, timestamp));
-      return;
-    }
-    await this.knex(this.table).insert({
-      id: globalThis.crypto.randomUUID(),
-      tenant_id: tenant,
-      created_at: timestamp,
-      ...this.row(record, timestamp),
-    });
+    await this.knex(this.table)
+      .insert({
+        id: globalThis.crypto.randomUUID(),
+        tenant_id: tenant,
+        created_at: timestamp,
+        ...this.row(record, timestamp),
+      })
+      .onConflict(['tenant_id', 'key'])
+      .merge(this.row(record, timestamp));
   }
 
   async markCompleted(
@@ -159,17 +156,4 @@ export class KnexIdempotencyRepository implements IdempotencyStore {
       lockToken: (row.lock_token as string | null) ?? null,
     };
   }
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  const candidate = error as { code?: string; message?: string };
-  if (
-    candidate.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
-    candidate.code === 'SQLITE_CONSTRAINT' ||
-    candidate.code === '23505' ||
-    candidate.code === 'ER_DUP_ENTRY'
-  ) {
-    return true;
-  }
-  return typeof candidate.message === 'string' && /unique constraint/i.test(candidate.message);
 }
