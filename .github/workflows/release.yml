@@ -94,13 +94,27 @@ jobs:
             echo "No release changes to propose."
             exit 0
           fi
+          if git ls-remote --exit-code --heads origin "${BRANCH}" >/dev/null 2>&1; then
+            echo "Release branch ${BRANCH} already exists; refusing to overwrite it."
+            exit 1
+          fi
           git checkout -b "${BRANCH}"
           git commit -m "chore(release): ${{ github.ref_name }}"
-          git push -f origin "${BRANCH}"
+          git push origin "${BRANCH}"
           gh pr create --base "${DEFAULT_BRANCH}" --head "${BRANCH}" \
             --title "chore(release): ${{ github.ref_name }}" \
-            --body "Automated version bump and changelog for ${{ github.ref_name }}." \
-            || gh pr edit "${BRANCH}" --title "chore(release): ${{ github.ref_name }}"
+            --body "Automated version bump and changelog for ${{ github.ref_name }}."
+
+      - name: Publish to npm
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NPM_TOKEN}" ]; then
+            echo "NPM_TOKEN is not set; skipping npm publish."
+            exit 0
+          fi
+          npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}"
+          npm publish --access public
 
       - name: Send GitHub Release to Discord
         uses: SethCohen/github-releases-to-discord@24d166886aee4646d448c8a389ff9e1ebcab3682 # v1.20.0
