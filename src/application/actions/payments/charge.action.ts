@@ -110,6 +110,7 @@ export class ChargeAction {
       },
       resourceType: 'payment',
       tenantId: this.deps.tenantId,
+      retryFailed: false,
       run,
     });
   }

@@ -80,7 +80,7 @@ describe('idempotency lock acquisition (C2)', () => {
     const service = new IdempotencyService(store, clock);
     let runs = 0;
     const execution = () => ({
-      key: 'charge:3',
+      key: '3',
       scope: 'charge',
       operation: 'charge',
       request: { amount: 9900 },
