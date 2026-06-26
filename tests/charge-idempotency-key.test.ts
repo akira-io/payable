@@ -49,4 +49,32 @@ describe('charge idempotency key (#468)', () => {
     expect(provider.chargeCalls).toBe(1);
     await db.destroy();
   });
+
+  it('warns when idempotency is configured but a charge has no reference', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock();
+    const warnings: string[] = [];
+    const payable = createPayable({
+      providers: { stripe: new FakeProvider() },
+      storage: new KnexStorageDriver(db, clock),
+      idempotency: { store: new KnexIdempotencyRepository(db, clock) },
+      logger: {
+        debug() {},
+        info() {},
+        warn: (message) => warnings.push(message),
+        error() {},
+      },
+    });
+
+    await payable.customer(billable).charge({ amount: Money.of(1000, 'USD') });
+    expect(warnings.some((message) => message.includes('no reference'))).toBe(true);
+
+    warnings.length = 0;
+    await payable
+      .customer(billable)
+      .charge({ amount: Money.of(1000, 'USD'), reference: 'order-9' });
+    expect(warnings).toHaveLength(0);
+    await db.destroy();
+  });
 });

@@ -16,14 +16,13 @@ import {
 } from './application/actions/webhooks/receive-webhook.action';
 import { ReplayWebhookAction } from './application/actions/webhooks/replay-webhook.action';
 import type { Billable } from './application/builders/billable';
-import type { BillingDependencies } from './application/builders/billing-dependencies';
 import { CustomerContext } from './application/builders/customer-context';
 import { CustomerResource } from './application/builders/customer-resource';
+import { DependencyFactory } from './application/builders/dependency-factory';
 import { InvoiceResource } from './application/builders/invoice-resource';
 import { PriceResource } from './application/builders/price-resource';
 import { ProductResource } from './application/builders/product-resource';
 import { RefundResource } from './application/builders/refund-resource';
-import type { WebhookDependencies } from './application/builders/webhook-dependencies';
 import { WebhookEndpointResource } from './application/builders/webhook-endpoint-resource';
 import { WebhookEventResource } from './application/builders/webhook-event-resource';
 import type { AuthorizationContext } from './application/policies/authorization-context';
@@ -31,7 +30,6 @@ import type { ReplayWebhookContext } from './application/policies/can-replay-web
 import { ListAuditLogsQuery } from './application/queries/audit/list-audit-logs.query';
 import { ListAllPaymentsQuery } from './application/queries/payments/list-all-payments.query';
 import { ListAllSubscriptionsQuery } from './application/queries/subscriptions/list-all-subscriptions.query';
-import { IdempotencyService } from './application/services/idempotency/idempotency-service';
 import {
   DEFAULT_WEBHOOK_DELIVERY_ATTEMPTS,
   type HostResolver,
@@ -41,19 +39,18 @@ import type { Clock } from './domain/contracts/clock.contract';
 import type { EventBus } from './domain/contracts/event-bus.contract';
 import type { ListOptions } from './domain/contracts/list-options.contract';
 import type { Logger } from './domain/contracts/logger.contract';
-import type { PaymentProvider } from './domain/contracts/payment-provider.contract';
 import type { QueueJob } from './domain/contracts/queue-driver.contract';
 import type { Payment } from './domain/entities/payment.entity';
 import type { Refund } from './domain/entities/refund.entity';
 import type { Subscription } from './domain/entities/subscription.entity';
 import { PayableError } from './domain/errors/payable-error';
-import { ProviderNotFoundError } from './domain/errors/provider-not-found.error';
 import type { Money } from './domain/value-objects/money';
 import {
   type OutboxPublishResult,
   OutboxService,
   type OutboxServiceOptions,
 } from './infrastructure/outbox/outbox-service';
+import { ProviderRegistry } from './provider-registry';
 import type { ResolvedConfig } from './support/config/payable-config';
 
 export interface RefundRequest {
@@ -72,35 +69,13 @@ export interface DeliverWebhooksOptions {
   outbox?: OutboxServiceOptions;
 }
 
-export class ProviderRegistry {
-  constructor(private readonly providers: Map<string, PaymentProvider>) {}
-
-  register(name: string, provider: PaymentProvider): void {
-    this.providers.set(name, provider);
-  }
-
-  get(name: string): PaymentProvider {
-    const provider = this.providers.get(name);
-    if (!provider) {
-      throw new ProviderNotFoundError(name);
-    }
-    return provider;
-  }
-
-  has(name: string): boolean {
-    return this.providers.has(name);
-  }
-
-  names(): string[] {
-    return [...this.providers.keys()];
-  }
-}
-
 export class Payable {
   private readonly registry: ProviderRegistry;
+  private readonly factory: DependencyFactory;
 
   constructor(private readonly resolved: ResolvedConfig) {
     this.registry = new ProviderRegistry(resolved.providers);
+    this.factory = new DependencyFactory(resolved, this.registry);
     this.resolved.queue.process(PROCESS_WEBHOOK_JOB, (job: QueueJob) =>
       this.processWebhookJob(job),
     );
@@ -127,40 +102,40 @@ export class Payable {
   }
 
   customer(billable: Billable, providerName?: string, tenantId?: string | null): CustomerContext {
-    return new CustomerContext(billable, this.dependencies(providerName, tenantId));
+    return new CustomerContext(billable, this.factory.billing(providerName, tenantId));
   }
 
   customers(providerName?: string, tenantId?: string | null): CustomerResource {
-    return new CustomerResource(this.dependencies(providerName, tenantId));
+    return new CustomerResource(this.factory.billing(providerName, tenantId));
   }
 
   products(providerName?: string, tenantId?: string | null): ProductResource {
-    return new ProductResource(this.dependencies(providerName, tenantId));
+    return new ProductResource(this.factory.billing(providerName, tenantId));
   }
 
   prices(providerName?: string, tenantId?: string | null): PriceResource {
-    return new PriceResource(this.dependencies(providerName, tenantId));
+    return new PriceResource(this.factory.billing(providerName, tenantId));
   }
 
   refunds(providerName?: string, tenantId?: string | null): RefundResource {
-    return new RefundResource(this.dependencies(providerName, tenantId));
+    return new RefundResource(this.factory.billing(providerName, tenantId));
   }
 
   invoices(providerName?: string, tenantId?: string | null): InvoiceResource {
-    return new InvoiceResource(this.dependencies(providerName, tenantId));
+    return new InvoiceResource(this.factory.billing(providerName, tenantId));
   }
 
   async receiveWebhook(
     input: ReceiveWebhookInput & { provider?: string },
   ): Promise<ReceiveWebhookResult> {
-    return new ReceiveWebhookAction(this.webhookDependencies(input.provider)).handle(input);
+    return new ReceiveWebhookAction(this.factory.webhook(input.provider)).handle(input);
   }
 
   async receiveRedirectCallback(
     input: RedirectCallbackInput & { provider?: string },
   ): Promise<ReconcileRedirectPaymentResult> {
     return new ReconcileRedirectPaymentAction(
-      this.dependencies(input.provider, input.tenantId),
+      this.factory.billing(input.provider, input.tenantId),
     ).handle(input);
   }
 
@@ -169,10 +144,7 @@ export class Payable {
     context?: ReplayWebhookContext,
     provider?: string,
   ): Promise<void> {
-    return new ReplayWebhookAction(this.webhookDependencies(provider)).handle(
-      webhookEventId,
-      context,
-    );
+    return new ReplayWebhookAction(this.factory.webhook(provider)).handle(webhookEventId, context);
   }
 
   outbox(options?: OutboxServiceOptions): OutboxService {
@@ -236,11 +208,11 @@ export class Payable {
   }
 
   subscriptions(tenantId?: string | null, options?: ListOptions): Promise<Subscription[]> {
-    return new ListAllSubscriptionsQuery(this.dependencies(undefined, tenantId)).run(options);
+    return new ListAllSubscriptionsQuery(this.factory.billing(undefined, tenantId)).run(options);
   }
 
   payments(tenantId?: string | null, options?: ListOptions): Promise<Payment[]> {
-    return new ListAllPaymentsQuery(this.dependencies(undefined, tenantId)).run(options);
+    return new ListAllPaymentsQuery(this.factory.billing(undefined, tenantId)).run(options);
   }
 
   auditLogs(tenantId?: string | null): ListAuditLogsQuery {
@@ -257,77 +229,14 @@ export class Payable {
     return new ListAuditLogsQuery(this.resolved.storage.auditLogs, tenantId ?? null);
   }
 
-  private dependencies(providerName?: string, tenantId?: string | null): BillingDependencies {
-    const name = providerName ?? this.registry.names()[0];
-    if (!name) {
-      throw new ProviderNotFoundError(providerName ?? 'default');
-    }
-    if (this.resolved.tenantEnabled && (tenantId === undefined || tenantId === null)) {
-      throw new PayableError('A tenant id is required when tenancy is enabled', {
-        code: 'TENANT_REQUIRED',
-      });
-    }
-    return {
-      provider: this.registry.get(name),
-      providerName: name,
-      clock: this.resolved.clock,
-      storage: this.resolved.storage,
-      tenantId: tenantId ?? null,
-      authorizationEnabled: this.resolved.authorizationEnabled,
-      idempotency: this.idempotencyService(),
-    };
-  }
-
-  private idempotencyService(): IdempotencyService | undefined {
-    const { enabled, strategy, store } = this.resolved.idempotency;
-    if (!enabled || strategy === 'manual' || !store) {
-      return undefined;
-    }
-    return new IdempotencyService(store, this.resolved.clock);
-  }
-
   private async processWebhookJob(job: QueueJob): Promise<void> {
     const payload = job.payload as ProcessWebhookJobPayload;
-    await new ProcessWebhookAction(this.webhookDependencies(payload.providerName)).handle(payload);
-  }
-
-  private webhookDependencies(providerName?: string): WebhookDependencies {
-    const name = providerName ?? this.defaultWebhookProvider();
-    if (!this.resolved.storage) {
-      throw new PayableError('Webhook processing requires a storage driver', {
-        code: 'WEBHOOK_STORAGE_REQUIRED',
-      });
-    }
-    return {
-      provider: this.registry.get(name),
-      providerName: name,
-      storage: this.resolved.storage,
-      queue: this.resolved.queue,
-      events: this.resolved.events,
-      clock: this.resolved.clock,
-      tenantResolver: this.resolved.tenantResolver,
-      tenantEnabled: this.resolved.tenantEnabled,
-    };
-  }
-
-  private defaultWebhookProvider(): string {
-    const names = this.registry.names();
-    if (names.length > 1) {
-      throw new PayableError(
-        'Multiple providers are registered; route the webhook to /webhooks/:provider',
-        { code: 'WEBHOOK_PROVIDER_AMBIGUOUS' },
-      );
-    }
-    const name = names[0];
-    if (!name) {
-      throw new ProviderNotFoundError('default');
-    }
-    return name;
+    await new ProcessWebhookAction(this.factory.webhook(payload.providerName)).handle(payload);
   }
 
   async refund(request: RefundRequest, tenantId?: string | null): Promise<Refund> {
     const providerName = await this.resolveRefundProvider(request.paymentId, tenantId ?? null);
-    return new RefundPaymentAction(this.dependencies(providerName, tenantId)).handle({
+    return new RefundPaymentAction(this.factory.billing(providerName, tenantId)).handle({
       paymentId: request.paymentId,
       amount: request.amount,
       reason: request.reason,

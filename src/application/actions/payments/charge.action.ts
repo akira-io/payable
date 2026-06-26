@@ -55,6 +55,12 @@ export class ChargeAction {
     if (!customer) {
       throw new CustomerNotFoundError(input.billable.billableId);
     }
+    if (this.deps.idempotency && input.reference === undefined) {
+      this.deps.logger?.warn(
+        'Charge has no reference; idempotency is disabled and a retry will create a duplicate charge',
+        { billableId: input.billable.billableId },
+      );
+    }
     const dedupReference = input.reference ?? `nonce:${CorrelationId.generate().toString()}`;
     const key = IdempotencyKey.forCharge({
       tenantId: this.deps.tenantId ?? null,

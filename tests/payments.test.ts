@@ -491,10 +491,19 @@ describe('charge and refund lifecycle', () => {
       hostedInvoiceUrl: null,
       invoicePdf: null,
     });
-    expect((await new DownloadInvoicePdfAction(deps).handle('in_fake')).filename).toBe(
+    expect((await new DownloadInvoicePdfAction(deps).handle('in_fake', billable)).filename).toBe(
       'in_fake.pdf',
     );
-    await expect(new DownloadInvoicePdfAction(deps).handle('in_foreign')).rejects.toThrow(
+    await expect(new DownloadInvoicePdfAction(deps).handle('in_fake')).rejects.toThrow(
+      'Invoice not found',
+    );
+    await expect(
+      new DownloadInvoicePdfAction(deps).handle('in_fake', {
+        billableType: 'user',
+        billableId: 'someone-else',
+      }),
+    ).rejects.toThrow('Invoice not found');
+    await expect(new DownloadInvoicePdfAction(deps).handle('in_foreign', billable)).rejects.toThrow(
       'Invoice not found',
     );
     await db.destroy();

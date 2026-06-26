@@ -40,7 +40,7 @@ export class DownloadInvoicePdfAction {
     billable?: Billable,
   ): Promise<boolean> {
     if (!billable) {
-      return true;
+      return false;
     }
     const customer = await this.deps.storage?.customers.findByBillable(
       billable.billableType,
