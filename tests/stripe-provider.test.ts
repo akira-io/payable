@@ -184,6 +184,27 @@ describe('StripeProvider', () => {
     ).toThrow('Webhook subscription payload is missing id or status');
   });
 
+  it('narrows a subscription webhook payload defensively, ignoring malformed nested fields', () => {
+    const { client } = fakeStripe();
+    const dto = provider(client).reconcileSubscription({
+      providerEventId: 'evt_2',
+      type: 'customer.subscription.updated',
+      normalizedType: 'subscription.updated',
+      data: {
+        id: 'sub_1',
+        status: 'active',
+        items: { data: [{ current_period_end: 1_893_456_000 }, { current_period_end: 'bad' }] },
+        trial_end: null,
+      },
+    });
+    expect(dto).toMatchObject({
+      providerSubscriptionId: 'sub_1',
+      status: 'active',
+      trialEndsAt: null,
+    });
+    expect(dto?.currentPeriodEnd?.toISOString()).toBe(new Date(1_893_456_000 * 1000).toISOString());
+  });
+
   it('translates a Stripe card error into a typed PayableError', async () => {
     const stripe = {
       paymentIntents: {

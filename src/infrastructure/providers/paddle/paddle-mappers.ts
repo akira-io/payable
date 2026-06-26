@@ -33,7 +33,13 @@ function toMinorUnits(value: string | number | null | undefined): number {
       code: 'PROVIDER_AMOUNT_INVALID',
     });
   }
-  return Number(text);
+  const minor = Number(text);
+  if (!Number.isSafeInteger(minor)) {
+    throw new PayableError(`Paddle amount exceeds the safe integer range: ${text}`, {
+      code: 'PROVIDER_AMOUNT_INVALID',
+    });
+  }
+  return minor;
 }
 
 export function toCustomerDTO(customer: PaddleCustomer): CustomerDTO {

@@ -12,6 +12,15 @@ describe('sisp amounts', () => {
     expect(sispAmount(Money.of(1550, 'CVE'))).toBe(15.5);
   });
 
+  it('derives the major amount from the precise decimal string', () => {
+    expect(sispAmount(Money.of(1559, 'CVE'))).toBe(15.59);
+    expect(sispAmount(Money.of(5, 'CVE'))).toBe(0.05);
+    for (const minor of [1, 7, 29, 1559, 99999]) {
+      const money = Money.of(minor, 'CVE');
+      expect(sispAmount(money)).toBe(Number(sispDecimal(money)));
+    }
+  });
+
   it('formats a precise decimal string without floating-point drift', () => {
     expect(sispDecimal(Money.of(150000, 'CVE'))).toBe('1500.00');
     expect(sispDecimal(Money.of(1550, 'CVE'))).toBe('15.50');

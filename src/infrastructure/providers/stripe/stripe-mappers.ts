@@ -109,6 +109,28 @@ export function toSubscriptionDTO(subscription: Stripe.Subscription): Subscripti
   };
 }
 
+function numberOrNull(value: unknown): number | null {
+  return typeof value === 'number' ? value : null;
+}
+
+export function toSubscriptionDTOFromWebhook(data: Record<string, unknown>): SubscriptionDTO {
+  const status =
+    typeof data.status === 'string' && isSubscriptionStatus(data.status)
+      ? data.status
+      : 'incomplete';
+  const rawItems = (data.items as { data?: unknown } | undefined)?.data;
+  const ends = (Array.isArray(rawItems) ? rawItems : [])
+    .map((item) => (item as { current_period_end?: unknown }).current_period_end)
+    .filter((end): end is number => typeof end === 'number');
+  const periodEnd = ends.length > 0 ? Math.min(...ends) : numberOrNull(data.current_period_end);
+  return {
+    providerSubscriptionId: String(data.id ?? ''),
+    status,
+    currentPeriodEnd: fromUnixSeconds(periodEnd),
+    trialEndsAt: fromUnixSeconds(numberOrNull(data.trial_end)),
+  };
+}
+
 function earliestPeriodEnd(subscription: Stripe.Subscription): number | null | undefined {
   const ends = (subscription.items?.data ?? [])
     .map((item) => item.current_period_end)
