@@ -172,6 +172,9 @@ export class WebhookDeliveryService {
     } catch {
       return hostname;
     }
+    if (addresses.length === 0) {
+      return hostname;
+    }
     return addresses.find((address) => isBlockedIp(address)) ?? null;
   }
 
