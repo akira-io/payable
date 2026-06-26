@@ -20,6 +20,7 @@ export interface BullMQQueueOptions {
 
 const DEFAULT_REMOVE_ON_COMPLETE_AGE_SEC = 86_400;
 const DEFAULT_DEAD_LETTER_ATTEMPTS = 3;
+const MAX_SETTLE_ROUNDS = 1000;
 
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
@@ -48,7 +49,7 @@ export class BullMQQueueDriver implements QueueDriver {
   constructor(private readonly options: BullMQQueueOptions) {}
 
   async settle(): Promise<void> {
-    while (this.background.size > 0) {
+    for (let round = 0; round < MAX_SETTLE_ROUNDS && this.background.size > 0; round += 1) {
       await Promise.allSettled([...this.background]);
     }
   }
