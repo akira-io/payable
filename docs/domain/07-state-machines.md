@@ -81,7 +81,6 @@ Events: `start_trial`, `activate`, `mark_past_due`, `mark_unpaid`, `pause`, `res
 | `unpaid` | `activate` | `active` |
 | `unpaid` | `cancel` | `canceled` |
 | `paused` | `resume` | `active` |
-| `paused` | `mark_past_due` | `past_due` |
 | `paused` | `cancel` | `canceled` |
 | `canceled` | - | (terminal: no transitions) |
 
@@ -111,7 +110,6 @@ stateDiagram-v2
   unpaid --> active: activate
   unpaid --> canceled: cancel
   paused --> active: resume
-  paused --> past_due: mark_past_due
   paused --> canceled: cancel
   canceled --> [*]
   incomplete_expired --> [*]
@@ -192,6 +190,7 @@ Events: `process`, `succeed`, `fail`, `cancel`, `refund`, `partially_refund`.
 | `pending` | `cancel` | `canceled` |
 | `processing` | `succeed` | `succeeded` |
 | `processing` | `fail` | `failed` |
+| `processing` | `cancel` | `canceled` |
 | `succeeded` | `refund` | `refunded` |
 | `succeeded` | `partially_refund` | `partially_refunded` |
 | `partially_refunded` | `refund` | `refunded` |
@@ -213,6 +212,7 @@ stateDiagram-v2
   pending --> canceled: cancel
   processing --> succeeded: succeed
   processing --> failed: fail
+  processing --> canceled: cancel
   succeeded --> refunded: refund
   succeeded --> partially_refunded: partially_refund
   partially_refunded --> refunded: refund

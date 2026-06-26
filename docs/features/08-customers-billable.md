@@ -55,8 +55,12 @@ const customer = payable.customer({
 | --- | --- | --- |
 | `newSubscription(name)` | `SubscriptionBuilder` | [09-checkout.md](09-checkout.md), [10-subscriptions.md](10-subscriptions.md) |
 | `checkout()` | `CheckoutBuilder` | [09-checkout.md](09-checkout.md) |
+| `redirectCheckout(amount: Money)` | `RedirectCheckoutBuilder` | [09-checkout.md](09-checkout.md) |
 | `subscription(name)` | `SubscriptionManager` | [10-subscriptions.md](10-subscriptions.md) |
 | `charge(request)` | `Promise<Payment>` | [11-charges-refunds.md](11-charges-refunds.md) |
+| `invoices(limit?)` | `Promise<InvoiceDTO[]>` | [12-invoices-portal.md](12-invoices-portal.md) |
+| `payments(options?: ListOptions)` | `Promise<Payment[]>` | [11-charges-refunds.md](11-charges-refunds.md) |
+| `subscriptions(options?: ListOptions)` | `Promise<Subscription[]>` | [10-subscriptions.md](10-subscriptions.md) |
 | `billingPortal(returnUrl)` | `Promise<BillingPortalDTO>` | [12-invoices-portal.md](12-invoices-portal.md) |
 
 ### Provider and tenant resolution

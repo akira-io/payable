@@ -47,6 +47,35 @@ Tests live in `tests/` and run on Vitest, which includes `tests/**/*.test.ts`.
   and exception filter directly.
 - Coverage thresholds are enforced at 78% for statements, branches, functions, and lines.
 
+### Optional test suites
+
+Some suites exercise optional peer dependencies that a minimal install does not have, so they are
+excluded unless their dependencies are present. `vitest.config.ts` builds the exclude list from
+`optionalSuiteExcludes(isInstalled)` (`vitest.suites.ts`), where `isInstalled` resolves a module via
+`require.resolve`:
+
+```ts
+export function optionalSuiteExcludes(isInstalled: (name: string) => boolean): string[] {
+  const exclude: string[] = [];
+  if (!isInstalled(MCP_PROBE)) {
+    exclude.push(...MCP_SUITES);
+  }
+  if (!NEST_PROBES.every(isInstalled)) {
+    exclude.push(...NEST_SUITES);
+  }
+  return exclude;
+}
+```
+
+- The MCP suites (`mcp-tools`, `mcp-http`, `mcp-policy`) are excluded unless
+  `@modelcontextprotocol/sdk/client/index.js` resolves.
+- The NestJS suite (`nest`) is excluded unless `@nestjs/common`, `@nestjs/core`, and
+  `reflect-metadata` all resolve.
+
+Because these probes match the optional peers, `vitest run` passes in a minimal install (the core
+zero-required-peer install) instead of failing on missing modules. Installing the optional peers turns
+the matching suites back on automatically.
+
 ## How to run
 
 The package scripts are run with Bun in CI; locally either Bun or npm works.

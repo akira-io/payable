@@ -96,17 +96,48 @@ The signature is read from a configurable header (`webhookSignatureHeader`, defa
 `stripe-signature`) and the raw, unparsed body must reach the verifier. See the adapter docs for
 raw-body handling: `docs/adapters/23-express.md`, `24-fastify.md`, `25-nestjs.md`.
 
+## Outbound webhook egress (SSRF defense)
+
+`WebhookDeliveryService` (`src/application/services/webhook-delivery/webhook-delivery-service.ts`)
+delivers outbox events to your registered endpoints. Before each request it resolves the endpoint
+host and refuses to send to non-routable destinations, using
+`src/support/net/blocked-host.ts`:
+
+- The hostname is blocked outright when it is `localhost` or ends in `.localhost`.
+- The host is resolved via DNS and every returned address is checked; if any resolved address is
+  non-routable, delivery is blocked.
+- **IPv4 blocked ranges:** `0.0.0.0/8`, `10.0.0.0/8` (private), `127.0.0.0/8` (loopback),
+  `169.254.0.0/16` (link-local), `172.16.0.0/12` (private), `192.168.0.0/16` (private),
+  `100.64.0.0/10` (CGNAT), `198.18.0.0/15` (benchmark), multicast/reserved (`>= 224.0.0.0`), and the
+  documentation ranges `192.0.0.0/24`, `192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`.
+- **IPv6 blocked ranges:** loopback `::1`, unspecified `::`, link-local `fe80::/10`, and unique-local
+  `fc00::/7`. IPv4-mapped/embedded forms (`::ffff:` and `64:ff9b::`) are unwrapped and checked against
+  the IPv4 rules above.
+- **Fails closed.** DNS resolution that throws, or that returns an empty address set, is treated as
+  blocked.
+
+A blocked target is recorded as a failed delivery (`responseBody: 'blocked host: <host>'`) and logged
+as a warning; it is never sent.
+
 ## Encryption at rest
 
 `NodeEncryptionDriver` (`src/infrastructure/encryption/node-encryption-driver.ts`) implements
-AES-256-GCM:
+AES-256-GCM with a 12-byte IV and a 32-byte key:
 
-- The constructor rejects an empty/whitespace key with `PayableError` code
-  `ENCRYPTION_KEY_REQUIRED`, then derives a 32-byte key via SHA-256 of the supplied secret.
-- `encrypt` produces `base64(iv):base64(tag):base64(ciphertext)` with a random 12-byte IV per
-  message.
-- `decrypt` rejects malformed ciphertext (missing parts) with `ENCRYPTION_INVALID_CIPHERTEXT` and
-  verifies the GCM auth tag.
+- The constructor rejects an empty/whitespace key with `PayableError` code `ENCRYPTION_KEY_REQUIRED`.
+- **Key handling.** A key matching `/^[0-9a-f]{64}$/i` (a raw 32-byte hex key) is used directly.
+  Any other key is treated as a passphrase and a 32-byte key is derived via scrypt
+  (`N = 2^16`, `r = 8`, `p = 1`), which **requires** an explicit non-empty `salt`; a missing or empty
+  salt throws `ENCRYPTION_SALT_REQUIRED`. (No SHA-256 key derivation.)
+- **Envelope.** `encrypt` produces `v1:base64(iv):base64(tag):base64(ciphertext)` with a random
+  12-byte IV per message; the version string `v1` is bound as the GCM AAD.
+- `decrypt` rejects malformed ciphertext (wrong part count, version, or empty parts) with
+  `ENCRYPTION_INVALID_CIPHERTEXT`; a failed decrypt or auth-tag check throws
+  `ENCRYPTION_DECRYPT_FAILED`.
+- **Key generation.** `generateEncryptionKey()` returns a 32-byte raw hex key and is the preferred
+  way to provision a key. `legacyDerivedSalt(key)` returns `sha256('payable.encryption.kdf.v1:' + key)`
+  and exists **only** to recover data encrypted before explicit salts were required - use it as a
+  migration/recovery aid, never for new deployments.
 
 When an `encryption` driver is configured (`PayableConfig.encryption`), the Knex webhook-event
 repository seals the stored headers before writing and opens them on read. Webhook headers are
@@ -141,6 +172,7 @@ signature header and any auth cookies never land in storage even when encryption
 | Threat | Control in library | Caller responsibility |
 | --- | --- | --- |
 | Forged webhook payload | Provider signature verification before any write (`verifyWebhook`) | Configure the correct signing secret and provider |
+| SSRF via an attacker-controlled outbound endpoint | Outbound delivery resolves the host and blocks non-routable IPv4/IPv6 targets; fails closed on DNS error/empty result | Restrict who can register endpoints; prefer egress controls at the network layer |
 | Webhook replay by an unauthorized actor | `CanReplayWebhookPolicy` + tenant match -> `WEBHOOK_REPLAY_DENIED` (403) | Supply a trustworthy `ReplayWebhookContext` (`allowed`, `actorId`, `tenantId`) |
 | Sensitive headers leaking into storage/logs | `redactHeaders` strips auth/signature/cookie headers | Avoid logging raw requests elsewhere |
 | Stored webhook headers readable at rest | Optional AES-256-GCM encryption of header payload | Configure an `encryption` driver with a high-entropy key |

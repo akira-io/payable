@@ -13,9 +13,11 @@ tree.
 
 ## Domain
 
-5. [domain/05-domain-model.md](domain/05-domain-model.md) - Entities, DTOs, events, errors, and contracts.
+5. [domain/05-domain-model.md](domain/05-domain-model.md) - Entities, errors, and DTOs (boundary types).
 6. [domain/06-value-objects.md](domain/06-value-objects.md) - `Money`, `Currency`, identifiers, and status value objects.
 7. [domain/07-state-machines.md](domain/07-state-machines.md) - Subscription, payment, invoice, and refund state machines.
+33. [domain/33-contracts.md](domain/33-contracts.md) - Repository, driver, provider, and cross-cutting dependency-inversion contracts.
+34. [domain/34-domain-events.md](domain/34-domain-events.md) - The `DomainEvent` base and the 14 domain events.
 
 ## Features
 

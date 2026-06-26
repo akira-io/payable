@@ -24,13 +24,15 @@ interface McpPayableOptions {
   serverInfo?: { name?: string; version?: string };
   defaultProvider?: string;
   defaultTenantId?: string | null;
+  allowTenantOverride?: boolean;
   policy?: McpPolicy;
 }
 
 interface McpPolicy {
   readOnly?: boolean; // default false
   allowMoneyMovement?: boolean; // default false
-  enabledTools?: string[]; // default: every tool except money tools
+  requireAuthorization?: boolean; // default false
+  enabledTools?: string[]; // default: every tool the other flags permit
   authorization?: (toolName: string, args: Record<string, unknown>) => AuthorizationContext;
 }
 ```
@@ -55,11 +57,14 @@ Every tool accepts an optional `tenantId` and `provider`. Money amounts are mino
 | `audit_logs_query` | read | `payable.auditLogs(tenantId).run(filter)` |
 | `webhooks_list` | read | `payable.webhookEvents(tenantId).list(filter)` |
 | `webhook_get` | read | `payable.webhookEvents(tenantId).get(id)` |
-| `product_create` / `product_update` | mutate | `payable.products()` |
-| `price_create` | mutate | `payable.prices()` |
+| `product_create` | mutate | `payable.products().create(...)` |
+| `product_update` | mutate | `payable.products().update(...)` |
+| `price_create` | mutate | `payable.prices().create(...)` |
 | `subscription_create` | mutate | subscription builder |
+| `subscription_cancel` | mutate | `subscription(name).cancel(...)` |
+| `subscription_cancel_now` | mutate | `subscription(name).cancelNow(...)` |
+| `subscription_resume` | mutate | `subscription(name).resume(...)` |
 | `subscription_swap` | mutate | `subscription(name).swap(...)` |
-| `subscription_cancel` / `_cancel_now` / `_resume` | mutate | subscription manager |
 | `subscription_update_quantity` | mutate | `subscription(name).updateQuantity(...)` |
 | `checkout_create` | mutate | subscription checkout builder |
 | `billing_portal` | mutate | `payable.customer().billingPortal(returnUrl)` |
@@ -73,15 +78,33 @@ Every tool accepts an optional `tenantId` and `provider`. Money amounts are mino
 - Resource `payable://config/providers` returns the configured provider names.
 - Prompt `diagnose_subscription` guides an investigation of a subscription and its recent activity.
 
-## Safety
+## Policy and tool gating
 
-- Money movement is OFF by default. `charge` and `refund` register only when
-  `policy.allowMoneyMovement === true` and `policy.readOnly !== true`.
-- `policy.readOnly` hides every mutating tool.
-- `policy.enabledTools` restricts the surface to an explicit allow-list.
-- Mutations pass an `AuthorizationContext` (from `policy.authorization`). The underlying actions run
-  `assertAuthorized` and write an immutable audit log entry, so the adapter adds no bypass.
-- When tenancy is enabled, every tool requires a `tenantId` (the facade throws `TENANT_REQUIRED`).
+Each tool is registered with a **kind** - `read`, `mutate`, or `money` (see the Kind column above).
+At registration the adapter resolves the policy and runs `isToolEnabled(name, kind, policy)` per tool;
+a tool is skipped entirely when it returns `false`. The checks apply in this order (source:
+`src/presentation/mcp/policy.ts`):
+
+1. `enabledTools` - when set, a tool whose name is not in the allow-list is dropped regardless of kind.
+2. `readOnly` - when `true`, any tool whose kind is not `read` is dropped. This is what hides every
+   mutating and money tool.
+3. `allowMoneyMovement` - a tool of kind `money` (`charge`, `refund`) is dropped unless this is `true`.
+4. `requireAuthorization` - when `true`, any non-`read` tool is dropped unless `policy.authorization`
+   is a function.
+
+`readOnly` and `allowMoneyMovement` are **orthogonal**: `readOnly` gates the read-vs-everything-else
+split, while `allowMoneyMovement` gates only the money group. With `readOnly: false,
+allowMoneyMovement: false` (the defaults) the read and mutate groups are exposed but the money group is
+not; setting `allowMoneyMovement: true` adds `charge` and `refund` on top. `readOnly: true` collapses
+the surface to the read group no matter what `allowMoneyMovement` says.
+
+`policy.authorization` is a function `(toolName, args) => AuthorizationContext`. When provided, mutating
+and money tools pass its result into the facade as the `AuthorizationContext`; the underlying actions
+run `assertAuthorized` and write an immutable audit log entry, so the adapter adds no bypass. When
+`requireAuthorization` is set but no `authorization` function is given, the non-read tools are not
+registered at all.
+
+When tenancy is enabled, every tool requires a `tenantId` (the facade throws `TENANT_REQUIRED`).
 
 ## Running the bin
 

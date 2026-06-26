@@ -121,11 +121,14 @@ const verified = await this.deps.provider.verifyWebhook({
 });
 const tenantId = await this.resolveTenant(input);
 const stored = await new StoreWebhookEventAction(this.deps).handle({ ... });
-if (stored.duplicate) {
-  return { webhookEventId: stored.id, duplicate: true };
+const reprocessable = stored.status === 'pending' || stored.status === 'failed';
+if (stored.duplicate && !reprocessable) {
+  return { webhookEventId: stored.id, duplicate: true, status: stored.status };
 }
 await new DispatchWebhookJobAction(this.deps.queue).handle({ ... });
-return { webhookEventId: stored.id, duplicate: false };
+const settled = await this.deps.storage.webhookEvents.findById(stored.id, tenantId);
+const status = settled?.status ?? stored.status;
+return { webhookEventId: stored.id, duplicate: stored.duplicate, status };
 ```
 
 `verifyWebhook` is provider-specific. For Stripe
@@ -185,8 +188,10 @@ Stored fields (`src/domain/entities/webhook-event.entity.ts`): `provider`, `prov
 `payload`, `data`, and `headers` columns are sealed as ciphertext at rest (see
 [Reliability](15-reliability.md)).
 
-A duplicate short-circuits the pipeline: it is **not** re-dispatched to the queue and returns
-`duplicate: true`.
+Duplicate handling depends on the stored status. A duplicate in a terminal/processed state
+short-circuits: it is **not** re-dispatched to the queue and returns `duplicate: true`. A duplicate
+still in a reprocessable state (`pending` or `failed`) **may** be re-dispatched - the short-circuit
+only fires when `duplicate && !reprocessable`.
 
 ## Step 3 - Dispatch to the queue
 
@@ -236,6 +241,20 @@ side effects in order:
 4. **Mark processed.** `webhookEvents.markStatus(id, 'processed', occurredAt)`.
 5. **Emit.** Emits `WebhookProcessedEvent` on the event bus with the correlation id.
 
+## Reading stored events
+
+`WebhookEventResource` (`src/application/builders/webhook-event-resource.ts`) exposes the stored
+events for read access. Both `list` and `get` map each row through `toView`, returning a
+`WebhookEventView = Omit<WebhookEvent, 'signature'>`:
+
+```ts
+export type WebhookEventView = Omit<WebhookEvent, 'signature'>;
+```
+
+The stored provider `signature` is **never** exposed in read responses - it is stripped from every
+list and get result so the raw provider signature stays internal to the verification and replay
+paths.
+
 ## Replay
 
 A previously stored webhook event can be reprocessed through the same pipeline.
@@ -246,16 +265,26 @@ A previously stored webhook event can be reprocessed through the same pipeline.
 if (!this.policy.authorize(context)) {
   throw new PayableError('Webhook replay not permitted', { code: 'WEBHOOK_REPLAY_DENIED' });
 }
-const event = await this.deps.storage.webhookEvents.findById(webhookEventId);
+const event = await this.deps.storage.webhookEvents.findById(webhookEventId, context.tenantId);
 if (!event) { throw new PayableError(..., { code: 'WEBHOOK_EVENT_NOT_FOUND' }); }
-if (context.tenantId !== undefined && (event.tenantId ?? null) !== (context.tenantId ?? null)) {
+if ((event.tenantId ?? null) !== (context.tenantId ?? null)) {
   throw new PayableError('Webhook replay not permitted', { code: 'WEBHOOK_REPLAY_DENIED' });
 }
 ```
 
-Replay runs `ProcessWebhookPipeline` directly (it does not re-verify a signature or re-store the
-event) with a **new** correlation id, so the replay is traceable as a distinct run. It does not
-re-dispatch to the queue.
+Replay **re-verifies** before reprocessing. `verify(event)` runs first:
+
+- For a webhook-capable provider, a stored `signature` of `null` throws `WEBHOOK_REPLAY_UNVERIFIABLE`
+  (fail closed); otherwise it re-runs `provider.verifyWebhook({ payload, signature, headers })` from
+  the stored fields.
+- A non-webhook-capable provider skips verification and rebuilds the `VerifiedWebhook` from the
+  stored `providerEventId`, `type`, `normalizedType`, and `data`.
+
+It then claims the event (`claim(event.id, tenantId, { replay: true })`); if no claim token is
+returned the replay is an idempotent no-op and returns. With a token it runs `ProcessWebhookPipeline`
+directly (it does not re-store the event or re-dispatch to the queue) with a **new** correlation id,
+so the replay is traceable as a distinct run. A `WEBHOOK_CLAIM_LOST` error returns quietly; any other
+error marks the event `failed` and is rethrown.
 
 ### Replay authorization
 
@@ -272,8 +301,10 @@ private hasActor(context: ReplayWebhookContext): boolean {
 ```
 
 So `replayWebhook` only proceeds when `context.allowed === true` and `context.actorId` is set. In
-addition, when `context.tenantId` is provided it must match the stored event's tenant; a mismatch is
-denied with `WEBHOOK_REPLAY_DENIED`.
+addition, the stored event's tenant is checked unconditionally: `event.tenantId ?? null` must equal
+`context.tenantId ?? null`, so a tenant-scoped event cannot be replayed without supplying its matching
+`tenantId` (and a null-tenant event requires no tenant). A mismatch is denied with
+`WEBHOOK_REPLAY_DENIED`.
 
 ## Inputs and outputs
 
@@ -293,6 +324,7 @@ Result:
 export interface ReceiveWebhookResult {
   webhookEventId: string;
   duplicate: boolean;
+  status: WebhookEventStatus;
 }
 ```
 
@@ -304,7 +336,8 @@ export interface ReceiveWebhookResult {
 | Body is not a raw buffer                   | `INVALID_WEBHOOK_PAYLOAD` → HTTP 400                           |
 | Multiple providers, no `:provider`         | `WEBHOOK_PROVIDER_AMBIGUOUS` → HTTP 400                        |
 | No storage driver configured               | `WEBHOOK_STORAGE_REQUIRED` → HTTP 500                          |
-| Duplicate event (same provider event id)   | Returns `duplicate: true`, no requeue, no reprocess           |
+| Duplicate event in a terminal/processed state | Returns `duplicate: true`, no requeue, no reprocess        |
+| Duplicate event still `pending`/`failed`   | May be re-dispatched (reprocessable)                          |
 | Concurrent receive of the same event       | Insert race re-queried; second caller gets `duplicate: true`  |
 | Unknown / unmapped event type              | Stored and processed; `normalizedType` is `null`; no outbox event |
 | `reconcileSubscription` returns `null`     | No local state change; audit + outbox + processed still run   |
@@ -312,10 +345,13 @@ export interface ReceiveWebhookResult {
 | Event id not found during process/replay   | `WEBHOOK_EVENT_NOT_FOUND` → HTTP 404                           |
 | Replay without `allowed`/`actorId`         | `WEBHOOK_REPLAY_DENIED` → HTTP 403                             |
 | Replay with mismatched tenant              | `WEBHOOK_REPLAY_DENIED` → HTTP 403                             |
+| Replay of an event with no stored signature (webhook-capable provider) | `WEBHOOK_REPLAY_UNVERIFIABLE` (fail closed) |
 
-> `WebhookDeliveryService` (`src/application/services/webhook-delivery/webhook-delivery-service.ts`)
-> is a placeholder for outbound webhook delivery and currently throws `NOT_IMPLEMENTED` (Phase 11).
-> The pipeline above covers **inbound** provider webhooks only.
+> The pipeline above covers **inbound** provider webhooks only. Outbound delivery to your own
+> endpoints is handled by `WebhookDeliveryService`
+> (`src/application/services/webhook-delivery/webhook-delivery-service.ts`), which resolves the
+> target host and blocks non-routable destinations before sending. See
+> [Security](../28-security.md) for the egress posture.
 
 ---
 

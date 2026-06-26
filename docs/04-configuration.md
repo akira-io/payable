@@ -111,11 +111,24 @@ if (entries.length === 0) {
 - **Behavior.** Used to encrypt/decrypt sensitive stored values when supplied. The bundled
   implementation is `NodeEncryptionDriver`. See [28-security.md](28-security.md).
 
+### `authorization?: AuthorizationConfig`
+
+- **Type.** `{ enabled: boolean }`.
+- **Required.** Optional.
+- **Default.** `undefined`; resolves to `authorizationEnabled: false` (authorization off).
+- **Behavior.** When `enabled` is `true`, mutating actions enforce an `AuthorizationContext` through
+  `assertAuthorized` and the policies in `src/application/policies/` (e.g. `CanChargePolicy`,
+  `CanRefundPaymentPolicy`, `CanReplayWebhookPolicy`); a call without an authorization context is
+  rejected. When off (the default), the policy checks are skipped. The context is supplied per call
+  (for example `charge`/`refund`/`replayWebhook` accept an `authorization` field) and, in the
+  adapters, derived from request hooks. Authorization coverage is per-action - consult the action's
+  input type to confirm it accepts an `authorization` context.
+
 ### `idempotency?: IdempotencyConfig`
 
-- **Type.** `{ enabled?: boolean; strategy?: 'auto' | 'manual'; resolver?: IdempotencyKeyResolver; store?: IdempotencyStore }`.
+- **Type.** `{ enabled?: boolean; strategy?: 'auto' | 'manual'; store?: IdempotencyStore }`.
 - **Required.** Optional.
-- **Default.** Resolved to `{ enabled: true, strategy: 'auto', resolver: undefined, store: undefined }`.
+- **Default.** Resolved to `{ enabled: true, strategy: 'auto', store: undefined }`.
 - **Behavior.** Controls idempotent execution of operations. Documented in detail below.
 
 ## `IdempotencyConfig`
@@ -123,11 +136,13 @@ if (entries.length === 0) {
 | Field | Type | Default (after resolve) | Meaning |
 | --- | --- | --- | --- |
 | `enabled` | `boolean?` | `true` | Whether idempotency is applied. On by default. |
-| `strategy` | `'auto' \| 'manual'?` | `'auto'` | `auto` derives keys via the resolver; `manual` expects caller-provided keys. |
-| `resolver` | `IdempotencyKeyResolver?` | `undefined` | Derives an idempotency key from `{ operation, provider?, resourceType?, resourceId? }`. The bundled default is `DefaultIdempotencyKeyResolver`. |
+| `strategy` | `'auto' \| 'manual'?` | `'auto'` | `auto` derives keys automatically; `manual` expects caller-provided keys. |
 | `store` | `IdempotencyStore?` | `undefined` | Persists idempotency records (`find`/`acquire`/`takeOver`/`put`/`markCompleted`/`markFailed`). The bundled Knex-backed store is `KnexIdempotencyRepository`. |
 
-`IdempotencyStrategy` is available as a type. The `IdempotencyStore` record status is one of
+There is **no** `resolver` field on `IdempotencyConfig`. Key derivation is handled inside the
+operations (via `IdempotencyKey.forCharge`/`forRefund`/etc.); the exported `DefaultIdempotencyKeyResolver`
+and the `IdempotencyKeyResolver` contract are injected into `IdempotencyService` directly, not through
+config. `IdempotencyStrategy` is available as a type. The `IdempotencyStore` record status is one of
 `'processing' | 'completed' | 'failed' | 'expired'`. See [features/14-idempotency.md](features/14-idempotency.md).
 
 ## `TenantConfig`
@@ -147,6 +162,7 @@ if (entries.length === 0) {
 | --- | --- | --- |
 | `tenantEnabled` | `config.tenant?.enabled` | `false` |
 | `tenantResolver` | `config.tenant?.resolver` | `undefined` |
+| `authorizationEnabled` | `config.authorization?.enabled` | `false` |
 | `providers` | `new Map(entries)` | required (throws if empty) |
 | `storage` | `config.storage` | `undefined` |
 | `cache` | `config.cache` | `undefined` |
@@ -158,7 +174,6 @@ if (entries.length === 0) {
 | `encryption` | `config.encryption` | `undefined` |
 | `idempotency.enabled` | `config.idempotency?.enabled` | `true` |
 | `idempotency.strategy` | `config.idempotency?.strategy` | `'auto'` |
-| `idempotency.resolver` | `config.idempotency?.resolver` | `undefined` |
 | `idempotency.store` | `config.idempotency?.store` | `undefined` |
 
 ---

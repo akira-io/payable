@@ -41,14 +41,18 @@ available.
 `DownloadInvoicePdfAction` fetches the raw PDF bytes for one invoice.
 
 ```ts
-const pdf = await new DownloadInvoicePdfAction(deps).handle('in_1');
+const pdf = await new DownloadInvoicePdfAction(deps).handle('in_1', billable);
 // pdf.filename -> 'in_1.pdf', pdf.content -> Uint8Array
 ```
 
-`handle(providerInvoiceId)`:
+`handle(providerInvoiceId, billable?)`:
 
-1. Requires the provider to be invoice capable; otherwise throws `ProviderCapabilityNotSupportedError`.
-2. Calls `provider.downloadInvoicePdf(providerInvoiceId)`.
+1. Requires the provider to be invoice capable; otherwise throws `ProviderCapabilityNotSupportedError`
+   (reported as `invoicePdf`).
+2. Requires a storage driver; otherwise throws `PayableError` (`INVOICE_STORAGE_REQUIRED`).
+3. Loads the invoice by provider id (`storage.invoices.findByProviderId`). If it is missing, or
+   `billable` is supplied and does not own it, throws `PayableError` (`INVOICE_NOT_FOUND`).
+4. Calls `provider.downloadInvoicePdf(providerInvoiceId)`.
 
 Output: `InvoicePdfDTO`:
 
@@ -59,8 +63,11 @@ export interface InvoicePdfDTO {
 }
 ```
 
-The action takes the **provider** invoice id directly and does not touch storage. The application is
-responsible for confirming the invoice belongs to the right customer before serving the bytes.
+**Ownership check.** `billable` is optional. When provided, the action resolves the caller's local
+customer (`storage.customers.findByBillable`) and confirms it owns the invoice (`customer.id ===
+invoice.customerId`) before returning the bytes - a mismatch is reported as `INVOICE_NOT_FOUND`. When
+omitted, ownership is **not** verified and the caller is trusted; the application must confirm the
+invoice belongs to the right customer before serving it.
 
 ## Billing portal
 
@@ -124,7 +131,7 @@ see [17-providers.md](../integrations/17-providers.md).
 | Operation | Input | Output |
 | --- | --- | --- |
 | List invoices | `Billable`, optional `limit` | `InvoiceDTO[]` |
-| Download PDF | `providerInvoiceId` | `InvoicePdfDTO` (`{ filename, content }`) |
+| Download PDF | `providerInvoiceId`, optional `billable` | `InvoicePdfDTO` (`{ filename, content }`) |
 | Billing portal | `returnUrl` | `BillingPortalDTO` (`{ url }`) |
 
 ## Edge cases
@@ -138,8 +145,11 @@ see [17-providers.md](../integrations/17-providers.md).
 - **Billing portal without storage.** The portal still syncs the customer via the provider, which
   requires no storage to obtain a `providerCustomerId`, but nothing is persisted - see
   [08-customers-billable.md](08-customers-billable.md).
-- **PDF ownership.** `DownloadInvoicePdfAction` trusts the supplied provider invoice id; the caller
-  must verify ownership.
+- **PDF ownership.** Pass `billable` to `DownloadInvoicePdfAction.handle` to have it verify the
+  invoice belongs to that caller (mismatch -> `INVOICE_NOT_FOUND`). Omit it and the action trusts the
+  caller, who must verify ownership itself.
+- **PDF without storage.** `DownloadInvoicePdfAction` throws `INVOICE_STORAGE_REQUIRED` when no storage
+  driver is configured.
 
 ---
 

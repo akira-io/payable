@@ -90,7 +90,11 @@ export interface BullMQQueueOptions {
   attempts?: number;
   backoffMs?: number;
   removeOnFailCount?: number;
+  removeOnCompleteAgeSec?: number;
+  deadLetterSuffix?: string;
+  deadLetterAttempts?: number;
   onFailed?: (jobName: string, error: Error) => void;
+  onError?: (name: string, error: Error) => void;
 }
 ```
 
@@ -101,7 +105,11 @@ export interface BullMQQueueOptions {
 | `attempts` | `5` | Retry attempts per job (see `retryOptions`). |
 | `backoffMs` | `1000` | Base delay for the exponential backoff. |
 | `removeOnFailCount` | `1000` | How many failed jobs to retain (`removeOnFail.count`). |
+| `removeOnCompleteAgeSec` | `86400` (1 day) | Age in seconds after which completed jobs are removed (`removeOnComplete.age`). |
+| `deadLetterSuffix` | `':dead'` | Suffix appended to the queue name when routing exhausted jobs to the dead-letter queue. |
+| `deadLetterAttempts` | `3` | Write attempts when moving an exhausted job to the dead-letter queue (minimum `1`). |
 | `onFailed` | none | Callback invoked on a worker `failed` event with `(jobName, error)`. |
+| `onError` | none | Callback invoked on a worker `error` event, and on background dispatch / dead-letter failures, with `(name, error)`. Distinct from `onFailed`. |
 
 ### Retry and retention
 
@@ -118,13 +126,13 @@ export interface BullMQRetryOptions {
 ```ts
 {
   jobId,
-  removeOnComplete: true,
+  removeOnComplete: { age: this.options.removeOnCompleteAgeSec ?? 86_400 },
   removeOnFail: { count: this.options.removeOnFailCount ?? 1000 },
   ...this.retryOptions(),
 }
 ```
 
-- **Completed jobs are removed immediately** (`removeOnComplete: true`).
+- **Completed jobs are removed by age** (`removeOnComplete.age`, default `86400` seconds = 1 day).
 - **Failed jobs are retained up to `removeOnFailCount`** (default `1000`) so they can be inspected and
   retried.
 - The job's `idempotencyKey` is passed as the BullMQ `jobId`, giving dispatch-level deduplication: two
@@ -136,7 +144,11 @@ export interface BullMQRetryOptions {
 - `process(name, handler)` starts a `Worker` (once per name; cached in a `Map`). The worker rehydrates a
   `QueueJob` from `job.data` (`payload`, `correlationId`) and `job.opts.jobId` (`idempotencyKey`) before
   calling the handler.
-- A worker `failed` event invokes `options.onFailed?.(job?.name ?? name, error)`.
+- A worker `failed` event invokes `options.onFailed?.(job?.name ?? name, error)`. When the job has
+  exhausted its attempts, it is also written to a dead-letter queue named
+  `${name}${deadLetterSuffix ?? ':dead'}` (retried up to `deadLetterAttempts`, default `3`).
+- A worker `error` event, and any background dispatch or dead-letter write failure, invokes
+  `options.onError?.(name, error)`.
 
 ### Wiring example
 

@@ -80,7 +80,25 @@ is a separate, amount-based entry for hosted-redirect providers:
 | Method | Effect |
 | --- | --- |
 | `redirectCheckout(amount: Money)` | Starts an amount-based, payment-mode redirect checkout. |
-| `create(request)` | Ensures a local customer, records a pending `Payment`, and returns the session. |
+| `create(request?)` | Ensures a local customer, records a pending `Payment`, and returns the session. |
+
+`create(request)` takes an optional `RedirectCheckoutRequest` (all fields optional):
+
+```ts
+export interface RedirectCheckoutRequest {
+  successUrl?: string;
+  cancelUrl?: string;
+  reference?: string;
+  authorization?: AuthorizationContext;
+}
+```
+
+- `reference` is folded into the idempotency key and stored on the pending `Payment` for callback
+  reconciliation.
+- `authorization` is checked against `CanCreateCheckoutPolicy` only when authorization is enabled.
+- `successUrl`/`cancelUrl` default to `''` when omitted. Redirect providers may ignore them: a
+  hosted-form provider (SISP) returns its own auto-submit form and does not honor caller-supplied
+  success/cancel URLs.
 
 ```ts
 const session = await payable
