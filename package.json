@@ -52,7 +52,8 @@
     "payable-mcp": "./dist/mcp/bin.cjs"
   },
   "files": [
-    "dist"
+    "dist",
+    "assets"
   ],
   "scripts": {
     "build": "tsup",
@@ -62,7 +63,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "verify:bundle": "node scripts/check-core-bundle.mjs",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run build && npm run verify:bundle"
   },
   "keywords": [
     "billing",

@@ -8,9 +8,10 @@ The codebase follows clean-architecture layers under `src/`:
 
 - `domain/` - entities, value objects, DTOs, events, errors, contracts. No outward dependencies.
 - `application/` - actions, builders, pipelines, policies. Depends only on `domain`.
-- `infrastructure/` - providers (Stripe, Paddle), storage (Knex), queue (sync, BullMQ), event bus,
-  encryption, cache, locks, outbox, audit.
-- `presentation/` - the Express, Fastify, and NestJS adapters plus shared HTTP helpers.
+- `infrastructure/` - providers (Stripe, Paddle, SISP), storage (Knex), queue (sync, BullMQ), event
+  bus, encryption, cache, locks, outbox, audit.
+- `presentation/` - the Express, Fastify, NestJS, and MCP adapters, the SISP redirect helpers, and
+  shared HTTP helpers.
 - `support/` - config resolution, clock, correlation, header redaction.
 
 `src/payable.ts` is the facade adapters call; `src/create-payable.ts` resolves config into a
@@ -54,23 +55,23 @@ The package scripts are run with Bun in CI; locally either Bun or npm works.
 | --- | --- |
 | Run all tests | `bun run test` (`vitest run`) |
 | Tests with coverage | `bun run test:coverage` |
-| A single test by name | `bun run test --filter=name` (or `npx vitest run -t "name"`) |
+| A single test by name | `npx vitest run -t "name"` |
 | Typecheck | `bun run typecheck` (`tsc --noEmit`) |
 | Lint | `bun run lint` (`biome check .`) |
 | Lint and autofix | `bun run lint:fix` (`biome check --write .`) |
 | Build | `bun run build` (`tsup`) |
 | Verify core bundle | `bun run verify:bundle` |
 
-The `--filter` flag is passed through to Vitest. Vitest's own `-t`/`--testNamePattern` selects by
-test name; `vitest run path/to/file.test.ts` selects by file.
+Vitest's `-t`/`--testNamePattern` selects by test name; `vitest run path/to/file.test.ts` selects by
+file.
 
 ## Bundle verification
 
 `bun run verify:bundle` runs `scripts/check-core-bundle.mjs`, which scans `dist/index.js` and
-`dist/index.cjs` for static imports of any optional peer (`stripe`, `@paddle/paddle-node-sdk`,
-`knex`, `bullmq`, `express`, `fastify`, `@nestjs/common`, `reflect-metadata`). If any peer is
-statically imported into the core entry, the script exits non-zero. This guards the zero-required-
-peer guarantee: the core entry must not pull a provider or framework into every consumer's bundle.
+`dist/index.cjs` for static imports of every optional peer declared in `peerDependencies` (read
+dynamically from `package.json`, so the list stays in sync). If any peer is statically imported into
+the core entry, the script exits non-zero. This guards the zero-required-peer guarantee: the core
+entry must not pull a provider or framework into every consumer's bundle.
 
 ## Debugging approaches
 
