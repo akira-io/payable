@@ -73,6 +73,12 @@ describe('Money', () => {
     expect(Money.of(9007199254740991, 'USD').format()).toBe('$90,071,992,547,409.91');
   });
 
+  it('formats non-decimal-base currencies instead of throwing', () => {
+    const normalize = (value: string) => value.split(String.fromCharCode(160)).join(' ');
+    expect(normalize(Money.of(7, 'MGA').format())).toBe('MGA 1');
+    expect(normalize(Money.of(7, 'MRU').format())).toBe('MRU 1.40');
+  });
+
   it('serializes to amount and currency', () => {
     expect(Money.of(1099, 'EUR').toJSON()).toEqual({ amount: 1099, currency: 'EUR' });
   });

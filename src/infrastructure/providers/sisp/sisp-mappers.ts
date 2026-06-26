@@ -26,7 +26,7 @@ export function toPaymentStatus(transactionStatus: string): PaymentStatus {
 }
 
 export function toRefundStatus(transactionStatus: string): RefundStatus {
-  return REFUND_STATUS_BY_TRANSACTION[transactionStatus] ?? 'succeeded';
+  return REFUND_STATUS_BY_TRANSACTION[transactionStatus] ?? 'pending';
 }
 
 export function toCheckoutSessionDTO(

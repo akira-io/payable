@@ -32,6 +32,7 @@ describe('sisp mappers', () => {
     expect(toRefundStatus('failed')).toBe('failed');
     expect(toRefundStatus('cancelled')).toBe('canceled');
     expect(toRefundStatus('pending')).toBe('pending');
+    expect(toRefundStatus('declined')).toBe('pending');
   });
 
   it('derives the refund DTO status from the processed transaction', () => {

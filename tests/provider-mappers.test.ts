@@ -121,6 +121,16 @@ describe('stripe subscription mapping', () => {
     } as unknown as Stripe.Subscription);
     expect(dto.currentPeriodEnd?.toISOString()).toBe(new Date(1_750_000_000 * 1000).toISOString());
   });
+
+  it('does not throw when a webhook subscription payload omits items', () => {
+    const dto = toStripeSubscriptionDTO({
+      id: 'sub_5',
+      status: 'active',
+      current_period_end: 1_750_000_000,
+      trial_end: null,
+    } as unknown as Stripe.Subscription);
+    expect(dto.currentPeriodEnd?.toISOString()).toBe(new Date(1_750_000_000 * 1000).toISOString());
+  });
 });
 
 describe('paddle subscription mapping', () => {
