@@ -12,6 +12,15 @@ describe('withPaddleErrors', () => {
     ).rejects.toMatchObject({ code: 'PROVIDER_ERROR' });
   });
 
+  it('maps Paddle errors that carry only a code or only a detail', async () => {
+    await expect(
+      withPaddleErrors(() => Promise.reject({ code: 'rate_limit_exceeded' })),
+    ).rejects.toMatchObject({ code: 'PROVIDER_RATE_LIMITED' });
+    await expect(
+      withPaddleErrors(() => Promise.reject({ detail: 'gateway exploded' })),
+    ).rejects.toMatchObject({ code: 'PROVIDER_ERROR' });
+  });
+
   it('passes through a PayableError and a non-Paddle error unchanged', async () => {
     const payable = new PayableError('boom', { code: 'CUSTOM' });
     await expect(withPaddleErrors(() => Promise.reject(payable))).rejects.toBe(payable);

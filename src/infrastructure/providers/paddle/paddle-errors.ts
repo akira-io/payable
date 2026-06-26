@@ -22,7 +22,7 @@ interface PaddleLikeError {
 }
 
 function isPaddleError(error: unknown): error is PaddleLikeError {
-  return typeof error === 'object' && error !== null && 'code' in error && 'detail' in error;
+  return typeof error === 'object' && error !== null && ('code' in error || 'detail' in error);
 }
 
 export async function withPaddleErrors<T>(fn: () => Promise<T>): Promise<T> {

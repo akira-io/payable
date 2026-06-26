@@ -124,6 +124,7 @@ describe('PaddleProvider', () => {
     );
     expect(dto).toEqual({ providerCustomerId: 'ctm_1', email: 'user@example.com', name: 'User' });
     expect(calls.get('customers.create')).toMatchObject({ email: 'user@example.com' });
+    expect(calls.get('idempotencyKey')).toBe('idem-1');
   });
 
   it('converts Money to a Paddle string amount at the price boundary', async () => {

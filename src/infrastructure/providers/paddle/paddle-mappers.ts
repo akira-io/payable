@@ -73,18 +73,33 @@ export function toPaddleSubscriptionEntity(
     id: data.id as string,
     status: data.status as string,
     currentBillingPeriod: { endsAt: typeof endsAt === 'string' ? endsAt : null },
+    items: Array.isArray(data.items) ? (data.items as PaddleSubscriptionEntity['items']) : null,
   };
+}
+
+function readTrialEndsAt(subscription: PaddleSubscriptionEntity): string | null {
+  if (subscription.trialEndsAt) {
+    return subscription.trialEndsAt;
+  }
+  for (const item of subscription.items ?? []) {
+    const endsAt = item.trialDates?.endsAt ?? item.trial_dates?.ends_at ?? null;
+    if (endsAt) {
+      return endsAt;
+    }
+  }
+  return null;
 }
 
 export function toSubscriptionDTO(subscription: PaddleSubscriptionEntity): SubscriptionDTO {
   const status = SUBSCRIPTION_STATUS[subscription.status] ?? 'incomplete';
   const endsAt = subscription.currentBillingPeriod?.endsAt ?? null;
   const periodEnd = endsAt ? new Date(endsAt) : null;
+  const trialEnd = readTrialEndsAt(subscription);
   return {
     providerSubscriptionId: subscription.id,
     status,
     currentPeriodEnd: periodEnd,
-    trialEndsAt: status === 'trialing' ? periodEnd : null,
+    trialEndsAt: trialEnd ? new Date(trialEnd) : null,
   };
 }
 

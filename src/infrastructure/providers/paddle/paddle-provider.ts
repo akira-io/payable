@@ -85,16 +85,16 @@ export class PaddleProvider implements PaymentProvider {
     ]);
   }
 
-  async createCustomer(input: CreateCustomerInput): Promise<CustomerDTO> {
-    const paddle = await this.paddle();
+  async createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
+    const paddle = await this.paddle(ctx.idempotencyKey);
     const customer = await withPaddleErrors(() =>
       paddle.customers.create({ email: input.email, name: input.name }),
     );
     return toCustomerDTO(customer);
   }
 
-  async updateCustomer(input: UpdateCustomerInput): Promise<CustomerDTO> {
-    const paddle = await this.paddle();
+  async updateCustomer(input: UpdateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
+    const paddle = await this.paddle(ctx.idempotencyKey);
     const customer = await withPaddleErrors(() =>
       paddle.customers.update(input.providerCustomerId, {
         email: input.email,
@@ -104,8 +104,8 @@ export class PaddleProvider implements PaymentProvider {
     return toCustomerDTO(customer);
   }
 
-  async createProduct(input: CreateProductInput): Promise<ProductDTO> {
-    const paddle = await this.paddle();
+  async createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO> {
+    const paddle = await this.paddle(ctx.idempotencyKey);
     const product = await withPaddleErrors(() =>
       paddle.products.create({
         name: input.name,
@@ -116,8 +116,8 @@ export class PaddleProvider implements PaymentProvider {
     return toProductDTO(product);
   }
 
-  async updateProduct(input: UpdateProductInput): Promise<ProductDTO> {
-    const paddle = await this.paddle();
+  async updateProduct(input: UpdateProductInput, ctx: OperationContext): Promise<ProductDTO> {
+    const paddle = await this.paddle(ctx.idempotencyKey);
     const product = await withPaddleErrors(() =>
       paddle.products.update(input.providerProductId, {
         name: input.name,
@@ -127,8 +127,8 @@ export class PaddleProvider implements PaymentProvider {
     return toProductDTO(product);
   }
 
-  async createPrice(input: CreatePriceInput): Promise<PriceDTO> {
-    const paddle = await this.paddle();
+  async createPrice(input: CreatePriceInput, ctx: OperationContext): Promise<PriceDTO> {
+    const paddle = await this.paddle(ctx.idempotencyKey);
     const price = await withPaddleErrors(() =>
       paddle.prices.create({
         productId: input.providerProductId,
@@ -160,7 +160,10 @@ export class PaddleProvider implements PaymentProvider {
     return toCheckoutSessionDTO(transaction);
   }
 
-  async updateSubscription(input: UpdateSubscriptionInput): Promise<SubscriptionDTO> {
+  async updateSubscription(
+    input: UpdateSubscriptionInput,
+    ctx: OperationContext,
+  ): Promise<SubscriptionDTO> {
     if (!input.priceId) {
       throw new PayableError(
         `Paddle subscription ${input.providerSubscriptionId} update requires a price id`,
@@ -170,7 +173,7 @@ export class PaddleProvider implements PaymentProvider {
         },
       );
     }
-    const paddle = await this.paddle();
+    const paddle = await this.paddle(ctx.idempotencyKey);
     const items = [{ priceId: input.priceId, quantity: input.quantity ?? 1 }];
     const subscription = await withPaddleErrors(() =>
       paddle.subscriptions.update(input.providerSubscriptionId, {
@@ -181,8 +184,11 @@ export class PaddleProvider implements PaymentProvider {
     return toSubscriptionDTO(subscription);
   }
 
-  async cancelSubscription(input: CancelSubscriptionInput): Promise<SubscriptionDTO> {
-    const paddle = await this.paddle();
+  async cancelSubscription(
+    input: CancelSubscriptionInput,
+    ctx: OperationContext,
+  ): Promise<SubscriptionDTO> {
+    const paddle = await this.paddle(ctx.idempotencyKey);
     const subscription = await withPaddleErrors(() =>
       paddle.subscriptions.cancel(input.providerSubscriptionId, {
         effectiveFrom: input.immediately ? 'immediately' : 'next_billing_period',
@@ -191,8 +197,11 @@ export class PaddleProvider implements PaymentProvider {
     return toSubscriptionDTO(subscription);
   }
 
-  async resumeSubscription(input: { providerSubscriptionId: string }): Promise<SubscriptionDTO> {
-    const paddle = await this.paddle();
+  async resumeSubscription(
+    input: { providerSubscriptionId: string },
+    ctx: OperationContext,
+  ): Promise<SubscriptionDTO> {
+    const paddle = await this.paddle(ctx.idempotencyKey);
     const subscription = await withPaddleErrors(() =>
       paddle.subscriptions.resume(input.providerSubscriptionId, {
         effectiveFrom: 'immediately',
@@ -236,8 +245,8 @@ export class PaddleProvider implements PaymentProvider {
     return toSubscriptionDTO(toPaddleSubscriptionEntity(verified.data));
   }
 
-  async billingPortal(input: BillingPortalInput): Promise<BillingPortalDTO> {
-    const paddle = await this.paddle();
+  async billingPortal(input: BillingPortalInput, ctx: OperationContext): Promise<BillingPortalDTO> {
+    const paddle = await this.paddle(ctx.idempotencyKey);
     const session = await withPaddleErrors(() =>
       paddle.customerPortalSessions.create(input.providerCustomerId, []),
     );
