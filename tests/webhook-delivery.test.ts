@@ -150,7 +150,7 @@ describe('outbound webhook delivery', () => {
       responseBody: null,
     };
 
-    const first = await storage.webhookDeliveries.record({ ...delivery, status: 'pending' });
+    const first = await storage.webhookDeliveries.record({ ...delivery, status: 'failed' });
     const second = await storage.webhookDeliveries.record({
       ...delivery,
       status: 'delivered',
