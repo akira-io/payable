@@ -143,14 +143,15 @@ describe('paddle subscription mapping', () => {
     expect(dto.trialEndsAt).toBeNull();
   });
 
-  it('reports the trial end from the billing period when trialing', () => {
+  it('reports the trial end from the subscription items, not the billing period', () => {
     const dto = toPaddleSubscriptionDTO({
       id: 'sub_trial',
       status: 'trialing',
       currentBillingPeriod: { endsAt: '2026-07-06T00:00:00.000Z' },
+      items: [{ trialDates: { endsAt: '2026-06-20T00:00:00.000Z' } }],
     } as unknown as PaddleSubscriptionEntity);
     expect(dto.status).toBe('trialing');
-    expect(dto.trialEndsAt?.toISOString()).toBe('2026-07-06T00:00:00.000Z');
+    expect(dto.trialEndsAt?.toISOString()).toBe('2026-06-20T00:00:00.000Z');
     expect(dto.currentPeriodEnd?.toISOString()).toBe('2026-07-06T00:00:00.000Z');
   });
 });

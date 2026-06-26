@@ -31,6 +31,11 @@ export interface PaddleSubscriptionEntity {
   id: string;
   status: string;
   currentBillingPeriod?: { endsAt: string | null } | null;
+  items?: ReadonlyArray<{
+    trialDates?: { endsAt?: string | null } | null;
+    trial_dates?: { ends_at?: string | null } | null;
+  }> | null;
+  trialEndsAt?: string | null;
 }
 
 export interface PaddleAdjustment {
