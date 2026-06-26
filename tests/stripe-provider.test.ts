@@ -2,6 +2,7 @@ import { inspect } from 'node:util';
 import type Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
 import { Money } from '../src/domain/value-objects/money';
+import { toCheckoutSessionDTO } from '../src/infrastructure/providers/stripe/stripe-mappers';
 import {
   STRIPE_API_VERSION,
   StripeProvider,
@@ -219,5 +220,21 @@ describe('StripeProvider', () => {
         { correlationId: 'c', idempotencyKey: 'i' },
       ),
     ).rejects.toMatchObject({ code: 'PROVIDER_REQUEST_INVALID' });
+  });
+});
+
+describe('stripe checkout session mapping', () => {
+  it('returns the redirect url when present', () => {
+    const dto = toCheckoutSessionDTO({
+      id: 'cs_1',
+      url: 'https://checkout.stripe.test/cs_1',
+    } as Stripe.Checkout.Session);
+    expect(dto).toEqual({ id: 'cs_1', url: 'https://checkout.stripe.test/cs_1' });
+  });
+
+  it('throws when the session has no redirect url', () => {
+    expect(() =>
+      toCheckoutSessionDTO({ id: 'cs_2', url: null } as Stripe.Checkout.Session),
+    ).toThrow('missing a redirect url');
   });
 });

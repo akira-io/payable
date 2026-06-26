@@ -88,9 +88,15 @@ export function toPriceDTO(price: Stripe.Price): PriceDTO {
 }
 
 export function toCheckoutSessionDTO(session: Stripe.Checkout.Session): CheckoutSessionDTO {
+  if (!session.url) {
+    throw new PayableError('Stripe checkout session is missing a redirect url', {
+      code: 'PROVIDER_STRIPE_CHECKOUT_URL_MISSING',
+      context: { provider: 'stripe', sessionId: session.id },
+    });
+  }
   return {
     id: session.id,
-    url: session.url ?? '',
+    url: session.url,
   };
 }
 
