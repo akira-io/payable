@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { DispatchWebhookJobAction } from '../src/application/actions/webhooks/dispatch-webhook-job.action';
 import { ProcessWebhookAction } from '../src/application/actions/webhooks/process-webhook.action';
 import type { WebhookDependencies } from '../src/application/builders/webhook-dependencies';
+import { ProcessWebhookPipeline } from '../src/application/pipelines/webhooks/process-webhook.pipeline';
 import { createPayable } from '../src/create-payable';
 import type { QueueDriver, QueueJob } from '../src/domain/contracts/queue-driver.contract';
 import { InvalidWebhookSignatureError } from '../src/domain/errors/invalid-webhook-signature.error';
+import type { DomainEvent } from '../src/domain/events/domain-event';
 import { InMemoryEventBus } from '../src/infrastructure/event-bus/in-memory-event-bus';
 import { StripeEventNormalizer } from '../src/infrastructure/providers/stripe/stripe-event-normalizer';
 import { StripeProvider } from '../src/infrastructure/providers/stripe/stripe-provider';
@@ -461,11 +463,82 @@ describe('payable.receiveWebhook', () => {
     expect(freshToken).toEqual(expect.any(String));
     expect(freshToken).not.toBe(staleToken);
 
-    await storage.webhookEvents.markStatus(event.id, 'failed', null, null, staleToken);
+    const stale = await storage.webhookEvents.markStatus(
+      event.id,
+      'failed',
+      null,
+      null,
+      staleToken,
+    );
+    expect(stale).toBeNull();
     expect((await storage.webhookEvents.findById(event.id))?.status).toBe('processing');
 
-    await storage.webhookEvents.markStatus(event.id, 'processed', clock.now(), null, freshToken);
-    expect((await storage.webhookEvents.findById(event.id))?.status).toBe('processed');
+    const fresh = await storage.webhookEvents.markStatus(
+      event.id,
+      'processed',
+      clock.now(),
+      null,
+      freshToken,
+    );
+    expect(fresh?.status).toBe('processed');
+    await db.destroy();
+  });
+
+  it('does not emit a processed event when the claim is lost before marking processed', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
+    const storage = new KnexStorageDriver(db, clock);
+    const event = await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_claim_lost',
+      type: 'invoice.paid',
+      normalizedType: null,
+      payload: '{}',
+      data: {},
+      headers: {},
+      status: 'pending',
+      correlationId: 'corr_claim_lost',
+      receivedAt: clock.now(),
+    });
+
+    const staleToken = await storage.webhookEvents.claim(event.id);
+    clock.advance(300_001);
+    const freshToken = await storage.webhookEvents.claim(event.id);
+    expect(freshToken).not.toBe(staleToken);
+
+    const emitted: DomainEvent[] = [];
+    const events = new InMemoryEventBus();
+    events.listen('*', (domainEvent) => {
+      emitted.push(domainEvent);
+    });
+    const deps: WebhookDependencies = {
+      provider: new FakeProvider(),
+      providerName: 'stripe',
+      storage,
+      queue: new SyncQueueDriver(),
+      events,
+      clock,
+    };
+
+    await expect(
+      new ProcessWebhookPipeline(deps).handle({
+        verified: {
+          providerEventId: 'evt_claim_lost',
+          type: 'invoice.paid',
+          normalizedType: null,
+          data: {},
+        },
+        webhookEventId: event.id,
+        correlationId: 'corr_claim_lost',
+        tenantId: null,
+        claimToken: staleToken,
+      }),
+    ).rejects.toMatchObject({ code: 'WEBHOOK_CLAIM_LOST' });
+
+    expect(emitted).toHaveLength(0);
+    expect((await storage.webhookEvents.findById(event.id))?.status).toBe('processing');
     await db.destroy();
   });
 

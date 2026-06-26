@@ -30,5 +30,5 @@ export interface WebhookEventRepository {
     processedAt: Date | null,
     tenantId?: string | null,
     claimToken?: string | null,
-  ): Promise<WebhookEvent>;
+  ): Promise<WebhookEvent | null>;
 }
