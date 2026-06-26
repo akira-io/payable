@@ -33,6 +33,19 @@ function divideMinor(amount: number, divisor: number): number {
   return sign * rounded;
 }
 
+function divideMinorBig(amount: bigint, divisor: bigint): number {
+  if (divisor === 0n) {
+    throw new RangeError('Cannot divide money by zero');
+  }
+  const sign = (amount < 0n ? -1n : 1n) * (divisor < 0n ? -1n : 1n);
+  const a = amount < 0n ? -amount : amount;
+  const d = divisor < 0n ? -divisor : divisor;
+  const quotient = a / d;
+  const remainder = a - quotient * d;
+  const rounded = remainder * 2n >= d ? quotient + 1n : quotient;
+  return Number(sign * rounded);
+}
+
 export class Money {
   private constructor(
     private readonly value: Dinero<number>,
@@ -94,8 +107,9 @@ export class Money {
     if (!Number.isInteger(basisPoints)) {
       throw new TypeError(`Basis points must be an integer, got ${basisPoints}`);
     }
-    assertSafeMinor(this.amount() * basisPoints, 'product');
-    return Money.of(divideMinor(this.amount() * basisPoints, 10_000), this.code);
+    const result = divideMinorBig(BigInt(this.amount()) * BigInt(basisPoints), 10_000n);
+    assertSafeMinor(result, 'percentage');
+    return Money.of(result, this.code);
   }
 
   allocate(ratios: number[]): Money[] {
