@@ -15,6 +15,7 @@ import { PayableError } from '../../../domain/errors/payable-error';
 import { sispAmount, sispDecimal, sispMoney } from './sisp-amounts';
 import { withSispErrors } from './sisp-errors';
 import { toCheckoutSessionDTO, toPaymentStatus, toRefundResultDTO } from './sisp-mappers';
+import { sispMerchantReference } from './sisp-merchant-reference';
 import type { SispCallbackPayload, SispClient, SispHttpRequestInfo } from './sisp-types';
 
 export type SispProviderOptions = SispConfig;
@@ -44,7 +45,7 @@ export class SispProvider implements PaymentProvider, RedirectCallbackCapable {
 
   async createCheckoutSession(
     input: CreateCheckoutSessionInput,
-    _ctx: OperationContext,
+    ctx: OperationContext,
   ): Promise<CheckoutSessionDTO> {
     if (input.mode !== 'payment') {
       throw new PayableError('SISP only supports one-time payment checkouts', {
@@ -60,7 +61,9 @@ export class SispProvider implements PaymentProvider, RedirectCallbackCapable {
     }
     const client = await this.sisp();
     const amount = sispDecimal(input.amount);
-    const merchantRef = client.config.generators.merchantReference();
+    const merchantRef = ctx.idempotencyKey
+      ? sispMerchantReference(ctx.idempotencyKey)
+      : client.config.generators.merchantReference();
     const request = this.paymentRequest({
       merchantRef,
       amount,

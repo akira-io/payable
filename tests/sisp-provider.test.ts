@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { OperationContext } from '../src/domain/dtos/common.dto';
 import { Money } from '../src/domain/value-objects/money';
+import { sispMerchantReference } from '../src/infrastructure/providers/sisp/sisp-merchant-reference';
 import {
   SispProvider,
   type SispProviderOptions,
@@ -93,7 +94,7 @@ describe('SispProvider', () => {
     expect(capabilities.has('catalog')).toBe(false);
   });
 
-  it('builds a persisted checkout form using the SISP merchant reference generator', async () => {
+  it('derives the merchant reference from the idempotency key so retries collapse', async () => {
     const { client, calls } = fakeSisp();
     const dto = await new SispProvider(OPTIONS, client).createCheckoutSession(
       {
@@ -107,7 +108,7 @@ describe('SispProvider', () => {
       ctx,
     );
     const body = calls.payment?.body as Record<string, unknown>;
-    expect(body.merchantRef).toBe('R-DEFAULT');
+    expect(body.merchantRef).toBe(sispMerchantReference('idem-1'));
     expect(body.amount).toBe('1500.00');
     expect(body.items).toEqual([
       { product_name: 'Payment', quantity: 1, unit_price: '1500.00', total_price: '1500.00' },
