@@ -17,6 +17,7 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.timestamp('received_at', { useTz: true }).notNullable();
     table.timestamp('processed_at', { useTz: true }).nullable();
     table.timestamp('claimed_until', { useTz: true }).nullable();
+    table.string('claim_token').nullable();
     table.unique(['tenant_id', 'provider', 'provider_event_id']);
   });
 
@@ -74,6 +75,7 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.timestamp('next_retry_at', { useTz: true }).nullable();
     table.string('locked_by').nullable();
     table.timestamp('locked_until', { useTz: true }).nullable();
+    table.string('dedupe_key').nullable().unique();
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.timestamp('updated_at', { useTz: true }).notNullable();
   });

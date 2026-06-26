@@ -103,10 +103,15 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
     });
   }
 
-  async claim(id: string, tenantId?: string | null, options?: ClaimOptions): Promise<boolean> {
+  async claim(
+    id: string,
+    tenantId?: string | null,
+    options?: ClaimOptions,
+  ): Promise<string | null> {
     const where = tenantId === undefined ? { id } : { id, tenant_id: this.tenant(tenantId) };
     const now = this.clock.now();
     const claimedUntil = new Date(now.getTime() + CLAIM_TTL_MS).toISOString();
+    const claimToken = globalThis.crypto.randomUUID();
     const claimable: WebhookEventStatus[] = options?.replay
       ? ['pending', 'failed', 'processed']
       : ['pending', 'failed'];
@@ -119,8 +124,8 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
             stale.where('status', 'processing').andWhere('claimed_until', '<', now.toISOString()),
           ),
       )
-      .update({ status: 'processing', claimed_until: claimedUntil });
-    return affected > 0;
+      .update({ status: 'processing', claimed_until: claimedUntil, claim_token: claimToken });
+    return affected > 0 ? claimToken : null;
   }
 
   async markStatus(
@@ -128,11 +133,17 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
     status: WebhookEventStatus,
     processedAt: Date | null,
     tenantId?: string | null,
+    claimToken?: string | null,
   ): Promise<WebhookEvent> {
     const where = tenantId === undefined ? { id } : { id, tenant_id: this.tenant(tenantId) };
-    await this.knex(this.table)
-      .where(where)
-      .update({ status, processed_at: processedAt ? processedAt.toISOString() : null });
+    let builder = this.knex(this.table).where(where);
+    if (claimToken != null) {
+      builder = builder.where('claim_token', claimToken);
+    }
+    await builder.update({
+      status,
+      processed_at: processedAt ? processedAt.toISOString() : null,
+    });
     return this.findByIdOrFail(id, tenantId);
   }
 

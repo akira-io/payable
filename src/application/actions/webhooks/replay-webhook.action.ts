@@ -34,10 +34,10 @@ export class ReplayWebhookAction {
       normalizedType: event.normalizedType as NormalizedEventName | null,
       data: event.data,
     };
-    const claimed = await this.deps.storage.webhookEvents.claim(event.id, context.tenantId, {
+    const claimToken = await this.deps.storage.webhookEvents.claim(event.id, context.tenantId, {
       replay: true,
     });
-    if (!claimed) {
+    if (!claimToken) {
       return;
     }
     try {
@@ -46,9 +46,16 @@ export class ReplayWebhookAction {
         webhookEventId: event.id,
         correlationId: CorrelationId.generate().toString(),
         tenantId: event.tenantId,
+        claimToken,
       });
     } catch (error) {
-      await this.deps.storage.webhookEvents.markStatus(event.id, 'failed', null, event.tenantId);
+      await this.deps.storage.webhookEvents.markStatus(
+        event.id,
+        'failed',
+        null,
+        event.tenantId,
+        claimToken,
+      );
       throw error;
     }
   }

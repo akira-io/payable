@@ -402,8 +402,8 @@ describe('payable.receiveWebhook', () => {
       receivedAt: new FakeClock().now(),
     });
 
-    expect(await storage.webhookEvents.claim(event.id)).toBe(true);
-    expect(await storage.webhookEvents.claim(event.id)).toBe(false);
+    expect(await storage.webhookEvents.claim(event.id)).toEqual(expect.any(String));
+    expect(await storage.webhookEvents.claim(event.id)).toBeNull();
     await db.destroy();
   });
 
@@ -426,11 +426,46 @@ describe('payable.receiveWebhook', () => {
       receivedAt: clock.now(),
     });
 
-    expect(await storage.webhookEvents.claim(event.id)).toBe(true);
-    expect(await storage.webhookEvents.claim(event.id)).toBe(false);
+    expect(await storage.webhookEvents.claim(event.id)).toEqual(expect.any(String));
+    expect(await storage.webhookEvents.claim(event.id)).toBeNull();
 
     clock.advance(300_001);
-    expect(await storage.webhookEvents.claim(event.id)).toBe(true);
+    expect(await storage.webhookEvents.claim(event.id)).toEqual(expect.any(String));
+    await db.destroy();
+  });
+
+  it('markStatus scoped to a stale claim token does not clobber a re-claim', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock(new Date('2026-06-22T00:00:00.000Z'));
+    const storage = new KnexStorageDriver(db, clock);
+    const event = await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_reclaim',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      payload: '{}',
+      data: {},
+      headers: {},
+      status: 'pending',
+      correlationId: 'corr_reclaim',
+      receivedAt: clock.now(),
+    });
+
+    const staleToken = await storage.webhookEvents.claim(event.id);
+    expect(staleToken).toEqual(expect.any(String));
+
+    clock.advance(300_001);
+    const freshToken = await storage.webhookEvents.claim(event.id);
+    expect(freshToken).toEqual(expect.any(String));
+    expect(freshToken).not.toBe(staleToken);
+
+    await storage.webhookEvents.markStatus(event.id, 'failed', null, null, staleToken);
+    expect((await storage.webhookEvents.findById(event.id))?.status).toBe('processing');
+
+    await storage.webhookEvents.markStatus(event.id, 'processed', clock.now(), null, freshToken);
+    expect((await storage.webhookEvents.findById(event.id))?.status).toBe('processed');
     await db.destroy();
   });
 

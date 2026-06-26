@@ -30,11 +30,11 @@ export class ProcessWebhookAction {
     if (event.status === 'processed') {
       return;
     }
-    const claimed = await this.deps.storage.webhookEvents.claim(
+    const claimToken = await this.deps.storage.webhookEvents.claim(
       payload.webhookEventId,
       payload.tenantId,
     );
-    if (!claimed) {
+    if (!claimToken) {
       return;
     }
     const verified: VerifiedWebhook = {
@@ -49,10 +49,11 @@ export class ProcessWebhookAction {
         webhookEventId: payload.webhookEventId,
         correlationId: payload.correlationId,
         tenantId: payload.tenantId,
+        claimToken,
       });
     } catch (error) {
       await this.deps.storage.webhookEvents
-        .markStatus(payload.webhookEventId, 'failed', null, payload.tenantId)
+        .markStatus(payload.webhookEventId, 'failed', null, payload.tenantId, claimToken)
         .catch(() => {});
       throw error;
     }

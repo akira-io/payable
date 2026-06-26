@@ -11,6 +11,7 @@ export interface OutboxEvent {
   readonly attempts: number;
   readonly nextRetryAt: Date | null;
   readonly lockToken?: string | null;
+  readonly dedupeKey?: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }

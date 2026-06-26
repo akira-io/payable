@@ -25,6 +25,7 @@ export async function alterExistingTables(knex: Knex): Promise<void> {
       name: 'claimed_until',
       apply: (table) => table.timestamp('claimed_until', { useTz: true }).nullable(),
     },
+    { name: 'claim_token', apply: (table) => table.string('claim_token').nullable() },
   ]);
   await ensureColumns(knex, 'payable_idempotency_keys', [
     { name: 'lock_token', apply: (table) => table.string('lock_token').nullable() },
@@ -37,7 +38,16 @@ export async function alterExistingTables(knex: Knex): Promise<void> {
   await ensureColumns(knex, 'payable_webhook_deliveries', [
     { name: 'event_id', apply: (table) => table.uuid('event_id').nullable() },
   ]);
+  await ensureColumns(knex, 'payable_outbox_events', [
+    { name: 'dedupe_key', apply: (table) => table.string('dedupe_key').nullable() },
+  ]);
   await ensureIndexes(knex, [
+    {
+      table: 'payable_outbox_events',
+      name: 'payable_outbox_events_dedupe_key_unique',
+      columns: ['dedupe_key'],
+      unique: true,
+    },
     {
       table: 'payable_webhook_deliveries',
       name: 'payable_webhook_deliveries_endpoint_event_index',
@@ -165,6 +175,7 @@ interface IndexSpec {
   table: string;
   name: string;
   columns: string[];
+  unique?: boolean;
 }
 
 async function ensureIndexes(knex: Knex, specs: IndexSpec[]): Promise<void> {
@@ -179,7 +190,8 @@ async function ensureIndexes(knex: Knex, specs: IndexSpec[]): Promise<void> {
     }
     const placeholders = spec.columns.map(() => '??').join(', ');
     const ifNotExists = isMysql ? '' : 'IF NOT EXISTS ';
-    await knex.raw(`CREATE INDEX ${ifNotExists}?? ON ?? (${placeholders})`, [
+    const unique = spec.unique ? 'UNIQUE ' : '';
+    await knex.raw(`CREATE ${unique}INDEX ${ifNotExists}?? ON ?? (${placeholders})`, [
       spec.name,
       spec.table,
       ...spec.columns,
