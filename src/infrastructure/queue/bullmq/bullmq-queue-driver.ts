@@ -49,8 +49,20 @@ export class BullMQQueueDriver implements QueueDriver {
   constructor(private readonly options: BullMQQueueOptions) {}
 
   async settle(): Promise<void> {
-    for (let round = 0; round < MAX_SETTLE_ROUNDS && this.background.size > 0; round += 1) {
-      await Promise.allSettled([...this.background]);
+    for (let round = 0; round < MAX_SETTLE_ROUNDS; round += 1) {
+      const pending = [...this.background];
+      if (pending.length === 0) {
+        return;
+      }
+      await Promise.allSettled(pending);
+    }
+    if (this.background.size > 0) {
+      this.options.onError?.(
+        'settle',
+        new Error(
+          `settle abandoned ${this.background.size} background task(s) after ${MAX_SETTLE_ROUNDS} rounds`,
+        ),
+      );
     }
   }
 
@@ -183,7 +195,11 @@ export class BullMQQueueDriver implements QueueDriver {
         originalJobId: job.id,
         failedReason: error.message,
       },
-      { removeOnComplete: false, removeOnFail: false },
+      {
+        jobId: job.id ? `${job.id}:dead` : undefined,
+        removeOnComplete: false,
+        removeOnFail: false,
+      },
     );
   }
 
