@@ -21,7 +21,7 @@ export class MemoryLockDriver implements LockDriver {
     return {
       release: async () => {
         const owned = this.held.get(key);
-        if (owned?.token === token && owned.expiresAt > this.now()) {
+        if (owned?.token === token) {
           this.held.delete(key);
         }
       },

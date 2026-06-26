@@ -52,6 +52,17 @@ describe('MemoryLockDriver', () => {
     expect(await locks.acquire('key', 1000)).not.toBeNull();
   });
 
+  it('releases its own lock even after the ttl lapsed', async () => {
+    let now = 0;
+    const locks = new MemoryLockDriver(() => now);
+    const lock = await locks.acquire('key', 1000);
+    expect(lock).not.toBeNull();
+
+    now = 5000;
+    await lock?.release();
+    expect(await locks.acquire('key', 1000)).not.toBeNull();
+  });
+
   it('does not release a lock a later holder owns after the ttl lapsed', async () => {
     let now = 0;
     const locks = new MemoryLockDriver(() => now);

@@ -10,6 +10,12 @@ describe('NodeEncryptionDriver', () => {
     expect(await driver.decrypt(token)).toBe('customer@example.com');
   });
 
+  it('uses a full-entropy 32-byte hex key directly without scrypt', async () => {
+    const rawKey = 'a'.repeat(64);
+    const token = await new NodeEncryptionDriver({ key: rawKey }).encrypt('secret');
+    expect(await new NodeEncryptionDriver({ key: rawKey }).decrypt(token)).toBe('secret');
+  });
+
   it('binds the envelope version into the authentication tag', async () => {
     const driver = new NodeEncryptionDriver({ key: 'a-secret-key' });
     const token = await driver.encrypt('secret');

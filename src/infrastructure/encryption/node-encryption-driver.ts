@@ -6,6 +6,9 @@ const ALGORITHM = 'aes-256-gcm';
 const IV_BYTES = 12;
 const KEY_BYTES = 32;
 const ENVELOPE_VERSION = 'v1';
+const SCRYPT_COST = 2 ** 16;
+const SCRYPT_MAXMEM = 192 * 1024 * 1024;
+const RAW_KEY_PATTERN = /^[0-9a-f]{64}$/i;
 
 export interface NodeEncryptionOptions {
   key: string;
@@ -25,7 +28,14 @@ export class NodeEncryptionDriver implements Encryption {
         code: 'ENCRYPTION_KEY_REQUIRED',
       });
     }
-    this.key = scryptSync(options.key, options.salt ?? deriveSalt(options.key), KEY_BYTES);
+    this.key = RAW_KEY_PATTERN.test(options.key)
+      ? Buffer.from(options.key, 'hex')
+      : scryptSync(options.key, options.salt ?? deriveSalt(options.key), KEY_BYTES, {
+          N: SCRYPT_COST,
+          r: 8,
+          p: 1,
+          maxmem: SCRYPT_MAXMEM,
+        });
   }
 
   async encrypt(plaintext: string): Promise<string> {
