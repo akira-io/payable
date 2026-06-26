@@ -62,7 +62,13 @@ export class ReplayWebhookAction {
 
   private async verify(event: WebhookEvent): Promise<VerifiedWebhook> {
     const provider = this.deps.provider;
-    if (event.signature !== null && isWebhookCapable(provider)) {
+    if (isWebhookCapable(provider)) {
+      if (event.signature === null) {
+        throw new PayableError('Cannot replay a webhook without a stored signature to re-verify', {
+          code: 'WEBHOOK_REPLAY_UNVERIFIABLE',
+          context: { webhookEventId: event.id },
+        });
+      }
       return provider.verifyWebhook({
         payload: event.payload,
         signature: event.signature,
