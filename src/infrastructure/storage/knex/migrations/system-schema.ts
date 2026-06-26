@@ -75,7 +75,7 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.timestamp('next_retry_at', { useTz: true }).nullable();
     table.string('locked_by').nullable();
     table.timestamp('locked_until', { useTz: true }).nullable();
-    table.string('dedupe_key').nullable().unique();
+    table.string('dedupe_key').nullable();
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.timestamp('updated_at', { useTz: true }).notNullable();
   });

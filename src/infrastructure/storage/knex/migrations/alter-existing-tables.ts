@@ -43,15 +43,9 @@ export async function alterExistingTables(knex: Knex): Promise<void> {
   ]);
   await ensureIndexes(knex, [
     {
-      table: 'payable_outbox_events',
-      name: 'payable_outbox_events_dedupe_key_unique',
-      columns: ['dedupe_key'],
-      unique: true,
-    },
-    {
-      table: 'payable_webhook_deliveries',
-      name: 'payable_webhook_deliveries_endpoint_event_unique',
-      columns: ['endpoint_id', 'event_id'],
+      table: 'payable_audit_logs',
+      name: 'payable_audit_logs_tenant_sequence_unique',
+      columns: ['tenant_id', 'sequence'],
       unique: true,
     },
     {
@@ -86,6 +80,18 @@ export async function alterExistingTables(knex: Knex): Promise<void> {
     },
   ]);
   await ensureCustomerBillableUnique(knex);
+  await ensureTenantScopedUnique(
+    knex,
+    'payable_outbox_events',
+    'payable_outbox_events_tenant_dedupe_unique',
+    ['dedupe_key'],
+  );
+  await ensureTenantScopedUnique(
+    knex,
+    'payable_webhook_deliveries',
+    'payable_webhook_deliveries_tenant_endpoint_event_unique',
+    ['endpoint_id', 'event_id'],
+  );
   await backfillEndpointEvents(knex);
 }
 
@@ -169,6 +175,46 @@ async function ensureMysqlCustomerBillableUnique(knex: Knex): Promise<void> {
     CUSTOMER_TENANT_KEY,
     'billable_type',
     'billable_id',
+  ]);
+}
+
+const TENANT_KEY = 'tenant_key';
+
+async function ensureTenantScopedUnique(
+  knex: Knex,
+  table: string,
+  indexName: string,
+  columns: string[],
+): Promise<void> {
+  if (!(await knex.schema.hasTable(table))) {
+    return;
+  }
+  const placeholders = columns.map(() => '??').join(', ');
+  const dialect = (knex.client as { dialect?: string }).dialect;
+  if (dialect === 'mysql' || dialect === 'mariadb') {
+    if (!(await knex.schema.hasColumn(table, TENANT_KEY))) {
+      await knex.raw("ALTER TABLE ?? ADD COLUMN ?? VARCHAR(255) AS (COALESCE(??, '')) STORED", [
+        table,
+        TENANT_KEY,
+        'tenant_id',
+      ]);
+    }
+    if (await mysqlIndexExists(knex, table, indexName)) {
+      return;
+    }
+    await knex.raw(`CREATE UNIQUE INDEX ?? ON ?? (??, ${placeholders})`, [
+      indexName,
+      table,
+      TENANT_KEY,
+      ...columns,
+    ]);
+    return;
+  }
+  await knex.raw(`CREATE UNIQUE INDEX IF NOT EXISTS ?? ON ?? (COALESCE(??, ''), ${placeholders})`, [
+    indexName,
+    table,
+    'tenant_id',
+    ...columns,
   ]);
 }
 

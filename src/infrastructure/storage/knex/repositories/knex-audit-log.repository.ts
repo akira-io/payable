@@ -115,6 +115,7 @@ export class KnexAuditLogRepository implements AuditLogRepository {
   ): Promise<{ hash: string | null; sequence: number } | null> {
     const query = executor(this.table)
       .where({ tenant_id: this.tenant(tenantId) })
+      .whereNotNull('sequence')
       .orderBy('sequence', 'desc');
     if (this.supportsRowLocking()) {
       query.forUpdate();
