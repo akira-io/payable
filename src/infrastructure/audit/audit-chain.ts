@@ -1,6 +1,7 @@
 import type { NewAuditLog } from '../../domain/contracts/audit-log-repository.contract';
 import type { AuditLog } from '../../domain/entities/audit-log.entity';
 import { canonicalize, hashRequest } from '../../support/hash/request-hash';
+import { timingSafeEqual } from '../../support/hash/timing-safe-equal';
 import { signWebhookPayload } from '../../support/hash/webhook-signature';
 
 function auditPayload(
@@ -55,5 +56,5 @@ export async function auditLinkValid(
     entry,
     key,
   );
-  return entry.hash === expected;
+  return timingSafeEqual(entry.hash, expected);
 }
