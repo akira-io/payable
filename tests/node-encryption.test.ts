@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   generateEncryptionKey,
+  legacyDerivedSalt,
   NodeEncryptionDriver,
 } from '../src/infrastructure/encryption/node-encryption-driver';
 
@@ -89,5 +90,14 @@ describe('NodeEncryptionDriver', () => {
     expect(() => new NodeEncryptionDriver({ key: 'a-passphrase', salt: '   ' })).toThrowError(
       expect.objectContaining({ code: 'ENCRYPTION_SALT_REQUIRED' }),
     );
+  });
+
+  it('recovers legacy passphrase data via the legacyDerivedSalt helper', async () => {
+    const key = 'legacy-passphrase';
+    const salt = legacyDerivedSalt(key);
+    expect(salt).toEqual(legacyDerivedSalt(key));
+
+    const token = await new NodeEncryptionDriver({ key, salt }).encrypt('secret');
+    expect(await new NodeEncryptionDriver({ key, salt }).decrypt(token)).toBe('secret');
   });
 });

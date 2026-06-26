@@ -325,6 +325,7 @@ export { type AuditEntryInput, AuditService } from './infrastructure/audit/audit
 export { MemoryCacheDriver } from './infrastructure/cache/memory/memory-cache-driver';
 export {
   generateEncryptionKey,
+  legacyDerivedSalt,
   NodeEncryptionDriver,
 } from './infrastructure/encryption/node-encryption-driver';
 export { InMemoryEventBus } from './infrastructure/event-bus/in-memory-event-bus';
