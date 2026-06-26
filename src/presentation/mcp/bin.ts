@@ -3,10 +3,21 @@ import { timingSafeEqual } from 'node:crypto';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Payable } from '../../payable';
-import { createPayableMcpServer } from './index';
+import { isMissingMcpDependency, MCP_DEPENDENCY_HINT } from './dependencies';
 import type { McpPayableOptions } from './options';
-import { serveHttp } from './transports/http';
-import { serveStdio } from './transports/stdio';
+
+async function loadTransport(): Promise<{
+  createPayableMcpServer: typeof import('./index').createPayableMcpServer;
+  serveHttp: typeof import('./transports/http').serveHttp;
+  serveStdio: typeof import('./transports/stdio').serveStdio;
+}> {
+  const [{ createPayableMcpServer }, { serveHttp }, { serveStdio }] = await Promise.all([
+    import('./index'),
+    import('./transports/http'),
+    import('./transports/stdio'),
+  ]);
+  return { createPayableMcpServer, serveHttp, serveStdio };
+}
 
 interface PayableMcpConfig {
   payable: Payable;
@@ -65,6 +76,7 @@ async function main(): Promise<void> {
   const moneyOn = mcp?.policy?.allowMoneyMovement === true && mcp?.policy?.readOnly !== true;
   notify(`money movement ${moneyOn ? 'ENABLED' : 'disabled'}`);
 
+  const { createPayableMcpServer, serveHttp, serveStdio } = await loadTransport();
   const httpFlag = readFlag('--http');
   if (httpFlag) {
     const { host, port } = parseHost(httpFlag);
@@ -84,7 +96,14 @@ async function main(): Promise<void> {
   notify('listening on stdio');
 }
 
+function describeStartupError(error: unknown): string {
+  if (isMissingMcpDependency(error)) {
+    return MCP_DEPENDENCY_HINT;
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
 main().catch((error: unknown) => {
-  notify(error instanceof Error ? error.message : String(error));
+  notify(describeStartupError(error));
   process.exitCode = 1;
 });

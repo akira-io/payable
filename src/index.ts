@@ -323,11 +323,9 @@ export {
 } from './domain/value-objects';
 export { type AuditEntryInput, AuditService } from './infrastructure/audit/audit-service';
 export { MemoryCacheDriver } from './infrastructure/cache/memory/memory-cache-driver';
-export { RedisCacheDriver } from './infrastructure/cache/redis/redis-cache-driver';
 export { NodeEncryptionDriver } from './infrastructure/encryption/node-encryption-driver';
 export { InMemoryEventBus } from './infrastructure/event-bus/in-memory-event-bus';
 export { MemoryLockDriver } from './infrastructure/locks/memory-lock-driver';
-export { RedisLockDriver } from './infrastructure/locks/redis-lock-driver';
 export {
   type OutboxDelivery,
   type OutboxPublishResult,
