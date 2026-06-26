@@ -6,6 +6,7 @@ import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/prov
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { Billable } from '../../builders/billable';
+import type { AuthorizationContext } from '../../policies/authorization-context';
 import { SyncCustomerWithProviderAction } from '../customers/sync-customer-with-provider.action';
 import { SubscriptionAction } from './subscription-action';
 
@@ -17,6 +18,7 @@ export interface CreateSubscriptionInputData {
   items?: SubscriptionLineItem[];
   trialDays?: number;
   coupon?: string;
+  authorization?: AuthorizationContext;
 }
 
 export class CreateSubscriptionAction extends SubscriptionAction {
@@ -53,6 +55,7 @@ export class CreateSubscriptionAction extends SubscriptionAction {
     });
     const items = input.items ?? [{ priceId: input.priceId, quantity: input.quantity ?? 1 }];
     const primary = items[0] ?? { priceId: input.priceId, quantity: input.quantity ?? 1 };
+    const correlationId = CorrelationId.generate().toString();
     const run = async (): Promise<Subscription> => {
       const dto = await provider.createSubscription(
         {
@@ -63,7 +66,7 @@ export class CreateSubscriptionAction extends SubscriptionAction {
           trialDays: input.trialDays,
           coupon: input.coupon,
         },
-        { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
+        { correlationId, idempotencyKey: key.toString() },
       );
       return storage.transaction(async (repos) => {
         const subscription = await repos.subscriptions.create({
@@ -88,6 +91,20 @@ export class CreateSubscriptionAction extends SubscriptionAction {
             quantity: item.quantity,
           })),
         );
+        await repos.auditLogs.create({
+          tenantId: this.deps.tenantId ?? null,
+          correlationId,
+          actorType: input.authorization?.actorType ?? null,
+          actorId: input.authorization?.actorId ?? null,
+          action: 'subscription.created',
+          resourceType: 'subscription',
+          resourceId: subscription.id,
+          before: null,
+          after: { name: subscription.name, status: subscription.status },
+          metadata: { priceId: primary.priceId, quantity: primary.quantity },
+          ipAddress: null,
+          userAgent: null,
+        });
         return subscription;
       });
     };

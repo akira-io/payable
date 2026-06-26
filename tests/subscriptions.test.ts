@@ -139,6 +139,26 @@ describe('subscription lifecycle', () => {
     await db.destroy();
   });
 
+  it('writes a subscription.created audit log on creation', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
+
+    const subscription = await payable
+      .customer(billable)
+      .newSubscription('default')
+      .price('price_pro')
+      .create();
+
+    const logs = await payable
+      .auditLogs()
+      .run({ resourceType: 'subscription', resourceId: subscription.id });
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({ action: 'subscription.created', resourceType: 'subscription' });
+    await db.destroy();
+  });
+
   it('treats a create with the same key but different quantity as a conflict', async () => {
     const db = createTestDb();
     await migrate(db);
