@@ -19,6 +19,12 @@ describe('forward migrations (C5)', () => {
     await expect(migrate(db)).resolves.toBeUndefined();
   });
 
+  it('survives concurrent invocations', async () => {
+    await Promise.all([migrate(db), migrate(db)]);
+    await expect(migrate(db)).resolves.toBeUndefined();
+    expect(await db.schema.hasTable('payable_outbox_events')).toBe(true);
+  });
+
   it('round-trips a UTC instant through a timestamptz column', async () => {
     await migrate(db);
     const instant = '2026-06-22T08:30:00.000Z';

@@ -32,6 +32,7 @@ export class KnexAuditLogRepository implements AuditLogRepository {
   constructor(
     private readonly knex: Knex,
     private readonly clock: Clock,
+    private readonly auditKey?: string,
   ) {}
 
   async create(data: NewAuditLog): Promise<AuditLog> {
@@ -55,7 +56,8 @@ export class KnexAuditLogRepository implements AuditLogRepository {
       const latest = await this.latest(tenantId, trx);
       const previousHash = latest?.hash ?? null;
       const sequence = (latest?.sequence ?? 0) + 1;
-      const hash = await auditEntryHash(previousHash, data);
+      const createdAt = this.clock.now().toISOString();
+      const hash = await auditEntryHash(previousHash, sequence, createdAt, data, this.auditKey);
       const record = {
         id: globalThis.crypto.randomUUID(),
         sequence,
@@ -73,7 +75,7 @@ export class KnexAuditLogRepository implements AuditLogRepository {
         user_agent: data.userAgent,
         previous_hash: previousHash,
         hash,
-        created_at: this.clock.now().toISOString(),
+        created_at: createdAt,
       };
       await trx(this.table).insert(record);
       return this.toEntity(record as Record<string, unknown>);
@@ -87,7 +89,7 @@ export class KnexAuditLogRepository implements AuditLogRepository {
     while (rows.length > 0) {
       for (const row of rows) {
         const entry = this.toEntity(row);
-        if (!(await auditLinkValid(previousHash, entry))) {
+        if (!(await auditLinkValid(previousHash, row.sequence as number, entry, this.auditKey))) {
           return false;
         }
         previousHash = entry.hash;

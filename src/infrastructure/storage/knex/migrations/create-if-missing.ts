@@ -8,5 +8,11 @@ export async function createIfMissing(
   if (await knex.schema.hasTable(name)) {
     return;
   }
-  await knex.schema.createTable(name, build);
+  try {
+    await knex.schema.createTable(name, build);
+  } catch (error) {
+    if (!(await knex.schema.hasTable(name))) {
+      throw error;
+    }
+  }
 }

@@ -94,13 +94,14 @@ export class InMemoryAuditLogRepository implements AuditLogRepository {
 
   async create(data: NewAuditLog): Promise<AuditLog> {
     this.sequence += 1;
-    const previousHash =
-      [...this.entries].reverse().find((e) => (e.tenantId ?? null) === (data.tenantId ?? null))
-        ?.hash ?? null;
-    const hash = await auditEntryHash(previousHash, data);
+    const chain = this.entries.filter((e) => (e.tenantId ?? null) === (data.tenantId ?? null));
+    const sequence = chain.length + 1;
+    const previousHash = chain.at(-1)?.hash ?? null;
+    const createdAt = this.clock.now();
+    const hash = await auditEntryHash(previousHash, sequence, createdAt.toISOString(), data);
     const entry: AuditLog = {
       id: `audit_${this.sequence}`,
-      createdAt: this.clock.now(),
+      createdAt,
       previousHash,
       hash,
       ...data,
@@ -132,8 +133,10 @@ export class InMemoryAuditLogRepository implements AuditLogRepository {
   async verifyChain(tenantId: string | null): Promise<boolean> {
     const chain = this.entries.filter((entry) => (entry.tenantId ?? null) === (tenantId ?? null));
     let previousHash: string | null = null;
+    let sequence = 0;
     for (const entry of chain) {
-      if (!(await auditLinkValid(previousHash, entry))) {
+      sequence += 1;
+      if (!(await auditLinkValid(previousHash, sequence, entry))) {
         return false;
       }
       previousHash = entry.hash;

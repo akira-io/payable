@@ -35,7 +35,12 @@ import { KnexWebhookDeliveryRepository } from './repositories/knex-webhook-deliv
 import { KnexWebhookEndpointRepository } from './repositories/knex-webhook-endpoint.repository';
 import { KnexWebhookEventRepository } from './repositories/knex-webhook-event.repository';
 
-function buildRepositories(qb: Knex, clock: Clock, encryption?: Encryption): Repositories {
+function buildRepositories(
+  qb: Knex,
+  clock: Clock,
+  encryption?: Encryption,
+  auditKey?: string,
+): Repositories {
   return {
     customers: new KnexCustomerRepository(qb, clock),
     products: new KnexProductRepository(qb, clock),
@@ -48,7 +53,7 @@ function buildRepositories(qb: Knex, clock: Clock, encryption?: Encryption): Rep
     webhookEvents: new KnexWebhookEventRepository(qb, clock, encryption),
     webhookEndpoints: new KnexWebhookEndpointRepository(qb, clock, encryption),
     webhookDeliveries: new KnexWebhookDeliveryRepository(qb, clock),
-    auditLogs: new KnexAuditLogRepository(qb, clock),
+    auditLogs: new KnexAuditLogRepository(qb, clock, auditKey),
     outboxEvents: new KnexOutboxEventRepository(qb, clock),
   };
 }
@@ -72,8 +77,9 @@ export class KnexStorageDriver implements StorageDriver {
     private readonly knex: Knex,
     private readonly clock: Clock = new SystemClock(),
     private readonly encryption?: Encryption,
+    private readonly auditKey?: string,
   ) {
-    const repositories = buildRepositories(knex, clock, encryption);
+    const repositories = buildRepositories(knex, clock, encryption, auditKey);
     this.customers = repositories.customers;
     this.products = repositories.products;
     this.prices = repositories.prices;
@@ -91,7 +97,7 @@ export class KnexStorageDriver implements StorageDriver {
 
   async transaction<T>(work: (repositories: Repositories) => Promise<T>): Promise<T> {
     return this.knex.transaction((trx) =>
-      work(buildRepositories(trx, this.clock, this.encryption)),
+      work(buildRepositories(trx, this.clock, this.encryption, this.auditKey)),
     );
   }
 }
