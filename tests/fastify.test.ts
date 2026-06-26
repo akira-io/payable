@@ -147,6 +147,52 @@ describe('fastify adapter', () => {
     await app.close();
   });
 
+  it('rate-limits customer write routes', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const app = await makeApp(
+      createPayable({
+        providers: { stripe: new FakeProvider() },
+        storage: new KnexStorageDriver(db, new FakeClock()),
+      }),
+      { rateLimit: { max: 1, timeWindow: '1 minute' } },
+    );
+    const payload = { billable };
+
+    expect(
+      (await app.inject({ method: 'POST', url: '/payable/customers', payload })).statusCode,
+    ).toBe(201);
+    expect(
+      (await app.inject({ method: 'POST', url: '/payable/customers', payload })).statusCode,
+    ).toBe(429);
+
+    await app.close();
+    await db.destroy();
+  });
+
+  it('rate-limits catalog write routes', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const app = await makeApp(
+      createPayable({
+        providers: { stripe: new FakeProvider() },
+        storage: new KnexStorageDriver(db, new FakeClock()),
+      }),
+      { rateLimit: { max: 1, timeWindow: '1 minute' } },
+    );
+    const payload = { name: 'Pro' };
+
+    expect(
+      (await app.inject({ method: 'POST', url: '/payable/products', payload })).statusCode,
+    ).toBe(201);
+    expect(
+      (await app.inject({ method: 'POST', url: '/payable/products', payload })).statusCode,
+    ).toBe(429);
+
+    await app.close();
+    await db.destroy();
+  });
+
   it('processes a webhook from the raw body', async () => {
     const db = createTestDb();
     await migrate(db);

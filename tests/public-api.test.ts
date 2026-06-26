@@ -26,6 +26,13 @@ describe('public API surface', () => {
     expect(config.enabled).toBe(true);
   });
 
+  it('does not export the not-yet-implemented Redis drivers', () => {
+    expect('RedisCacheDriver' in payable).toBe(false);
+    expect('RedisLockDriver' in payable).toBe(false);
+    expect(typeof payable.MemoryCacheDriver).toBe('function');
+    expect(typeof payable.MemoryLockDriver).toBe('function');
+  });
+
   it('exports the redaction helpers for custom adapters and loggers', () => {
     expect(typeof payable.redactHeaders).toBe('function');
     expect(typeof payable.redactContext).toBe('function');
