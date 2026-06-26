@@ -62,17 +62,18 @@ describe('reconcile redirect payment', () => {
       providers: { sisp: new SispProvider(OPTIONS, fakeSispClient(state)) },
       storage: new KnexStorageDriver(db, new FakeClock()),
     });
-    await payable.customer(billable).redirectCheckout(Money.of(150000, 'CVE')).create({
-      reference: 'order-1',
-    });
-    return { db, payable };
+    const session = await payable
+      .customer(billable)
+      .redirectCheckout(Money.of(150000, 'CVE'))
+      .create({ reference: 'order-1' });
+    return { db, payable, merchantRef: session.id };
   }
 
   it('rejects a callback that fails verification', async () => {
-    const { db, payable } = await setup();
+    const { db, payable, merchantRef } = await setup();
     state.valid = false;
     await expect(
-      payable.receiveRedirectCallback({ provider: 'sisp', payload: { merchantRef: 'R-CHECKOUT' } }),
+      payable.receiveRedirectCallback({ provider: 'sisp', payload: { merchantRef } }),
     ).rejects.toMatchObject({ code: 'REDIRECT_CALLBACK_INVALID' });
     const [payment] = await payable.customer(billable).payments();
     expect(payment?.status).toBe('pending');
@@ -80,15 +81,15 @@ describe('reconcile redirect payment', () => {
   });
 
   it('is idempotent across duplicate callbacks', async () => {
-    const { db, payable } = await setup();
+    const { db, payable, merchantRef } = await setup();
     const first = await payable.receiveRedirectCallback({
       provider: 'sisp',
-      payload: { merchantRef: 'R-CHECKOUT' },
+      payload: { merchantRef },
     });
     expect(first.paymentUpdated).toBe(true);
     const second = await payable.receiveRedirectCallback({
       provider: 'sisp',
-      payload: { merchantRef: 'R-CHECKOUT' },
+      payload: { merchantRef },
     });
     expect(second.paymentUpdated).toBe(false);
 
@@ -102,15 +103,15 @@ describe('reconcile redirect payment', () => {
   });
 
   it('does not move a succeeded payment backward on a late failed callback', async () => {
-    const { db, payable } = await setup();
+    const { db, payable, merchantRef } = await setup();
     await payable.receiveRedirectCallback({
       provider: 'sisp',
-      payload: { merchantRef: 'R-CHECKOUT' },
+      payload: { merchantRef },
     });
     state.status = 'failed';
     const late = await payable.receiveRedirectCallback({
       provider: 'sisp',
-      payload: { merchantRef: 'R-CHECKOUT' },
+      payload: { merchantRef },
     });
     expect(late.paymentUpdated).toBe(false);
     const [payment] = await payable.customer(billable).payments();
@@ -119,10 +120,10 @@ describe('reconcile redirect payment', () => {
   });
 
   it('writes an audit log when the status advances', async () => {
-    const { db, payable } = await setup();
+    const { db, payable, merchantRef } = await setup();
     await payable.receiveRedirectCallback({
       provider: 'sisp',
-      payload: { merchantRef: 'R-CHECKOUT' },
+      payload: { merchantRef },
     });
     const [payment] = await payable.customer(billable).payments();
     const logs = await payable

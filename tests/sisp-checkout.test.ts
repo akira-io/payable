@@ -60,9 +60,9 @@ describe('payable redirect checkout (SISP)', () => {
       .redirectCheckout(Money.of(150000, 'CVE'))
       .create({ reference: 'order-1' });
 
-    expect(session.id).toBe('R-CHECKOUT');
+    expect(session.id).toMatch(/^R[0-9A-F]{14}$/);
     expect(session.url).toBe('https://mc.vinti4net.cv/gateway');
-    expect(session.html).toContain('R-CHECKOUT');
+    expect(session.html).toContain(session.id);
     expect(seen.body?.amount).toBe('1500.00');
 
     const customer = await payable.customers().get(billable);
@@ -73,7 +73,7 @@ describe('payable redirect checkout (SISP)', () => {
     expect(pending).toHaveLength(1);
     expect(pending[0]).toMatchObject({
       provider: 'sisp',
-      providerPaymentId: 'R-CHECKOUT',
+      providerPaymentId: session.id,
       status: 'pending',
       amount: 150000,
       customerId: customer?.id,
@@ -81,10 +81,10 @@ describe('payable redirect checkout (SISP)', () => {
 
     const result = await payable.receiveRedirectCallback({
       provider: 'sisp',
-      payload: { merchantRef: 'R-CHECKOUT' },
+      payload: { merchantRef: session.id },
     });
     expect(result).toEqual({
-      providerPaymentId: 'R-CHECKOUT',
+      providerPaymentId: session.id,
       status: 'succeeded',
       paymentUpdated: true,
     });
