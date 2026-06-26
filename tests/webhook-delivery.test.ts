@@ -164,6 +164,28 @@ describe('outbound webhook delivery', () => {
     expect(rows).toHaveLength(1);
     await db.destroy();
   });
+
+  it('keeps deliveries on the same (endpoint, event) distinct across tenants', async () => {
+    const { db, storage } = await setup();
+    const base = {
+      endpointId: 'ep_shared',
+      eventId: 'evt_shared',
+      eventType: 'invoice.paid',
+      payload: { a: 1 },
+      attempts: 1,
+      status: 'failed' as const,
+      responseCode: null,
+      responseBody: null,
+    };
+
+    const tenantA = await storage.webhookDeliveries.record({ ...base, tenantId: 'tenant-a' });
+    const tenantB = await storage.webhookDeliveries.record({ ...base, tenantId: 'tenant-b' });
+
+    expect(tenantB.id).not.toBe(tenantA.id);
+    expect(await storage.webhookDeliveries.listForEvent('evt_shared', 'tenant-a')).toHaveLength(1);
+    expect(await storage.webhookDeliveries.listForEvent('evt_shared', 'tenant-b')).toHaveLength(1);
+    await db.destroy();
+  });
 });
 
 describe('signWebhookPayload', () => {

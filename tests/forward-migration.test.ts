@@ -1,7 +1,24 @@
 import type { Knex } from 'knex';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
+import { KnexAuditLogRepository } from '../src/infrastructure/storage/knex/repositories/knex-audit-log.repository';
+import { FakeClock } from '../src/support/clock/fake-clock';
 import { createTestDb } from './support/knex';
+
+const auditEntry = {
+  tenantId: null,
+  correlationId: 'corr-new',
+  actorType: null,
+  actorId: null,
+  action: 'payment.captured',
+  resourceType: 'payment',
+  resourceId: 'pay_new',
+  before: null,
+  after: null,
+  metadata: null,
+  ipAddress: null,
+  userAgent: null,
+};
 
 let db: Knex;
 
@@ -55,6 +72,52 @@ describe('forward migrations (C5)', () => {
     expect(names).toContain('payable_refunds_payment_created_id_index');
     expect(names).toContain('payable_outbox_events_pending_claim_index');
     expect(names).toContain('payable_outbox_events_stale_claim_index');
+    expect(names).toContain('payable_outbox_events_tenant_dedupe_unique');
+    expect(names).toContain('payable_webhook_deliveries_tenant_endpoint_event_unique');
+    expect(names).toContain('payable_audit_logs_tenant_sequence_unique');
+  });
+
+  it('adds the audit chain columns and unique index to a pre-hardening table', async () => {
+    await db.schema.createTable('payable_audit_logs', (table) => {
+      table.uuid('id').primary();
+      table.string('tenant_id').notNullable().defaultTo('');
+      table.string('correlation_id').notNullable();
+      table.string('actor_type').nullable();
+      table.string('actor_id').nullable();
+      table.string('action').notNullable();
+      table.string('resource_type').notNullable();
+      table.string('resource_id').notNullable();
+      table.text('before').nullable();
+      table.text('after').nullable();
+      table.text('metadata').nullable();
+      table.string('ip_address').nullable();
+      table.string('user_agent').nullable();
+      table.timestamp('created_at').notNullable();
+    });
+    await db('payable_audit_logs').insert({
+      id: 'legacy-1',
+      tenant_id: '',
+      correlation_id: 'corr-legacy',
+      action: 'legacy.event',
+      resource_type: 'payment',
+      resource_id: 'pay_legacy',
+      created_at: new Date().toISOString(),
+    });
+
+    await migrate(db);
+
+    expect(await db.schema.hasColumn('payable_audit_logs', 'sequence')).toBe(true);
+    expect(await db.schema.hasColumn('payable_audit_logs', 'hash')).toBe(true);
+    const names = (await db
+      .from('sqlite_master')
+      .where({ type: 'index' })
+      .pluck('name')) as string[];
+    expect(names).toContain('payable_audit_logs_tenant_sequence_unique');
+
+    const repo = new KnexAuditLogRepository(db, new FakeClock(), 'audit-key');
+    const created = await repo.create(auditEntry);
+    expect(created.previousHash).toBeNull();
+    expect(await repo.verifyChain(null)).toBe(true);
   });
 
   it('enforces billable uniqueness across null tenants on the default dialect', async () => {

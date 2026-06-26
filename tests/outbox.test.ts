@@ -59,6 +59,31 @@ describe('OutboxService', () => {
     expect(rows).toHaveLength(1);
   });
 
+  it('scopes the dedupe key to the tenant', async () => {
+    const tenantA = await storage.outboxEvents.create({
+      ...newOutbox('invoice.paid.v1'),
+      tenantId: 'tenant-a',
+      dedupeKey: 'webhook:shared:invoice.paid',
+    });
+    const tenantB = await storage.outboxEvents.create({
+      ...newOutbox('invoice.paid.v1'),
+      tenantId: 'tenant-b',
+      dedupeKey: 'webhook:shared:invoice.paid',
+    });
+    const replayA = await storage.outboxEvents.create({
+      ...newOutbox('invoice.paid.v1'),
+      tenantId: 'tenant-a',
+      dedupeKey: 'webhook:shared:invoice.paid',
+    });
+
+    expect(tenantB.id).not.toBe(tenantA.id);
+    expect(replayA.id).toBe(tenantA.id);
+    const rows = await db('payable_outbox_events').where({
+      dedupe_key: 'webhook:shared:invoice.paid',
+    });
+    expect(rows).toHaveLength(2);
+  });
+
   it('claims same-timestamp events in a deterministic id order', async () => {
     for (let i = 0; i < 6; i += 1) {
       await storage.outboxEvents.create(newOutbox(`evt.${i}.v1`));

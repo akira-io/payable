@@ -7,6 +7,7 @@ import type {
   OutboxStatus,
 } from '../../../../domain/contracts/outbox-event-repository.contract';
 import { toDate, toJson, toNullableDate } from '../mappers';
+import { isUniqueViolation } from '../unique-violation';
 
 const CLAIM_TTL_MS = 300_000;
 const FAIR_OVERFETCH_FACTOR = 5;
@@ -24,9 +25,10 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
     const id = globalThis.crypto.randomUUID();
     const timestamp = this.clock.now().toISOString();
     const dedupeKey = data.dedupeKey ?? null;
-    const insert = this.knex(this.table).insert({
+    const tenantId = data.tenantId ?? null;
+    const row = {
       id,
-      tenant_id: data.tenantId,
+      tenant_id: tenantId,
       correlation_id: data.correlationId,
       event_type: data.eventType,
       event_version: data.eventVersion,
@@ -39,13 +41,32 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
       dedupe_key: dedupeKey,
       created_at: timestamp,
       updated_at: timestamp,
-    });
-    if (dedupeKey !== null) {
-      await insert.onConflict('dedupe_key').ignore();
-      const existing = await this.knex(this.table).where({ dedupe_key: dedupeKey }).first();
+    };
+    if (dedupeKey === null) {
+      await this.knex(this.table).insert(row);
+      return this.loadById(id);
+    }
+    const match = { dedupe_key: dedupeKey, tenant_id: tenantId };
+    const existing = await this.knex(this.table).where(match).first();
+    if (existing) {
       return this.toEntity(existing as Record<string, unknown>);
     }
-    await insert;
+    try {
+      await this.knex(this.table).insert(row);
+    } catch (error) {
+      if (!isUniqueViolation(error)) {
+        throw error;
+      }
+      const raced = await this.knex(this.table).where(match).first();
+      if (!raced) {
+        throw error;
+      }
+      return this.toEntity(raced as Record<string, unknown>);
+    }
+    return this.loadById(id);
+  }
+
+  private async loadById(id: string): Promise<OutboxEvent> {
     const row = await this.knex(this.table).where({ id }).first();
     return this.toEntity(row as Record<string, unknown>);
   }
