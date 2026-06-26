@@ -1,7 +1,9 @@
+import type { Knex } from 'knex';
 import { describe, expect, it } from 'vitest';
 import { AuditService } from '../src/infrastructure/audit/audit-service';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
+import { KnexAuditLogRepository } from '../src/infrastructure/storage/knex/repositories/knex-audit-log.repository';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { createTestDb } from './support/knex';
 
@@ -68,5 +70,40 @@ describe('audit chain ordering', () => {
       }),
     ).rejects.toThrow(/NOT NULL/);
     await db.destroy();
+  });
+
+  it('surfaces a clear error when the chain insert exhausts its retry budget', async () => {
+    const builder = {
+      where: () => builder,
+      whereNotNull: () => builder,
+      orderBy: () => builder,
+      forUpdate: () => builder,
+      first: async () => undefined,
+      insert: async () => {
+        throw { code: '23505', message: 'duplicate key value violates unique constraint' };
+      },
+    };
+    const fakeKnex = Object.assign(() => builder, {
+      client: { dialect: undefined },
+      transaction: async (cb: (trx: unknown) => Promise<unknown>) => cb(fakeKnex),
+    });
+    const repo = new KnexAuditLogRepository(fakeKnex as unknown as Knex, new FakeClock());
+
+    await expect(
+      repo.create({
+        tenantId: null,
+        correlationId: 'corr_x',
+        actorType: null,
+        actorId: null,
+        action: 'payment.refunded',
+        resourceType: 'payment',
+        resourceId: 'pay_x',
+        before: null,
+        after: null,
+        metadata: null,
+        ipAddress: null,
+        userAgent: null,
+      }),
+    ).rejects.toMatchObject({ code: 'AUDIT_CHAIN_CONTENTION' });
   });
 });

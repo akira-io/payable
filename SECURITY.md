@@ -26,6 +26,14 @@ block outbound traffic to internal ranges with an egress proxy or firewall, and
 require IMDSv2 (token-authenticated metadata) so `169.254.169.254` is not
 reachable unauthenticated.
 
+## Distributed locking
+
+`MemoryLockDriver` is process-local: its lock map provides mutual exclusion
+only within a single Node process and reports `distributed === false`. Do not
+rely on it for cross-instance critical sections in a multi-instance
+deployment, where it would let two instances acquire the same key. Supply a
+distributed `LockDriver` (e.g. Redis-backed) for that topology.
+
 ## Reporting a vulnerability
 
 Please report security vulnerabilities by email to

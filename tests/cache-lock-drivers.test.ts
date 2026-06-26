@@ -27,6 +27,10 @@ describe('MemoryCacheDriver', () => {
 });
 
 describe('MemoryLockDriver', () => {
+  it('reports itself as a non-distributed, process-local lock', () => {
+    expect(new MemoryLockDriver().distributed).toBe(false);
+  });
+
   it('grants a single holder until released', async () => {
     const now = 0;
     const locks = new MemoryLockDriver(() => now);
