@@ -18,15 +18,15 @@ later fails.
 ```ts
 export interface OutboxEventRepository {
   create(data: NewOutboxEvent): Promise<OutboxEvent>;
-  pullPending(limit: number): Promise<OutboxEvent[]>;
   claimPending(limit: number): Promise<OutboxEvent[]>;
-  markPublished(id: string): Promise<void>;
-  markFailed(id: string, nextRetryAt: Date | null): Promise<void>;
+  markPublished(id: string, lockToken?: string | null): Promise<number>;
+  markFailed(id: string, nextRetryAt: Date | null, lockToken?: string | null): Promise<number>;
 }
 ```
 
 An `OutboxEvent` carries `tenantId`, `correlationId`, `eventType`, `eventVersion`, `payload`,
-`status` (`pending | processing | published | failed`), `attempts`, and `nextRetryAt`.
+`status` (`pending | processing | published | failed`), `attempts`, `nextRetryAt`, and an optional
+`lockToken`.
 
 **Behavior.** `publishPending` claims a batch and delivers each one:
 
@@ -39,12 +39,34 @@ async publishPending(deliver: OutboxDelivery, limit = 50): Promise<OutboxPublish
 }
 ```
 
-- `claimPending` claims rows for the worker - the Knex repository uses `forUpdate().skipLocked()`
-  and flips them to `processing`, so concurrent workers never grab the same row.
-- On successful delivery the row is `markPublished`.
-- On failure, attempts are incremented. If `attempts >= maxAttempts` (default `5`) the row is
-  dead-lettered via `markFailed(id, null)`. Otherwise it is scheduled for retry with exponential
-  backoff: `nextRetry = now + backoffMs * 2 ** (attempts - 1)` (default `backoffMs` `1000`).
+- `claimPending` claims rows for the worker - the Knex repository uses `forUpdate().skipLocked()`,
+  flips them to `processing`, and stamps a per-claim `lockToken`, so concurrent workers never grab the
+  same row.
+- **Lock token.** Each claimed row carries the `lockToken` minted when it was claimed.
+  `markPublished` and `markFailed` are passed `event.lockToken` and only update the row when the token
+  still matches; both return the number of rows affected. A `0` result means the claim was lost (the
+  row was reclaimed by another worker), so the current worker stands down instead of double-marking.
+  This guards against double-delivery when a slow worker's claim expires and another worker takes
+  over.
+- On successful delivery the row is `markPublished(event.id, event.lockToken)`; if it returns `0` the
+  delivery is left for reclaim rather than counted as published.
+- On failure, attempts are incremented. If `attempts >= maxAttempts` (`OutboxService` default `5`) the
+  row is dead-lettered via `markFailed(id, null, lockToken)`. Otherwise it is scheduled for retry with
+  exponential backoff and equal-jitter: the base delay `backoffMs * 2 ** (attempts - 1)` (default
+  `backoffMs` `1000`) is capped at `maxBackoffMs` (default `60_000`), then half the cap plus a random
+  portion of the other half is added to `now`, never exceeding `maxBackoffMs`.
+
+**Two retry budgets.** There are two independent attempt ceilings, with different defaults:
+
+- `OutboxService.maxAttempts` (default `5`, `src/infrastructure/outbox/outbox-service.ts`) - how many
+  times the relay re-queues an outbox row before dead-lettering it.
+- `WebhookDeliveryService.maxAttempts` (`DEFAULT_WEBHOOK_DELIVERY_ATTEMPTS`, default `10`,
+  `src/application/services/webhook-delivery/webhook-delivery-service.ts`) - how many per-endpoint
+  HTTP delivery attempts before that endpoint's delivery is disabled.
+
+They sit at different layers (durable relay vs. per-endpoint HTTP delivery) and are configured
+separately. If you drive endpoint delivery from the outbox relay, set the two budgets deliberately so
+the relay does not stop re-queuing long before - or long after - the delivery service stops retrying.
 
 **Inputs/outputs.** Input is a `deliver` callback and an optional `limit`. Output is
 `{ published, retried, deadLettered }` counts.
@@ -62,11 +84,21 @@ driver is configured - the outbox needs a persistent repository.
 `AuditService` (`src/infrastructure/audit/audit-service.ts`) records an append-only trail of who did
 what to which resource.
 
-**Contract.** `AuditLogRepository` (`src/domain/contracts/audit-log-repository.contract.ts`)
-exposes `create` and a filtered `list`. An `AuditLog`
-(`src/domain/entities/audit-log.entity.ts`) carries `correlationId`, `actorType`, `actorId`,
-`action`, `resourceType`, `resourceId`, `before`, `after`, `metadata`, `ipAddress`, `userAgent`, and
-`createdAt`. There is no `update` or `delete` on the contract - entries are immutable.
+**Contract.** `AuditLogRepository` (`src/domain/contracts/audit-log-repository.contract.ts`):
+
+```ts
+export interface AuditLogRepository {
+  create(data: NewAuditLog): Promise<AuditLog>;
+  list(query: AuditLogQuery): Promise<AuditLog[]>;
+  verifyChain(tenantId: string | null): Promise<boolean>;
+  backfillChain(tenantId: string | null): Promise<number>;
+}
+```
+
+An `AuditLog` (`src/domain/entities/audit-log.entity.ts`) carries `tenantId`, `correlationId`,
+`actorType`, `actorId`, `action`, `resourceType`, `resourceId`, `before`, `after`, `metadata`,
+`ipAddress`, `userAgent`, `previousHash`, `hash`, and `createdAt`. There is no `update` or `delete` on
+the contract - entries are immutable.
 
 **Behavior.** `record` maps the input to a `NewAuditLog`, defaulting every optional field to `null`:
 
@@ -82,6 +114,31 @@ async record(input: AuditEntryInput): Promise<AuditLog> {
 `before: null` and `after: <event data>`. The correlation id ties the audit entry back to the
 originating request.
 
+**Hash chain.** Each persisted entry links to the previous one, forming a per-tenant tamper-evident
+chain. The Knex repository (`knex-audit-log.repository.ts`) appends inside a transaction: it reads the
+latest entry for the tenant (locking the row on Postgres/MySQL/MariaDB), takes that row's `hash` as
+the new entry's `previousHash`, and assigns `sequence = (latest.sequence ?? 0) + 1`. The entry `hash`
+is computed by `auditEntryHash` (`src/infrastructure/audit/audit-chain.ts`) over the canonical payload
+- `previousHash`, `sequence`, `createdAt`, and every logged field - keyed with the optional audit key
+when configured. A unique `(tenant_id, sequence)` constraint serializes concurrent appends: a losing
+writer hits a unique violation and retries (up to 50 attempts) against the new latest row.
+
+- **Sequence semantics.** `sequence` is monotonic and contiguous **per tenant**, starting at `1`. A
+  null tenant is keyed as `''`, so each tenant maintains its own independent chain.
+- **Verification.** `AuditService.verify(tenantId)` delegates to `verifyChain`, which walks the chain
+  in `sequence` order and, for each entry, recomputes the expected hash from the running
+  `previousHash` and `sequence` via `auditLinkValid`. It checks that the stored `previousHash` matches
+  the prior entry's `hash` and that the recomputed `hash` matches (compared with `timingSafeEqual`).
+  Any mismatch returns `false`.
+
+**Runtime backfill.** Legacy rows written before the chain existed have a null `sequence`.
+`backfillChain(tenantId)` repairs them at runtime: in one transaction it loads the tenant's
+null-`sequence` rows ordered by `created_at` then `id`, picks up from the current latest sequenced
+entry, and assigns each a contiguous `sequence`, `previousHash`, and recomputed `hash` so the chain
+becomes contiguous and verifiable. It returns the number of rows backfilled (`0` when there is
+nothing to repair). `latest`, `verifyChain`, and `chainPage` only consider rows with a non-null
+`sequence`, so unbackfilled legacy rows never break a fresh append.
+
 **Failure modes.** `record` resolves to the persisted entry or rejects if the repository write
 fails; there is no swallow. Reads are filtered through `ListAuditLogsQuery`.
 
@@ -91,29 +148,21 @@ fails; there is no swallow. Reads are filtered through `ListAuditLogsQuery`.
 sensitive values before they hit storage. It implements the `Encryption` contract
 (`src/domain/contracts/encryption.contract.ts`): `encrypt(plaintext)` and `decrypt(ciphertext)`.
 
-**Algorithm.** AES-256-GCM with a random 12-byte IV per encryption. The configured key string is
-hashed with SHA-256 to derive the 256-bit key. Ciphertext is serialized as
-`base64(iv):base64(authTag):base64(ciphertext)`.
-
-```ts
-constructor(options: { key: string }) {
-  if (options.key.trim().length === 0) {
-    throw new PayableError('Encryption key must be a non-empty high-entropy secret', {
-      code: 'ENCRYPTION_KEY_REQUIRED',
-    });
-  }
-  this.key = createHash('sha256').update(options.key).digest();
-}
-```
+**Algorithm.** AES-256-GCM with a random 12-byte IV per encryption. The key is either a 32-byte raw
+hex string (used directly) or a passphrase derived via scrypt with a **required** explicit salt;
+ciphertext is serialized as the versioned envelope `v1:base64(iv):base64(tag):base64(ciphertext)`. The
+full key-handling, salt requirement, and `legacyDerivedSalt` recovery path are documented in
+[Security - Encryption at rest](../28-security.md); this section only covers what the engine encrypts.
 
 **What it encrypts.** When an encryption driver is configured, the Knex webhook-event repository
 (`src/infrastructure/storage/knex/repositories/knex-webhook-event.repository.ts`) seals the
 `payload`, `data`, and `headers` columns on write and opens them on read. The columns then contain
 ciphertext, not plaintext - the stored row does not contain the event id, email, or header secret.
 
-**Failure modes.** An empty key throws `ENCRYPTION_KEY_REQUIRED` at construction. Malformed
-ciphertext (missing IV/tag/data parts) throws `ENCRYPTION_INVALID_CIPHERTEXT` on decrypt. The GCM
-auth tag is verified on decrypt, so tampered ciphertext fails.
+**Failure modes.** An empty key throws `ENCRYPTION_KEY_REQUIRED` and a passphrase key with no salt
+throws `ENCRYPTION_SALT_REQUIRED`, both at construction. Malformed ciphertext (wrong envelope, missing
+IV/tag/data parts) throws `ENCRYPTION_INVALID_CIPHERTEXT`; a failed decrypt (including a verification
+failure on the GCM auth tag for tampered ciphertext) throws `ENCRYPTION_DECRYPT_FAILED`.
 
 **When required.** Encryption is optional. Without a driver the columns are stored in plaintext;
 with one, all reads transparently decrypt.

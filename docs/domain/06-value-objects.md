@@ -235,6 +235,76 @@ expect(ProviderName.of('Stripe').toString()).toBe('stripe');
 expect(() => ProviderName.of('1bad')).toThrow(TypeError); // cannot start with a digit
 ```
 
+## Email
+
+`src/domain/value-objects/email.ts`. A validated, normalized email address backed by a Zod schema.
+
+- `Email.of(value)` - trims and validates against `z.string().trim().email()`; throws `TypeError` (`Invalid email address: ...`) on an invalid value. The stored value is **lowercased**.
+- `toString()`, `equals(other)`.
+
+```ts
+expect(Email.of('  USER@Example.com ').toString()).toBe('user@example.com');
+expect(() => Email.of('not-an-email')).toThrow(TypeError);
+```
+
+## normalizeIdentifier
+
+`src/domain/value-objects/identifier.ts`. Not a class - a single exported function used to clean and bound free-form identifier strings before they are stored or compared.
+
+`normalizeIdentifier(value: string, label: string, maxLength = 256): string` trims the input and returns the trimmed string, throwing `TypeError` when:
+
+| Condition | Message |
+| --- | --- |
+| Trimmed value is empty | `` `${label} cannot be empty` `` |
+| Trimmed length exceeds `maxLength` | `` `${label} exceeds ${maxLength} characters (got ${length})` `` |
+| Contains a control character | `` `${label} cannot contain control characters` `` |
+
+The control-character check rejects C0/C1 ranges, `DEL`, zero-width and bidirectional formatting characters (`U+200B`-`U+200F`, `U+202A`-`U+202E`), line/paragraph separators (`U+2028`/`U+2029`), and the BOM (`U+FEFF`).
+
+```ts
+expect(normalizeIdentifier('  acct_1  ', 'Account id')).toBe('acct_1');
+expect(() => normalizeIdentifier('', 'Account id')).toThrow(TypeError);
+expect(() => normalizeIdentifier('a​b', 'Account id')).toThrow(TypeError);
+```
+
+## WebhookEndpointUrl
+
+`src/domain/value-objects/webhook-endpoint-url.ts`. A validated outbound webhook destination URL.
+
+- `WebhookEndpointUrl.parse(input)` - parses with `new URL(input)` and enforces three rules, throwing `PayableError` on each:
+
+| Failure | code |
+| --- | --- |
+| Input is not a parseable URL | `WEBHOOK_ENDPOINT_INVALID_URL` |
+| Protocol is not `https:` | `WEBHOOK_ENDPOINT_INVALID_URL` |
+| Hostname resolves to a non-routable host (`isBlockedHostname`) | `WEBHOOK_ENDPOINT_BLOCKED_HOST` |
+
+The stored `value` is the canonical `URL.toString()`. The non-routable-host check is the SSRF guard for outbound delivery targets.
+
+```ts
+expect(WebhookEndpointUrl.parse('https://example.com/hook').toString()).toBe(
+  'https://example.com/hook',
+);
+expect(() => WebhookEndpointUrl.parse('http://example.com/hook')).toThrow(PayableError); // https only
+expect(() => WebhookEndpointUrl.parse('https://127.0.0.1/hook')).toThrow(PayableError); // non-routable host
+```
+
+## WebhookSigningSecret
+
+`src/domain/value-objects/webhook-signing-secret.ts`. A signing secret for outbound webhook deliveries, with a fixed `whsec_` prefix.
+
+- `WebhookSigningSecret.generate()` - draws 32 random bytes via `globalThis.crypto.getRandomValues`, hex-encodes them, and prefixes `whsec_`.
+- `WebhookSigningSecret.from(value)` - rebuilds from a stored string; throws `TypeError` unless the value starts with `whsec_` and is longer than the prefix.
+- `toString()` returns the secret.
+- `equals(other)` - **timing-safe** comparison via `timingSafeEqual`, so secret comparison does not leak length/content through timing.
+
+```ts
+const secret = WebhookSigningSecret.generate();
+expect(secret.toString().startsWith('whsec_')).toBe(true);
+expect(() => WebhookSigningSecret.from('nope')).toThrow(TypeError);
+expect(WebhookSigningSecret.from(secret.toString()).equals(secret)).toBe(true);
+```
+
 ## Status value objects
 
 Each status is a string-literal union backed by a `const` array, with a runtime type guard and one or more domain predicates. These are the allowed values used by the corresponding entities and state machines.

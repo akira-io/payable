@@ -19,15 +19,21 @@ function createFastifyPayablePlugin(
 
 interface FastifyPayableOptions {
   webhookSignatureHeader?: string; // default: 'stripe-signature'
+  authenticate?: onRequestHookHandler;
+  resolveTenant?: (request: FastifyRequest) => string | null | undefined;
+  resolveAuthorization?: (request: FastifyRequest) => AuthorizationContext | undefined;
+  rateLimit?: RateLimitPluginOptions;
 }
 ```
 
 The plugin performs, in order:
 
 1. `fastify.setErrorHandler(payableErrorReply)`.
-2. Registers webhook routes inside a nested `fastify.register(...)` scope.
-3. Registers checkout, subscription, refund, customer, read (invoices/payments/subscriptions/refunds),
-   and catalog (products/prices) routes inside an authenticated scope.
+2. Registers `@fastify/rate-limit` with the plugin defaults, merging `options.rateLimit` over them.
+3. Registers webhook routes inside a nested `fastify.register(...)` scope.
+4. Registers checkout, subscription, refund, customer, read (invoices/payments/subscriptions/refunds),
+   and catalog (products/prices) routes inside an authenticated scope. When `options.authenticate` is
+   set, it is added as an `onRequest` hook on that scope.
 
 ## Routes registered
 
@@ -82,6 +88,32 @@ checkout and subscription routes keep Fastify's default JSON parsing. The handle
 buffer to a UTF-8 string (or an empty string if it is not a buffer) and forwards payload, signature
 (from `options.webhookSignatureHeader`, default `stripe-signature`), and flattened headers to
 `payable.receiveWebhook(...)`.
+
+## Rate limiting
+
+The plugin registers `@fastify/rate-limit` before any routes, with these defaults:
+
+```ts
+await fastify.register(rateLimit, {
+  global: false,
+  max: 100,
+  timeWindow: '1 minute',
+  ...options.rateLimit,
+});
+```
+
+| Default | Value | Effect |
+| --- | --- | --- |
+| `global` | `false` | The limiter is opt-in per route, not applied to every route automatically. |
+| `max` | `100` | Maximum requests per `timeWindow` for routes that enable the limiter. |
+| `timeWindow` | `'1 minute'` | The rolling window the `max` count applies over. |
+
+Pass `options.rateLimit` (typed `RateLimitPluginOptions` from `@fastify/rate-limit`) to override or
+extend any of these; the supplied object is spread over the defaults, so it wins on conflicts.
+
+`@fastify/rate-limit` (`>=9`) is declared an **optional peer**. It is imported and registered
+unconditionally by the plugin, so it must be installed for the Fastify adapter to load - install it
+alongside `fastify` when using this adapter.
 
 ## Error mapping
 

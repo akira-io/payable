@@ -311,6 +311,50 @@ Purpose: a received provider webhook, persisted for idempotent processing and re
 
 Invariants (enforced outside the entity): `(provider, providerEventId)` uniquely identifies an event, supporting idempotent webhook handling. See [Value Objects](06-value-objects.md#idempotencykey) for `IdempotencyKey.forWebhook`.
 
+## Webhook Endpoint
+
+`src/domain/entities/webhook-endpoint.entity.ts`. Extends `TenantScoped`, and carries its own `createdAt`/`updatedAt` (not the `Timestamps` mixin).
+
+Purpose: an outbound webhook destination that the engine delivers normalized events to, with its own signing secret and event subscription set.
+
+`WebhookEndpointStatus = 'enabled' | 'disabled'`.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | Local identifier. |
+| `url` | `string` | Delivery target URL. See [`WebhookEndpointUrl`](06-value-objects.md#webhookendpointurl) for the HTTPS-only, non-routable-host validation applied on input. |
+| `events` | `readonly string[]` | Normalized event types this endpoint subscribes to. |
+| `secret` | `string` | Signing secret used to sign deliveries. See [`WebhookSigningSecret`](06-value-objects.md#webhooksigningsecret). |
+| `status` | `WebhookEndpointStatus` | Whether the endpoint receives deliveries. |
+| `createdAt` | `Date` | Creation instant. |
+| `updatedAt` | `Date` | Last-update instant. |
+
+Relationships: receives many `WebhookDelivery` records (each references `endpointId`).
+
+## Webhook Delivery
+
+`src/domain/entities/webhook-delivery.entity.ts`. Extends `TenantScoped`, and carries its own `createdAt`/`updatedAt` (not the `Timestamps` mixin).
+
+Purpose: a single delivery attempt of an event to an endpoint, persisted for observability and reconciliation.
+
+`WebhookDeliveryStatus = 'delivered' | 'failed'`.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | Local identifier. |
+| `endpointId` | `string` | Target endpoint. |
+| `eventId` | `string` | Source event id being delivered. |
+| `eventType` | `string` | Normalized event type delivered. |
+| `payload` | `Record<string, unknown>` | Delivered payload. |
+| `status` | `WebhookDeliveryStatus` | Outcome of the attempt. |
+| `attempts` | `number` | Number of delivery attempts so far. |
+| `responseCode` | `number \| null` | HTTP status returned by the endpoint; `null` if no response. |
+| `responseBody` | `string \| null` | Captured response body; `null` if none. |
+| `createdAt` | `Date` | Creation instant. |
+| `updatedAt` | `Date` | Last-update instant. |
+
+Relationships: belongs to one `WebhookEndpoint` (required `endpointId`); references the source event via `eventId`.
+
 ## Audit Log
 
 `src/domain/entities/audit-log.entity.ts`. Extends `TenantScoped` (carries its own `createdAt`, not `Timestamps`).
@@ -334,6 +378,86 @@ Purpose: an immutable record of a mutation to a domain resource, for audit and t
 | `createdAt` | `Date` | When the entry was written. |
 
 Notes: `before`/`after` capture the diff of the audited mutation; `correlationId` ties the entry to the request and to related webhook events.
+
+## Errors
+
+Domain errors live in `src/domain/errors/`. They all extend `PayableError`, a structured base built on the native `Error`.
+
+### PayableError
+
+`src/domain/errors/payable-error.ts`. The base class. Beyond the `message`, it carries:
+
+| Member | Type | Notes |
+| --- | --- | --- |
+| `code` | `string` | Machine-readable code; defaults to `PAYABLE_ERROR`. |
+| `context` | `Record<string, unknown> \| undefined` | Structured context for the failure. |
+| `correlationId` | `string \| undefined` | Request/trace correlation id. |
+
+The constructor takes `PayableErrorOptions` (`{ code?, context?, correlationId?, cause? }`); `cause` is forwarded to the native `Error` cause. `toJSON()` serializes `{ name, code, message, correlationId, context }` and **redacts** any context key matching `authorization`, `password`, `secret`, `token`, `signature`, `api[-_]?key`, `cookie`, `card`, `cvv`, `cvc`, or `pin` (replacing the value with `[redacted]`). The static `PayableError.notImplemented(symbol)` returns a `NOT_IMPLEMENTED`-coded error.
+
+### Error catalog
+
+Each subclass sets a fixed `code` and a populated `context`, and accepts the same `PayableErrorOptions`.
+
+| Error class | code | When thrown |
+| --- | --- | --- |
+| `PayableError` | `PAYABLE_ERROR` | Base class; used directly for ad-hoc failures and `notImplemented` (`NOT_IMPLEMENTED`). |
+| `CustomerNotFoundError` | `CUSTOMER_NOT_FOUND` | A customer lookup by identifier returns nothing. Context: `{ identifier }`. |
+| `SubscriptionNotFoundError` | `SUBSCRIPTION_NOT_FOUND` | A subscription lookup by identifier returns nothing. Context: `{ identifier }`. |
+| `IdempotencyConflictError` | `IDEMPOTENCY_CONFLICT` | An idempotency key is reused with a different request payload. Context: `{ key }`. |
+| `IdempotencyInProgressError` | `IDEMPOTENCY_IN_PROGRESS` | An operation is already running for the same idempotency key. Context: `{ key }`. |
+| `InvalidStateTransitionError` | `INVALID_STATE_TRANSITION` | A state machine rejects a transition from the current state. Context: `{ machine, from, transition }`. |
+| `InvalidWebhookSignatureError` | `INVALID_WEBHOOK_SIGNATURE` | A provider webhook fails signature verification. Context: `{ provider }`. |
+| `ProviderNotFoundError` | `PROVIDER_NOT_FOUND` | No payment provider is registered under the requested name. Context: `{ provider }`. |
+| `ProviderCapabilityNotSupportedError` | `PROVIDER_CAPABILITY_NOT_SUPPORTED` | A provider is asked for a capability it does not implement. Context: `{ provider, capability }`. |
+
+The HTTP status each `code` maps to (for example `IDEMPOTENCY_CONFLICT` -> 409, `PROVIDER_CAPABILITY_NOT_SUPPORTED` -> 422) is documented in [Troubleshooting](../31-troubleshooting.md).
+
+## DTOs
+
+The input/output shapes in `src/domain/dtos/` are the **boundary types**: the plain interfaces that builders and actions accept and return, and that the [`PaymentProvider`](33-contracts.md#paymentprovider) contract is defined in terms of. Monetary fields on these DTOs use the [`Money`](06-value-objects.md#money) value object (not raw integers), unlike the persisted entity shapes above. They are re-exported from `src/domain/dtos/index.ts`.
+
+| Group | File | Types | Purpose |
+| --- | --- | --- | --- |
+| Customer | `customer.dto.ts` | `CreateCustomerInput`, `UpdateCustomerInput`, `CustomerDTO` | Provision and update a provider customer; return the provider id, email, and name. |
+| Product | `product.dto.ts` | `CreateProductInput`, `UpdateProductInput`, `ProductDTO` | Create/update a catalog product; return the provider product id, name, and active flag. |
+| Price | `price.dto.ts` | `CreatePriceInput`, `PriceDTO` | Create a one-off or recurring price (`unitAmount: Money`); return the provider price id and interval. |
+| Checkout | `checkout.dto.ts` | `CheckoutMode`, `CheckoutLineItem`, `CreateCheckoutSessionInput`, `CheckoutSessionDTO` | Open a hosted checkout session (`payment` or `subscription` mode); return the session id and redirect URL (and optional `html`). |
+| Charge | `charge.dto.ts` | `ChargeInput`, `ChargeResultDTO` | One-off charge of a `Money` amount; return the provider payment id and status. |
+| Refund | `refund.dto.ts` | `RefundInput`, `RefundResultDTO` | Refund a payment (optional partial `Money` amount); return the provider refund id and status. |
+| Subscription | `subscription.dto.ts` | `CreateSubscriptionInput`, `UpdateSubscriptionInput`, `CancelSubscriptionInput`, `SubscriptionDTO` | Create, update, and cancel a subscription; return status and period/trial end dates. |
+| Invoice | `invoice.dto.ts` | `ListInvoicesInput`, `InvoiceDTO`, `InvoicePdfDTO` | List a customer's invoices and download the PDF bytes. |
+| Billing portal | `billing-portal.dto.ts` | `BillingPortalInput`, `BillingPortalDTO` | Open a provider billing portal session; return the portal URL. |
+| Webhook | `webhook.dto.ts` | `WebhookVerificationInput`, `VerifiedWebhook` | Verify a raw signed webhook and expose the normalized event. |
+| Capabilities | `capabilities.dto.ts` | `ProviderCapability`, `ProviderCapabilityValue`, `ProviderCapabilities` | The set of capabilities a provider advertises (a `ReadonlySet`). |
+| Common | `common.dto.ts` | `OperationContext` | The `{ correlationId, idempotencyKey?, tenantId? }` carried through every provider operation. |
+
+Representative shapes:
+
+```ts
+export interface CreateCustomerInput {
+  email: string;
+  name?: string;
+  billableType: string;
+  billableId: string;
+  metadata?: Metadata;
+}
+
+export interface ChargeInput {
+  providerCustomerId?: string;
+  amount: Money;
+  reference?: string;
+  description?: string;
+}
+
+export interface OperationContext {
+  correlationId: string;
+  idempotencyKey?: string;
+  tenantId?: string | null;
+}
+```
+
+See the source files for the full field lists.
 
 ---
 

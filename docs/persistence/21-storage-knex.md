@@ -75,7 +75,7 @@ aggregates.
 | --- | --- | --- |
 | `payable_customers` | `tenant_id`, `provider`, `provider_customer_id`, `billable_type`, `billable_id`, `email` | unique `(provider, provider_customer_id)`; index `(tenant_id, billable_type, billable_id)` |
 | `payable_products` | `provider`, `provider_product_id`, `name`, `active` | unique `(provider, provider_product_id)` |
-| `payable_prices` | `provider`, `provider_price_id`, `product_id`, `currency`, `unit_amount`, `interval`, `interval_count` | unique `(provider, provider_price_id)`; index `product_id` |
+| `payable_prices` | `provider`, `provider_price_id`, `product_id`, `currency`, `unit_amount`, `interval`, `interval_count`, `active` (boolean, notNullable) | unique `(provider, provider_price_id)`; index `product_id` |
 | `payable_subscriptions` | `customer_id`, `name`, `provider`, `provider_subscription_id`, `status`, `price_id`, `quantity`, period/trial timestamps | unique `(provider, provider_subscription_id)`; unique `(customer_id, name)` |
 | `payable_subscription_items` | `subscription_id`, `price_id`, `provider_item_id`, `quantity` | index `subscription_id` |
 | `payable_invoices` | `customer_id`, `subscription_id`, `provider`, `provider_invoice_id`, `status`, `currency`, `total`, `amount_paid`, `amount_due` | unique `(provider, provider_invoice_id)`; index `customer_id` |
@@ -98,12 +98,13 @@ idempotency, audit, and the outbox.
 
 | Table | Key columns | Notable constraints |
 | --- | --- | --- |
-| `payable_webhook_events` | `tenant_id` (default `''`), `provider`, `provider_event_id`, `type`, `normalized_type`, `payload`, `data`, `headers`, `status`, `correlation_id`, `received_at`, `processed_at` | unique `(tenant_id, provider, provider_event_id)` (dedup key) |
-| `payable_idempotency_keys` | `tenant_id` (default `''`), `key`, `scope`, `operation`, `request_hash`, `response`, `status`, `locked_until`, `expires_at` | unique `(tenant_id, key)` |
-| `payable_audit_logs` | `correlation_id`, `actor_type`, `actor_id`, `action`, `resource_type`, `resource_id`, `before`, `after`, `metadata`, `ip_address`, `user_agent` | index `(resource_type, resource_id)`; index `correlation_id`; `created_at` only |
-| `payable_outbox_events` | `correlation_id`, `event_type`, `event_version`, `payload`, `status`, `attempts`, `next_retry_at`, `locked_by`, `locked_until` | index `(status, next_retry_at, created_at)` |
-| `payable_webhook_endpoints` | `url`, `events`, `secret`, `status` | - |
-| `payable_webhook_deliveries` | `endpoint_id`, `event_type`, `payload`, `status`, `attempts`, `response_code`, `response_body`, `next_retry_at` | index `endpoint_id` |
+| `payable_webhook_events` | `tenant_id` (default `''`), `provider`, `provider_event_id`, `type`, `normalized_type`, `payload`, `signature` (nullable), `data`, `headers`, `status`, `correlation_id`, `received_at`, `processed_at`, `claimed_until` (nullable), `claim_token` (nullable) | unique `(tenant_id, provider, provider_event_id)` (dedup key) |
+| `payable_idempotency_keys` | `tenant_id` (default `''`), `key`, `scope`, `operation`, `resource_type` (nullable), `resource_id` (nullable), `request_hash`, `response`, `status`, `locked_until`, `lock_token` (nullable), `expires_at` | unique `(tenant_id, key)` |
+| `payable_audit_logs` | `correlation_id`, `actor_type`, `actor_id`, `action`, `resource_type`, `resource_id`, `before`, `after`, `metadata`, `ip_address`, `user_agent`, `previous_hash` (nullable), `hash` (notNullable), `sequence` (integer, notNullable) | index `(resource_type, resource_id)`; index `correlation_id`; unique `(tenant_id, sequence)`; append-only (`created_at` only) |
+| `payable_outbox_events` | `tenant_id` (nullable), `correlation_id`, `event_type`, `event_version`, `payload`, `status`, `attempts`, `next_retry_at`, `locked_by`, `locked_until`, `dedupe_key` (nullable) | index `(status, next_retry_at, created_at)` (added by `ensureIndexes`) |
+| `payable_webhook_endpoints` | `tenant_id` (nullable), `url`, `events`, `secret` (text, nullable), `status`, `created_at`, `updated_at` | - |
+| `payable_webhook_endpoint_events` | `endpoint_id`, `event_type` | composite primary key `(endpoint_id, event_type)`; index `event_type` |
+| `payable_webhook_deliveries` | `id` (uuid PK), `tenant_id` (nullable), `endpoint_id`, `event_id` (nullable), `event_type`, `payload`, `status`, `attempts`, `response_code` (nullable), `response_body` (nullable), `next_retry_at` (nullable), `created_at`, `updated_at` | index `endpoint_id`; index `(endpoint_id, event_id)` |
 
 ## `migrate(knex)`
 

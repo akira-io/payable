@@ -73,11 +73,14 @@ export interface RefundRequest {
   paymentId: string;
   amount?: Money;
   reason?: string;
+  reference?: string;
+  authorization?: AuthorizationContext;
 }
 ```
 
 `paymentId` is the **local** payment id. Omit `amount` for a full refund; pass a `Money` for a partial
-refund.
+refund. `reference` feeds the refund idempotency key via `IdempotencyKey.forRefund`. `authorization`
+carries the optional `AuthorizationContext` for the refund call.
 
 ```ts
 // full refund
@@ -92,16 +95,22 @@ await payable.refund({ paymentId: payment.id, amount: Money.of(4000, 'USD') });
 1. Requires a storage driver (`PAYMENT_STORAGE_REQUIRED`).
 2. Loads the payment by id; throws `PayableError` (`PAYMENT_NOT_FOUND`) if it is missing or has no
    `providerPaymentId`.
-3. Asserts the provider's `refunds` capability via `assertProviderCapability`.
-4. Builds a deterministic key with `IdempotencyKey.forRefund` keyed by provider, provider payment id,
+3. Requires the payment to be `succeeded` or `partially_refunded`; otherwise throws `PayableError`
+   (`PAYMENT_NOT_REFUNDABLE`).
+4. Rejects a currency mismatch: if the requested `amount` currency differs from the payment currency,
+   throws `PayableError` (`REFUND_CURRENCY_MISMATCH`).
+5. Guards against over-refund: `remaining = payment.amount - payment.refundedAmount` and
+   `requested = input.amount?.amount() ?? remaining`. If `remaining <= 0` or `requested > remaining`,
+   throws `PayableError` (`REFUND_EXCEEDS_REMAINING`) with context `{ paymentId, requested, remaining }`.
+6. Asserts the provider's `refunds` capability via `assertProviderCapability`.
+7. Builds a deterministic key with `IdempotencyKey.forRefund` keyed by provider, provider payment id,
    amount (defaulting to the full payment amount), and currency.
-5. Calls `provider.refund({ providerPaymentId, amount, reason }, ctx)`.
-6. Rejects a currency mismatch: if the refund DTO currency differs from the payment currency, throws
-   `PayableError` (`REFUND_CURRENCY_MISMATCH`).
-7. Persists a `refunds` row.
-8. Recomputes `refundedAmount = payment.refundedAmount + dto.amount`. Using `PaymentStateMachine`, it
-   transitions the payment to **refunded** when `refundedAmount >= payment.amount`, otherwise to
-   **partially refunded**; then updates the payment's `refundedAmount` and `status`.
+8. Calls `provider.refund({ providerPaymentId, amount, reason }, ctx)`.
+9. Persists a `refunds` row.
+10. Recomputes `refundedAmount = payment.refundedAmount + dto.amount`. Using `PaymentStateMachine`, it
+    transitions the payment to **refunded** when `refundedAmount >= payment.amount`, otherwise to
+    **partially refunded**; then updates the payment's `refundedAmount` and `status`. A settlement-time
+    re-check re-validates the remaining balance to guard against races before the row is written.
 
 Output: the persisted `Refund` entity.
 
@@ -116,12 +125,16 @@ Refunds accumulate. Charging 9900 then refunding 4000 leaves the payment `partia
 flowchart TD
     A[refund request] --> B{payment found?}
     B -- no --> E[PAYMENT_NOT_FOUND]
-    B -- yes --> C{provider refunds capable?}
+    B -- yes --> R{succeeded or partially_refunded?}
+    R -- no --> RN[PAYMENT_NOT_REFUNDABLE]
+    R -- yes --> G{currency matches payment?}
+    G -- no --> H[REFUND_CURRENCY_MISMATCH]
+    G -- yes --> M{remaining > 0 and requested <= remaining?}
+    M -- no --> N[REFUND_EXCEEDS_REMAINING]
+    M -- yes --> C{provider refunds capable?}
     C -- no --> F[ProviderCapabilityNotSupportedError]
     C -- yes --> D[provider.refund]
-    D --> G{currency matches payment?}
-    G -- no --> H[REFUND_CURRENCY_MISMATCH]
-    G -- yes --> I[persist refund]
+    D --> I[persist refund]
     I --> J{refundedAmount >= payment.amount?}
     J -- yes --> K[status = refunded]
     J -- no --> L[status = partially_refunded]
@@ -146,10 +159,13 @@ their own.
 - **Provider lacks `refunds` capability.** `RefundPaymentAction` throws via `assertProviderCapability`.
 - **Unknown payment id / no provider payment id.** `PAYMENT_NOT_FOUND`.
 - **Refund currency differs from payment.** `REFUND_CURRENCY_MISMATCH`.
-- **Refund exceeding the remaining balance.** Not blocked by a dedicated guard in this version: the
-  action forwards `amount` to the provider and, after persisting, marks the payment `refunded` once
-  `refundedAmount >= payment.amount`. Enforcement of an over-refund relies on the provider rejecting
-  it; there is no local "already fully refunded" precheck.
+- **Payment not in a refundable state.** A payment that is not `succeeded` or `partially_refunded`
+  throws `PAYMENT_NOT_REFUNDABLE`.
+- **Refund exceeding the remaining balance.** Blocked by a dedicated guard before the provider call:
+  with `remaining = payment.amount - payment.refundedAmount` and
+  `requested = input.amount?.amount() ?? remaining`, the action throws `REFUND_EXCEEDS_REMAINING`
+  (context `{ paymentId, requested, remaining }`) when `remaining <= 0` or `requested > remaining`. A
+  settlement-time re-check re-validates the remaining balance to guard against concurrent refunds.
 
 ---
 
