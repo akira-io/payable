@@ -106,6 +106,7 @@ export class SubscriptionBuilder {
       items,
       trialDays: this.state.trialDays,
       coupon: this.state.coupon,
+      authorization,
     });
   }
 }
