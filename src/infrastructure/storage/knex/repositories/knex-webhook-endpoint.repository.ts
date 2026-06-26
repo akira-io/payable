@@ -11,6 +11,8 @@ import type {
 } from '../../../../domain/entities/webhook-endpoint.entity';
 import { toDate } from '../mappers';
 
+const MAX_ENDPOINT_LIST = 1000;
+
 export class KnexWebhookEndpointRepository implements WebhookEndpointRepository {
   private readonly table = 'payable_webhook_endpoints';
   private readonly eventsTable = 'payable_webhook_endpoint_events';
@@ -55,7 +57,8 @@ export class KnexWebhookEndpointRepository implements WebhookEndpointRepository 
     const rows = (await this.knex(this.table)
       .where(this.tenantClause(tenantId))
       .orderBy('created_at', 'desc')
-      .orderBy('id', 'desc')) as Record<string, unknown>[];
+      .orderBy('id', 'desc')
+      .limit(MAX_ENDPOINT_LIST)) as Record<string, unknown>[];
     return Promise.all(rows.map((row) => this.hydrate(row)));
   }
 

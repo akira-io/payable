@@ -9,6 +9,7 @@ import type {
   WebhookDeliveryStatus,
 } from '../../../../domain/entities/webhook-delivery.entity';
 import { toDate, toJson } from '../mappers';
+import { isUniqueViolation } from '../unique-violation';
 
 export class KnexWebhookDeliveryRepository implements WebhookDeliveryRepository {
   private readonly table = 'payable_webhook_deliveries';
@@ -20,38 +21,60 @@ export class KnexWebhookDeliveryRepository implements WebhookDeliveryRepository 
 
   async record(data: NewWebhookDelivery): Promise<WebhookDelivery> {
     const timestamp = this.clock.now().toISOString();
-    const existing = await this.knex(this.table)
-      .where({ endpoint_id: data.endpointId, event_id: data.eventId })
-      .first();
-    if (existing) {
-      await this.knex(this.table)
-        .where({ id: existing.id })
-        .update({
-          status: data.status,
-          attempts: data.attempts,
-          response_code: data.responseCode,
-          response_body: data.responseBody,
-          payload: JSON.stringify(data.payload),
-          updated_at: timestamp,
-        });
-      return this.findByIdOrFail(existing.id as string);
-    }
-    const id = globalThis.crypto.randomUUID();
-    await this.knex(this.table).insert({
-      id,
-      tenant_id: data.tenantId,
+    const match = {
       endpoint_id: data.endpointId,
       event_id: data.eventId,
-      event_type: data.eventType,
-      payload: JSON.stringify(data.payload),
-      status: data.status,
-      attempts: data.attempts,
-      response_code: data.responseCode,
-      response_body: data.responseBody,
-      next_retry_at: null,
-      created_at: timestamp,
-      updated_at: timestamp,
-    });
+      tenant_id: data.tenantId ?? null,
+    };
+    const existing = await this.knex(this.table).where(match).first();
+    if (existing) {
+      return this.applyUpdate(existing.id as string, data, timestamp);
+    }
+    const id = globalThis.crypto.randomUUID();
+    try {
+      await this.knex(this.table).insert({
+        id,
+        tenant_id: data.tenantId,
+        endpoint_id: data.endpointId,
+        event_id: data.eventId,
+        event_type: data.eventType,
+        payload: JSON.stringify(data.payload),
+        status: data.status,
+        attempts: data.attempts,
+        response_code: data.responseCode,
+        response_body: data.responseBody,
+        next_retry_at: null,
+        created_at: timestamp,
+        updated_at: timestamp,
+      });
+      return this.findByIdOrFail(id);
+    } catch (error) {
+      if (!isUniqueViolation(error)) {
+        throw error;
+      }
+      const raced = await this.knex(this.table).where(match).first();
+      if (!raced) {
+        throw error;
+      }
+      return this.applyUpdate(raced.id as string, data, timestamp);
+    }
+  }
+
+  private async applyUpdate(
+    id: string,
+    data: NewWebhookDelivery,
+    timestamp: string,
+  ): Promise<WebhookDelivery> {
+    await this.knex(this.table)
+      .where({ id })
+      .update({
+        status: data.status,
+        attempts: data.attempts,
+        response_code: data.responseCode,
+        response_body: data.responseBody,
+        payload: JSON.stringify(data.payload),
+        updated_at: timestamp,
+      });
     return this.findByIdOrFail(id);
   }
 

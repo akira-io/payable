@@ -136,6 +136,34 @@ describe('outbound webhook delivery', () => {
     expect(calls).toHaveLength(0);
     await db.destroy();
   });
+
+  it('deduplicates a recorded delivery on (endpoint, event) and updates in place', async () => {
+    const { db, storage } = await setup();
+    const delivery = {
+      tenantId: null,
+      endpointId: 'ep_1',
+      eventId: 'evt_1',
+      eventType: 'invoice.paid',
+      payload: { a: 1 },
+      attempts: 1,
+      responseCode: null,
+      responseBody: null,
+    };
+
+    const first = await storage.webhookDeliveries.record({ ...delivery, status: 'failed' });
+    const second = await storage.webhookDeliveries.record({
+      ...delivery,
+      status: 'delivered',
+      attempts: 2,
+      responseCode: 200,
+    });
+
+    expect(second.id).toBe(first.id);
+    expect(second.status).toBe('delivered');
+    const rows = await storage.webhookDeliveries.listForEvent('evt_1');
+    expect(rows).toHaveLength(1);
+    await db.destroy();
+  });
 });
 
 describe('signWebhookPayload', () => {
