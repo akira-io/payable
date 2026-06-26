@@ -18,7 +18,7 @@ minor units through a `Money` value object backed by Dinero.js, so monetary logi
 
 ## Features
 
-- **Providers**: Stripe and Paddle, behind one `PaymentProvider` contract.
+- **Providers**: Stripe, Paddle, and SISP (Cabo Verde / vinti4), behind one `PaymentProvider` contract with optional capability interfaces.
 - **Billing**: checkout, subscriptions (trials, coupons, multiple items, swap/cancel/resume), one-off
   charges, refunds, invoices, and the customer billing portal.
 - **Webhooks**: signature verification, event normalization, deduplication, async processing, local
@@ -43,6 +43,7 @@ Then add the optional peers for the features you use:
 | --------------- | ---------------------------------------------------- |
 | Stripe provider | `npm i stripe`                                       |
 | Paddle provider | `npm i @paddle/paddle-node-sdk`                      |
+| SISP provider   | `npm i @akira-io/sisp`                               |
 | Knex storage    | `npm i knex` + a driver (`pg`, `better-sqlite3`, …)  |
 | BullMQ queue    | `npm i bullmq`                                        |
 | Express adapter | `npm i express`                                      |
@@ -163,7 +164,7 @@ codes to HTTP status with a `{ error, message }` body.
 - `src/domain` - contracts, entities, DTOs, value objects, events, state machines, errors.
 - `src/application` - actions, queries, builders, pipelines, policies, services.
 - `src/infrastructure` - providers, storage, queue, cache, locks, encryption, event bus, audit, outbox.
-- `src/presentation` - Express, Fastify, NestJS, and MCP adapters.
+- `src/presentation` - Express, Fastify, NestJS, and MCP adapters, plus the SISP redirect helpers on the `@akira-io/payable/sisp` subpath.
 - `src/support` - config, logger, result, clock.
 
 The public surface is exported from the package root; the fluent entry point is `createPayable(...)`.
@@ -188,7 +189,7 @@ Full documentation lives in [docs/](docs/00-index.md). Start with the
 - [Getting started](docs/03-getting-started.md) and [Configuration reference](docs/04-configuration.md)
 - Domain: [model](docs/domain/05-domain-model.md), [value objects](docs/domain/06-value-objects.md), [state machines](docs/domain/07-state-machines.md)
 - Features: [subscriptions](docs/features/10-subscriptions.md), [charges and refunds](docs/features/11-charges-refunds.md), [webhooks](docs/features/13-webhooks.md), [idempotency](docs/features/14-idempotency.md), [reliability](docs/features/15-reliability.md), [multi-tenancy](docs/features/16-multi-tenancy.md)
-- Integrations: [providers](docs/integrations/17-providers.md), [Stripe](docs/integrations/18-stripe.md), [Paddle](docs/integrations/19-paddle.md)
+- Integrations: [providers](docs/integrations/17-providers.md), [Stripe](docs/integrations/18-stripe.md), [Paddle](docs/integrations/19-paddle.md), [SISP](docs/integrations/20-sisp.md)
 - Persistence: [Knex storage](docs/persistence/20-storage-knex.md), [queue](docs/persistence/21-queue.md)
 - Adapters: [Express](docs/adapters/22-express.md), [Fastify](docs/adapters/23-fastify.md), [NestJS](docs/adapters/24-nestjs.md)
 - Cross-cutting: [data flows](docs/26-data-flows.md), [security](docs/27-security.md), [development](docs/28-development.md), [operations](docs/29-operations.md), [troubleshooting](docs/30-troubleshooting.md), [FAQ](docs/31-faq.md)

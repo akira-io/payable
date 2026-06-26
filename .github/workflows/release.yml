@@ -8,7 +8,7 @@ on:
 
 permissions:
   contents: write
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   release:
@@ -56,20 +56,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: git-cliff --config cliff.toml --tag "${{ github.ref_name }}" --output CHANGELOG.md
 
-      - name: Commit release changes
-        run: |
-          git config user.name "${GITHUB_ACTOR}"
-          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-          DEFAULT_BRANCH="$(git remote show origin | sed -n 's/.*HEAD branch: //p')"
-          git add package.json CHANGELOG.md
-          git diff --cached --quiet || git commit -m "chore(release): ${{ github.ref_name }}"
-          git push origin "HEAD:${DEFAULT_BRANCH}"
-
-      - name: Move the tag onto the release commit
-        run: |
-          git tag -f "${{ github.ref_name }}" HEAD
-          git push -f origin "refs/tags/${{ github.ref_name }}"
-
       - name: Extract release notes
         id: notes
         env:
@@ -94,6 +80,27 @@ jobs:
             --title "${{ github.ref_name }}" \
             --notes "${{ steps.notes.outputs.body }}" \
             "${RELEASE_FLAG}"
+
+      - name: Open release pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          DEFAULT_BRANCH="$(git remote show origin | sed -n 's/.*HEAD branch: //p')"
+          BRANCH="release/${{ github.ref_name }}"
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          git add package.json CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "No release changes to propose."
+            exit 0
+          fi
+          git checkout -b "${BRANCH}"
+          git commit -m "chore(release): ${{ github.ref_name }}"
+          git push -f origin "${BRANCH}"
+          gh pr create --base "${DEFAULT_BRANCH}" --head "${BRANCH}" \
+            --title "chore(release): ${{ github.ref_name }}" \
+            --body "Automated version bump and changelog for ${{ github.ref_name }}." \
+            || gh pr edit "${BRANCH}" --title "chore(release): ${{ github.ref_name }}"
 
       - name: Send GitHub Release to Discord
         uses: SethCohen/github-releases-to-discord@24d166886aee4646d448c8a389ff9e1ebcab3682 # v1.20.0
