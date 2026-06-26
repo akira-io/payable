@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { PayableError } from '../../domain/errors/payable-error';
 import { Money } from '../../domain/value-objects/money';
 
+export const MAX_LIST_LIMIT = 100;
+
 export const billableSchema = z.object({
   billableType: z.string().min(1),
   billableId: z.string().min(1),
@@ -35,16 +37,16 @@ export const billableLookupSchema = z.object({
 });
 
 export const listInvoicesQuerySchema = billableLookupSchema.extend({
-  limit: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().positive().max(MAX_LIST_LIMIT).optional(),
 });
 
 export const listSubscriptionsQuerySchema = billableLookupSchema.extend({
-  limit: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().positive().max(MAX_LIST_LIMIT).optional(),
 });
 
 export const listRefundsQuerySchema = z.object({
   paymentId: z.string().min(1),
-  limit: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().positive().max(MAX_LIST_LIMIT).optional(),
 });
 
 export const productBodySchema = z.object({
