@@ -88,4 +88,18 @@ describe('webhook events listing', () => {
     expect(found?.id).toBe(created.id);
     await db.destroy();
   });
+
+  it('does not expose the stored provider signature in the read view', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const created = await storage.webhookEvents.create(event({ signature: 'whsec-signature' }));
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
+
+    const found = await payable.webhookEvents().get(created.id);
+    const [listed] = await payable.webhookEvents().list();
+
+    expect(found).not.toHaveProperty('signature');
+    expect(listed).not.toHaveProperty('signature');
+  });
 });

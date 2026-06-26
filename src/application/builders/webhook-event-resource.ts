@@ -8,17 +8,25 @@ export interface ListWebhookEventsInput {
   limit?: number;
 }
 
+export type WebhookEventView = Omit<WebhookEvent, 'signature'>;
+
+function toView({ signature: _signature, ...view }: WebhookEvent): WebhookEventView {
+  return view;
+}
+
 export class WebhookEventResource {
   constructor(
     private readonly storage: StorageDriver,
     private readonly tenantId: string | null,
   ) {}
 
-  list(input: ListWebhookEventsInput = {}): Promise<WebhookEvent[]> {
-    return this.storage.webhookEvents.list({ ...input, tenantId: this.tenantId });
+  async list(input: ListWebhookEventsInput = {}): Promise<WebhookEventView[]> {
+    const events = await this.storage.webhookEvents.list({ ...input, tenantId: this.tenantId });
+    return events.map(toView);
   }
 
-  get(id: string): Promise<WebhookEvent | null> {
-    return this.storage.webhookEvents.findById(id, this.tenantId);
+  async get(id: string): Promise<WebhookEventView | null> {
+    const event = await this.storage.webhookEvents.findById(id, this.tenantId);
+    return event ? toView(event) : null;
   }
 }
