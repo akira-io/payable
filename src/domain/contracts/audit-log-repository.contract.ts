@@ -14,4 +14,5 @@ export interface AuditLogRepository {
   create(data: NewAuditLog): Promise<AuditLog>;
   list(query: AuditLogQuery): Promise<AuditLog[]>;
   verifyChain(tenantId: string | null): Promise<boolean>;
+  backfillChain(tenantId: string | null): Promise<number>;
 }
