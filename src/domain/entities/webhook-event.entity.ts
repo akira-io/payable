@@ -9,6 +9,7 @@ export interface WebhookEvent extends TenantScoped {
   readonly type: string;
   readonly normalizedType: string | null;
   readonly payload: string;
+  readonly signature: string | null;
   readonly data: Record<string, unknown>;
   readonly headers: Record<string, string>;
   readonly status: WebhookEventStatus;

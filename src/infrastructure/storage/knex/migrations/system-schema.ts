@@ -10,6 +10,7 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.string('type').notNullable();
     table.string('normalized_type').nullable();
     table.text('payload').notNullable();
+    table.text('signature').nullable();
     table.text('data').notNullable();
     table.text('headers').notNullable();
     table.string('status').notNullable();

@@ -7,6 +7,7 @@ import type { WebhookDependencies } from '../../builders/webhook-dependencies';
 export interface StoreWebhookEventInput {
   verified: VerifiedWebhook;
   payload: string;
+  signature?: string | null;
   headers?: Record<string, string>;
   tenantId?: string | null;
 }
@@ -46,6 +47,7 @@ export class StoreWebhookEventAction {
         type: input.verified.type,
         normalizedType: input.verified.normalizedType,
         payload: input.payload,
+        signature: input.signature ?? null,
         data: input.verified.data,
         headers: redactHeaders(input.headers ?? {}),
         status: 'pending',

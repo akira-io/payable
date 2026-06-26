@@ -298,6 +298,61 @@ describe('webhook replay', () => {
     expect((await storage.webhookEvents.findById(event.id))?.status).toBe('processed');
   });
 
+  it('re-verifies the stored signature on replay and ignores tampered data', async () => {
+    const provider = new FakeProvider();
+    provider.verifyResult = { ...verifyResult, data: { id: 'authoritative' } };
+    const payable = createPayable({ providers: { stripe: provider }, storage, clock });
+
+    const event = await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_reverify',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      payload: '{"signed":true}',
+      signature: 'sig-1',
+      data: { id: 'tampered' },
+      headers: {},
+      status: 'failed',
+      correlationId: 'corr_reverify',
+      receivedAt: clock.now(),
+    });
+
+    await payable.replayWebhook(event.id, { allowed: true, actorId: 'admin-1' });
+
+    expect(provider.lastVerifyInput?.payload).toBe('{"signed":true}');
+    expect(provider.lastVerifyInput?.signature).toBe('sig-1');
+    const audits = await storage.auditLogs.list({ resourceType: 'webhook_event' });
+    expect(audits[0]?.after).toEqual({ id: 'authoritative' });
+  });
+
+  it('fails replay when the stored signature no longer verifies', async () => {
+    const provider = new FakeProvider();
+    provider.verifyResult = verifyResult;
+    provider.verifyError = new Error('bad signature');
+    const payable = createPayable({ providers: { stripe: provider }, storage, clock });
+
+    const event = await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_reverify_bad',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      payload: '{"signed":true}',
+      signature: 'sig-bad',
+      data: { id: 'in_1' },
+      headers: {},
+      status: 'failed',
+      correlationId: 'corr_reverify_bad',
+      receivedAt: clock.now(),
+    });
+
+    await expect(
+      payable.replayWebhook(event.id, { allowed: true, actorId: 'admin-1' }),
+    ).rejects.toThrow('bad signature');
+    expect((await storage.webhookEvents.findById(event.id))?.status).toBe('failed');
+  });
+
   it('does not replay an event another worker is actively processing', async () => {
     const provider = new FakeProvider();
     provider.verifyResult = verifyResult;

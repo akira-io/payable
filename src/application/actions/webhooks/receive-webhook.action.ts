@@ -41,6 +41,7 @@ export class ReceiveWebhookAction {
     const stored = await new StoreWebhookEventAction(this.deps).handle({
       verified,
       payload: input.payload,
+      signature: input.signature,
       headers: input.headers,
       tenantId,
     });

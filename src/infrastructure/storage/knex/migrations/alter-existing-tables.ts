@@ -24,6 +24,7 @@ export async function alterExistingTables(knex: Knex): Promise<void> {
       apply: (table) => table.string('tenant_id').notNullable().defaultTo(''),
     },
     { name: 'normalized_type', apply: (table) => table.string('normalized_type').nullable() },
+    { name: 'signature', apply: (table) => table.text('signature').nullable() },
     { name: 'data', apply: (table) => table.text('data').notNullable().defaultTo('{}') },
     {
       name: 'claimed_until',
