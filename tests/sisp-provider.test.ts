@@ -7,6 +7,7 @@ import {
   type SispProviderOptions,
 } from '../src/infrastructure/providers/sisp/sisp-provider';
 import type {
+  SispCallbackPayload,
   SispClient,
   SispHttpRequestInfo,
   SispTransactionRecord,
@@ -29,7 +30,11 @@ interface RecordedRefund {
 }
 
 function fakeSisp() {
-  const calls: { payment?: SispHttpRequestInfo; refund?: RecordedRefund } = {};
+  const calls: {
+    payment?: SispHttpRequestInfo;
+    refund?: RecordedRefund;
+    callback?: SispCallbackPayload;
+  } = {};
   const base: SispTransactionRecord = {
     id: 7,
     merchant_ref: 'R-existing',
@@ -75,10 +80,10 @@ function fakeSisp() {
       return builder;
     },
     validateCallback: (payload) => payload.ok === true,
-    handlePaymentCallback: async (payload) => ({
-      ...base,
-      merchant_ref: String(payload.merchantRef ?? 'R-cb'),
-    }),
+    handlePaymentCallback: async (payload) => {
+      calls.callback = payload;
+      return { ...base, merchant_ref: String(payload.merchantRef ?? 'R-cb') };
+    },
   };
   return { client, calls };
 }
@@ -193,7 +198,7 @@ describe('SispProvider', () => {
     await expect(
       new SispProvider(OPTIONS, client).handleRedirectCallback({ ok: false, merchantRef: 'R-cb' }),
     ).rejects.toMatchObject({ code: 'PROVIDER_SISP_INVALID_CALLBACK' });
-    expect(calls.refund).toBeUndefined();
+    expect(calls.callback).toBeUndefined();
   });
 
   it('treats a callback that throws during validation as invalid', async () => {
