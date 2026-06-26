@@ -42,6 +42,50 @@ describe('forward migrations (C5)', () => {
     expect(await db.schema.hasTable('payable_outbox_events')).toBe(true);
   });
 
+  it('aborts with an actionable error when customer billables are already duplicated', async () => {
+    await db.schema.createTable('payable_customers', (table) => {
+      table.uuid('id').primary();
+      table.string('tenant_id').nullable();
+      table.string('provider').notNullable();
+      table.string('provider_customer_id').nullable();
+      table.string('billable_type').notNullable();
+      table.string('billable_id').notNullable();
+      table.string('email').notNullable();
+      table.string('name').nullable();
+      table.text('metadata').nullable();
+      table.timestamp('created_at').notNullable();
+      table.timestamp('updated_at').notNullable();
+      table.unique(['provider', 'provider_customer_id']);
+    });
+    const now = new Date().toISOString();
+    await db('payable_customers').insert([
+      {
+        id: 'dup-1',
+        tenant_id: null,
+        provider: 'stripe',
+        provider_customer_id: 'cus_a',
+        billable_type: 'User',
+        billable_id: '1',
+        email: 'a@example.test',
+        created_at: now,
+        updated_at: now,
+      },
+      {
+        id: 'dup-2',
+        tenant_id: null,
+        provider: 'paddle',
+        provider_customer_id: 'cus_b',
+        billable_type: 'User',
+        billable_id: '1',
+        email: 'b@example.test',
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
+
+    await expect(migrate(db)).rejects.toThrow(/duplicate \(tenant, billable\)/);
+  });
+
   it('round-trips a UTC instant through a timestamptz column', async () => {
     await migrate(db);
     const instant = '2026-06-22T08:30:00.000Z';

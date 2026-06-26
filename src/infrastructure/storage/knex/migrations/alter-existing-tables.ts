@@ -136,10 +136,32 @@ function parseEventList(value: unknown): string[] {
 const CUSTOMER_BILLABLE_INDEX = 'payable_customers_tenant_billable_unique';
 const CUSTOMER_TENANT_KEY = 'tenant_key';
 
+async function assertNoDuplicateBillables(knex: Knex): Promise<void> {
+  const duplicates = (await knex('payable_customers')
+    .select(knex.raw("COALESCE(tenant_id, '') as tenant_key"), 'billable_type', 'billable_id')
+    .count({ count: '*' })
+    .groupByRaw("COALESCE(tenant_id, ''), billable_type, billable_id")
+    .havingRaw('COUNT(*) > 1')) as {
+    tenant_key: string;
+    billable_type: string;
+    billable_id: string;
+  }[];
+  if (duplicates.length === 0) {
+    return;
+  }
+  const keys = duplicates
+    .map((row) => `(${row.tenant_key || 'null'}, ${row.billable_type}, ${row.billable_id})`)
+    .join(', ');
+  throw new Error(
+    `payable_customers has duplicate (tenant, billable) rows that block the unique index; de-duplicate before migrating: ${keys}`,
+  );
+}
+
 async function ensureCustomerBillableUnique(knex: Knex): Promise<void> {
   if (!(await knex.schema.hasTable('payable_customers'))) {
     return;
   }
+  await assertNoDuplicateBillables(knex);
   const dialect = (knex.client as { dialect?: string }).dialect;
   if (dialect === 'mysql' || dialect === 'mariadb') {
     await ensureMysqlCustomerBillableUnique(knex);
@@ -162,11 +184,7 @@ async function ensureMysqlCustomerBillableUnique(knex: Knex): Promise<void> {
       'tenant_id',
     ]);
   }
-  const [rows] = (await knex.raw(
-    'SELECT COUNT(*) AS count FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?',
-    ['payable_customers', CUSTOMER_BILLABLE_INDEX],
-  )) as [{ count: number }[], unknown];
-  if (Number(rows[0]?.count ?? 0) > 0) {
+  if (await mysqlIndexExists(knex, 'payable_customers', CUSTOMER_BILLABLE_INDEX)) {
     return;
   }
   await knex.raw('CREATE UNIQUE INDEX ?? ON ?? (??, ??, ??)', [
