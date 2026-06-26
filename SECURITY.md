@@ -2,12 +2,35 @@
 
 ## Operational hardening
 
-The HTTP adapters do not bundle CORS or rate limiting. The host application
-must mount its own CORS policy and rate limiting in front of the router,
-especially for the `/refunds` and `/webhooks` routes. Authentication is
-opt-in via the adapter `authenticate` hook; identity and tenant should be
-derived from the authenticated principal rather than the request body. The
-Express adapter caps non-webhook JSON bodies at 64kb and webhooks at 1mb.
+Authentication is opt-in via the adapter `authenticate` hook; identity and
+tenant should be derived from the authenticated principal rather than the
+request body. The Express adapter caps non-webhook JSON bodies at 64kb and
+webhooks at 1mb. List endpoints cap `limit` at 100 to bound per-request cost.
+
+## Multi-tenant isolation
+
+Tenant scoping on read and write paths is enforced only when `resolveTenant`
+(and, where applicable, `resolveAuthorization`) is configured. In a
+multi-tenant deployment these are mandatory: without `resolveTenant`, an
+authenticated caller can read another tenant's payments, refunds, invoices, or
+subscriptions by supplying arbitrary identifiers. Derive the tenant from the
+authenticated principal, never from the request body or query.
+
+## Rate limiting across adapters
+
+Only the Fastify plugin bundles rate limiting (`@fastify/rate-limit`, 100/min by
+default). The Express and Nest adapters do not; the host application must mount
+its own rate limiter in front of the router, especially for the `/refunds` and
+`/webhooks` routes and the list endpoints, which are enumerable. CORS is never
+bundled and must be supplied by the host.
+
+## MCP transport
+
+The streamable HTTP transport enables DNS-rebinding protection by default and
+validates the `Host` header against an allow-list (the bound loopback host and
+port unless `allowedHosts`/`allowedOrigins` are supplied). When binding a
+non-loopback interface or running without a bearer token, configure the
+allow-list explicitly.
 
 ## Outbound webhook delivery and SSRF
 

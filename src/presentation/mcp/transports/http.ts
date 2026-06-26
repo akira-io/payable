@@ -10,6 +10,20 @@ export interface McpHttpServeOptions {
   path?: string;
   maxBodyBytes?: number;
   authenticate?: (request: IncomingMessage) => boolean | Promise<boolean>;
+  enableDnsRebindingProtection?: boolean;
+  allowedHosts?: string[];
+  allowedOrigins?: string[];
+}
+
+interface TransportOptions {
+  enableDnsRebindingProtection: boolean;
+  allowedHosts?: string[];
+  allowedOrigins?: string[];
+}
+
+function defaultAllowedHosts(req: IncomingMessage): string[] {
+  const port = req.socket.localPort;
+  return [`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`];
 }
 
 export async function serveHttp(
@@ -18,8 +32,21 @@ export async function serveHttp(
 ): Promise<Server> {
   const path = options.path ?? '/mcp';
   const maxBodyBytes = options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
+  const transportOptions: TransportOptions = {
+    enableDnsRebindingProtection: options.enableDnsRebindingProtection ?? true,
+    allowedHosts: options.allowedHosts,
+    allowedOrigins: options.allowedOrigins,
+  };
   const http = createServer((req, res) => {
-    void handle(req, res, createMcpServer, path, maxBodyBytes, options.authenticate);
+    void handle(
+      req,
+      res,
+      createMcpServer,
+      path,
+      maxBodyBytes,
+      transportOptions,
+      options.authenticate,
+    );
   });
   await new Promise<void>((resolve) => {
     http.listen(options.port ?? 3333, options.host ?? '127.0.0.1', resolve);
@@ -33,6 +60,7 @@ async function handle(
   createMcpServer: () => McpServer,
   path: string,
   maxBodyBytes: number,
+  transportOptions: TransportOptions,
   authenticate?: (request: IncomingMessage) => boolean | Promise<boolean>,
 ): Promise<void> {
   const url = new URL(req.url ?? '/', 'http://localhost');
@@ -53,6 +81,9 @@ async function handle(
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
+    enableDnsRebindingProtection: transportOptions.enableDnsRebindingProtection,
+    allowedHosts: transportOptions.allowedHosts ?? defaultAllowedHosts(req),
+    allowedOrigins: transportOptions.allowedOrigins,
   });
   res.on('close', () => {
     void transport.close();

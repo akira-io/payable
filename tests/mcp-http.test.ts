@@ -32,6 +32,37 @@ describe('mcp http transport', () => {
     await new Promise<void>((resolve) => http.close(() => resolve()));
   });
 
+  it('rejects a request whose Host header is not in the allow-list (dns rebinding)', async () => {
+    const payable = createPayable({ providers: { stripe: new FakeProvider() } });
+    const http = await serveHttp(() => createPayableMcpServer(payable), { port: 0 });
+    const { port } = http.address() as AddressInfo;
+
+    const status = await new Promise<number>((resolve, reject) => {
+      const request = nodeRequest(
+        {
+          host: '127.0.0.1',
+          port,
+          path: '/mcp',
+          method: 'POST',
+          headers: {
+            host: 'evil.example.com',
+            'content-type': 'application/json',
+            accept: 'application/json, text/event-stream',
+          },
+        },
+        (response) => {
+          response.resume();
+          resolve(response.statusCode ?? 0);
+        },
+      );
+      request.on('error', reject);
+      request.end('{}');
+    });
+
+    expect(status).toBe(403);
+    await new Promise<void>((resolve) => http.close(() => resolve()));
+  });
+
   it('rejects a request whose declared body exceeds the size cap', async () => {
     const payable = createPayable({ providers: { stripe: new FakeProvider() } });
     const http = await serveHttp(() => createPayableMcpServer(payable), {
