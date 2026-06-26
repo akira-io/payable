@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { NodeEncryptionDriver } from '../src/infrastructure/encryption/node-encryption-driver';
+import {
+  generateEncryptionKey,
+  NodeEncryptionDriver,
+} from '../src/infrastructure/encryption/node-encryption-driver';
 
 describe('NodeEncryptionDriver', () => {
   it('round-trips a value without exposing the plaintext', async () => {
-    const driver = new NodeEncryptionDriver({ key: 'a-secret-key' });
+    const driver = new NodeEncryptionDriver({ key: 'a-secret-key', salt: 'a-salt' });
     const token = await driver.encrypt('customer@example.com');
 
     expect(token).not.toContain('customer@example.com');
@@ -16,8 +19,15 @@ describe('NodeEncryptionDriver', () => {
     expect(await new NodeEncryptionDriver({ key: rawKey }).decrypt(token)).toBe('secret');
   });
 
+  it('round-trips with a generated raw key that needs no salt', async () => {
+    const rawKey = generateEncryptionKey();
+    expect(rawKey).toMatch(/^[0-9a-f]{64}$/);
+    const token = await new NodeEncryptionDriver({ key: rawKey }).encrypt('secret');
+    expect(await new NodeEncryptionDriver({ key: rawKey }).decrypt(token)).toBe('secret');
+  });
+
   it('binds the envelope version into the authentication tag', async () => {
-    const driver = new NodeEncryptionDriver({ key: 'a-secret-key' });
+    const driver = new NodeEncryptionDriver({ key: 'a-secret-key', salt: 'a-salt' });
     const token = await driver.encrypt('secret');
 
     expect(token.startsWith('v1:')).toBe(true);
@@ -26,7 +36,7 @@ describe('NodeEncryptionDriver', () => {
   });
 
   it('produces a fresh ciphertext per call', async () => {
-    const driver = new NodeEncryptionDriver({ key: 'a-secret-key' });
+    const driver = new NodeEncryptionDriver({ key: 'a-secret-key', salt: 'a-salt' });
     const a = await driver.encrypt('same');
     const b = await driver.encrypt('same');
     expect(a).not.toBe(b);
@@ -35,14 +45,16 @@ describe('NodeEncryptionDriver', () => {
   });
 
   it('fails to decrypt with the wrong key as a coded PayableError', async () => {
-    const token = await new NodeEncryptionDriver({ key: 'right' }).encrypt('secret');
-    await expect(new NodeEncryptionDriver({ key: 'wrong' }).decrypt(token)).rejects.toMatchObject({
+    const token = await new NodeEncryptionDriver({ key: 'right', salt: 's' }).encrypt('secret');
+    await expect(
+      new NodeEncryptionDriver({ key: 'wrong', salt: 's' }).decrypt(token),
+    ).rejects.toMatchObject({
       code: 'ENCRYPTION_DECRYPT_FAILED',
     });
   });
 
   it('rejects malformed ciphertext', async () => {
-    const driver = new NodeEncryptionDriver({ key: 'k' });
+    const driver = new NodeEncryptionDriver({ key: 'k', salt: 's' });
     await expect(driver.decrypt('not-a-token')).rejects.toThrow('Malformed ciphertext');
   });
 
@@ -51,9 +63,12 @@ describe('NodeEncryptionDriver', () => {
     expect(() => new NodeEncryptionDriver({ key: '   ' })).toThrow('non-empty');
   });
 
-  it('derives the same key deterministically across instances', async () => {
-    const token = await new NodeEncryptionDriver({ key: 'shared-passphrase' }).encrypt('secret');
-    const other = new NodeEncryptionDriver({ key: 'shared-passphrase' });
+  it('derives the same key deterministically across instances with the same salt', async () => {
+    const token = await new NodeEncryptionDriver({
+      key: 'shared-passphrase',
+      salt: 'shared-salt',
+    }).encrypt('secret');
+    const other = new NodeEncryptionDriver({ key: 'shared-passphrase', salt: 'shared-salt' });
     expect(await other.decrypt(token)).toBe('secret');
   });
 
@@ -67,10 +82,12 @@ describe('NodeEncryptionDriver', () => {
     ).rejects.toThrow();
   });
 
-  it('derives a per-key salt by default rather than a shared constant', async () => {
-    const token = await new NodeEncryptionDriver({ key: 'k' }).encrypt('secret');
-    await expect(
-      new NodeEncryptionDriver({ key: 'k', salt: 'explicit' }).decrypt(token),
-    ).rejects.toThrow();
+  it('requires an explicit salt for a passphrase key', () => {
+    expect(() => new NodeEncryptionDriver({ key: 'a-passphrase' })).toThrow(
+      /requires an explicit salt/,
+    );
+    expect(() => new NodeEncryptionDriver({ key: 'a-passphrase', salt: '   ' })).toThrowError(
+      expect.objectContaining({ code: 'ENCRYPTION_SALT_REQUIRED' }),
+    );
   });
 });
