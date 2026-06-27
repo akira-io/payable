@@ -54,11 +54,13 @@
     }
   },
   "bin": {
-    "payable-mcp": "./dist/mcp/bin.cjs"
+    "payable-mcp": "./dist/mcp/bin.cjs",
+    "payable-prisma": "./dist/prisma/bin.cjs"
   },
   "files": [
     "dist",
-    "prisma/schema.prisma"
+    "prisma/schema.prisma",
+    "prisma/models.prisma"
   ],
   "scripts": {
     "build": "tsup",

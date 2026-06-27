@@ -59,6 +59,32 @@ See `prisma/schema.prisma` for the full set of fifteen models (customers, produc
 subscriptions, subscription items, invoices, payments, refunds, webhook events, webhook endpoints,
 webhook endpoint events, webhook deliveries, audit logs, outbox events, idempotency keys).
 
+## Automated schema sync
+
+Prisma reads a single project-owned schema, so the models cannot be injected from this package
+at generate time. To avoid hand-copying them, the package ships a models-only fragment
+(`prisma/models.prisma`, no `datasource`/`generator`) plus a `payable-prisma` CLI. Combined with
+Prisma's multi-file schema folder (`prisma/schema/`), the models stay managed by the package:
+
+```bash
+npx payable-prisma sync         # writes prisma/schema/payable.prisma
+npx payable-prisma sync <path>  # custom destination
+npx payable-prisma print        # write the models to stdout
+```
+
+Keep your `datasource` and `generator` blocks in your own file under `prisma/schema/` (for example
+`prisma/schema/schema.prisma`); Prisma merges every `.prisma` file in the folder. Re-run
+`payable-prisma sync` after upgrading the package to pull schema changes. The full single-file
+reference (with `datasource`/`generator`) remains at `prisma/schema.prisma` for non-folder setups.
+
+The same copy is available programmatically:
+
+```ts
+import { writePayableModels } from '@akira-io/payable/prisma';
+
+writePayableModels(); // -> prisma/schema/payable.prisma
+```
+
 ## Migrations are your responsibility
 
 Unlike the Knex driver, the Prisma adapter does **not** ship a `migrate()` runner. Prisma owns the
