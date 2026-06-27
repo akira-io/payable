@@ -24,7 +24,7 @@ minor units through a `Money` value object backed by Dinero.js, so monetary logi
 - **Webhooks**: signature verification, event normalization, deduplication, async processing, local
   state reconciliation, and replay.
 - **Reliability**: idempotency by default, an immutable audit log, and a transactional outbox.
-- **Storage / queue**: Knex storage driver; synchronous or BullMQ queue driver.
+- **Storage / queue**: Knex or Prisma storage driver; synchronous or BullMQ queue driver.
 - **HTTP adapters**: Express, Fastify, and NestJS, each on its own subpath export.
 - **MCP adapter**: expose billing to AI clients (Claude Desktop/Code) over stdio or HTTP.
 
@@ -45,6 +45,7 @@ Then add the optional peers for the features you use:
 | Paddle provider | `npm i @paddle/paddle-node-sdk`                      |
 | SISP provider   | `npm i @akira-io/sisp`                               |
 | Knex storage    | `npm i knex` + a driver (`pg`, `better-sqlite3`, …)  |
+| Prisma storage  | `npm i @prisma/client` (+ `prisma` for migrations)   |
 | BullMQ queue    | `npm i bullmq`                                        |
 | Express adapter | `npm i express`                                      |
 | Fastify adapter | `npm i fastify`                                      |
@@ -102,6 +103,25 @@ const payable = createPayable({
   storage: new KnexStorageDriver(db),
 });
 ```
+
+On a Prisma stack, use the `@akira-io/payable/prisma` driver instead. Prisma owns the schema and
+migrations: copy the bundled models with the `payable-prisma` CLI, then run your own migration.
+
+```ts
+import { PrismaClient } from '@prisma/client';
+import { PrismaStorageDriver } from '@akira-io/payable/prisma';
+
+const storage = new PrismaStorageDriver(new PrismaClient());
+const payable = createPayable({ providers: { stripe: /* … */ }, storage });
+```
+
+```sh
+npx payable-prisma sync   # writes prisma/schema/payable.prisma
+npx prisma migrate dev    # you own migrations
+```
+
+See [docs/persistence/21b-storage-prisma.md](docs/persistence/21b-storage-prisma.md) for the schema,
+multi-tenancy, and behavior-parity notes.
 
 Webhooks, idempotency, the audit log, and the outbox require a storage driver. Charges, refunds, and
 subscription management require one too.
@@ -190,7 +210,7 @@ Full documentation lives in [docs/](docs/00-index.md). Start with the
 - Domain: [model](docs/domain/05-domain-model.md), [value objects](docs/domain/06-value-objects.md), [state machines](docs/domain/07-state-machines.md)
 - Features: [subscriptions](docs/features/10-subscriptions.md), [charges and refunds](docs/features/11-charges-refunds.md), [webhooks](docs/features/13-webhooks.md), [idempotency](docs/features/14-idempotency.md), [reliability](docs/features/15-reliability.md), [multi-tenancy](docs/features/16-multi-tenancy.md)
 - Integrations: [providers](docs/integrations/17-providers.md), [Stripe](docs/integrations/18-stripe.md), [Paddle](docs/integrations/19-paddle.md), [SISP](docs/integrations/20-sisp.md)
-- Persistence: [Knex storage](docs/persistence/21-storage-knex.md), [queue](docs/persistence/22-queue.md)
+- Persistence: [Knex storage](docs/persistence/21-storage-knex.md), [Prisma storage](docs/persistence/21b-storage-prisma.md), [queue](docs/persistence/22-queue.md)
 - Adapters: [Express](docs/adapters/23-express.md), [Fastify](docs/adapters/24-fastify.md), [NestJS](docs/adapters/25-nestjs.md)
 - Cross-cutting: [data flows](docs/27-data-flows.md), [security](docs/28-security.md), [development](docs/29-development.md), [operations](docs/30-operations.md), [troubleshooting](docs/31-troubleshooting.md), [FAQ](docs/32-faq.md)
 
