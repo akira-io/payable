@@ -23,11 +23,12 @@ async function seedPayment(storage: KnexStorageDriver) {
 }
 
 describe('refund TOCTOU guard', () => {
-  it('re-validates the remaining balance inside the transaction', async () => {
+  it('reserves before the provider call so concurrent fulls hit the provider once', async () => {
     const db = createTestDb();
     await migrate(db);
     const storage = new KnexStorageDriver(db, new FakeClock());
-    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
+    const provider = new FakeProvider();
+    const payable = createPayable({ providers: { stripe: provider }, storage });
     const payment = await seedPayment(storage);
 
     const full = () => payable.refund({ paymentId: payment.id, amount: Money.of(10_000, 'USD') });
@@ -35,8 +36,34 @@ describe('refund TOCTOU guard', () => {
 
     const fulfilled = results.filter((r) => r.status === 'fulfilled');
     expect(fulfilled).toHaveLength(1);
+    expect(provider.refundCalls).toBe(1);
     const fresh = await storage.payments.findById(payment.id);
     expect(fresh?.refundedAmount).toBe(10_000);
+    await db.destroy();
+  });
+
+  it('releases the reservation when the provider refund fails', async () => {
+    class FailingRefundProvider extends FakeProvider {
+      override refund(): Promise<never> {
+        return Promise.reject(new Error('provider refund failed'));
+      }
+    }
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({ providers: { stripe: new FailingRefundProvider() }, storage });
+    const payment = await seedPayment(storage);
+
+    await expect(
+      payable.refund({ paymentId: payment.id, amount: Money.of(10_000, 'USD') }),
+    ).rejects.toThrow('provider refund failed');
+
+    const fresh = await storage.payments.findById(payment.id);
+    expect(fresh?.refundedAmount).toBe(0);
+    expect(fresh?.status).toBe('succeeded');
+    const refunds = await storage.refunds.listByPayment(payment.id);
+    expect(refunds).toHaveLength(1);
+    expect(refunds[0]?.status).toBe('failed');
     await db.destroy();
   });
 
