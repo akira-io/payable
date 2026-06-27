@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MCP_SUITES, NEST_SUITES, optionalSuiteExcludes } from '../vitest.suites';
+import { MCP_SUITES, NEST_SUITES, optionalSuiteExcludes, PRISMA_SUITES } from '../vitest.suites';
 
 describe('optionalSuiteExcludes', () => {
   it('keeps every suite when all optional peers resolve', () => {
@@ -19,7 +19,15 @@ describe('optionalSuiteExcludes', () => {
     }
   });
 
+  it('excludes the prisma suite when @prisma/client is absent', () => {
+    expect(optionalSuiteExcludes((name) => name !== '@prisma/client')).toEqual(PRISMA_SUITES);
+  });
+
   it('excludes everything when no optional peer resolves', () => {
-    expect(optionalSuiteExcludes(() => false)).toEqual([...MCP_SUITES, ...NEST_SUITES]);
+    expect(optionalSuiteExcludes(() => false)).toEqual([
+      ...MCP_SUITES,
+      ...NEST_SUITES,
+      ...PRISMA_SUITES,
+    ]);
   });
 });

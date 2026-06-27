@@ -6,8 +6,11 @@ export const MCP_SUITES = [
 
 export const NEST_SUITES = ['tests/nest.test.ts'];
 
+export const PRISMA_SUITES = ['tests/prisma-contract.test.ts'];
+
 const MCP_PROBE = '@modelcontextprotocol/sdk/client/index.js';
 const NEST_PROBES = ['@nestjs/common', '@nestjs/core', 'reflect-metadata'];
+const PRISMA_PROBE = '@prisma/client';
 
 export function optionalSuiteExcludes(isInstalled: (name: string) => boolean): string[] {
   const exclude: string[] = [];
@@ -16,6 +19,9 @@ export function optionalSuiteExcludes(isInstalled: (name: string) => boolean): s
   }
   if (!NEST_PROBES.every(isInstalled)) {
     exclude.push(...NEST_SUITES);
+  }
+  if (!isInstalled(PRISMA_PROBE)) {
+    exclude.push(...PRISMA_SUITES);
   }
   return exclude;
 }

@@ -9,6 +9,7 @@ export default defineConfig({
     'mcp/index': 'src/presentation/mcp/index.ts',
     'mcp/bin': 'src/presentation/mcp/bin.ts',
     'sisp/index': 'src/presentation/sisp/index.ts',
+    'prisma/index': 'src/prisma/index.ts',
   },
   format: ['esm', 'cjs'],
   dts: {
@@ -19,6 +20,7 @@ export default defineConfig({
       'nest/index': 'src/presentation/nest/index.ts',
       'mcp/index': 'src/presentation/mcp/index.ts',
       'sisp/index': 'src/presentation/sisp/index.ts',
+      'prisma/index': 'src/prisma/index.ts',
     },
   },
   noExternal: ['dinero.js'],
