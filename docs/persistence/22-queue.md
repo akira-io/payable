@@ -195,4 +195,4 @@ BullMQ driver registers the consumer.
 
 ---
 
-[Previous: Knex Storage](21-storage-knex.md) · [Index](../00-index.md) · [Next: Express](../adapters/23-express.md)
+[Previous: Prisma Storage](21b-storage-prisma.md) · [Index](../00-index.md) · [Next: Express](../adapters/23-express.md)

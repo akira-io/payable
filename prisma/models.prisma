@@ -1,0 +1,292 @@
+// Managed by @akira-io/payable. Re-sync after upgrades: npx payable-prisma sync
+// Models only (no datasource/generator) for Prisma multi-file schemas (prisma/schema/).
+
+model PayableCustomer {
+  id                 String   @id
+  tenantId           String?  @map("tenant_id")
+  provider           String
+  providerCustomerId String?  @map("provider_customer_id")
+  billableType       String   @map("billable_type")
+  billableId         String   @map("billable_id")
+  email              String
+  name               String?
+  metadata           String?
+  createdAt          DateTime @map("created_at")
+  updatedAt          DateTime @map("updated_at")
+
+  @@unique([provider, providerCustomerId])
+  @@unique([tenantId, billableType, billableId])
+  @@map("payable_customers")
+}
+
+model PayableProduct {
+  id                String   @id
+  tenantId          String?  @map("tenant_id")
+  provider          String
+  providerProductId String?  @map("provider_product_id")
+  name              String
+  description       String?
+  active            Boolean
+  metadata          String?
+  createdAt         DateTime @map("created_at")
+  updatedAt         DateTime @map("updated_at")
+
+  @@unique([provider, providerProductId])
+  @@map("payable_products")
+}
+
+model PayablePrice {
+  id              String   @id
+  tenantId        String?  @map("tenant_id")
+  provider        String
+  providerPriceId String?  @map("provider_price_id")
+  productId       String   @map("product_id")
+  currency        String
+  unitAmount      BigInt   @map("unit_amount")
+  interval        String?
+  intervalCount   Int?     @map("interval_count")
+  active          Boolean
+  createdAt       DateTime @map("created_at")
+  updatedAt       DateTime @map("updated_at")
+
+  @@unique([provider, providerPriceId])
+  @@index([productId])
+  @@map("payable_prices")
+}
+
+model PayableSubscription {
+  id                     String                    @id
+  tenantId               String?                   @map("tenant_id")
+  customerId             String                    @map("customer_id")
+  name                   String
+  provider               String
+  providerSubscriptionId String?                   @map("provider_subscription_id")
+  status                 String
+  priceId                String?                   @map("price_id")
+  quantity               Int
+  trialEndsAt            DateTime?                 @map("trial_ends_at")
+  endsAt                 DateTime?                 @map("ends_at")
+  currentPeriodStart     DateTime?                 @map("current_period_start")
+  currentPeriodEnd       DateTime?                 @map("current_period_end")
+  createdAt              DateTime                  @map("created_at")
+  updatedAt              DateTime                  @map("updated_at")
+  items                  PayableSubscriptionItem[]
+
+  @@unique([provider, providerSubscriptionId])
+  @@unique([customerId, name])
+  @@index([customerId, createdAt, id])
+  @@map("payable_subscriptions")
+}
+
+model PayableSubscriptionItem {
+  id             String              @id
+  subscriptionId String              @map("subscription_id")
+  priceId        String              @map("price_id")
+  providerItemId String?             @map("provider_item_id")
+  quantity       Int
+  createdAt      DateTime            @map("created_at")
+  updatedAt      DateTime            @map("updated_at")
+  subscription   PayableSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@map("payable_subscription_items")
+}
+
+model PayableInvoice {
+  id                String   @id
+  tenantId          String?  @map("tenant_id")
+  customerId        String   @map("customer_id")
+  subscriptionId    String?  @map("subscription_id")
+  provider          String
+  providerInvoiceId String?  @map("provider_invoice_id")
+  status            String
+  currency          String
+  total             BigInt
+  amountPaid        BigInt   @map("amount_paid")
+  amountDue         BigInt   @map("amount_due")
+  number            String?
+  hostedInvoiceUrl  String?  @map("hosted_invoice_url")
+  invoicePdf        String?  @map("invoice_pdf")
+  createdAt         DateTime @map("created_at")
+  updatedAt         DateTime @map("updated_at")
+
+  @@unique([provider, providerInvoiceId])
+  @@index([customerId, createdAt, id])
+  @@map("payable_invoices")
+}
+
+model PayablePayment {
+  id                String          @id
+  tenantId          String?         @map("tenant_id")
+  customerId        String?         @map("customer_id")
+  provider          String
+  providerPaymentId String?         @map("provider_payment_id")
+  status            String
+  currency          String
+  amount            BigInt
+  refundedAmount    BigInt          @map("refunded_amount")
+  reference         String?
+  description       String?
+  createdAt         DateTime        @map("created_at")
+  updatedAt         DateTime        @map("updated_at")
+  refunds           PayableRefund[]
+
+  @@unique([provider, providerPaymentId])
+  @@index([customerId, createdAt, id])
+  @@map("payable_payments")
+}
+
+model PayableRefund {
+  id               String         @id
+  tenantId         String?        @map("tenant_id")
+  paymentId        String         @map("payment_id")
+  provider         String
+  providerRefundId String?        @map("provider_refund_id")
+  status           String
+  currency         String
+  amount           BigInt
+  reason           String?
+  createdAt        DateTime       @map("created_at")
+  updatedAt        DateTime       @map("updated_at")
+  payment          PayablePayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerRefundId])
+  @@index([paymentId, createdAt, id])
+  @@map("payable_refunds")
+}
+
+model PayableWebhookEvent {
+  id              String    @id
+  tenantId        String    @default("") @map("tenant_id")
+  provider        String
+  providerEventId String    @map("provider_event_id")
+  type            String
+  normalizedType  String?   @map("normalized_type")
+  payload         String
+  signature       String?
+  data            String
+  headers         String
+  status          String
+  correlationId   String    @map("correlation_id")
+  receivedAt      DateTime  @map("received_at")
+  processedAt     DateTime? @map("processed_at")
+  claimedUntil    DateTime? @map("claimed_until")
+  claimToken      String?   @map("claim_token")
+
+  @@unique([tenantId, provider, providerEventId])
+  @@index([tenantId, receivedAt, id])
+  @@map("payable_webhook_events")
+}
+
+model PayableIdempotencyKey {
+  id           String    @id
+  tenantId     String    @default("") @map("tenant_id")
+  key          String
+  scope        String
+  operation    String
+  resourceType String?   @map("resource_type")
+  resourceId   String?   @map("resource_id")
+  requestHash  String    @map("request_hash")
+  response     String?
+  status       String
+  lockedUntil  DateTime? @map("locked_until")
+  lockToken    String?   @map("lock_token")
+  expiresAt    DateTime? @map("expires_at")
+  createdAt    DateTime  @map("created_at")
+  updatedAt    DateTime  @map("updated_at")
+
+  @@unique([tenantId, key])
+  @@map("payable_idempotency_keys")
+}
+
+model PayableAuditLog {
+  id            String   @id
+  tenantId      String   @default("") @map("tenant_id")
+  correlationId String   @map("correlation_id")
+  actorType     String?  @map("actor_type")
+  actorId       String?  @map("actor_id")
+  action        String
+  resourceType  String   @map("resource_type")
+  resourceId    String   @map("resource_id")
+  before        String?
+  after         String?
+  metadata      String?
+  ipAddress     String?  @map("ip_address")
+  userAgent     String?  @map("user_agent")
+  previousHash  String?  @map("previous_hash")
+  hash          String
+  sequence      Int?
+  createdAt     DateTime @map("created_at")
+
+  @@unique([tenantId, sequence])
+  @@index([resourceType, resourceId])
+  @@index([correlationId])
+  @@map("payable_audit_logs")
+}
+
+model PayableOutboxEvent {
+  id            String    @id
+  tenantId      String?   @map("tenant_id")
+  correlationId String    @map("correlation_id")
+  eventType     String    @map("event_type")
+  eventVersion  Int       @map("event_version")
+  payload       String
+  status        String
+  attempts      Int
+  nextRetryAt   DateTime? @map("next_retry_at")
+  lockedBy      String?   @map("locked_by")
+  lockedUntil   DateTime? @map("locked_until")
+  dedupeKey     String?   @map("dedupe_key")
+  createdAt     DateTime  @map("created_at")
+  updatedAt     DateTime  @map("updated_at")
+
+  @@unique([tenantId, dedupeKey])
+  @@index([status, nextRetryAt, createdAt, id])
+  @@index([status, lockedUntil, createdAt, id])
+  @@map("payable_outbox_events")
+}
+
+model PayableWebhookEndpoint {
+  id         String                        @id
+  tenantId   String?                       @map("tenant_id")
+  url        String
+  events     String
+  secret     String?
+  status     String
+  createdAt  DateTime                      @map("created_at")
+  updatedAt  DateTime                      @map("updated_at")
+  eventLinks PayableWebhookEndpointEvent[]
+
+  @@map("payable_webhook_endpoints")
+}
+
+model PayableWebhookEndpointEvent {
+  endpointId String                 @map("endpoint_id")
+  eventType  String                 @map("event_type")
+  endpoint   PayableWebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@id([endpointId, eventType])
+  @@index([eventType])
+  @@map("payable_webhook_endpoint_events")
+}
+
+model PayableWebhookDelivery {
+  id           String    @id
+  tenantId     String?   @map("tenant_id")
+  endpointId   String    @map("endpoint_id")
+  eventId      String?   @map("event_id")
+  eventType    String    @map("event_type")
+  payload      String
+  status       String
+  attempts     Int
+  responseCode Int?      @map("response_code")
+  responseBody String?   @map("response_body")
+  nextRetryAt  DateTime? @map("next_retry_at")
+  createdAt    DateTime  @map("created_at")
+  updatedAt    DateTime  @map("updated_at")
+
+  @@unique([tenantId, endpointId, eventId])
+  @@index([endpointId])
+  @@index([endpointId, eventId])
+  @@map("payable_webhook_deliveries")
+}
