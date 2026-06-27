@@ -1,4 +1,5 @@
 import type { Knex } from 'knex';
+import { PayableError } from '../../../../domain/errors/payable-error';
 import { alterExistingTables } from './alter-existing-tables';
 import { createBillingTables } from './billing-schema';
 import { runStep } from './migration-ledger';
@@ -13,7 +14,14 @@ function dialectOf(knex: Knex): string | undefined {
   return (knex.client as { dialect?: string }).dialect;
 }
 
-async function withMigrationLock(knex: Knex, run: () => Promise<void>): Promise<void> {
+export function readMysqlLockResult(result: unknown): number | null {
+  const rows = Array.isArray(result) ? result[0] : result;
+  const first = Array.isArray(rows) ? rows[0] : undefined;
+  const value = (first as { acquired?: unknown } | undefined)?.acquired;
+  return typeof value === 'number' ? value : null;
+}
+
+export async function withMigrationLock(knex: Knex, run: () => Promise<void>): Promise<void> {
   const dialect = dialectOf(knex);
   if (dialect === 'postgresql') {
     await knex.raw('SELECT pg_advisory_lock(?)', [PG_ADVISORY_LOCK_KEY]);
@@ -25,10 +33,16 @@ async function withMigrationLock(knex: Knex, run: () => Promise<void>): Promise<
     return;
   }
   if (dialect === 'mysql' || dialect === 'mariadb') {
-    await knex.raw('SELECT GET_LOCK(?, ?)', [
+    const result = await knex.raw('SELECT GET_LOCK(?, ?) AS acquired', [
       MYSQL_ADVISORY_LOCK_NAME,
       MYSQL_ADVISORY_LOCK_TIMEOUT_SECONDS,
     ]);
+    if (readMysqlLockResult(result) !== 1) {
+      throw new PayableError('Could not acquire the MySQL migration advisory lock', {
+        code: 'MIGRATION_LOCK_UNAVAILABLE',
+        context: { lock: MYSQL_ADVISORY_LOCK_NAME },
+      });
+    }
     try {
       await run();
     } finally {
