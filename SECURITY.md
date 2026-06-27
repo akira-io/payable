@@ -37,17 +37,18 @@ allow-list explicitly.
 `deliverPendingWebhooks` POSTs to caller-registered endpoint URLs, so they are
 an SSRF vector. As defense-in-depth, registration rejects non-routable hosts
 (loopback, link-local, private, multicast, reserved, and documentation ranges,
-including numeric/octal/hex IPv4 and IPv4-mapped IPv6), and delivery re-resolves
-the host and refuses to connect when any resolved address is non-routable,
-failing closed on resolution errors.
+including numeric/octal/hex IPv4 and IPv4-mapped IPv6). The default delivery
+path resolves the host once, refuses to connect when any resolved address is
+non-routable (failing closed on resolution errors), and then connects through a
+pinned DNS lookup that returns only that validated address, so the IP checked
+is the IP connected to and a rebinding between check and connect cannot occur.
 
-This is best-effort and does not fully close DNS rebinding: the validated
-resolution is distinct from the connection the runtime's `fetch` makes, so a
-precisely timed re-resolution between check and connect can still differ. SSRF
-egress is ultimately a deployment concern. Enforce it at the network layer:
-block outbound traffic to internal ranges with an egress proxy or firewall, and
-require IMDSv2 (token-authenticated metadata) so `169.254.169.254` is not
-reachable unauthenticated.
+If a custom `fetch` is injected via `deliverPendingWebhooks({ fetch })`, the
+pinned-lookup binding does not apply (the host check still runs, but the runtime
+performs its own resolution at connect time). SSRF egress remains a deployment
+concern in that case: block outbound traffic to internal ranges with an egress
+proxy or firewall, and require IMDSv2 (token-authenticated metadata) so
+`169.254.169.254` is not reachable unauthenticated.
 
 ## Distributed locking
 

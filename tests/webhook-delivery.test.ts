@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { WebhookDeliveryService } from '../src/application/services/webhook-delivery/webhook-delivery-service';
+import {
+  pinnedLookup,
+  WebhookDeliveryService,
+} from '../src/application/services/webhook-delivery/webhook-delivery-service';
 import { createPayable } from '../src/create-payable';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
@@ -267,6 +270,30 @@ describe('outbound webhook delivery', () => {
     expect(await storage.webhookDeliveries.listForEvent('evt_shared', 'tenant-a')).toHaveLength(1);
     expect(await storage.webhookDeliveries.listForEvent('evt_shared', 'tenant-b')).toHaveLength(1);
     await db.destroy();
+  });
+});
+
+describe('pinnedLookup', () => {
+  type LookupCb = (err: Error | null, address: string, family: number) => void;
+  const call = (addresses: string[]) => {
+    let result: { err: Error | null; address: string; family: number } | undefined;
+    const fn = pinnedLookup(addresses) as unknown as (h: string, o: object, cb: LookupCb) => void;
+    fn('hooks.test', {}, (err, address, family) => {
+      result = { err, address, family };
+    });
+    return result;
+  };
+
+  it('connects to the pre-validated address so the check and the connection match', () => {
+    const result = call(['93.184.216.34']);
+    expect(result?.err).toBeNull();
+    expect(result?.address).toBe('93.184.216.34');
+    expect(result?.family).toBe(4);
+  });
+
+  it('refuses a rebinding to a non-routable address', () => {
+    const result = call(['127.0.0.1']);
+    expect(result?.err).toBeInstanceOf(Error);
   });
 });
 
