@@ -10,6 +10,7 @@ export default defineConfig({
     'mcp/bin': 'src/presentation/mcp/bin.ts',
     'sisp/index': 'src/presentation/sisp/index.ts',
     'prisma/index': 'src/prisma/index.ts',
+    'prisma/bin': 'src/prisma/bin.ts',
   },
   format: ['esm', 'cjs'],
   dts: {
@@ -24,6 +25,7 @@ export default defineConfig({
     },
   },
   noExternal: ['dinero.js'],
+  shims: true,
   sourcemap: true,
   clean: true,
   target: 'node20',
