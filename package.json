@@ -46,13 +46,19 @@
       "types": "./dist/sisp/index.d.ts",
       "import": "./dist/sisp/index.js",
       "require": "./dist/sisp/index.cjs"
+    },
+    "./prisma": {
+      "types": "./dist/prisma/index.d.ts",
+      "import": "./dist/prisma/index.js",
+      "require": "./dist/prisma/index.cjs"
     }
   },
   "bin": {
     "payable-mcp": "./dist/mcp/bin.cjs"
   },
   "files": [
-    "dist"
+    "dist",
+    "prisma/schema.prisma"
   ],
   "scripts": {
     "build": "tsup",
@@ -61,6 +67,7 @@
     "lint:fix": "biome check --write .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "prisma:generate": "prisma generate --schema tests/prisma/schema.prisma",
     "verify:bundle": "node scripts/check-core-bundle.mjs",
     "verify:exports": "node scripts/check-exports.mjs",
     "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run build && npm run verify:bundle && npm run verify:exports"
@@ -87,6 +94,7 @@
     "@nestjs/common": ">=10",
     "@nestjs/core": ">=10",
     "@paddle/paddle-node-sdk": ">=2",
+    "@prisma/client": ">=5",
     "bullmq": ">=5",
     "express": ">=4.18",
     "fastify": ">=4",
@@ -95,6 +103,9 @@
     "stripe": ">=15"
   },
   "peerDependenciesMeta": {
+    "@prisma/client": {
+      "optional": true
+    },
     "@fastify/rate-limit": {
       "optional": true
     },
@@ -140,6 +151,7 @@
     "@nestjs/common": "^11.1.27",
     "@nestjs/core": "^11.1.27",
     "@paddle/paddle-node-sdk": "^3.8.0",
+    "@prisma/client": "^6.1.0",
     "@types/express": "^5.0.6",
     "@types/node": "^22.10.0",
     "@types/supertest": "^7.2.0",
@@ -149,6 +161,7 @@
     "express": "^5.2.1",
     "fastify": "^5.8.5",
     "knex": "^3.1.0",
+    "prisma": "^6.1.0",
     "reflect-metadata": "^0.2.2",
     "stripe": "^22.3.0",
     "supertest": "^7.2.2",

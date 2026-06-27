@@ -41,6 +41,7 @@ tree.
 ## Persistence
 
 21. [persistence/21-storage-knex.md](persistence/21-storage-knex.md) - The Knex storage driver, repositories, and migrations.
+    - [persistence/21b-storage-prisma.md](persistence/21b-storage-prisma.md) - The Prisma storage driver, reference schema, and migration responsibility.
 22. [persistence/22-queue.md](persistence/22-queue.md) - The sync and BullMQ queue drivers.
 
 ## Adapters
