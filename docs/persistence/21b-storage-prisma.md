@@ -11,7 +11,7 @@ so the zero-peer-dependency guarantee of the core entry is preserved.
 Prisma is an optional peer dependency. Install it in your application:
 
 ```bash
-npm install prisma @prisma/client
+bun add prisma @prisma/client
 ```
 
 The core `@akira-io/payable` entry works without Prisma installed; only `@akira-io/payable/prisma`
@@ -67,9 +67,9 @@ at generate time. To avoid hand-copying them, the package ships a models-only fr
 Prisma's multi-file schema folder (`prisma/schema/`), the models stay managed by the package:
 
 ```bash
-npx payable-prisma sync         # writes prisma/schema/payable.prisma
-npx payable-prisma sync <path>  # custom destination
-npx payable-prisma print        # write the models to stdout
+bunx payable-prisma sync         # writes prisma/schema/payable.prisma
+bunx payable-prisma sync <path>  # custom destination
+bunx payable-prisma print        # write the models to stdout
 ```
 
 Keep your `datasource` and `generator` blocks in your own file under `prisma/schema/` (for example
@@ -91,8 +91,8 @@ Unlike the Knex driver, the Prisma adapter does **not** ship a `migrate()` runne
 migration lifecycle: keep `schema.prisma` as the source of truth and run Prisma's own tooling.
 
 ```bash
-npx prisma migrate dev      # local development
-npx prisma migrate deploy   # production
+bunx prisma migrate dev      # local development
+bunx prisma migrate deploy   # production
 ```
 
 Because the physical schema matches the Knex migrations, an existing Payable database created with the

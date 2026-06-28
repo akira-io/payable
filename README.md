@@ -116,8 +116,8 @@ const payable = createPayable({ providers: { stripe: /* … */ }, storage });
 ```
 
 ```sh
-npx payable-prisma sync   # writes prisma/schema/payable.prisma
-npx prisma migrate dev    # you own migrations
+bunx payable-prisma sync   # writes prisma/schema/payable.prisma
+bunx prisma migrate dev    # you own migrations
 ```
 
 See [docs/persistence/21b-storage-prisma.md](docs/persistence/21b-storage-prisma.md) for the schema,
