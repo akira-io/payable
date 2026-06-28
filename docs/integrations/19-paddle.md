@@ -10,6 +10,8 @@
 export interface PaddleProviderOptions {
   apiKey: string;
   webhookSecret: string;
+  environment?: 'sandbox' | 'production';
+  logger?: Logger;
 }
 
 new PaddleProvider(options: PaddleProviderOptions, client?: PaddleClient);
@@ -17,6 +19,9 @@ new PaddleProvider(options: PaddleProviderOptions, client?: PaddleClient);
 
 - `apiKey` - the Paddle API key used to lazily construct the SDK client.
 - `webhookSecret` - passed to `PaddleWebhookVerifier`.
+- `environment` (optional) - selects the Paddle `sandbox` or `production` environment when constructing
+  the SDK client.
+- `logger` (optional) - a `Logger` forwarded to `PaddleEventNormalizer`.
 - `client` (optional) - an injected `PaddleClient` for tests. When omitted, the SDK is loaded on first
   use via `import('@paddle/paddle-node-sdk')` and `new Paddle(apiKey)`, keeping the dependency optional.
 
@@ -52,11 +57,14 @@ Paddle's set omits `trials`, `coupons`, `meteredBilling`, and `invoicePdf`. The 
 
 - `toMinorUnits` parses Paddle's string amounts. Paddle returns money as a decimal **string** in minor
   units; the mapper validates it against `^-?\d+$` and throws `PayableError` (`PROVIDER_AMOUNT_INVALID`)
-  for any non-integer value. `Money.of` then rebuilds the value object with an upper-cased currency.
+  for any non-integer value. It also rejects values outside the safe-integer range
+  (`Number.isSafeInteger`) with the same `PROVIDER_AMOUNT_INVALID` code. `Money.of` then rebuilds the
+  value object with an upper-cased currency.
 - `toSubscriptionDTO` maps Paddle status through `SUBSCRIPTION_STATUS` (`active`, `trialing`,
   `past_due`, `paused`, `canceled`), defaulting unknown values to `incomplete`. `currentPeriodEnd` comes
-  from `currentBillingPeriod.endsAt`. **`trialEndsAt` is always `null`** - Paddle's subscription entity
-  does not surface a trial-end timestamp here, a difference from Stripe.
+  from `currentBillingPeriod.endsAt`. `trialEndsAt` is derived via `readTrialEndsAt`, which reads the
+  subscription's `trialEndsAt` first, then falls back to the first item carrying a trial end
+  (`trialDates.endsAt` / `trial_dates.ends_at`), returning `null` when none is present.
 - `toProductDTO` derives `active` from `status === 'active'`.
 - `toRefundResultDTO` maps a Paddle adjustment: `status` is `succeeded` when the adjustment is
   `approved`, otherwise `pending`. Amount falls back to `0` / `USD` when totals are absent.
@@ -110,11 +118,12 @@ error **and** a `null` result as a signature failure, throwing `InvalidWebhookSi
 | Partial refund requested | `ProviderCapabilityNotSupportedError('paddle', 'partial refund')` thrown by `refund` when `input.amount` is set | Issue a full refund (omit `amount`). Paddle adjustments are created with `type: 'full'`. |
 | Invalid webhook signature | `InvalidWebhookSignatureError` (`provider: 'paddle'`) on a thrown error or a `null` unmarshal result | Verify `webhookSecret` matches the Paddle notification setting and the raw body is forwarded unmodified. |
 | Non-integer amount from Paddle | `PayableError` `PROVIDER_AMOUNT_INVALID` from `toMinorUnits` | Indicates an unexpected amount format; inspect the offending entity. |
-| Paddle API error | The SDK error propagates from the called method | Retry the operation. Note Paddle calls do not forward an idempotency key (the provider methods take no `ctx`). |
+| Paddle API error | The SDK error propagates from the called method | Calls are idempotent via `ctx.idempotencyKey`; safe to retry the same operation with the same key. |
 
-Caution: Paddle provider methods (e.g. `createCustomer`, `refund`) do not receive an `OperationContext`,
-so unlike Stripe they do not pass an idempotency key to the provider API. Idempotency at the engine
-boundary is handled separately by the idempotency store.
+Every Paddle provider method (e.g. `createCustomer`, `refund`) receives an `OperationContext` and
+forwards `ctx.idempotencyKey` to the Paddle API: the private `paddle(ctx.idempotencyKey)` helper scopes
+the SDK client through `withIdempotencyKey`, so retries with the same key are safe. Idempotency at the
+engine boundary is additionally handled by the idempotency store.
 
 ## Configuration example
 

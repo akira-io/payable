@@ -13,10 +13,11 @@ currency together. See `docs/domain/06-value-objects.md`.
 ## Why are providers and storage peer-optional?
 
 So the core stays framework- and provider-agnostic and adds nothing to a consumer's bundle that
-they did not opt into. `stripe`, `@paddle/paddle-node-sdk`, `knex`, `bullmq`, `express`, `fastify`,
-`@nestjs/common`, and `reflect-metadata` are optional peer dependencies, and the bundle check
-enforces that none of them is statically imported into the core entry. You install only the
-provider, storage, queue, and framework you actually use.
+they did not opt into. Every integration is an optional peer dependency - `stripe`,
+`@paddle/paddle-node-sdk`, `@akira-io/sisp`, `knex`, `@prisma/client`, `bullmq`, `express`,
+`fastify`, `@nestjs/common`, `@nestjs/core`, `reflect-metadata`, `@modelcontextprotocol/sdk`, and
+`@fastify/rate-limit` - and the bundle check enforces that none of them is statically imported into
+the core entry. You install only the provider, storage, queue, and framework you actually use.
 
 ## Does it read environment variables?
 
@@ -56,10 +57,10 @@ authenticating requests. You authenticate the caller and verify ownership of the
 
 ## Which HTTP routes does each adapter expose?
 
-They are not identical. Express implements the full set including a working `POST /refunds`. Fastify
-and NestJS implement webhooks, checkout, and subscription management, but `/refunds` (and
-`/customers`, `/invoices`, `/payments`) are 501 placeholders. The adapters do not all mount the same
-routes. See `docs/adapters/23-express.md`, `24-fastify.md`, and `25-nestjs.md`.
+All three are at route parity. Express, Fastify, and NestJS each implement the full set: webhooks,
+checkout, subscription management, customers, invoices, payments, products, prices, and refunds
+(create and list). None of these are 501 placeholders. See `docs/adapters/23-express.md`,
+`24-fastify.md`, and `25-nestjs.md`.
 
 ## How do I add a provider?
 
@@ -82,9 +83,8 @@ Node `>=20`. CI runs the suite on Node 20 and 22, and the build targets `node20`
 
 ## How do I run a single test?
 
-`bun run test --filter=name` passes through to Vitest, or use Vitest directly:
-`npx vitest run -t "test name"` to select by name, or `npx vitest run tests/express.test.ts` to
-select by file. See `docs/29-development.md`.
+Use Vitest directly: `npx vitest run -t "test name"` to select by name, or
+`npx vitest run tests/express.test.ts` to select by file. See `docs/29-development.md`.
 
 ---
 

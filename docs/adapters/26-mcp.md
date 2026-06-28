@@ -42,7 +42,8 @@ interface McpPolicy {
 ## Tools
 
 Every tool accepts an optional `tenantId` and `provider`. Money amounts are minor units, passed as
-`{ amount, currency }` and converted to the `Money` value object.
+`{ amount, currency }` and converted to the `Money` value object. List tools that accept a `limit`
+cap it at `MAX_LIST_LIMIT = 100` (`src/presentation/mcp/schemas.ts`).
 
 | Tool | Kind | Backing call |
 | --- | --- | --- |
@@ -148,6 +149,24 @@ payable-mcp --config ./payable.config.ts --http 127.0.0.1:3333
 The HTTP transport is stateless (JSON responses). Set `PAYABLE_MCP_TOKEN` to require a
 `Authorization: Bearer <token>` header. The transport applies no TLS, rate limiting, or OAuth;
 terminate TLS and add network controls at your edge.
+
+### DNS-rebinding and origin protection
+
+`serveHttp` enables DNS-rebinding protection by default (`enableDnsRebindingProtection ?? true`),
+which validates the `Host` and `Origin` headers on each request (source:
+`src/presentation/mcp/transports/http.ts`):
+
+- `allowedHosts` defaults, per request, to `127.0.0.1:<port>`, `localhost:<port>`, and
+  `[::1]:<port>` (the local port the connection arrived on). Pass `allowedHosts` to allow other
+  hostnames when fronting the server with a proxy.
+- `allowedOrigins` restricts the accepted `Origin` header; pass it when browser clients connect.
+- Set `enableDnsRebindingProtection: false` to disable the host/origin checks (only do this behind a
+  trusted proxy).
+
+### Body-size cap
+
+Requests are bounded by `maxBodyBytes` (default 1 MiB). A request whose `Content-Length` exceeds the
+cap, or whose streamed body grows past it, is rejected with HTTP 413.
 
 ## Embedding the server
 

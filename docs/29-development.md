@@ -90,6 +90,7 @@ The package scripts are run with Bun in CI; locally either Bun or npm works.
 | Lint and autofix | `bun run lint:fix` (`biome check --write .`) |
 | Build | `bun run build` (`tsup`) |
 | Verify core bundle | `bun run verify:bundle` |
+| Verify exports map | `bun run verify:exports` (`node scripts/check-exports.mjs`) |
 
 Vitest's `-t`/`--testNamePattern` selects by test name; `vitest run path/to/file.test.ts` selects by
 file.
@@ -101,6 +102,11 @@ file.
 dynamically from `package.json`, so the list stays in sync). If any peer is statically imported into
 the core entry, the script exits non-zero. This guards the zero-required-peer guarantee: the core
 entry must not pull a provider or framework into every consumer's bundle.
+
+`bun run verify:exports` runs `scripts/check-exports.mjs`, which checks the `exports` map against the
+built `dist/`: every subpath's `types`/`import`/`require` target must exist, and the core entry is
+imported under both ESM and CJS to confirm it exports `createPayable`. It runs in CI and in
+`prepublishOnly`, so a broken exports map or unbuilt subpath fails before publish.
 
 ## Debugging approaches
 

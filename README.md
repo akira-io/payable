@@ -34,7 +34,7 @@ bundle imports none of them. You install only what you use.
 ## Install
 
 ```sh
-npm install @akira-io/payable   # or: pnpm add / bun add
+bun add @akira-io/payable   # or: npm install / pnpm add
 ```
 
 Then add the optional peers for the features you use:

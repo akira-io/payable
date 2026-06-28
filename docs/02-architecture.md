@@ -57,12 +57,12 @@ application meet, by design - it is the composition root.
 ### Infrastructure (`src/infrastructure`)
 
 - **Purpose.** Implement domain contracts against real systems.
-- **Responsibilities.** Stripe/Paddle providers, the Knex storage driver and its repositories, the
-  sync/BullMQ queue drivers, memory/Redis cache and lock drivers, the Node encryption driver, the
-  in-memory event bus, the audit service, and the outbox service.
+- **Responsibilities.** Stripe/Paddle/SISP providers, the Knex storage driver and its repositories,
+  the Prisma storage adapter, the sync/BullMQ queue drivers, memory/Redis cache and lock drivers,
+  the Node encryption driver, the in-memory event bus, the audit service, and the outbox service.
 - **May depend on.** The domain (the contracts it implements) and optional peer packages (Stripe,
-  Paddle, Knex, BullMQ). These peers are imported only inside infrastructure modules, never in the
-  core entry.
+  Paddle, SISP, Knex, Prisma, BullMQ). These peers are imported only inside infrastructure modules,
+  never in the core entry.
 
 ### Presentation (`src/presentation`)
 
@@ -82,15 +82,15 @@ application meet, by design - it is the composition root.
 
 ## The zero-peer-dependency core guarantee
 
-Every provider, storage, queue, and framework dependency is an optional peer; all eight are marked
-`optional: true`. The core runtime bundle must import none of them statically, so an application
-that uses only the core never needs them installed.
+Every provider, storage, queue, and framework dependency is an optional peer, and every optional
+peer is marked `optional: true`. The core runtime bundle must import none of them statically, so an
+application that uses only the core never needs them installed.
 
 This is enforced by `scripts/check-core-bundle.mjs` (run via `npm run verify:bundle`). It:
 
 1. Reads the built core entry files `dist/index.js` and `dist/index.cjs`.
-2. For each optional peer - `stripe`, `@paddle/paddle-node-sdk`, `knex`, `bullmq`, `express`,
-   `fastify`, `@nestjs/common`, `reflect-metadata` - checks for a static ESM import
+2. For each optional peer - the list is derived dynamically from `Object.keys(pkg.peerDependencies)`
+   in `package.json`, not hardcoded - checks for a static ESM import
    (`from"<peer>"`) or a static CJS require (`require("<peer>")`).
 3. Fails with a non-zero exit and lists every leak if any static import is found; otherwise prints
    "core bundle clean: no optional peer is statically imported".

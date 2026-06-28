@@ -20,13 +20,16 @@ Install only the peers for the features you use:
 | --- | --- | --- |
 | Stripe provider | `npm i stripe` | `>=15` |
 | Paddle provider | `npm i @paddle/paddle-node-sdk` | `>=2` |
+| SISP provider | `npm i @akira-io/sisp` | `>=1.0.0-beta.1` |
 | Knex storage | `npm i knex` + a driver (`pg`, `better-sqlite3`, …) | `>=3` |
+| Prisma storage | `npm i @prisma/client` | `>=5` |
 | BullMQ queue | `npm i bullmq` | `>=5` |
 | Express adapter | `npm i express` | `>=4.18` |
 | Fastify adapter | `npm i fastify` | `>=4` |
 | NestJS adapter | `npm i @nestjs/common reflect-metadata` | `@nestjs/common >=10`, `reflect-metadata >=0.2` |
+| MCP adapter | `npm i @modelcontextprotocol/sdk` | `>=1.18` |
 
-All eight are marked optional, so package managers do not require them at install time.
+All optional peers are marked optional, so package managers do not require them at install time.
 
 ## Minimal example
 
@@ -112,7 +115,7 @@ const session = await payable
 // session is a CheckoutSessionDTO; redirect the user to its provider checkout URL.
 ```
 
-A `Billable` is `{ billableType: string; billableId: string; email: string; name?: string }`.
+A `Billable` is `{ billableType: string; billableId: string; email?: string; name?: string }`.
 `CustomerContext` also exposes `checkout()` (payment
 mode), `charge(...)`, `billingPortal(returnUrl)`, and `subscription(name)` for
 `swap`/`cancel`/`cancelNow`/`resume`/`updateQuantity`.

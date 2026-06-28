@@ -82,6 +82,12 @@ provider-hosted page instead of creating it directly - see [09-checkout.md](09-c
 
 ## Managing a subscription
 
+`SubscriptionManager.get()` returns the stored subscription (`Subscription | null`) by name via
+`FindSubscriptionQuery`, without touching the provider. The mutating operations each accept either a
+positional argument or an options object: `swap(priceId, authorization?)` or `swap({ priceId,
+authorization })`, and `updateQuantity(quantity, authorization?)` or `updateQuantity({ quantity,
+authorization })`.
+
 `SubscriptionManager` wraps one action per operation. They all extend `SubscriptionAction`, which:
 
 - requires a storage driver (`SUBSCRIPTION_STORAGE_REQUIRED`),
@@ -125,8 +131,9 @@ grace-period subscription sets `endsAt` back to `null`.
 ```ts
 const manager = payable.customer(billable).subscription('default');
 
-await manager.swap('price_business');
-await manager.updateQuantity(3);
+const current = await manager.get();         // Subscription | null, no provider call
+await manager.swap('price_business');        // or swap({ priceId, authorization })
+await manager.updateQuantity(3);             // or updateQuantity({ quantity, authorization })
 await manager.cancel();      // ends at period end (grace period)
 await manager.resume();      // clears endsAt
 await manager.cancelNow();   // ends immediately
@@ -153,11 +160,19 @@ For the underlying status transitions (`trialing`, `active`, `canceled`, …) se
 
 ## Policies
 
-`CanCreateSubscriptionPolicy`, `CanCancelSubscriptionPolicy`, and `CanResumeSubscriptionPolicy`
-authorize against an `AuthorizationContext`. As of this version they are **not wired into the
-subscription actions** - no action references them. They are available building blocks; integrators
-enforce authorization in their own layer. Only `CanReplayWebhookPolicy` is used by an action - see
-[13-webhooks.md](13-webhooks.md).
+Every subscription operation enforces a policy through `assertAuthorized`, gated when
+`deps.authorizationEnabled` is true (a no-op otherwise):
+
+| Operation | Policy |
+| --- | --- |
+| `create` | `CanCreateSubscriptionPolicy` (asserted in `SubscriptionBuilder.create()`) |
+| `swap`, `updateQuantity` | `CanUpdateSubscriptionPolicy` |
+| `cancel`, `cancelNow` | `CanCancelSubscriptionPolicy` |
+| `resume` | `CanResumeSubscriptionPolicy` |
+
+Each policy authorizes against an `AuthorizationContext` (`allowed === true` and a non-empty
+`actorId`), supplied via the operation's `authorization` argument. When authorization is disabled the
+assertion is skipped, so integrators that do not opt in see no behavior change.
 
 ## Edge cases
 

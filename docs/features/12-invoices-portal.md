@@ -14,12 +14,14 @@ const invoices = await new ListInvoicesAction(deps).handle(billable, 50);
 
 `handle(billable, limit?)`:
 
-1. Requires the provider to be **invoice capable** (`isInvoiceCapable`, i.e. it implements both
+1. Validates `limit`: when supplied it must be a positive integer, otherwise throws `PayableError`
+   (`INVOICE_LIMIT_INVALID`). This runs before the capability check.
+2. Requires the provider to be **invoice capable** (`isInvoiceCapable`, i.e. it implements both
    `listInvoices` and `downloadInvoicePdf`); otherwise throws `ProviderCapabilityNotSupportedError`
    (reported as the `invoicePdf` capability).
-2. If there is no storage driver, returns `[]`.
-3. Loads the local customer row; if it is missing or has no `providerCustomerId`, returns `[]`.
-4. Calls `provider.listInvoices({ providerCustomerId, limit })`.
+3. If there is no storage driver, returns `[]`.
+4. Loads the local customer row; if it is missing or has no `providerCustomerId`, returns `[]`.
+5. Calls `provider.listInvoices({ providerCustomerId, limit })`.
 
 Output: `InvoiceDTO[]`:
 
@@ -50,8 +52,9 @@ const pdf = await new DownloadInvoicePdfAction(deps).handle('in_1', billable);
 1. Requires the provider to be invoice capable; otherwise throws `ProviderCapabilityNotSupportedError`
    (reported as `invoicePdf`).
 2. Requires a storage driver; otherwise throws `PayableError` (`INVOICE_STORAGE_REQUIRED`).
-3. Loads the invoice by provider id (`storage.invoices.findByProviderId`). If it is missing, or
-   `billable` is supplied and does not own it, throws `PayableError` (`INVOICE_NOT_FOUND`).
+3. Loads the invoice by provider id (`storage.invoices.findByProviderId`). It then requires the caller
+   to own the invoice via `belongsToBillable`: when the invoice is missing, when `billable` is omitted,
+   or when the supplied `billable` does not own it, throws `PayableError` (`INVOICE_NOT_FOUND`).
 4. Calls `provider.downloadInvoicePdf(providerInvoiceId)`.
 
 Output: `InvoicePdfDTO`:
@@ -63,11 +66,14 @@ export interface InvoicePdfDTO {
 }
 ```
 
-**Ownership check.** `billable` is optional. When provided, the action resolves the caller's local
-customer (`storage.customers.findByBillable`) and confirms it owns the invoice (`customer.id ===
-invoice.customerId`) before returning the bytes - a mismatch is reported as `INVOICE_NOT_FOUND`. When
-omitted, ownership is **not** verified and the caller is trusted; the application must confirm the
-invoice belongs to the right customer before serving it.
+**Ownership check.** `billable` is effectively **required**. When provided, the action resolves the
+caller's local customer (`storage.customers.findByBillable`) and confirms it owns the invoice
+(`customer.id === invoice.customerId`) before returning the bytes - a mismatch is reported as
+`INVOICE_NOT_FOUND`. When `billable` is omitted, `belongsToBillable` returns `false`, so the action
+**always** throws `INVOICE_NOT_FOUND`; there is no trust-the-caller path that returns bytes.
+
+> Note: the omitted-`billable` path currently throws rather than returning bytes; this is under review
+> as a possible regression of the trust-caller path.
 
 ## Billing portal
 
@@ -145,9 +151,11 @@ see [17-providers.md](../integrations/17-providers.md).
 - **Billing portal without storage.** The portal still syncs the customer via the provider, which
   requires no storage to obtain a `providerCustomerId`, but nothing is persisted - see
   [08-customers-billable.md](08-customers-billable.md).
-- **PDF ownership.** Pass `billable` to `DownloadInvoicePdfAction.handle` to have it verify the
-  invoice belongs to that caller (mismatch -> `INVOICE_NOT_FOUND`). Omit it and the action trusts the
-  caller, who must verify ownership itself.
+- **PDF ownership.** Pass `billable` to `DownloadInvoicePdfAction.handle` to verify the invoice belongs
+  to that caller (mismatch -> `INVOICE_NOT_FOUND`). Omitting it is not a trust-the-caller path: with no
+  `billable`, ownership cannot be confirmed and the action always throws `INVOICE_NOT_FOUND`.
+- **Invalid list limit.** `ListInvoicesAction` throws `INVOICE_LIMIT_INVALID` for a non-positive-integer
+  `limit`, before the capability check.
 - **PDF without storage.** `DownloadInvoicePdfAction` throws `INVOICE_STORAGE_REQUIRED` when no storage
   driver is configured.
 

@@ -154,7 +154,7 @@ export interface TenantResolver {
 
 ### IdempotencyStore
 
-`src/domain/contracts/idempotency-store.contract.ts`. Persists idempotency records and their lifecycle (`processing` / `completed` / `failed` / `expired`): `find`, `acquire`, `takeOver`, `put`, `markCompleted`, `markFailed`, each tenant-scoped. See [Idempotency](../features/14-idempotency.md).
+`src/domain/contracts/idempotency-store.contract.ts`. Persists idempotency records and their lifecycle (`processing` / `completed` / `failed` / `expired`): `find`, `acquire`, `takeOver`, `put`, `markCompleted`, `markFailed`, each tenant-scoped. `markCompleted` and `markFailed` also accept optional `lockToken?` and `expiresAt?` params. See [Idempotency](../features/14-idempotency.md).
 
 Implementation: `KnexIdempotencyRepository`.
 

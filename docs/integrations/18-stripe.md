@@ -11,6 +11,7 @@ interfaces: `ChargeCapable`, `DirectSubscriptionCapable`, and `InvoiceCapable`. 
 export interface StripeProviderOptions {
   secretKey: string;
   webhookSecret: string;
+  logger?: Logger;
 }
 
 new StripeProvider(options: StripeProviderOptions, client?: Stripe);
@@ -18,6 +19,7 @@ new StripeProvider(options: StripeProviderOptions, client?: Stripe);
 
 - `secretKey` - the Stripe API key used to lazily construct the SDK client.
 - `webhookSecret` - the signing secret passed to `StripeWebhookVerifier`.
+- `logger` (optional) - a `Logger` forwarded to `StripeEventNormalizer`.
 - `client` (optional) - an injected `Stripe` instance, used in tests. When omitted, the client is
   created on first use via a dynamic `import('stripe')`, so the `stripe` package is only loaded when the
   provider is actually exercised (zero-peer-dependency guarantee).
@@ -75,6 +77,10 @@ methods. Every call forwards `ctx.idempotencyKey` to Stripe's `idempotencyKey` r
 
 - Money is always reconstructed via `Money.of(amount, currency.toUpperCase())`. Stripe currencies are
   lower-cased on the wire; the engine normalizes to upper-case currency codes.
+- `stripeAmount` / `stripeMoney` (`stripe-amounts.ts`) rescale between the engine's currency precision
+  and Stripe's per-currency exponent (zero-decimal currencies like `JPY`, three-decimal like `KWD`).
+  When a downscale would drop significant digits, the rescale throws `PayableError`
+  (`PROVIDER_CURRENCY_EXPONENT_MISMATCH`) rather than silently losing precision.
 - `toPriceDTO` resolves the unit amount from `unit_amount`, falling back to an integer
   `unit_amount_decimal`. A non-integer decimal throws `PayableError`
   (`PROVIDER_PRICE_AMOUNT_UNRESOLVABLE`).
@@ -140,8 +146,11 @@ the `normalizedType`, and `event.data.object` as `data`.
 | Invalid webhook signature | `InvalidWebhookSignatureError` (`provider: 'stripe'`) from `verifyWebhook` | Confirm `webhookSecret` matches the Stripe endpoint's secret and that the adapter forwards the raw, unmodified body. Stripe retries the delivery. |
 | Stripe API error | The underlying SDK error propagates from the called method | Calls are idempotent via `ctx.idempotencyKey`; safe to retry the same operation with the same key. |
 | Price has no integer amount | `PayableError` `PROVIDER_PRICE_AMOUNT_UNRESOLVABLE` from `toPriceDTO` | Use integer minor-unit prices; non-integer `unit_amount_decimal` is rejected. |
+| Currency exponent mismatch | `PayableError` `PROVIDER_CURRENCY_EXPONENT_MISMATCH` from `stripeAmount` / `stripeMoney` | The amount cannot be rescaled to Stripe's currency exponent without precision loss; use an amount that fits the currency's minor-unit granularity. |
 | Invoice has no PDF | `PayableError` `INVOICE_PDF_UNAVAILABLE` from `downloadInvoicePdf` | Wait until Stripe finalizes the invoice; draft invoices have no `invoice_pdf`. |
+| Invoice PDF URL not https | `PayableError` `INVOICE_PDF_UNTRUSTED_URL` from `downloadInvoicePdf` | Stripe returned a non-`https://` `invoice_pdf`; the download is refused. |
 | Invoice PDF download fails | `PayableError` `INVOICE_PDF_DOWNLOAD_FAILED` with `{ status }` | Transient; retry the download. The status code is in the error context. |
+| Invoice PDF too large | `PayableError` `INVOICE_PDF_TOO_LARGE` with `{ bytes }` | The PDF exceeds the 10 MB cap (checked against `content-length` and the streamed body). |
 
 ## Configuration example
 

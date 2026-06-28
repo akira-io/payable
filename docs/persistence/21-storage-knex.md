@@ -112,25 +112,40 @@ Source: `src/infrastructure/storage/knex/migrations/migrate.ts`.
 
 ```ts
 export async function migrate(knex: Knex): Promise<void> {
-  await createBillingTables(knex);
-  await createSystemTables(knex);
-  await alterExistingTables(knex);
+  await withMigrationLock(knex, async () => {
+    await runStep(knex, '001-billing-tables', () => createBillingTables(knex));
+    await runStep(knex, '002-system-tables', () => createSystemTables(knex));
+    await runStep(knex, '003-alter-existing-tables', () => alterExistingTables(knex));
+    await runStep(knex, '004-widen-endpoint-secret', () => widenEndpointSecret(knex));
+  });
 }
 ```
 
-It runs three steps in order:
+All steps run inside `withMigrationLock`, which serializes concurrent migrators:
 
-1. **Create billing tables** - each via `createIfMissing` (`create-if-missing.ts`), which checks
-   `knex.schema.hasTable(name)` and only creates the table when it is absent.
-2. **Create system tables** - same `createIfMissing` pattern.
-3. **Alter existing tables** - `alterExistingTables` (`alter-existing-tables.ts`) performs additive
-   migrations against already-created tables. `ensureColumns` adds a column only when
-   `knex.schema.hasColumn` reports it missing (it back-fills `normalized_type` and `data` on
-   `payable_webhook_events` for installations created before those columns existed). `ensureIndexes`
-   issues `CREATE INDEX IF NOT EXISTS` for the composite keyset indexes:
-   `payable_subscriptions_customer_created_id_index`,
+- On **PostgreSQL** it takes a session `pg_advisory_lock` and releases it in a `finally`.
+- On **MySQL** / **MariaDB** it takes a named `GET_LOCK` (30s timeout); if the lock is not acquired
+  it throws `PayableError` with code `MIGRATION_LOCK_UNAVAILABLE`.
+- On any other dialect it runs the steps without a lock.
+
+Each step is recorded through a migration ledger via `runStep`, so a completed step is skipped on a
+re-run. There are four steps in order:
+
+1. **Create billing tables** (`001-billing-tables`) - each via `createIfMissing`
+   (`create-if-missing.ts`), which checks `knex.schema.hasTable(name)` and only creates the table
+   when it is absent.
+2. **Create system tables** (`002-system-tables`) - same `createIfMissing` pattern.
+3. **Alter existing tables** (`003-alter-existing-tables`) - `alterExistingTables`
+   (`alter-existing-tables.ts`) performs additive migrations against already-created tables.
+   `ensureColumns` adds a column only when `knex.schema.hasColumn` reports it missing (it back-fills
+   `normalized_type` and `data` on `payable_webhook_events` for installations created before those
+   columns existed). `ensureIndexes` issues `CREATE INDEX IF NOT EXISTS` for the composite keyset
+   indexes: `payable_subscriptions_customer_created_id_index`,
    `payable_invoices_customer_created_id_index`, `payable_payments_customer_created_id_index`,
    `payable_refunds_payment_created_id_index`, and `payable_outbox_events_status_locked_index`.
+4. **Widen the endpoint secret** (`004-widen-endpoint-secret`) - `widenEndpointSecret`
+   (`widen-endpoint-secret.ts`) alters `payable_webhook_endpoints.secret` to `text` so the column can
+   hold encrypted (sealed) secret values, which are longer than a raw secret.
 
 `migrate` is **idempotent and safe to re-run**: it creates nothing that exists and adds only missing
 columns/indexes. A second `migrate` resolves cleanly, and a table created before the additive columns

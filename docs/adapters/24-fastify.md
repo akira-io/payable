@@ -68,7 +68,8 @@ products, prices, and refunds (create and list).
 
 Every JSON route parses its body or query with the shared Zod schemas in
 `src/presentation/shared/schemas.ts` via `parseBody`, so a malformed body is rejected with
-`VALIDATION_FAILED` (HTTP 422), the same as Express.
+`VALIDATION_FAILED` (HTTP 422), the same as Express. List endpoints that accept a `limit` cap it at
+`MAX_LIST_LIMIT = 100`; a larger value fails validation with `VALIDATION_FAILED` (422).
 
 ## Raw-body handling for webhooks
 

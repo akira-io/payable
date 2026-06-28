@@ -25,8 +25,21 @@ export interface OutboxEventRepository {
 ```
 
 An `OutboxEvent` carries `tenantId`, `correlationId`, `eventType`, `eventVersion`, `payload`,
-`status` (`pending | processing | published | failed`), `attempts`, `nextRetryAt`, and an optional
-`lockToken`.
+`status` (`pending | processing | published | failed`), `attempts`, `nextRetryAt`, an optional
+`lockToken`, and an optional `dedupeKey`. `NewOutboxEvent` is the same minus the engine-owned fields:
+
+```ts
+export type NewOutboxEvent = Omit<
+  OutboxEvent,
+  'id' | 'status' | 'attempts' | 'nextRetryAt' | 'lockToken' | 'createdAt' | 'updatedAt'
+>;
+```
+
+**Idempotent create.** When a `dedupeKey` is supplied, `create` is idempotent on
+`(dedupe_key, tenant_id)`: it pre-checks for an existing row and returns it, and if the insert races a
+concurrent writer the unique violation is caught and the existing row re-queried. So reprocessing the
+same webhook never stages a duplicate outbox row (the pipeline passes
+`dedupeKey: webhook:<webhookEventId>:<normalizedType>`).
 
 **Behavior.** `publishPending` claims a batch and delivers each one:
 
@@ -39,9 +52,13 @@ async publishPending(deliver: OutboxDelivery, limit = 50): Promise<OutboxPublish
 }
 ```
 
-- `claimPending` claims rows for the worker - the Knex repository uses `forUpdate().skipLocked()`,
-  flips them to `processing`, and stamps a per-claim `lockToken`, so concurrent workers never grab the
-  same row.
+- `claimPending` claims rows for the worker - the Knex repository selects claimable rows ordered by
+  `(created_at, id)` with `forUpdate().skipLocked()`, flips them to `processing`, and stamps a
+  per-claim `lockToken`, so concurrent workers never grab the same row.
+- **Per-tenant fairness.** The claim is fair across tenants. The repository over-fetches candidates
+  (`FAIR_OVERFETCH_FACTOR` of `5`, capped at `MAX_FAIR_OVERFETCH` `1000`) and then round-robins
+  across per-tenant buckets via `fairlyOrdered()` before claiming, so one tenant with a large backlog
+  cannot starve others within a single batch.
 - **Lock token.** Each claimed row carries the `lockToken` minted when it was claimed.
   `markPublished` and `markFailed` are passed `event.lockToken` and only update the row when the token
   still matches; both return the number of rows affected. A `0` result means the claim was lost (the

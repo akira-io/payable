@@ -21,6 +21,8 @@ function createExpressPayableRoutes(
 interface ExpressPayableOptions {
   webhookSignatureHeader?: string; // default: 'stripe-signature'
   authenticate?: RequestHandler; // optional auth middleware, applied after webhook routes
+  resolveTenant?: (req: Request) => string | null | undefined;
+  resolveAuthorization?: (req: Request) => AuthorizationContext | undefined;
 }
 ```
 
@@ -67,6 +69,10 @@ All routes above are wired to working implementations. `/customers` (POST/PATCH/
 and `/payments` resolve a `Payable` resource for the request's billable (and tenant, when tenancy is
 on). The `GET` read routes take `billableType` and `billableId` as query parameters; `/invoices`
 also accepts an optional `limit`.
+
+List endpoints that accept a `limit` cap it at `MAX_LIST_LIMIT = 100`
+(`src/presentation/shared/schemas.ts`); a larger value fails validation with `VALIDATION_FAILED`
+(422).
 
 ## Request bodies
 

@@ -67,16 +67,20 @@ if (entries.length === 0) {
 - **Type.** `CacheDriver` with `get`/`set`/`delete`/`has`.
 - **Required.** Optional.
 - **Default.** `undefined`.
-- **Behavior.** Available for caching needs; not substituted with a default. Bundled
-  implementations are `MemoryCacheDriver` and `RedisCacheDriver`.
+- **Behavior.** Available for caching needs; not substituted with a default. `MemoryCacheDriver` is
+  exported from the public API. A `RedisCacheDriver` also exists in-tree
+  (`src/infrastructure/cache/redis/`) but is not currently exported from `src/index.ts`; use it
+  bring-your-own or by deep import path.
 
 ### `locks?: LockDriver`
 
 - **Type.** `LockDriver` with `acquire(key, ttlMs)` and `withLock(key, ttlMs, work)`.
 - **Required.** Optional.
 - **Default.** `undefined`.
-- **Behavior.** Provides distributed locking. Bundled implementations are `MemoryLockDriver` and
-  `RedisLockDriver`. See [features/15-reliability.md](features/15-reliability.md).
+- **Behavior.** Provides distributed locking. `MemoryLockDriver` is exported from the public API. A
+  `RedisLockDriver` also exists in-tree (`src/infrastructure/locks/redis-lock-driver.ts`) but is not
+  currently exported from `src/index.ts`; use it bring-your-own or by deep import path. See
+  [features/15-reliability.md](features/15-reliability.md).
 
 ### `clock?: Clock`
 
