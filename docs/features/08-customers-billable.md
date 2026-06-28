@@ -11,9 +11,9 @@ Whether a provider customer is created depends on the provider's `customers` cap
 - **Provider with `customers`** (Stripe, Paddle): `payable.customers().create(...)` syncs to the
   provider and stores the returned `providerCustomerId`.
 - **Provider without `customers`** (SISP): no provider customer exists. Payable still persists a
-  **local-only** customer with `providerCustomerId: null`, so the billable is associated with its
-  payments. `update(...)` edits the local record only - no provider call. The `Customer` entity's
-  `providerCustomerId` is nullable for exactly this reason.
+  **local-only** customer with `providerCustomerId: null` (via `CustomerResource.upsertLocalCustomer`),
+  so the billable is associated with its payments. `update(...)` edits the local record only - no
+  provider call. The `Customer` entity's `providerCustomerId` is nullable for exactly this reason.
 
 ## The `Billable` shape
 
@@ -84,6 +84,9 @@ export interface BillingDependencies {
   clock: Clock;
   storage?: StorageDriver;
   tenantId?: string | null;
+  authorizationEnabled?: boolean;
+  idempotency?: IdempotencyService;
+  logger?: Logger;
 }
 ```
 
@@ -99,14 +102,18 @@ by application code.
 
 Behavior:
 
-1. If storage is present and a local customer row already exists with a `providerCustomerId`, that id
+1. If the provider is **not** customer-capable (`isCustomerCapable`), it throws
+   `ProviderCapabilityNotSupportedError(provider.name, 'customers')` immediately. Local-only persistence
+   for catalog-less providers is **not** handled here - that path lives in
+   `CustomerResource.upsertLocalCustomer`, which writes a `providerCustomerId: null` row.
+2. If storage is present and a local customer row already exists with a `providerCustomerId`, that id
    is returned immediately. No provider call is made. A second checkout for the same `Billable`
    results in only one `createCustomer` call.
-2. Otherwise it calls `provider.createCustomer({ email, name, billableType, billableId }, ctx)` with a
+3. Otherwise it calls `provider.createCustomer({ email, name, billableType, billableId }, ctx)` with a
    deterministic idempotency key: `customer:${providerName}:${billableType}:${billableId}`.
-3. The returned `providerCustomerId` is persisted: if a local row exists it is updated, otherwise a
+4. The returned `providerCustomerId` is persisted: if a local row exists it is updated, otherwise a
    new customer row is created (with `tenantId`, `provider`, `email`, `name`, `metadata: null`).
-4. The `providerCustomerId` is returned to the caller.
+5. The `providerCustomerId` is returned to the caller.
 
 ```mermaid
 sequenceDiagram
@@ -115,27 +122,24 @@ sequenceDiagram
     participant Storage
     participant Provider
     App->>Sync: handle(billable)
-    Sync->>Storage: findByBillable(type, id, tenantId)
-    alt local row has providerCustomerId
-        Storage-->>Sync: existing customer
-        Sync-->>App: providerCustomerId (no provider call)
-    else missing or unmapped
-        Sync->>Provider: createCustomer(input, ctx)
-        Provider-->>Sync: { providerCustomerId }
-        Sync->>Storage: create or update customer row
-        Sync-->>App: providerCustomerId
+    alt provider not customer-capable
+        Sync-->>App: ProviderCapabilityNotSupportedError
+    else customer-capable
+        Sync->>Storage: findByBillable(type, id, tenantId)
+        alt local row has providerCustomerId
+            Storage-->>Sync: existing customer
+            Sync-->>App: providerCustomerId (no provider call)
+        else missing or unmapped
+            Sync->>Provider: createCustomer(input, ctx)
+            Provider-->>Sync: { providerCustomerId }
+            Sync->>Storage: create or update customer row
+            Sync-->>App: providerCustomerId
+        end
     end
 ```
 
-Without a storage driver the action skips both lookups and the persist step: it always calls
-`provider.createCustomer` and returns the id, persisting nothing.
-
-## `CreateCustomerAction`
-
-`CreateCustomerAction` is a Phase 4 stub. Its `handle()` throws
-`PayableError.notImplemented('CreateCustomerAction (Phase 4)')`. Customer creation today happens
-implicitly through `SyncCustomerWithProviderAction`; there is no standalone "create customer" path
-yet.
+Without a storage driver the action skips both lookups and the persist step: once the provider is
+confirmed customer-capable it calls `provider.createCustomer` and returns the id, persisting nothing.
 
 ## Inputs and outputs
 

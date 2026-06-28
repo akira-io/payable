@@ -100,19 +100,18 @@ Causes and resolutions:
 Diagnose: check the job name is `webhook.process`, inspect the BullMQ queue in Redis, and watch the
 `onFailed` callback if configured.
 
-## Fastify (or NestJS) routes return 404/501
+## Fastify or NestJS route returns 404
 
-Symptom: `POST /refunds`, `POST /customers`, `GET /invoices`, or `GET /payments` returns 501 on
-Fastify or NestJS.
+Symptom: a route you expect (for example `POST /refunds`, `POST /customers`, `GET /invoices`, or
+`GET /payments`) returns 404 on Fastify or NestJS.
 
-Cause: parity gap. Only the Express adapter implements `POST /refunds`; on Fastify and NestJS it is
-a placeholder that throws `NOT_IMPLEMENTED`. `/customers`, `/invoices`, and `/payments` are reserved
-501 placeholders on all three adapters.
+The three adapters are at route parity: Express, Fastify, and NestJS all implement the full route
+set - refunds (create and list), customers, invoices, and payments included. None of these are 501
+placeholders. A 404 therefore means the route was never mounted, not that the feature is missing.
 
-Resolution: for refunds over HTTP, use the Express adapter, or call `payable.refund(...)` directly
-from your own handler. A genuine 404 (not 501) means the route was never mounted - check the mount
-prefix and that you registered the plugin/module. See `docs/adapters/24-fastify.md` and
-`25-nestjs.md`.
+Resolution: check the mount prefix and that you actually registered the plugin/module
+(`createFastifyPayablePlugin` with the right `prefix`, or `PayableModule.forRoot(...)`). Confirm the
+path is relative to the mount point. See `docs/adapters/24-fastify.md` and `25-nestjs.md`.
 
 ## Migration did not create tables
 

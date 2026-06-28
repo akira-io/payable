@@ -115,12 +115,18 @@ What `redirectCheckout(...).create()` does:
 
 1. Ensures a **local customer** for the billable (no provider-side customer - SISP has none, so
    `providerCustomerId` is `null`). See [Customers](../features/08-customers-billable.md).
-2. Generates the `merchantRef` using the configured `generators.merchantReference()` (default forwarded
-   from node-sisp; override it through `SispConfig`).
+2. Derives the `merchantRef`. When an `idempotencyKey` is present, it is hashed with SHA-256 and the
+   reference becomes `R` + the first 14 hex characters upper-cased (`sispMerchantReference`), so the same
+   key always yields the same reference. With no idempotency key it falls back to the configured
+   `generators.merchantReference()` (forwarded from node-sisp; override it through `SispConfig`).
 3. Calls node-sisp's `handlePayment`, which **persists** the pending transaction and renders the signed
    auto-submit form - node-sisp stays the protocol store of record.
 4. Records a pending `Payment` (`status: 'pending'`, `providerPaymentId: merchantRef`, linked to the
    local customer).
+
+`createCheckoutSession` guards its inputs up front: a non-`payment` mode throws
+`PROVIDER_OPERATION_UNSUPPORTED` (SISP only supports one-time payment checkouts), and a missing amount
+throws `CHECKOUT_AMOUNT_REQUIRED`.
 
 `CheckoutSessionDTO` gained an optional `html` field for this redirect-form shape; Stripe/Paddle keep
 returning `url` only.
@@ -179,6 +185,12 @@ sequenceDiagram
 `payable.customer(billable).refund(...)` (or the refund resource) routes to `SispProvider.refund`, which
 looks the node-sisp transaction up by `providerPaymentId` (= `merchantRef`) and runs node-sisp's refund
 builder. A missing transaction throws `PROVIDER_SISP_TRANSACTION_NOT_FOUND`.
+
+Unlike Paddle, SISP **does support partial refunds**. When `input.amount` is set, the builder uses
+`builder.amount(sispAmount(input.amount))`; otherwise it calls `builder.full()`. The returned DTO amount
+is `input.amount` for a partial refund, or `sispMoney(transaction.amount, transaction.currency)` for a
+full refund - so a full refund reconstructs the precise stored transaction amount rather than echoing the
+request.
 
 ## Amounts
 

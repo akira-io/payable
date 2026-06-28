@@ -29,8 +29,8 @@ itself (see System boundaries below); the integrating application injects every 
 
 ## Key capabilities
 
-- **Providers**: Stripe and Paddle behind one `PaymentProvider` contract, via `StripeProvider` and
-  `PaddleProvider`.
+- **Providers**: Stripe, Paddle, and SISP (regional Cabo Verde / vinti4 redirect provider) behind
+  one `PaymentProvider` contract, via `StripeProvider`, `PaddleProvider`, and `SispProvider`.
 - **Billing**: checkout, subscriptions (trials, coupons, multiple items, swap/cancel/resume),
   one-off charges, refunds, invoices, and the customer billing portal. Available through the fluent
   builders and the actions `CreateSubscriptionAction`, `SwapSubscriptionAction`,
@@ -44,10 +44,11 @@ itself (see System boundaries below); the integrating application injects every 
 - **Reliability**: idempotency by default, an immutable audit log, and a transactional outbox.
   Available through `IdempotencyService`, `ExecuteIdempotentOperationAction`, `AuditService`, and
   `OutboxService`.
-- **Storage / queue**: Knex storage driver (`KnexStorageDriver`, `migrate`); synchronous
-  (`SyncQueueDriver`) or BullMQ (`BullMQQueueDriver`) queue driver.
+- **Storage / queue**: Knex storage driver (`KnexStorageDriver`, `migrate`) or Prisma storage
+  adapter (exported via `./prisma`); synchronous (`SyncQueueDriver`) or BullMQ
+  (`BullMQQueueDriver`) queue driver.
 - **HTTP adapters**: Express, Fastify, and NestJS, each on its own subpath export
-  (`./express`, `./fastify`, `./nest`).
+  (`./express`, `./fastify`, `./nest`). An MCP adapter (`./mcp`) exposes billing to AI clients.
 
 ## System boundaries - what it does NOT do
 

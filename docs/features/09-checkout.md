@@ -22,10 +22,12 @@ Fluent options on `SubscriptionBuilder`:
 | `quantity(n)` | Sets the primary line-item quantity (default `1`). |
 | `addItem(priceId, qty)` | Adds extra line items - used by `create()`, not by `checkout()`. |
 
-`checkout(request)` takes a `CheckoutRequest` (`{ successUrl, cancelUrl }`) and:
+`checkout(request)` takes a `CheckoutRequest` (`{ successUrl, cancelUrl, reference?, authorization? }`) and:
 
-1. Throws `PayableError` (`CHECKOUT_PRICE_REQUIRED`) if no price was set.
-2. Delegates to `CreateCheckoutPipeline` with `mode: 'subscription'`, a single line item
+1. Calls `assertAuthorized` with `CanCreateCheckoutPolicy`, gated when `deps.authorizationEnabled` is
+   true (otherwise a no-op).
+2. Throws `PayableError` (`CHECKOUT_PRICE_REQUIRED`) if no price was set.
+3. Delegates to `CreateCheckoutPipeline` with `mode: 'subscription'`, a single line item
    `{ priceId, quantity }`, the URLs, the `subscriptionName`, and the optional `trialDays`/`coupon`.
 
 Note: in subscription-mode checkout, only the primary price becomes the line item - `addItem(...)`
@@ -53,8 +55,8 @@ return redirect(session.url);
 | Method | Effect |
 | --- | --- |
 | `mode(mode)` | `'payment'` or `'subscription'` (default `'payment'`). |
-| `addPrice(priceId, qty)` | Appends a line item (default qty `1`). At least one is required. |
-| `create(request)` | Builds the session; throws `CHECKOUT_LINE_ITEMS_REQUIRED` if no line items. |
+| `addPrice(priceId, qty)` | Appends a line item (default qty `1`). At least one is required. Throws `CHECKOUT_INVALID_QUANTITY` for a non-positive-integer quantity. |
+| `create(request)` | Asserts `CanCreateCheckoutPolicy` (gated by `authorizationEnabled`), then builds the session; throws `CHECKOUT_LINE_ITEMS_REQUIRED` if no line items. |
 
 `CheckoutBuilder` does not accept `trialDays` or `coupon`; those are only set through the
 subscription builder. Its `subscriptionName` is fixed to `'default'`.
@@ -173,6 +175,7 @@ The output is a `CheckoutSessionDTO`:
 export interface CheckoutSessionDTO {
   id: string;
   url: string;
+  html?: string;
 }
 ```
 
@@ -193,9 +196,11 @@ locally later, when the provider's webhook is received and reconciled - see
 ## Policy
 
 `CanCreateCheckoutPolicy` authorizes against an `AuthorizationContext` (`allowed === true` and a
-non-empty `actorId`). It is **not yet wired into the checkout pipeline or builders** - no checkout code
-references it. Treat it as an available building block for integrators, not an enforced gate. See
-[11-charges-refunds.md](11-charges-refunds.md) for the same status across the other CRUD policies.
+non-empty `actorId`). All three builders - `CheckoutBuilder`, `RedirectCheckoutBuilder`, and
+`SubscriptionBuilder` - call `assertAuthorized` with `CanCreateCheckoutPolicy` before doing any work,
+gated when `deps.authorizationEnabled` is true. When authorization is disabled the call is a no-op, so
+integrators that do not opt in see no behavior change. See
+[11-charges-refunds.md](11-charges-refunds.md) for the same wiring across the other CRUD policies.
 
 ## Edge cases
 

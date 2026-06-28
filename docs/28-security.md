@@ -122,27 +122,41 @@ as a warning; it is never sent.
 ## Encryption at rest
 
 `NodeEncryptionDriver` (`src/infrastructure/encryption/node-encryption-driver.ts`) implements
-AES-256-GCM with a 12-byte IV and a 32-byte key:
+AES-256-GCM with a 12-byte IV and 32-byte keys, over a **keyring with key rotation**:
 
-- The constructor rejects an empty/whitespace key with `PayableError` code `ENCRYPTION_KEY_REQUIRED`.
+- **Keyring.** The constructor takes `keys: EncryptionKeyMaterial[]` (each `{ id, key, salt? }`) plus
+  an optional `activeKeyId`, or a legacy single `key`/`salt` pair (registered under the id
+  `default`). The active key is `activeKeyId`, falling back to the last key in the list. New
+  ciphertext is always written with the active key; any key in the ring can decrypt past values, so
+  rotating in a new active key keeps old data readable.
 - **Key handling.** A key matching `/^[0-9a-f]{64}$/i` (a raw 32-byte hex key) is used directly.
   Any other key is treated as a passphrase and a 32-byte key is derived via scrypt
   (`N = 2^16`, `r = 8`, `p = 1`), which **requires** an explicit non-empty `salt`; a missing or empty
-  salt throws `ENCRYPTION_SALT_REQUIRED`. (No SHA-256 key derivation.)
-- **Envelope.** `encrypt` produces `v1:base64(iv):base64(tag):base64(ciphertext)` with a random
-  12-byte IV per message; the version string `v1` is bound as the GCM AAD.
-- `decrypt` rejects malformed ciphertext (wrong part count, version, or empty parts) with
-  `ENCRYPTION_INVALID_CIPHERTEXT`; a failed decrypt or auth-tag check throws
+  salt throws `ENCRYPTION_SALT_REQUIRED`.
+- **Envelope.** `encrypt` produces `v1:<keyId>:base64(iv):base64(tag):base64(ciphertext)` with a
+  random 12-byte IV per message; the AAD is `v1:<keyId>`, binding both the version and the key id to
+  the ciphertext. `decrypt` reads the key id out of the envelope to select the matching key.
+- **Error codes.** An empty/whitespace key is rejected with `ENCRYPTION_KEY_REQUIRED`. An invalid
+  key id (not matching `/^[A-Za-z0-9._-]+$/`) throws `ENCRYPTION_KEY_ID_INVALID`. An `activeKeyId`
+  absent from the ring throws `ENCRYPTION_ACTIVE_KEY_UNKNOWN`. Decrypting an envelope whose key id is
+  not in the ring throws `ENCRYPTION_KEY_UNKNOWN`. Malformed ciphertext (wrong part count, version,
+  or empty parts) throws `ENCRYPTION_INVALID_CIPHERTEXT`; a failed decrypt or auth-tag check throws
   `ENCRYPTION_DECRYPT_FAILED`.
 - **Key generation.** `generateEncryptionKey()` returns a 32-byte raw hex key and is the preferred
   way to provision a key. `legacyDerivedSalt(key)` returns `sha256('payable.encryption.kdf.v1:' + key)`
   and exists **only** to recover data encrypted before explicit salts were required - use it as a
   migration/recovery aid, never for new deployments.
 
-When an `encryption` driver is configured (`PayableConfig.encryption`), the Knex webhook-event
-repository seals the stored headers before writing and opens them on read. Webhook headers are
-JSON-stringified, redacted, then encrypted at rest. Without an encryption driver, the same fields
-are stored in plaintext.
+When an `encryption` driver is configured (`PayableConfig.encryption`), it is passed to both webhook
+repositories (`src/infrastructure/storage/knex/knex-storage-driver.ts`):
+
+- The webhook-**event** repository seals the stored headers before writing and opens them on read
+  (headers are JSON-stringified, redacted, then encrypted at rest).
+- The webhook-**endpoint** repository seals the endpoint `secret` on write and opens it on read
+  (`knex-webhook-endpoint.repository.ts`). The `secret` column is `text` so it can hold the longer
+  sealed value.
+
+Without an encryption driver, the same fields are stored in plaintext.
 
 ## Header redaction for logging and storage
 

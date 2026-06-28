@@ -120,8 +120,8 @@ export interface IdempotencyStore {
   acquire(record, tenantId?): Promise<boolean>;
   takeOver(record, tenantId?): Promise<boolean>;
   put(record, tenantId?): Promise<void>;
-  markCompleted(key, response, tenantId?): Promise<void>;
-  markFailed(key, tenantId?): Promise<void>;
+  markCompleted(key, response, tenantId?, lockToken?, expiresAt?): Promise<void>;
+  markFailed(key, tenantId?, lockToken?, expiresAt?): Promise<void>;
 }
 ```
 
@@ -131,13 +131,25 @@ A record has `status` of `processing | completed | failed | expired`, the `reque
 ## Execution flow
 
 `IdempotencyService` (`src/application/services/idempotency/idempotency-service.ts`) ties it
-together. Service options: `lockTtlMs` (default `30_000`) and `retryFailed` (default `true`).
+together. Service options: `lockTtlMs` (default `30_000`), `retryFailed` (default `true`),
+`completedTtlMs` (default `86_400_000`), and `failedTtlMs` (default = `lockTtlMs`).
+
+Every key is scope-isolated. Before touching the store the service wraps the key as
+`${scope}:${key}` via `scopedKey()`, and `find`, `acquire`, `markCompleted`, and `markFailed` all
+operate on that scoped key. Two operations that resolve to the same raw key under different scopes
+never collide.
+
+`completedTtlMs` and `failedTtlMs` drive the `expiresAt` TTLs stamped on the stored record: a
+completed record's `expiresAt` is `now + completedTtlMs`, a failed record's is `now + failedTtlMs`.
+Once `expiresAt` passes the record reports the `expired` status path and no longer replays.
 
 `lockTtlMs` is the window before a held lock is considered stale. Set it comfortably above the
 slowest provider call so a long-running operation never lapses while in flight — a lapsed lock now
 fails closed (see above) rather than re-running. Any single execution can override the service
 default per operation with `lockTtlMs` on the `IdempotentExecution`, so a slow charge can claim a
-longer lock than a fast lookup without widening the window for everything.
+longer lock than a fast lookup without widening the window for everything. `retryFailed` is
+likewise overridable per execution (`execution.retryFailed ?? service default`), so one operation
+can opt out of retrying a failed record without changing the service-wide default.
 
 ```ts
 async execute<T>(execution: IdempotentExecution<T>): Promise<T> {
@@ -153,16 +165,19 @@ async execute<T>(execution: IdempotentExecution<T>): Promise<T> {
 
 ```ts
 if (!existing) return { handled: false };
+if (this.isExpired(existing)) return { handled: false };
 if (existing.requestHash !== requestHash) throw new IdempotencyConflictError(key);
 if (existing.status === 'completed') return { handled: true, value: existing.response as T };
 if (existing.status === 'processing' && this.isLocked(existing)) throw new IdempotencyInProgressError(key);
-if (existing.status === 'failed' && !this.retryFailed) throw new IdempotencyConflictError(key);
+if (existing.status === 'failed' && !retryFailed) throw new IdempotencyConflictError(key);
 return { handled: false };
 ```
 
+- **Expired record** → falls through and re-runs. The `isExpired` check comes **first**, before the
+  hash comparison, so an expired record bypasses the conflict guard entirely: a retry with a
+  *different* body does **not** throw, it re-runs the operation under the new request.
 - **Different request hash** → `IdempotencyConflictError`. This is the "same key, different body"
-  guard, and it is checked **before** anything else - even an `expired` record cannot bypass the
-  hash check.
+  guard, checked for any non-expired record before status is considered.
 - **Completed** → the cached `response` is replayed; the operation does **not** run again.
 - **Processing and still locked** → `IdempotencyInProgressError`. A concurrent run holds the lock.
 - **Failed with `retryFailed: false`** → `IdempotencyConflictError`.
@@ -259,7 +274,7 @@ Reusing `charge:2` with a different body throws `IdempotencyConflictError`.
 | ------------------------------------------------- | ---------------------------------------------------- |
 | Same key, same request, after completion          | Cached response replayed; `run` not called again     |
 | Same key, different request body                  | `IdempotencyConflictError` (checked before status)   |
-| Expired record, different request body            | Still `IdempotencyConflictError` - hash check first  |
+| Expired record, different request body            | Falls through and re-runs - expiry checked before hash |
 | Concurrent run, lock still held                   | `IdempotencyInProgressError`                         |
 | Concurrent acquire, two callers                   | One wins via `acquire`; loser replays or takes over  |
 | Stale `processing` lock (`lockedUntil` passed)    | Fails closed `IdempotencyInProgressError` by default |

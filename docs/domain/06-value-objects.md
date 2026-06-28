@@ -27,7 +27,7 @@ The amount must be an integer (`Number.isInteger`); a non-integer throws `TypeEr
 
 ### Construction and backing
 
-- `Money.of(minorAmount: number, currency: CurrencyCode): Money` - the only constructor (the real constructor is private).
+- `Money.of(minorAmount: number, currency: CurrencyInput): Money` - the only constructor (the real constructor is private).
 - The currency code is resolved through `CurrencyManager.resolve`, which normalizes it (see Currency below) and validates it against the dinero.js currency registry. The stored currency code is the canonical uppercase form:
 
 ```ts
@@ -42,7 +42,7 @@ Every operation returns a **new** `Money`; the receiver is never mutated. The tw
 
 ### Accessors
 
-- `amount(): number` - the minor-unit integer.
+- `amount(): number` - the minor-unit integer. Throws `RangeError` if the backing dinero scale no longer matches the currency exponent.
 - `currency(): CurrencyCode` - the normalized currency code.
 - `toJSON(): { amount, currency }` - serializes to the stored shape:
 
@@ -58,6 +58,7 @@ expect(Money.of(1099, 'EUR').toJSON()).toEqual({ amount: 1099, currency: 'EUR' }
 | `subtract(other)` | Difference, same currency. | Same currency required. |
 | `multiply(factor)` | Scale by an integer. | `factor` must be an integer, else `TypeError`. |
 | `divide(divisor)` | Integer division with **half-up rounding**, no floats. | `divisor` must be an integer; `0` throws `RangeError`. |
+| `percentage(basisPoints)` | Scale by basis points (`amount * bp / 10000`) computed in `bigint` with half-up rounding. | `basisPoints` must be an integer, else `TypeError`. |
 
 ```ts
 expect(Money.of(1099, 'EUR').add(Money.of(100, 'EUR')).amount()).toBe(1199);
@@ -74,6 +75,8 @@ expect(() => Money.of(100, 'USD').divide(0)).toThrow(RangeError);
 ```
 
 `divide` rounds the remainder with the rule `remainder * 2 >= d ? quotient + 1 : quotient`, applied to the absolute value and then re-signed, so `-1001 / 2` rounds to `-501` (away from zero on the .5 boundary).
+
+Every arithmetic op calls `assertSafeMinor` on its result and throws `RangeError` (`exceeds the safe integer range...`) when the minor-unit value would pass `Number.MAX_SAFE_INTEGER` - this is the **bigint overflow guard**. `percentage` does the scaling in `bigint` and only re-checks the safe-integer bound when converting the result back to a `number`.
 
 ### allocate
 
@@ -143,8 +146,9 @@ JPY has 0 decimal places, so `1000` minor units format as `¥1,000`; USD has 2, 
 | Function | Behavior |
 | --- | --- |
 | `supports(code)` | `true` if the code is a known currency. |
-| `resolve(code)` | Returns the `DineroCurrency`, or throws `RangeError` for an unknown code. |
+| `resolve(code)` | Returns the `DineroCurrency`, or throws `RangeError` (`Unsupported currency code: <code>`) for an unknown code. |
 | `precision(code)` | The currency's decimal exponent (number of minor-unit digits). |
+| `isDecimalBase(code)` | `true` when the currency's `base` is `10`; used by `Money.format` to pick decimal vs non-decimal rendering. |
 | `normalize(code)` | The canonical (uppercase) code. |
 
 ```ts
@@ -164,10 +168,10 @@ expect(() => CurrencyManager.resolve('ZZZ')).toThrow(RangeError);
 
 `src/domain/value-objects/idempotency-key.ts`. A validated, deterministic string key for safely retrying operations.
 
-- `IdempotencyKey.of(value)` - trims the input; throws `TypeError` on an empty/blank value.
+- `IdempotencyKey.of(value)` - trims the input; throws `TypeError` on an empty/blank value or when the result exceeds `MAX_KEY_LENGTH` (512 characters).
 - `toString()` and `equals(other)` for use and comparison.
 
-Domain builders produce **deterministic, collision-resistant** keys from typed parts. Each part is URL-encoded (`encodeURIComponent`) before being joined with `:`, so a value containing the separator cannot forge a different key.
+Domain builders produce **deterministic, collision-resistant** keys from typed parts. Each part is URL-encoded (`encodeURIComponent`) before being joined with `:`, so a value containing the separator cannot forge a different key. Every builder injects a leading tenant segment (the URL-encoded `tenantId`, or an empty segment when none is given). Amount segments must be safe integers - a non-`Number.isSafeInteger` amount throws `TypeError`.
 
 | Builder | Parts | Prefix |
 | --- | --- | --- |
@@ -175,14 +179,17 @@ Domain builders produce **deterministic, collision-resistant** keys from typed p
 | `forCharge` | `ChargeKeyParts` | `charge:` |
 | `forSubscription` | `SubscriptionKeyParts` | `subscription:` |
 | `forRefund` | `RefundKeyParts` | `refund:` |
+| `forSubscriptionOperation` | `SubscriptionOperationKeyParts` | `subscription:<operation>:` |
 | `forWebhook` | `WebhookKeyParts` | `webhook:` |
+| `forCustomer` | `BillableKeyParts` | `customer:` |
+| `forBillingPortal` | `BillableKeyParts` | `portal:` |
 
 ```ts
 IdempotencyKey.forCharge({
   provider: 'stripe', billableType: 'User', billableId: '1',
   reference: 'invoice_123', amount: 9900, currency: 'USD',
 }).toString();
-// => 'charge:stripe:User:1:invoice_123:9900:USD'
+// => 'charge::stripe:User:1:invoice_123:9900:USD' (empty tenant segment after 'charge:')
 
 IdempotencyKey.forWebhook({ provider: 'stripe', providerEventId: 'evt_1' }).toString();
 // => 'webhook:stripe:evt_1'

@@ -228,16 +228,20 @@ operates on the persisted, deduplicated record rather than trusting the dispatch
 side effects in order:
 
 1. **Reconcile local state.** `provider.reconcileSubscription(verified)` returns a subscription DTO
-   or `null`. If a DTO is returned and a local subscription exists for that provider id, the local
-   row is patched with `status`, `currentPeriodEnd`, `trialEndsAt`, and - when the status is
-   `canceled` - `endsAt`. If the provider returns `null` or there is no matching local
-   subscription, reconciliation is a no-op.
+   or `null`. If a DTO is returned and a local subscription exists for that provider id, the
+   transition is gated by `reconcileSubscriptionStatus(local.status, dto.status)`: the patch is
+   applied only when `reconciliation.applied` is `true`, and the persisted status is
+   `reconciliation.status` (validated by the state machine) **not** the raw `dto.status`. When
+   applied, the local row is patched with that `status`, `currentPeriodEnd`, `trialEndsAt`, and -
+   when the status is `canceled` - `endsAt`. If the provider returns `null`, there is no matching
+   local subscription, or the state machine rejects the transition, reconciliation is a no-op.
 2. **Audit log.** Writes an immutable entry with `action: webhook.<type>`, `actorType: 'provider'`,
-   `actorId: <providerName>`, `resourceType: 'webhook_event'`, `before: null`, `after: data`, and
-   the correlation id.
+   `actorId: <providerName>`, `resourceType: 'webhook_event'`, `before: null`, `after: data`,
+   `metadata: { normalizedType }`, and the correlation id.
 3. **Outbox.** If `normalizedType` is set, stages an outbox event of type `<normalizedType>.v1`
-   carrying `{ providerEventId, data }`. Unmapped events (normalizedType `null`) are stored and
-   processed but produce no outbox event.
+   carrying `{ providerEventId, data }` with `dedupeKey: webhook:<webhookEventId>:<normalizedType>`,
+   making the write idempotent across reprocessing. Unmapped events (normalizedType `null`) are
+   stored and processed but produce no outbox event.
 4. **Mark processed.** `webhookEvents.markStatus(id, 'processed', occurredAt)`.
 5. **Emit.** Emits `WebhookProcessedEvent` on the event bus with the correlation id.
 
@@ -349,9 +353,12 @@ export interface ReceiveWebhookResult {
 
 > The pipeline above covers **inbound** provider webhooks only. Outbound delivery to your own
 > endpoints is handled by `WebhookDeliveryService`
-> (`src/application/services/webhook-delivery/webhook-delivery-service.ts`), which resolves the
-> target host and blocks non-routable destinations before sending. See
-> [Security](../28-security.md) for the egress posture.
+> (`src/application/services/webhook-delivery/webhook-delivery-service.ts`). It resolves the target
+> host, validates every resolved IP, and then **pins** the socket to a validated address via a
+> custom `lookup` (`pinnedLookup`) so the connection cannot be re-resolved to a different host
+> between validation and connect - this defeats DNS rebinding. It also refuses redirects
+> (`redirect: 'manual'`; a `3xx` is treated as a failed, blocked delivery) so a target cannot bounce
+> the request to a non-routable host. See [Security](../28-security.md) for the egress posture.
 
 ---
 

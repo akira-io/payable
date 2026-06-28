@@ -30,6 +30,8 @@ const payment = await payable.customer(billable).charge({
 
 `ChargeAction.handle`:
 
+0. Calls `assertAuthorized` with `CanChargePolicy`, gated when `deps.authorizationEnabled` is true (a
+   no-op otherwise), using the optional `authorization` on the request.
 1. Requires the provider to be **charge capable** (`isChargeCapable`, i.e. it implements `charge`);
    otherwise throws `ProviderCapabilityNotSupportedError`.
 2. Requires a storage driver (`PAYMENT_STORAGE_REQUIRED`).
@@ -51,6 +53,7 @@ sequenceDiagram
     participant Provider
     participant Storage
     App->>Action: charge({ amount, reference, description })
+    Action->>Action: assertAuthorized (CanChargePolicy, if enabled)
     Action->>Action: assert charge-capable + storage
     Action->>Sync: handle(billable)
     Sync-->>Action: providerCustomerId
@@ -66,7 +69,8 @@ The provider returns a `ChargeResultDTO`: `{ providerPaymentId, status, amount }
 
 ## Refund
 
-`payable.refund(request)` runs `RefundPaymentAction`. The request is `RefundRequest`:
+`payable.refund(request, tenantId?)` runs `RefundPaymentAction`. The optional second argument
+`tenantId?: string | null` scopes the lookup when tenancy is in play. The request is `RefundRequest`:
 
 ```ts
 export interface RefundRequest {
@@ -92,6 +96,8 @@ await payable.refund({ paymentId: payment.id, amount: Money.of(4000, 'USD') });
 
 `RefundPaymentAction.handle`:
 
+0. Calls `assertAuthorized` with `CanRefundPaymentPolicy`, gated when `deps.authorizationEnabled` is
+   true (a no-op otherwise), using the request's optional `authorization`.
 1. Requires a storage driver (`PAYMENT_STORAGE_REQUIRED`).
 2. Loads the payment by id; throws `PayableError` (`PAYMENT_NOT_FOUND`) if it is missing or has no
    `providerPaymentId`.
@@ -105,8 +111,11 @@ await payable.refund({ paymentId: payment.id, amount: Money.of(4000, 'USD') });
 6. Asserts the provider's `refunds` capability via `assertProviderCapability`.
 7. Builds a deterministic key with `IdempotencyKey.forRefund` keyed by provider, provider payment id,
    amount (defaulting to the full payment amount), and currency.
-8. Calls `provider.refund({ providerPaymentId, amount, reason }, ctx)`.
-9. Persists a `refunds` row.
+8. Reserves capacity: in a transaction it creates a **pending** `refunds` row up-front and applies the
+   projected `refundedAmount`/`status` to the payment, holding the balance before the provider call.
+9. Calls `provider.refund({ providerPaymentId, amount, reason }, ctx)`. On a provider failure (or a
+   post-call currency mismatch) `releaseReservation` reverts the payment balance and flips the pending
+   refund row to `failed`.
 10. Recomputes `refundedAmount = payment.refundedAmount + dto.amount`. Using `PaymentStateMachine`, it
     transitions the payment to **refunded** when `refundedAmount >= payment.amount`, otherwise to
     **partially refunded**; then updates the payment's `refundedAmount` and `status`. A settlement-time
@@ -123,7 +132,9 @@ Refunds accumulate. Charging 9900 then refunding 4000 leaves the payment `partia
 
 ```mermaid
 flowchart TD
-    A[refund request] --> B{payment found?}
+    A[refund request] --> Z{authorized? - if enabled}
+    Z -- no --> ZE[authorization error]
+    Z -- yes --> B{payment found?}
     B -- no --> E[PAYMENT_NOT_FOUND]
     B -- yes --> R{succeeded or partially_refunded?}
     R -- no --> RN[PAYMENT_NOT_REFUNDABLE]
@@ -142,15 +153,16 @@ flowchart TD
 
 ## Policies
 
-`CanRefundPaymentPolicy`, `CanCreateCheckoutPolicy`, and `CanCreateSubscriptionPolicy` all authorize
-against an `AuthorizationContext`: `isAuthorized` returns `true` only when `allowed === true` and
-`actorId` is a non-empty string.
+`CanChargePolicy`, `CanRefundPaymentPolicy`, `CanCreateCheckoutPolicy`, and
+`CanCreateSubscriptionPolicy` all authorize against an `AuthorizationContext`: authorization succeeds
+only when `allowed === true` and `actorId` is a non-empty string.
 
-These policies are **defined but not yet wired** into `ChargeAction`, `RefundPaymentAction`, or the
-checkout pipeline - none of the actions or pipelines reference them, and only `CanReplayWebhookPolicy`
-is consumed (by `ReplayWebhookAction`). They are reusable authorization helpers for integrators to call
-in their own controllers; today the charge and refund paths perform no actor-level authorization of
-their own.
+These policies are now **enforced** at the front of their respective paths via `assertAuthorized`,
+gated by `deps.authorizationEnabled`: `ChargeAction` asserts `CanChargePolicy` (step 0) and
+`RefundPaymentAction` asserts `CanRefundPaymentPolicy` (step 0), each before any storage or provider
+work. When authorization is disabled the assertion is a no-op, so integrators that do not opt in see
+no behavior change. Callers pass the `AuthorizationContext` through the request's `authorization`
+field.
 
 ## Edge cases
 

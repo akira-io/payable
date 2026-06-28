@@ -20,15 +20,25 @@ export class PayableModule {
 
 `forRoot` returns a `DynamicModule` that registers:
 
-- `controllers: [PayableController]`
+- `controllers: [PayableController, PayableReadController]`
 - `providers`:
   - `{ provide: PAYABLE_INSTANCE, useValue: payable }`
   - `{ provide: PAYABLE_OPTIONS, useValue: options }`
   - `PayableExceptionFilter`
+  - `PayableAuthGuard`
+  - `options.authenticate`, only when supplied (so the guard class can be resolved from DI)
+
+The route handlers are split across two controllers: `PayableController` holds the write routes
+(webhooks, checkout, subscription management, customers create/update, refunds, products, prices),
+and `PayableReadController` holds the `GET` read routes (customers, invoices, payments,
+subscriptions, refunds).
 
 ```ts
 interface NestPayableOptions {
   webhookSignatureHeader?: string; // default: 'stripe-signature'
+  authenticate?: Type<CanActivate>; // optional guard class, resolved via PayableAuthGuard
+  resolveTenant?: (request: PayableHttpRequest) => string | null | undefined;
+  resolveAuthorization?: (request: PayableHttpRequest) => AuthorizationContext | undefined;
 }
 ```
 
@@ -169,11 +179,20 @@ It uses the same `STATUS_BY_CODE` table and `{ error, message }` body shape docu
 `error: 'INVALID_WEBHOOK_SIGNATURE'`, and a plain `TypeError` maps to 500 with
 `error: 'INTERNAL_ERROR'`.
 
-## No built-in authentication
+## Authentication
 
-The controller installs no guards. Checkout and subscription routes are unprotected; webhook routes
-are protected only by provider signature verification. Add NestJS guards and verify ownership of the
-billable yourself. See `docs/28-security.md`.
+The adapter ships `PayableAuthGuard`, applied to every route except the webhook routes (which are
+protected only by provider signature verification). The guard is a no-op unless you pass an
+`authenticate` guard class in `NestPayableOptions`: when set, `PayableAuthGuard` resolves that class
+from DI and delegates `canActivate` to it; when unset, it allows the request through. Webhook routes
+are never guarded.
+
+Pass your guard class via `authenticate` to authenticate the read and write routes, and verify
+ownership of the billable yourself. See `docs/28-security.md`.
+
+```ts
+PayableModule.forRoot(payable, { authenticate: ApiKeyGuard });
+```
 
 ## Module example
 

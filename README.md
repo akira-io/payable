@@ -34,7 +34,7 @@ bundle imports none of them. You install only what you use.
 ## Install
 
 ```sh
-npm install @akira-io/payable   # or: pnpm add / bun add
+bun add @akira-io/payable   # or: npm install / pnpm add
 ```
 
 Then add the optional peers for the features you use:
@@ -116,8 +116,8 @@ const payable = createPayable({ providers: { stripe: /* … */ }, storage });
 ```
 
 ```sh
-npx payable-prisma sync   # writes prisma/schema/payable.prisma
-npx prisma migrate dev    # you own migrations
+bunx payable-prisma sync   # writes prisma/schema/payable.prisma
+bunx prisma migrate dev    # you own migrations
 ```
 
 See [docs/persistence/21b-storage-prisma.md](docs/persistence/21b-storage-prisma.md) for the schema,
