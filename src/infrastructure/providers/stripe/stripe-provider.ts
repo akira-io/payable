@@ -105,12 +105,14 @@ export class StripeProvider
   capabilities(): ProviderCapabilities {
     return new Set([
       'checkout',
+      'charges',
       'subscriptions',
       'trials',
       'refunds',
       'coupons',
       'billingPortal',
       'invoicePdf',
+      'webhooks',
       'customers',
       'catalog',
     ]);

@@ -12,10 +12,21 @@ import {
 import { ProviderCapabilityNotSupportedError } from '../src/domain/errors/provider-capability-not-supported.error';
 import { Money } from '../src/domain/value-objects/money';
 import { PaddleProvider } from '../src/infrastructure/providers/paddle/paddle-provider';
+import {
+  SispProvider,
+  type SispProviderOptions,
+} from '../src/infrastructure/providers/sisp/sisp-provider';
+import { StripeProvider } from '../src/infrastructure/providers/stripe/stripe-provider';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
 
 const paddle = () => new PaddleProvider({ apiKey: 'k', webhookSecret: 'w' });
+const stripe = () => new StripeProvider({ secretKey: 'sk_test', webhookSecret: 'wh_test' });
+const sispOptions: SispProviderOptions = {
+  posId: '90000045',
+  posAutCode: 'aut-code',
+  database: { client: 'better-sqlite3', connection: { filename: ':memory:' } },
+};
 const paddleDeps = () =>
   ({ provider: paddle(), providerName: 'paddle', clock: new FakeClock() }) as BillingDependencies;
 const billable = { billableType: 'User', billableId: '1', email: 'user@example.com', name: 'User' };
@@ -67,5 +78,13 @@ describe('provider capability guard', () => {
   it('treats a provider that only lists invoices as not invoice-capable', () => {
     const partial = { name: 'partial', listInvoices: async () => [] } as unknown as PaymentProvider;
     expect(isInvoiceCapable(partial)).toBe(false);
+  });
+
+  it('declares charge and webhook capabilities for built-in providers that support them', () => {
+    expect(stripe().capabilities().has('charges')).toBe(true);
+    expect(stripe().capabilities().has('webhooks')).toBe(true);
+    expect(paddle().capabilities().has('charges')).toBe(false);
+    expect(paddle().capabilities().has('webhooks')).toBe(true);
+    expect(new SispProvider(sispOptions).capabilities().has('webhooks')).toBe(false);
   });
 });

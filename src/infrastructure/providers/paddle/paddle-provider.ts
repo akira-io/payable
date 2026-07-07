@@ -80,6 +80,7 @@ export class PaddleProvider implements PaymentProvider {
       'subscriptions',
       'refunds',
       'billingPortal',
+      'webhooks',
       'customers',
       'catalog',
     ]);

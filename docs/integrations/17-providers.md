@@ -69,7 +69,10 @@ assertCapableProvider(provider, 'customers', isCustomerCapable);
 // provider is now PaymentProvider & CustomerCapable
 ```
 
-Capabilities with no string in the set (charge, redirect callback) are gated by the guard alone.
+Some provider features are represented both ways: a known capability string for honest feature
+advertising and an optional interface for the callable methods. Examples include `charges`
+(`ChargeCapable`) and `webhooks` (`WebhookCapable`). Redirect callbacks remain guard-only because they
+model a provider-specific browser callback flow, not an asynchronous provider webhook.
 
 ### Capability matrix
 
@@ -81,9 +84,9 @@ Capabilities with no string in the set (charge, redirect callback) are gated by 
 | `catalog` | yes | yes | no |
 | `subscriptions` | yes | yes | no |
 | `billingPortal` | yes | yes | no |
-| webhooks (`WebhookCapable`) | yes | yes | no (uses redirect callback) |
+| `webhooks` (`WebhookCapable`) | yes | yes | no (uses redirect callback) |
 | `RedirectCallbackCapable` | no | no | yes |
-| `ChargeCapable` | yes | no | no |
+| `charges` (`ChargeCapable`) | yes | no | no |
 | `InvoiceCapable` | yes | no | no |
 
 ## The capabilities system
@@ -94,6 +97,7 @@ A provider declares the feature set it supports through `capabilities()`, which 
 ```ts
 export type ProviderCapability =
   | 'checkout'
+  | 'charges'
   | 'subscriptions'
   | 'trials'
   | 'refunds'
@@ -101,6 +105,7 @@ export type ProviderCapability =
   | 'billingPortal'
   | 'meteredBilling'
   | 'invoicePdf'
+  | 'webhooks'
   | 'customers'
   | 'catalog';
 
@@ -209,7 +214,7 @@ export class AcmeProvider implements PaymentProvider, CustomerCapable, ChargeCap
   readonly name = 'acme';
 
   capabilities() {
-    return new Set(['checkout', 'refunds', 'customers', 'x-acme-dunning']);
+    return new Set(['checkout', 'charges', 'refunds', 'customers', 'x-acme-dunning']);
   }
 
   async createCheckoutSession(input, ctx) { /* ...map to Acme hosted checkout... */ }

@@ -39,20 +39,23 @@ const payable = createPayable({ providers: { stripe }, /* storage, queue, ... */
 capabilities(): ProviderCapabilities {
   return new Set([
     'checkout',
+    'charges',
     'subscriptions',
     'trials',
     'refunds',
     'coupons',
     'billingPortal',
     'invoicePdf',
+    'webhooks',
     'customers',
     'catalog',
   ]);
 }
 ```
 
-Stripe supports everything except `meteredBilling` (absent from the set). It is the only built-in provider that implements
-`InvoiceCapable` (`listInvoices`, `downloadInvoicePdf`) and exposes `invoicePdf: true`.
+Stripe supports every current Payable provider capability except `meteredBilling` (absent from the
+set). It is the only built-in provider that implements `ChargeCapable`, `DirectSubscriptionCapable`,
+and `InvoiceCapable` (`listInvoices`, `downloadInvoicePdf`).
 
 ## Subscription handling
 
