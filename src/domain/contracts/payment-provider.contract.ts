@@ -71,6 +71,15 @@ export interface RedirectCallbackResult {
   status: PaymentStatus;
 }
 
+export interface PaymentWebhookReconciliation {
+  providerPaymentId: string;
+  status: PaymentStatus;
+}
+
+export interface PaymentWebhookCapable {
+  reconcilePayment(verified: VerifiedWebhook): PaymentWebhookReconciliation | null;
+}
+
 export interface RedirectCallbackCapable {
   verifyCallback(payload: Record<string, unknown>): boolean | Promise<boolean>;
   handleRedirectCallback(payload: Record<string, unknown>): Promise<RedirectCallbackResult>;
@@ -147,6 +156,12 @@ export function isRedirectCallbackCapable(
     typeof candidate.verifyCallback === 'function' &&
     typeof candidate.handleRedirectCallback === 'function'
   );
+}
+
+export function isPaymentWebhookCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & PaymentWebhookCapable {
+  return typeof (provider as Partial<PaymentWebhookCapable>).reconcilePayment === 'function';
 }
 
 export function isChargeCapable(

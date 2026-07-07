@@ -40,6 +40,7 @@ method or throws `ProviderCapabilityNotSupportedError`.
 | `CatalogCapable` | `createProduct`, `updateProduct`, `createPrice` | `isCatalogCapable(provider)` |
 | `SubscriptionManagementCapable` | `updateSubscription`, `cancelSubscription`, `resumeSubscription` | `isSubscriptionManagementCapable(provider)` |
 | `WebhookCapable` | `verifyWebhook(input)`, `reconcileSubscription(verified)` | `isWebhookCapable(provider)` |
+| `PaymentWebhookCapable` | `reconcilePayment(verified)` | `isPaymentWebhookCapable(provider)` |
 | `BillingPortalCapable` | `billingPortal(input, ctx)` | `isBillingPortalCapable(provider)` |
 | `RedirectCallbackCapable` | `verifyCallback(payload)`, `handleRedirectCallback(payload)` | `isRedirectCallbackCapable(provider)` |
 | `ChargeCapable` | `charge(input, ctx)` | `isChargeCapable(provider)` |
@@ -53,6 +54,9 @@ Notes on the non-obvious members:
   and the event `data`. A failed signature throws `InvalidWebhookSignatureError`.
 - `reconcileSubscription` is synchronous and pure. Given an already-verified webhook it returns a
   `SubscriptionDTO` when the normalized type starts with `subscription.`, otherwise `null`.
+- `PaymentWebhookCapable` is separate from `WebhookCapable`. It lets hosted-checkout providers map an
+  already-verified payment webhook to `{ providerPaymentId, status }` without forcing every
+  webhook-capable provider to implement payment reconciliation.
 - `RedirectCallbackCapable` models a synchronous browser-POST callback (SISP), not an asynchronous
   signed webhook. `handleRedirectCallback` returns a normalized `{ providerPaymentId, status }` the
   engine uses to reconcile a local payment. See [SISP](20-sisp.md).
@@ -86,6 +90,7 @@ callback flow, not an asynchronous provider webhook.
 | `subscriptions` | yes | yes | no |
 | `billingPortal` | yes | yes | no |
 | `webhooks` (`WebhookCapable`) | yes | yes | no (uses redirect callback) |
+| `PaymentWebhookCapable` | no | no | no |
 | `RedirectCallbackCapable` | no | no | yes |
 | `charges` (`ChargeCapable`) | yes | no | no |
 | `invoicePdf` (`InvoiceCapable`) | yes | no | no |
@@ -257,6 +262,8 @@ Constraints to honour:
 - `verifyWebhook` (if `WebhookCapable`) must throw `InvalidWebhookSignatureError` (not a generic error)
   on a bad signature so the webhook pipeline can reject it cleanly.
 - `reconcileSubscription` should return `null` for non-subscription events.
+- `PaymentWebhookCapable.reconcilePayment` should return `null` for non-payment events and should only
+  return statuses representable by the domain `PaymentStatus` value object.
 - Keep `capabilities()` honest. The engine trusts it to gate features; lying produces failures at the
   provider API instead of a clean `ProviderCapabilityNotSupportedError`.
 

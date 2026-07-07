@@ -113,6 +113,7 @@ export interface PaymentProvider {
 | `InvoiceCapable` | `listInvoices`, `downloadInvoicePdf` | `isInvoiceCapable` |
 | `BillingPortalCapable` | `billingPortal` | `isBillingPortalCapable` |
 | `WebhookCapable` | `verifyWebhook`, `reconcileSubscription` | `isWebhookCapable` |
+| `PaymentWebhookCapable` | `reconcilePayment` | `isPaymentWebhookCapable` |
 | `RedirectCallbackCapable` | `verifyCallback`, `handleRedirectCallback` | `isRedirectCallbackCapable` |
 
 Implementations: `StripeProvider` (charge, direct subscription, invoice, and more), `PaddleProvider`, and `SispProvider` (redirect-callback based). See [Providers](../integrations/17-providers.md) for the capability matrix.
