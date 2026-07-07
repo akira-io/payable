@@ -10,6 +10,7 @@ describe('public API surface', () => {
     expect(typeof payable.IdempotencyKey).toBe('function');
     expect(typeof payable.StripeProvider).toBe('function');
     expect(typeof payable.PaddleProvider).toBe('function');
+    expect(typeof payable.RevolutProvider).toBe('function');
     expect(typeof payable.KnexStorageDriver).toBe('function');
     expect(typeof payable.ok).toBe('function');
     expect(typeof payable.isChargeCapable).toBe('function');

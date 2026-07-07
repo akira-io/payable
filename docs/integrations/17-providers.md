@@ -2,7 +2,7 @@
 
 Every payment integration in `@akira-io/payable` is reduced to a single interface: `PaymentProvider`.
 The engine never talks to Stripe or Paddle directly. It talks to the contract, and concrete adapters
-translate domain DTOs into provider SDK calls and provider webhooks back into domain events. This keeps
+translate domain DTOs into provider SDK or API calls and provider webhooks back into domain events. This keeps
 the application and domain layers provider-agnostic and makes a new integration a matter of implementing
 one interface.
 
@@ -81,19 +81,19 @@ callback flow, not an asynchronous provider webhook.
 
 ### Capability matrix
 
-| Capability | Stripe | Paddle | SISP |
-| --- | --- | --- | --- |
-| `checkout` | yes | yes | yes (redirect form) |
-| `refunds` | yes | yes | yes |
-| `customers` | yes | yes | no (local-only customers) |
-| `catalog` | yes | yes | no |
-| `subscriptions` | yes | yes | no |
-| `billingPortal` | yes | yes | no |
-| `webhooks` (`WebhookCapable`) | yes | yes | no (uses redirect callback) |
-| `PaymentWebhookCapable` | yes | no | no |
-| `RedirectCallbackCapable` | no | no | yes |
-| `charges` (`ChargeCapable`) | yes | no | no |
-| `invoicePdf` (`InvoiceCapable`) | yes | no | no |
+| Capability | Stripe | Paddle | SISP | Revolut |
+| --- | --- | --- | --- | --- |
+| `checkout` | yes | yes | yes (redirect form) | yes (amount order) |
+| `refunds` | yes | yes | yes | yes (amount required) |
+| `customers` | yes | yes | no (local-only customers) | no |
+| `catalog` | yes | yes | no | no |
+| `subscriptions` | yes | yes | no | no |
+| `billingPortal` | yes | yes | no | no |
+| `webhooks` (`WebhookCapable`) | yes | yes | no (uses redirect callback) | yes |
+| `PaymentWebhookCapable` | yes | no | no | yes |
+| `RedirectCallbackCapable` | no | no | yes | no |
+| `charges` (`ChargeCapable`) | yes | no | no | no |
+| `invoicePdf` (`InvoiceCapable`) | yes | no | no | no |
 
 ## The capabilities system
 
@@ -212,6 +212,7 @@ flowchart TD
   Stripe --> StripeAPI[Stripe SDK]
   Paddle --> PaddleAPI[Paddle SDK]
   Sisp --> SispPkg["@akira-io/sisp (node-sisp)"]
+  Revolut --> RevolutAPI[Revolut Merchant API]
 ```
 
 ## Implementing a custom provider
