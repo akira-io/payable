@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { SyncCustomerWithProviderAction } from '../src/application/actions/customers/sync-customer-with-provider.action';
 import { DownloadInvoicePdfAction } from '../src/application/actions/invoices/download-invoice-pdf.action';
 import { ListInvoicesAction } from '../src/application/actions/invoices/list-invoices.action';
 import { ChargeAction } from '../src/application/actions/payments/charge.action';
@@ -115,5 +116,45 @@ describe('provider capability guard', () => {
       } as unknown as WebhookDependencies).handle({ payload: '{}', signature: 'sig' }),
     ).rejects.toBeInstanceOf(ProviderCapabilityNotSupportedError);
     expect(provider.lastVerifyInput).toBeUndefined();
+  });
+
+  it('blocks customer sync when the provider methods exist but the capability is not declared', async () => {
+    const provider = new FakeProvider();
+    provider.supportedCapabilities.delete('customers');
+
+    await expect(
+      new SyncCustomerWithProviderAction({
+        provider,
+        providerName: 'fake',
+        clock: new FakeClock(),
+      } as BillingDependencies).handle(billable),
+    ).rejects.toBeInstanceOf(ProviderCapabilityNotSupportedError);
+    expect(provider.createCustomerCalls).toBe(0);
+  });
+
+  it('blocks invoice listing when the provider methods exist but the capability is not declared', async () => {
+    const provider = new FakeProvider();
+    provider.supportedCapabilities.delete('invoicePdf');
+
+    await expect(
+      new ListInvoicesAction({
+        provider,
+        providerName: 'fake',
+        clock: new FakeClock(),
+      } as BillingDependencies).handle(billable),
+    ).rejects.toBeInstanceOf(ProviderCapabilityNotSupportedError);
+  });
+
+  it('blocks invoice PDF download when the provider methods exist but the capability is not declared', async () => {
+    const provider = new FakeProvider();
+    provider.supportedCapabilities.delete('invoicePdf');
+
+    await expect(
+      new DownloadInvoicePdfAction({
+        provider,
+        providerName: 'fake',
+        clock: new FakeClock(),
+      } as BillingDependencies).handle('in_fake'),
+    ).rejects.toBeInstanceOf(ProviderCapabilityNotSupportedError);
   });
 });
