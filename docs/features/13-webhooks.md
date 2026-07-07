@@ -227,14 +227,19 @@ operates on the persisted, deduplicated record rather than trusting the dispatch
 `ProcessWebhookPipeline` (`src/application/pipelines/webhooks/process-webhook.pipeline.ts`) runs the
 side effects in order:
 
-1. **Reconcile local state.** `provider.reconcileSubscription(verified)` returns a subscription DTO
-   or `null`. If a DTO is returned and a local subscription exists for that provider id, the
-   transition is gated by `reconcileSubscriptionStatus(local.status, dto.status)`: the patch is
-   applied only when `reconciliation.applied` is `true`, and the persisted status is
-   `reconciliation.status` (validated by the state machine) **not** the raw `dto.status`. When
-   applied, the local row is patched with that `status`, `currentPeriodEnd`, `trialEndsAt`, and -
-   when the status is `canceled` - `endsAt`. If the provider returns `null`, there is no matching
-   local subscription, or the state machine rejects the transition, reconciliation is a no-op.
+1. **Reconcile local state.** When the provider implements `PaymentWebhookCapable`,
+   `provider.reconcilePayment(verified)` can return a payment reconciliation DTO. If a local payment
+   exists for that provider payment id, `PaymentStateMachine.tryTransitionTo(dto.status)` gates the
+   status patch. Missing payments and invalid transitions are no-ops, so stale provider events cannot
+   move a final local payment back to a failed or pending state. Subscription reconciliation then runs
+   through `provider.reconcileSubscription(verified)`, which returns a subscription DTO or `null`. If a
+   DTO is returned and a local subscription exists for that provider id, the transition is gated by
+   `reconcileSubscriptionStatus(local.status, dto.status)`: the patch is applied only when
+   `reconciliation.applied` is `true`, and the persisted status is `reconciliation.status` (validated
+   by the state machine) **not** the raw `dto.status`. When applied, the local row is patched with that
+   `status`, `currentPeriodEnd`, `trialEndsAt`, and - when the status is `canceled` - `endsAt`. If the
+   provider returns `null`, there is no matching local subscription, or the state machine rejects the
+   transition, reconciliation is a no-op.
 2. **Audit log.** Writes an immutable entry with `action: webhook.<type>`, `actorType: 'provider'`,
    `actorId: <providerName>`, `resourceType: 'webhook_event'`, `before: null`, `after: data`,
    `metadata: { normalizedType }`, and the correlation id.

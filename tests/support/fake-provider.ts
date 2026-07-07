@@ -1,4 +1,7 @@
-import type { PaymentProvider } from '../../src/domain/contracts/payment-provider.contract';
+import type {
+  PaymentProvider,
+  PaymentWebhookReconciliation,
+} from '../../src/domain/contracts/payment-provider.contract';
 import type {
   BillingPortalDTO,
   BillingPortalInput,
@@ -51,6 +54,7 @@ export class FakeProvider implements PaymentProvider {
   verifyResult?: VerifiedWebhook;
   verifyError?: Error;
   reconcileResult?: SubscriptionDTO | null;
+  paymentReconcileResult?: PaymentWebhookReconciliation | null;
   lastVerifyInput?: WebhookVerificationInput;
   createdSubscriptions = 0;
   lastSubscriptionUpdate?: UpdateSubscriptionInput;
@@ -206,6 +210,10 @@ export class FakeProvider implements PaymentProvider {
 
   reconcileSubscription(): SubscriptionDTO | null {
     return this.reconcileResult ?? null;
+  }
+
+  reconcilePayment(): PaymentWebhookReconciliation | null {
+    return this.paymentReconcileResult ?? null;
   }
 
   async billingPortal(input: BillingPortalInput): Promise<BillingPortalDTO> {

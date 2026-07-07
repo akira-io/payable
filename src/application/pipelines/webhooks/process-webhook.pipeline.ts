@@ -1,9 +1,13 @@
-import { isWebhookCapable } from '../../../domain/contracts/payment-provider.contract';
+import {
+  isPaymentWebhookCapable,
+  isWebhookCapable,
+} from '../../../domain/contracts/payment-provider.contract';
 import type { Repositories } from '../../../domain/contracts/storage-driver.contract';
 import type { NewSubscription } from '../../../domain/contracts/subscription-repository.contract';
 import type { VerifiedWebhook } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { WebhookProcessedEvent } from '../../../domain/events/webhook-processed.event';
+import { PaymentStateMachine } from '../../../domain/states/payment-state-machine';
 import { reconcileSubscriptionStatus } from '../../../domain/states/subscription-state-machine';
 import type { WebhookDependencies } from '../../builders/webhook-dependencies';
 import { assertCapableProvider } from '../../services/provider-capabilities/assert-provider-capability';
@@ -88,10 +92,50 @@ export class ProcessWebhookPipeline {
     occurredAt: Date,
     tenantId: string | null,
   ): Promise<void> {
-    const { provider, providerName } = this.deps;
+    const { provider } = this.deps;
     if (!provider.capabilities().has('webhooks')) {
       return;
     }
+    assertCapableProvider(provider, 'webhooks', isWebhookCapable);
+    await this.reconcilePayment(repos, verified, tenantId);
+    await this.reconcileSubscription(repos, verified, occurredAt, tenantId);
+  }
+
+  private async reconcilePayment(
+    repos: Repositories,
+    verified: VerifiedWebhook,
+    tenantId: string | null,
+  ): Promise<void> {
+    const { provider, providerName } = this.deps;
+    if (!isPaymentWebhookCapable(provider)) {
+      return;
+    }
+    const dto = provider.reconcilePayment(verified);
+    if (!dto) {
+      return;
+    }
+    const local = await repos.payments.findByProviderId(
+      providerName,
+      dto.providerPaymentId,
+      tenantId,
+    );
+    if (!local) {
+      return;
+    }
+    const machine = new PaymentStateMachine(local.status);
+    if (!machine.tryTransitionTo(dto.status)) {
+      return;
+    }
+    await repos.payments.update(local.id, { status: machine.current() }, tenantId);
+  }
+
+  private async reconcileSubscription(
+    repos: Repositories,
+    verified: VerifiedWebhook,
+    occurredAt: Date,
+    tenantId: string | null,
+  ): Promise<void> {
+    const { provider, providerName } = this.deps;
     assertCapableProvider(provider, 'webhooks', isWebhookCapable);
     const dto = provider.reconcileSubscription(verified);
     if (!dto) {
