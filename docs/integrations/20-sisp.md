@@ -82,6 +82,19 @@ const payable = createPayable({
 `SispProviderOptions` is an alias for `@akira-io/sisp`'s `SispConfig`. Required: `posId`, `posAutCode`,
 `database`. Everything else is optional and forwarded verbatim to node-sisp.
 
+## Declared capabilities
+
+```ts
+capabilities(): ProviderCapabilities {
+  return new Set(['checkout', 'refunds']);
+}
+```
+
+SISP declares only the current Payable capabilities it supports directly. It does not declare
+`charges` because there is no server-to-server charge API; every payment starts through hosted
+checkout. It does not declare `webhooks` because vinti4 reconciliation is a browser callback handled
+through `RedirectCallbackCapable`, not an asynchronous signed provider webhook.
+
 ### Injecting a pre-built instance (tests / advanced)
 
 A second constructor argument accepts an already-created node-sisp instance (or a structural

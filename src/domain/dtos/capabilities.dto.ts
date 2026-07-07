@@ -1,5 +1,6 @@
 export type ProviderCapability =
   | 'checkout'
+  | 'charges'
   | 'subscriptions'
   | 'trials'
   | 'refunds'
@@ -7,6 +8,7 @@ export type ProviderCapability =
   | 'billingPortal'
   | 'meteredBilling'
   | 'invoicePdf'
+  | 'webhooks'
   | 'customers'
   | 'catalog';
 

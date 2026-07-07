@@ -33,13 +33,22 @@ type. The provider only depends on the methods it calls (`customers`, `products`
 
 ```ts
 capabilities(): ProviderCapabilities {
-  return new Set(['checkout', 'subscriptions', 'refunds', 'billingPortal', 'customers', 'catalog']);
+  return new Set([
+    'checkout',
+    'subscriptions',
+    'refunds',
+    'billingPortal',
+    'webhooks',
+    'customers',
+    'catalog',
+  ]);
 }
 ```
 
 ### Capability gaps versus Stripe
 
-Paddle's set omits `trials`, `coupons`, `meteredBilling`, and `invoicePdf`. The differences are:
+Paddle's set omits `charges`, `trials`, `coupons`, `meteredBilling`, and `invoicePdf`. The differences
+are:
 
 - **No `invoicePdf`** (Stripe declares it). Paddle does not implement `InvoiceCapable`, so there is no
   `listInvoices` / `downloadInvoicePdf`. `isInvoiceCapable(paddleProvider)` returns `false`.
