@@ -57,6 +57,11 @@ Stripe supports every current Payable provider capability except `meteredBilling
 set). It is the only built-in provider that implements `ChargeCapable`, `DirectSubscriptionCapable`,
 `InvoiceCapable` (`listInvoices`, `downloadInvoicePdf`), and `PaymentWebhookCapable`.
 
+## Checkout handling
+
+`createCheckoutSession` calls `checkout.sessions.create`. Payable checkout `reference` is forwarded
+as Stripe `client_reference_id`; idempotency still uses Stripe's request option.
+
 ## Subscription handling
 
 Subscription operations are delegated to `StripeSubscriptions`

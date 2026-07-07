@@ -92,14 +92,15 @@ The provider calls `POST /api/orders` with:
   "amount": 500,
   "currency": "GBP",
   "customer": { "id": "revolut_customer_id" },
+  "merchant_order_data": { "reference": "order-42" },
   "redirect_url": "https://shop.example/success"
 }
 ```
 
-`providerCustomerId` is sent as `customer.id`, which links the order to an existing Revolut customer
-without creating a duplicate profile. `lineItems` and Payable catalog price ids are not sent because
-the endpoint is amount-based. A payment checkout without `amount` throws `CHECKOUT_AMOUNT_REQUIRED`.
-The `POST /api/orders` spec does not declare `Idempotency-Key`, so the provider does not invent it.
+`providerCustomerId` is sent as `customer.id`; `reference` is sent as
+`merchant_order_data.reference`. `lineItems` and Payable catalog price ids are not sent because the
+endpoint is amount-based. A payment checkout without `amount` throws `CHECKOUT_AMOUNT_REQUIRED`. The
+`POST /api/orders` spec does not declare `Idempotency-Key`, so the provider does not invent it.
 
 ## Subscription Checkout
 

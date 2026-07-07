@@ -169,6 +169,7 @@ export class StripeProvider
       line_items: input.lineItems.map((item) => ({ price: item.priceId, quantity: item.quantity })),
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
+      client_reference_id: input.reference,
     };
     if (input.mode === 'subscription' && input.trialDays !== undefined) {
       params.subscription_data = { trial_period_days: input.trialDays };
