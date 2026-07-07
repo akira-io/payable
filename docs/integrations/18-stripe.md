@@ -111,6 +111,10 @@ methods. Every call forwards `ctx.idempotencyKey` to Stripe's `idempotencyKey` r
 Unmapped types normalize to `null`. The provider keeps the raw `type` alongside `normalizedType`, so an
 unrecognized event is still persisted, just not reconciled.
 
+Disputes, payouts, setup intents, payment methods, Connect, Treasury, Terminal, Issuing, Identity, and
+Financial Connections events remain intentionally unmapped until Payable has an approved generic
+optional capability for that domain.
+
 ## Webhook verification
 
 `StripeWebhookVerifier` (`stripe-webhook-verifier.ts`) wraps the SDK's async signature check:
