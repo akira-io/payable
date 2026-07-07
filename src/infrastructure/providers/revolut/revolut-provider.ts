@@ -1,9 +1,12 @@
 import { createHash } from 'node:crypto';
 import type { Logger } from '../../../domain/contracts/logger.contract';
 import type {
+  DirectSubscriptionCapable,
   PaymentProvider,
   PaymentWebhookCapable,
   PaymentWebhookReconciliation,
+  ResumeSubscriptionInput,
+  SubscriptionManagementCapable,
   WebhookCapable,
 } from '../../../domain/contracts/payment-provider.contract';
 import type { ProviderCapabilities } from '../../../domain/dtos/capabilities.dto';
@@ -13,19 +16,27 @@ import type {
 } from '../../../domain/dtos/checkout.dto';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.dto';
-import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
+import type {
+  CancelSubscriptionInput,
+  CreateSubscriptionInput,
+  SubscriptionDTO,
+  UpdateSubscriptionInput,
+} from '../../../domain/dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { revolutNetworkError, toRevolutPayableError } from './revolut-errors';
 import { RevolutEventNormalizer } from './revolut-event-normalizer';
 import { toRevolutCheckoutSessionDTO, toRevolutRefundResultDTO } from './revolut-mappers';
 import { reconcileRevolutPaymentWebhook } from './revolut-payment-webhook-reconciliation';
+import { reconcileRevolutSubscriptionWebhook } from './revolut-subscription-webhook-reconciliation';
+import { RevolutSubscriptions } from './revolut-subscriptions';
 import type {
   RevolutEnvironment,
   RevolutFetch,
   RevolutOrder,
   RevolutOrderCreationPayload,
   RevolutRefundPayload,
+  RevolutRequestOptions,
 } from './revolut-types';
 import { RevolutWebhookVerifier } from './revolut-webhook-verifier';
 
@@ -47,16 +58,20 @@ export interface RevolutProviderOptions {
   fetch?: RevolutFetch;
 }
 
-interface RevolutRequestOptions {
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
-  body?: unknown;
-  idempotencyKey?: string;
-}
-
-export class RevolutProvider implements PaymentProvider, WebhookCapable, PaymentWebhookCapable {
+export class RevolutProvider
+  implements
+    PaymentProvider,
+    WebhookCapable,
+    PaymentWebhookCapable,
+    DirectSubscriptionCapable,
+    SubscriptionManagementCapable
+{
   readonly name = 'revolut';
   private readonly normalizer: RevolutEventNormalizer;
   private readonly verifier: RevolutWebhookVerifier;
+  private readonly subscriptions = new RevolutSubscriptions((path, options) =>
+    this.request(path, options),
+  );
 
   constructor(private readonly options: RevolutProviderOptions) {
     this.normalizer = new RevolutEventNormalizer(options.logger);
@@ -72,15 +87,18 @@ export class RevolutProvider implements PaymentProvider, WebhookCapable, Payment
   }
 
   capabilities(): ProviderCapabilities {
-    return new Set(['checkout', 'refunds', 'webhooks']);
+    return new Set(['checkout', 'refunds', 'webhooks', 'subscriptions']);
   }
 
   async createCheckoutSession(
     input: CreateCheckoutSessionInput,
-    _ctx: OperationContext,
+    ctx: OperationContext,
   ): Promise<CheckoutSessionDTO> {
+    if (input.mode === 'subscription') {
+      return this.subscriptions.createCheckout(input, ctx);
+    }
     if (input.mode !== 'payment') {
-      throw new PayableError('Revolut only supports payment checkouts in this provider phase', {
+      throw new PayableError('Revolut checkout mode is unsupported', {
         code: 'PROVIDER_OPERATION_UNSUPPORTED',
         context: { provider: this.name, mode: input.mode },
       });
@@ -119,6 +137,34 @@ export class RevolutProvider implements PaymentProvider, WebhookCapable, Payment
     return toRevolutRefundResultDTO(order, input.amount);
   }
 
+  createSubscription(
+    input: CreateSubscriptionInput,
+    ctx: OperationContext,
+  ): Promise<SubscriptionDTO> {
+    return this.subscriptions.create(input, ctx);
+  }
+
+  updateSubscription(
+    input: UpdateSubscriptionInput,
+    ctx: OperationContext,
+  ): Promise<SubscriptionDTO> {
+    return this.subscriptions.update(input, ctx);
+  }
+
+  cancelSubscription(
+    input: CancelSubscriptionInput,
+    ctx: OperationContext,
+  ): Promise<SubscriptionDTO> {
+    return this.subscriptions.cancel(input, ctx);
+  }
+
+  resumeSubscription(
+    input: ResumeSubscriptionInput,
+    ctx: OperationContext,
+  ): Promise<SubscriptionDTO> {
+    return this.subscriptions.resume(input, ctx);
+  }
+
   async verifyWebhook(input: WebhookVerificationInput): Promise<VerifiedWebhook> {
     const payload = this.verifier.verify(input);
     return {
@@ -129,8 +175,8 @@ export class RevolutProvider implements PaymentProvider, WebhookCapable, Payment
     };
   }
 
-  reconcileSubscription(_verified: VerifiedWebhook): SubscriptionDTO | null {
-    return null;
+  reconcileSubscription(verified: VerifiedWebhook): SubscriptionDTO | null {
+    return reconcileRevolutSubscriptionWebhook(verified);
   }
 
   reconcilePayment(verified: VerifiedWebhook): PaymentWebhookReconciliation | null {
