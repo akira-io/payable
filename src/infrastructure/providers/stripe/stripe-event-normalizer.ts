@@ -13,6 +13,7 @@ const EVENT_MAP: Record<string, NormalizedEventName> = {
   'customer.subscription.resumed': 'subscription.resumed',
   'invoice.created': 'invoice.created',
   'invoice.paid': 'invoice.paid',
+  'invoice.payment_succeeded': 'invoice.paid',
   'invoice.payment_failed': 'invoice.payment_failed',
   'charge.refunded': 'refund.succeeded',
   'refund.created': 'refund.created',
