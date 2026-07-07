@@ -9,15 +9,28 @@ import {
 } from '../src/infrastructure/providers/stripe/stripe-provider';
 
 interface RecordedCall {
+  args: unknown[];
   params: unknown;
   options: { idempotencyKey?: string };
 }
 
 function fakeStripe() {
   const calls = new Map<string, RecordedCall>();
+  const requestOptions = (value: unknown): { idempotencyKey?: string } => {
+    if (typeof value !== 'object' || value === null || !('idempotencyKey' in value)) {
+      return {};
+    }
+    return value as { idempotencyKey?: string };
+  };
+  const requestParams = (args: unknown[]) => (args.length >= 3 ? args[1] : args[0]);
   const record =
-    (name: string, result: unknown) => (params: unknown, options: { idempotencyKey?: string }) => {
-      calls.set(name, { params, options });
+    (name: string, result: unknown) =>
+    (...args: unknown[]) => {
+      calls.set(name, {
+        args,
+        params: requestParams(args),
+        options: requestOptions(args.at(-1)),
+      });
       return Promise.resolve(result);
     };
   const client = {
@@ -43,6 +56,29 @@ function fakeStripe() {
         create: record('checkout.sessions.create', {
           id: 'cs_1',
           url: 'https://checkout.stripe.test/cs_1',
+        }),
+      },
+    },
+    paymentIntents: {
+      create: record('paymentIntents.create', {
+        id: 'pi_1',
+        status: 'succeeded',
+        amount: 9900,
+        currency: 'usd',
+      }),
+    },
+    refunds: {
+      create: record('refunds.create', {
+        id: 're_1',
+        status: 'succeeded',
+        amount: 9900,
+        currency: 'usd',
+      }),
+    },
+    billingPortal: {
+      sessions: {
+        create: record('billingPortal.sessions.create', {
+          url: 'https://billing.stripe.test/p',
         }),
       },
     },
@@ -79,6 +115,52 @@ describe('StripeProvider', () => {
     expect(dto).toEqual({ providerCustomerId: 'cus_1', email: 'user@example.com', name: 'User' });
     expect(calls.get('customers.create')?.options.idempotencyKey).toBe('idem-1');
     expect(calls.get('customers.create')?.params).toMatchObject({ email: 'user@example.com' });
+  });
+
+  it('forwards idempotency keys on Stripe write operations', async () => {
+    const { client, calls } = fakeStripe();
+    const instance = provider(client);
+
+    await instance.createCustomer(
+      { email: 'user@example.com', name: 'User', billableType: 'User', billableId: '1' },
+      ctx,
+    );
+    await instance.updateCustomer(
+      { providerCustomerId: 'cus_1', email: 'new@example.com', name: 'User' },
+      ctx,
+    );
+    await instance.createProduct({ name: 'Pro', active: true }, ctx);
+    await instance.updateProduct({ providerProductId: 'prod_1', name: 'Pro', active: false }, ctx);
+    await instance.createPrice(
+      { providerProductId: 'prod_1', unitAmount: Money.of(9900, 'USD') },
+      ctx,
+    );
+    await instance.createCheckoutSession(
+      {
+        providerCustomerId: 'cus_1',
+        mode: 'payment',
+        lineItems: [{ priceId: 'price_1', quantity: 1 }],
+        successUrl: 'https://app.test/s',
+        cancelUrl: 'https://app.test/c',
+      },
+      ctx,
+    );
+    await instance.charge({ amount: Money.of(9900, 'USD') }, ctx);
+    await instance.refund({ providerPaymentId: 'pi_1', amount: Money.of(9900, 'USD') }, ctx);
+    await instance.billingPortal(
+      { providerCustomerId: 'cus_1', returnUrl: 'https://app.test/account' },
+      ctx,
+    );
+
+    expect(calls.get('customers.create')?.options.idempotencyKey).toBe('idem-1');
+    expect(calls.get('customers.update')?.options.idempotencyKey).toBe('idem-1');
+    expect(calls.get('products.create')?.options.idempotencyKey).toBe('idem-1');
+    expect(calls.get('products.update')?.options.idempotencyKey).toBe('idem-1');
+    expect(calls.get('prices.create')?.options.idempotencyKey).toBe('idem-1');
+    expect(calls.get('checkout.sessions.create')?.options.idempotencyKey).toBe('idem-1');
+    expect(calls.get('paymentIntents.create')?.options.idempotencyKey).toBe('idem-1');
+    expect(calls.get('refunds.create')?.options.idempotencyKey).toBe('idem-1');
+    expect(calls.get('billingPortal.sessions.create')?.options.idempotencyKey).toBe('idem-1');
   });
 
   it('converts Money at the price boundary', async () => {

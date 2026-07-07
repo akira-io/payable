@@ -34,8 +34,29 @@ describe('StripeEventNormalizer', () => {
   it('maps provider event types to internal names', () => {
     const normalizer = new StripeEventNormalizer();
     expect(normalizer.normalize('checkout.session.completed')).toBe('checkout.completed');
+    expect(normalizer.normalize('payment_intent.succeeded')).toBe('payment.succeeded');
+    expect(normalizer.normalize('payment_intent.payment_failed')).toBe('payment.failed');
+    expect(normalizer.normalize('customer.created')).toBe('customer.created');
+    expect(normalizer.normalize('customer.updated')).toBe('customer.updated');
+    expect(normalizer.normalize('customer.subscription.created')).toBe('subscription.created');
+    expect(normalizer.normalize('customer.subscription.updated')).toBe('subscription.updated');
     expect(normalizer.normalize('customer.subscription.deleted')).toBe('subscription.cancelled');
+    expect(normalizer.normalize('customer.subscription.resumed')).toBe('subscription.resumed');
+    expect(normalizer.normalize('invoice.created')).toBe('invoice.created');
+    expect(normalizer.normalize('invoice.paid')).toBe('invoice.paid');
+    expect(normalizer.normalize('invoice.payment_failed')).toBe('invoice.payment_failed');
+    expect(normalizer.normalize('charge.refunded')).toBe('refund.succeeded');
+    expect(normalizer.normalize('refund.created')).toBe('refund.created');
+    expect(normalizer.normalize('refund.failed')).toBe('refund.failed');
     expect(normalizer.normalize('unknown.event')).toBeNull();
+  });
+
+  it('keeps unapproved optional capability events unmapped', () => {
+    const normalizer = new StripeEventNormalizer();
+
+    expect(normalizer.normalize('charge.dispute.created')).toBeNull();
+    expect(normalizer.normalize('payout.paid')).toBeNull();
+    expect(normalizer.normalize('setup_intent.succeeded')).toBeNull();
   });
 
   it('logs a warning on an unmapped event type', () => {

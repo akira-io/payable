@@ -59,6 +59,12 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Pin node-gyp for Node 20 native builds
+        if: ${{ matrix.node-version == 20 }}
+        run: |
+          npm install --global node-gyp@12.1.0
+          node-gyp --version
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 

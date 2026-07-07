@@ -14,9 +14,11 @@ import type {
 } from '../src/infrastructure/providers/paddle/paddle-types';
 import { withStripeErrors } from '../src/infrastructure/providers/stripe/stripe-errors';
 import {
+  toChargeResultDTO as toStripeChargeResultDTO,
   toCustomerDTO as toStripeCustomerDTO,
   toInvoiceDTO as toStripeInvoiceDTO,
   toPriceDTO as toStripePriceDTO,
+  toRefundResultDTO as toStripeRefundResultDTO,
   toSubscriptionDTO as toStripeSubscriptionDTO,
 } from '../src/infrastructure/providers/stripe/stripe-mappers';
 
@@ -255,6 +257,67 @@ describe('stripe invoice mapping', () => {
       currency: 'usd',
     } as unknown as Stripe.Invoice);
     expect(dto.status).toBe('draft');
+  });
+});
+
+describe('stripe payment intent mapping', () => {
+  it('maps modern payment intent statuses to domain statuses', () => {
+    const succeeded = toStripeChargeResultDTO({
+      id: 'pi_succeeded',
+      status: 'succeeded',
+      amount: 100,
+      currency: 'usd',
+    } as Stripe.PaymentIntent);
+    const processing = toStripeChargeResultDTO({
+      id: 'pi_processing',
+      status: 'processing',
+      amount: 100,
+      currency: 'usd',
+    } as Stripe.PaymentIntent);
+    const requiresAction = toStripeChargeResultDTO({
+      id: 'pi_action',
+      status: 'requires_action',
+      amount: 100,
+      currency: 'usd',
+    } as Stripe.PaymentIntent);
+    const unknown = toStripeChargeResultDTO({
+      id: 'pi_unknown',
+      status: 'requires_mandate',
+      amount: 100,
+      currency: 'usd',
+    } as unknown as Stripe.PaymentIntent);
+
+    expect(succeeded.status).toBe('succeeded');
+    expect(processing.status).toBe('processing');
+    expect(requiresAction.status).toBe('pending');
+    expect(unknown.status).toBe('pending');
+  });
+});
+
+describe('stripe refund mapping', () => {
+  it('maps modern refund statuses to domain statuses', () => {
+    const succeeded = toStripeRefundResultDTO({
+      id: 're_succeeded',
+      status: 'succeeded',
+      amount: 100,
+      currency: 'usd',
+    } as Stripe.Refund);
+    const requiresAction = toStripeRefundResultDTO({
+      id: 're_action',
+      status: 'requires_action',
+      amount: 100,
+      currency: 'usd',
+    } as Stripe.Refund);
+    const unknown = toStripeRefundResultDTO({
+      id: 're_unknown',
+      status: 'new_status',
+      amount: 100,
+      currency: 'usd',
+    } as unknown as Stripe.Refund);
+
+    expect(succeeded.status).toBe('succeeded');
+    expect(requiresAction.status).toBe('pending');
+    expect(unknown.status).toBe('pending');
   });
 });
 
