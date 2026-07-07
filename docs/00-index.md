@@ -38,6 +38,12 @@ tree.
 19. [integrations/19-paddle.md](integrations/19-paddle.md) - The Paddle provider, webhook verifier, and normalizer.
 20. [integrations/20-sisp.md](integrations/20-sisp.md) - The SISP (Cabo Verde / vinti4) provider: redirect checkout, callback reconciliation, and the optional `@akira-io/payable/sisp` subpath.
 
+## Provider Roadmap
+
+- [providers/provider-capability-analysis.md](providers/provider-capability-analysis.md) - Generic capability taxonomy and Stripe/Revolut comparison.
+- [stripe/stripe-provider-analysis.md](stripe/stripe-provider-analysis.md) - Current StripeProvider state, gaps, risks, and safe evolution path.
+- [revolut/revolut-provider-analysis.md](revolut/revolut-provider-analysis.md) - Revolut Merchant and Business API fit analysis.
+
 ## Persistence
 
 21. [persistence/21-storage-knex.md](persistence/21-storage-knex.md) - The Knex storage driver, repositories, and migrations.
