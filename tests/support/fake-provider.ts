@@ -66,12 +66,14 @@ export class FakeProvider implements PaymentProvider {
   refundCalls = 0;
   readonly supportedCapabilities = new Set<ProviderCapabilityValue>([
     'checkout',
+    'charges',
     'subscriptions',
     'trials',
     'refunds',
     'coupons',
     'billingPortal',
     'invoicePdf',
+    'webhooks',
     'customers',
     'catalog',
   ]);

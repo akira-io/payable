@@ -3,7 +3,9 @@ import { DownloadInvoicePdfAction } from '../src/application/actions/invoices/do
 import { ListInvoicesAction } from '../src/application/actions/invoices/list-invoices.action';
 import { ChargeAction } from '../src/application/actions/payments/charge.action';
 import { CreateSubscriptionAction } from '../src/application/actions/subscriptions/create-subscription.action';
+import { ReceiveWebhookAction } from '../src/application/actions/webhooks/receive-webhook.action';
 import type { BillingDependencies } from '../src/application/builders/billing-dependencies';
+import type { WebhookDependencies } from '../src/application/builders/webhook-dependencies';
 import { assertProviderCapability } from '../src/application/services/provider-capabilities/assert-provider-capability';
 import {
   isInvoiceCapable,
@@ -86,5 +88,32 @@ describe('provider capability guard', () => {
     expect(paddle().capabilities().has('charges')).toBe(false);
     expect(paddle().capabilities().has('webhooks')).toBe(true);
     expect(new SispProvider(sispOptions).capabilities().has('webhooks')).toBe(false);
+  });
+
+  it('blocks charge when the provider method exists but the capability is not declared', async () => {
+    const provider = new FakeProvider();
+    provider.supportedCapabilities.delete('charges');
+
+    await expect(
+      new ChargeAction({ provider, providerName: 'fake', clock: new FakeClock() }).handle({
+        billable,
+        amount: Money.of(100, 'USD'),
+      }),
+    ).rejects.toBeInstanceOf(ProviderCapabilityNotSupportedError);
+    expect(provider.chargeCalls).toBe(0);
+  });
+
+  it('blocks webhook receipt when the provider method exists but the capability is not declared', async () => {
+    const provider = new FakeProvider();
+    provider.supportedCapabilities.delete('webhooks');
+    provider.verifyError = new Error('verifyWebhook should not be called');
+
+    await expect(
+      new ReceiveWebhookAction({
+        provider,
+        providerName: 'fake',
+      } as unknown as WebhookDependencies).handle({ payload: '{}', signature: 'sig' }),
+    ).rejects.toBeInstanceOf(ProviderCapabilityNotSupportedError);
+    expect(provider.lastVerifyInput).toBeUndefined();
   });
 });

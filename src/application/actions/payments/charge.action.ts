@@ -2,7 +2,6 @@ import { isChargeCapable } from '../../../domain/contracts/payment-provider.cont
 import type { Payment } from '../../../domain/entities/payment.entity';
 import { CustomerNotFoundError } from '../../../domain/errors/customer-not-found.error';
 import { PayableError } from '../../../domain/errors/payable-error';
-import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { Money } from '../../../domain/value-objects/money';
@@ -11,6 +10,7 @@ import type { BillingDependencies } from '../../builders/billing-dependencies';
 import { assertAuthorized } from '../../policies/assert-authorized';
 import type { AuthorizationContext } from '../../policies/authorization-context';
 import { CanChargePolicy } from '../../policies/can-charge.policy';
+import { assertCapableProvider } from '../../services/provider-capabilities/assert-provider-capability';
 import { SyncCustomerWithProviderAction } from '../customers/sync-customer-with-provider.action';
 
 export interface ChargeActionInput {
@@ -35,9 +35,7 @@ export class ChargeAction {
       'charge',
     );
     const provider = this.deps.provider;
-    if (!isChargeCapable(provider)) {
-      throw new ProviderCapabilityNotSupportedError(provider.name, 'charge');
-    }
+    assertCapableProvider(provider, 'charges', isChargeCapable);
     const storage = this.deps.storage;
     if (!storage) {
       throw new PayableError('Charging requires a storage driver', {

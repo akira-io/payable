@@ -59,8 +59,8 @@ Notes on the non-obvious members:
 
 ### Narrowing helper
 
-For capabilities that are also declared in the `ProviderCapabilities` set (customers, catalog,
-subscriptions, billingPortal), the engine uses `assertCapableProvider`
+For capabilities that are also declared in the `ProviderCapabilities` set and backed by optional
+interfaces, the engine uses `assertCapableProvider`
 (`src/application/services/provider-capabilities/assert-provider-capability.ts`), which checks the set
 **and** narrows the type in one step:
 
@@ -152,8 +152,10 @@ write APIs:
 - **`customers`** guards `payable.customers().create(...)` and `.update(...)`. A read with `.get(...)`
   comes from local storage and is not gated.
 - **`catalog`** guards `payable.products().create(...) / .update(...)` and `payable.prices().create(...)`.
+- **`charges`** guards direct charge creation before the provider is called.
+- **`webhooks`** guards webhook receipt before signature verification is delegated to the provider.
 
-A provider whose set omits either rejects the corresponding manager call with
+A provider whose set omits a required capability rejects the corresponding operation with
 `PROVIDER_CAPABILITY_NOT_SUPPORTED` (HTTP 422) before any network call.
 
 ## The provider registry
