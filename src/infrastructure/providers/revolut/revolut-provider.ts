@@ -129,6 +129,7 @@ export class RevolutProvider
     const body: RevolutOrderCreationPayload = {
       amount: input.amount.amount(),
       currency: input.amount.currency(),
+      customer: { id: input.providerCustomerId },
       redirect_url: input.successUrl,
     };
     const order = await this.request<RevolutOrder>('/api/orders', { method: 'POST', body });

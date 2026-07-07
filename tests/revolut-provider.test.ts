@@ -90,7 +90,7 @@ describe('RevolutProvider', () => {
 
     const dto = await provider(fetch).createCheckoutSession(
       {
-        providerCustomerId: 'local-1',
+        providerCustomerId: 'f757b068-f287-43c8-8d05-9c073fecbe73',
         mode: 'payment',
         lineItems: [],
         successUrl: 'https://shop.test/success',
@@ -111,6 +111,7 @@ describe('RevolutProvider', () => {
       body: {
         amount: 500,
         currency: 'GBP',
+        customer: { id: 'f757b068-f287-43c8-8d05-9c073fecbe73' },
         redirect_url: 'https://shop.test/success',
       },
     });

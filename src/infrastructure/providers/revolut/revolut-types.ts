@@ -39,6 +39,7 @@ export interface RevolutOrder {
 export interface RevolutOrderCreationPayload {
   amount: number;
   currency: string;
+  customer?: { id: string };
   redirect_url?: string;
 }
 

@@ -91,16 +91,15 @@ The provider calls `POST /api/orders` with:
 {
   "amount": 500,
   "currency": "GBP",
+  "customer": { "id": "revolut_customer_id" },
   "redirect_url": "https://shop.example/success"
 }
 ```
 
-`lineItems` and Payable catalog price ids are not sent to Revolut in this phase because the Merchant
-order endpoint is amount-based. A payment checkout without `amount` throws `CHECKOUT_AMOUNT_REQUIRED`.
-
-The OpenAPI spec for `POST /api/orders` does not declare `Idempotency-Key`, so the provider does not
-invent that header for order creation. Payable's own idempotency layer still deduplicates the local
-checkout operation.
+`providerCustomerId` is sent as `customer.id`, which links the order to an existing Revolut customer
+without creating a duplicate profile. `lineItems` and Payable catalog price ids are not sent because
+the endpoint is amount-based. A payment checkout without `amount` throws `CHECKOUT_AMOUNT_REQUIRED`.
+The `POST /api/orders` spec does not declare `Idempotency-Key`, so the provider does not invent it.
 
 ## Subscription Checkout
 
