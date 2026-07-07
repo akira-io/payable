@@ -1,7 +1,7 @@
 import type Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
-import { toChargeResultDTO } from '../src/infrastructure/providers/stripe/stripe-mappers';
 import type { PaymentStatus } from '../src/domain/value-objects/payment-status';
+import { toChargeResultDTO } from '../src/infrastructure/providers/stripe/stripe-mappers';
 
 describe('stripe payment intent mapper', () => {
   it('maps every official payment intent status to a domain status', () => {
