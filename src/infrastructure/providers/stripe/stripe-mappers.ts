@@ -15,7 +15,7 @@ import type { RefundStatus } from '../../../domain/value-objects/refund-status';
 import { isSubscriptionStatus } from '../../../domain/value-objects/subscription-status';
 import { stripeMoney } from './stripe-amounts';
 
-const PAYMENT_STATUS: Record<string, PaymentStatus> = {
+const PAYMENT_STATUS = {
   succeeded: 'succeeded',
   processing: 'processing',
   canceled: 'canceled',
@@ -23,7 +23,7 @@ const PAYMENT_STATUS: Record<string, PaymentStatus> = {
   requires_confirmation: 'pending',
   requires_action: 'pending',
   requires_capture: 'pending',
-};
+} satisfies Record<Stripe.PaymentIntent.Status, PaymentStatus>;
 
 const REFUND_STATUS: Record<string, RefundStatus> = {
   succeeded: 'succeeded',
