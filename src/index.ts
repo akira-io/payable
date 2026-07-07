@@ -154,6 +154,11 @@ export {
   PaddleProvider,
   type PaddleProviderOptions,
 } from './infrastructure/providers/paddle/paddle-provider';
+export {
+  REVOLUT_MERCHANT_API_VERSION,
+  RevolutProvider,
+  type RevolutProviderOptions,
+} from './infrastructure/providers/revolut/revolut-provider';
 export { StripeEventNormalizer } from './infrastructure/providers/stripe/stripe-event-normalizer';
 export {
   StripeProvider,
