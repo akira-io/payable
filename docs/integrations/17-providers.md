@@ -90,7 +90,7 @@ callback flow, not an asynchronous provider webhook.
 | `subscriptions` | yes | yes | no |
 | `billingPortal` | yes | yes | no |
 | `webhooks` (`WebhookCapable`) | yes | yes | no (uses redirect callback) |
-| `PaymentWebhookCapable` | no | no | no |
+| `PaymentWebhookCapable` | yes | no | no |
 | `RedirectCallbackCapable` | no | no | yes |
 | `charges` (`ChargeCapable`) | yes | no | no |
 | `invoicePdf` (`InvoiceCapable`) | yes | no | no |
