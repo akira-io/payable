@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { Logger } from '../../../domain/contracts/logger.contract';
 import type {
+  CustomerCapable,
   DirectSubscriptionCapable,
   PaymentProvider,
   PaymentWebhookCapable,
@@ -15,6 +16,11 @@ import type {
   CreateCheckoutSessionInput,
 } from '../../../domain/dtos/checkout.dto';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
+import type {
+  CreateCustomerInput,
+  CustomerDTO,
+  UpdateCustomerInput,
+} from '../../../domain/dtos/customer.dto';
 import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type {
   CancelSubscriptionInput,
@@ -24,6 +30,7 @@ import type {
 } from '../../../domain/dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
+import { RevolutCustomers } from './revolut-customers';
 import { revolutNetworkError, toRevolutPayableError } from './revolut-errors';
 import { RevolutEventNormalizer } from './revolut-event-normalizer';
 import { toRevolutCheckoutSessionDTO, toRevolutRefundResultDTO } from './revolut-mappers';
@@ -63,12 +70,14 @@ export class RevolutProvider
     PaymentProvider,
     WebhookCapable,
     PaymentWebhookCapable,
+    CustomerCapable,
     DirectSubscriptionCapable,
     SubscriptionManagementCapable
 {
   readonly name = 'revolut';
   private readonly normalizer: RevolutEventNormalizer;
   private readonly verifier: RevolutWebhookVerifier;
+  private readonly customers = new RevolutCustomers((path, options) => this.request(path, options));
   private readonly subscriptions = new RevolutSubscriptions((path, options) =>
     this.request(path, options),
   );
@@ -87,7 +96,15 @@ export class RevolutProvider
   }
 
   capabilities(): ProviderCapabilities {
-    return new Set(['checkout', 'refunds', 'webhooks', 'subscriptions']);
+    return new Set(['checkout', 'refunds', 'webhooks', 'customers', 'subscriptions']);
+  }
+
+  createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
+    return this.customers.create(input, ctx);
+  }
+
+  updateCustomer(input: UpdateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
+    return this.customers.update(input, ctx);
   }
 
   async createCheckoutSession(

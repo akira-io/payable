@@ -1,10 +1,11 @@
 import type { CheckoutSessionDTO } from '../../../domain/dtos/checkout.dto';
+import type { CustomerDTO } from '../../../domain/dtos/customer.dto';
 import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import type { RefundStatus } from '../../../domain/value-objects/refund-status';
 import type { SubscriptionStatus } from '../../../domain/value-objects/subscription-status';
-import type { RevolutOrder, RevolutSubscription } from './revolut-types';
+import type { RevolutCustomer, RevolutOrder, RevolutSubscription } from './revolut-types';
 
 const REFUND_STATUS_BY_STATE: Record<string, RefundStatus> = {
   pending: 'pending',
@@ -32,6 +33,14 @@ export function toRevolutCheckoutSessionDTO(order: RevolutOrder): CheckoutSessio
     });
   }
   return { id: order.id, url: order.checkout_url };
+}
+
+export function toRevolutCustomerDTO(customer: RevolutCustomer): CustomerDTO {
+  return {
+    providerCustomerId: customer.id,
+    email: customer.email ?? null,
+    name: customer.full_name ?? null,
+  };
 }
 
 export function toRevolutSubscriptionDTO(subscription: RevolutSubscription): SubscriptionDTO {
