@@ -15,4 +15,10 @@ describe('StripeEventNormalizer', () => {
       'checkout.completed',
     );
   });
+
+  it('normalizes failed asynchronous checkout payment events as failed payments', () => {
+    const normalizer = new StripeEventNormalizer();
+
+    expect(normalizer.normalize('checkout.session.async_payment_failed')).toBe('payment.failed');
+  });
 });
