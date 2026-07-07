@@ -70,9 +70,10 @@ assertCapableProvider(provider, 'customers', isCustomerCapable);
 ```
 
 Some provider features are represented both ways: a known capability string for honest feature
-advertising and an optional interface for the callable methods. Examples include `charges`
-(`ChargeCapable`) and `webhooks` (`WebhookCapable`). Redirect callbacks remain guard-only because they
-model a provider-specific browser callback flow, not an asynchronous provider webhook.
+advertising and an optional interface for the callable methods. Examples include `customers`
+(`CustomerCapable`), `invoicePdf` (`InvoiceCapable`), `charges` (`ChargeCapable`), and `webhooks`
+(`WebhookCapable`). Redirect callbacks remain guard-only because they model a provider-specific browser
+callback flow, not an asynchronous provider webhook.
 
 ### Capability matrix
 
@@ -87,7 +88,7 @@ model a provider-specific browser callback flow, not an asynchronous provider we
 | `webhooks` (`WebhookCapable`) | yes | yes | no (uses redirect callback) |
 | `RedirectCallbackCapable` | no | no | yes |
 | `charges` (`ChargeCapable`) | yes | no | no |
-| `InvoiceCapable` | yes | no | no |
+| `invoicePdf` (`InvoiceCapable`) | yes | no | no |
 
 ## The capabilities system
 
@@ -150,9 +151,11 @@ When the capability is absent from the set, it throws `ProviderCapabilityNotSupp
 write APIs:
 
 - **`customers`** guards `payable.customers().create(...)` and `.update(...)`. A read with `.get(...)`
-  comes from local storage and is not gated.
+  comes from local storage and is not gated. Provider-backed customer sync also requires the
+  `customers` capability before calling `createCustomer` or `updateCustomer`.
 - **`catalog`** guards `payable.products().create(...) / .update(...)` and `payable.prices().create(...)`.
 - **`charges`** guards direct charge creation before the provider is called.
+- **`invoicePdf`** guards invoice listing and PDF download before invoice provider methods are used.
 - **`webhooks`** guards webhook receipt before signature verification is delegated to the provider.
 
 A provider whose set omits a required capability rejects the corresponding operation with

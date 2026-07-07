@@ -1,20 +1,18 @@
 import { isCustomerCapable } from '../../../domain/contracts/payment-provider.contract';
 import { PayableError } from '../../../domain/errors/payable-error';
-import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { Email } from '../../../domain/value-objects/email';
 import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
+import { assertCapableProvider } from '../../services/provider-capabilities/assert-provider-capability';
 
 export class SyncCustomerWithProviderAction {
   constructor(private readonly deps: BillingDependencies) {}
 
   async handle(billable: Billable): Promise<string> {
     const { provider, providerName, storage, idempotency } = this.deps;
-    if (!isCustomerCapable(provider)) {
-      throw new ProviderCapabilityNotSupportedError(provider.name, 'customers');
-    }
+    assertCapableProvider(provider, 'customers', isCustomerCapable);
     const tenantId = this.deps.tenantId ?? null;
     const email = this.normalizeEmail(billable.email);
     if (storage) {
