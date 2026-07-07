@@ -10,6 +10,22 @@ export interface RevolutRequestOptions {
 
 export type RevolutRequest = <T>(path: string, options: RevolutRequestOptions) => Promise<T>;
 
+export interface RevolutCustomer {
+  id: string;
+  email?: string | null;
+  full_name?: string | null;
+}
+
+export interface RevolutCustomerCreationPayload {
+  email: string;
+  full_name?: string;
+}
+
+export interface RevolutCustomerUpdatePayload {
+  email?: string;
+  full_name?: string;
+}
+
 export interface RevolutOrder {
   id: string;
   type?: string;

@@ -2,7 +2,7 @@
 
 `RevolutProvider` (`src/infrastructure/providers/revolut/revolut-provider.ts`) implements the Merchant
 API flow that fits Payable's current `PaymentProvider` contract: amount checkout orders, subscription
-setup orders, direct subscriptions, refunds, signed webhooks, and payment/subscription reconciliation.
+setup orders, direct subscriptions, customers, refunds, signed webhooks, and reconciliation.
 Business API/Treasury features remain outside `PaymentProvider`.
 
 ## Construction and options
@@ -30,7 +30,7 @@ new RevolutProvider(options: RevolutProviderOptions);
 - `apiVersion` - defaults to `2026-04-20`, sent as `Revolut-Api-Version`.
 - `webhookToleranceMs` - defaults to 5 minutes for replay protection.
 - `logger` - forwarded to the Revolut event normalizer.
-- `fetch` - optional injected HTTP client for tests. Production uses Node 20's global `fetch`.
+- `fetch` - optional injected HTTP client. Production uses Node 20's global `fetch`.
 
 ```ts
 import { createPayable, RevolutProvider } from '@akira-io/payable';
@@ -51,17 +51,18 @@ No SDK or peer dependency is required.
 
 ## Declared capabilities
 
-```ts
-capabilities(): ProviderCapabilities {
-  return new Set(['checkout', 'refunds', 'webhooks', 'subscriptions']);
-}
-```
+`capabilities()` returns `checkout`, `refunds`, `webhooks`, `customers`, and `subscriptions`. The
+provider also implements `PaymentWebhookCapable`, `CustomerCapable`, `DirectSubscriptionCapable`, and
+`SubscriptionManagementCapable`. It intentionally does not declare `catalog`, `charges`,
+`billingPortal`, or `invoicePdf`.
 
-The provider also implements `PaymentWebhookCapable`, so verified Revolut order events can reconcile
-local pending payments by `order_id`.
+## Customers
 
-It implements `DirectSubscriptionCapable` and `SubscriptionManagementCapable` with the limitations below.
-It intentionally does not declare `customers`, `catalog`, `charges`, `billingPortal`, or `invoicePdf`.
+`createCustomer(input, ctx)` calls `POST /api/customers` with `email` and optional `full_name`;
+`updateCustomer(input, ctx)` calls `PATCH /api/customers/{customer_id}`. Both responses map `id`,
+`email`, and `full_name` to `CustomerDTO`. Payable customer `metadata` is not sent because the
+Merchant schema does not support it. These endpoints do not declare `Idempotency-Key`, so the provider
+does not forward `ctx.idempotencyKey`.
 
 ## Payment Checkout
 
@@ -286,14 +287,12 @@ The error context includes `{ provider: 'revolut', revolutCode, status }` and ne
 
 ## Source references
 
-This provider phase follows the official Revolut Merchant API version `2026-04-20`:
-
-- Merchant OpenAPI: `revolut-engineering/revolut-openapi`, `json/merchant-2026-04-20.json`
-- Merchant servers: `https://merchant.revolut.com`, `https://sandbox-merchant.revolut.com`
-- Subscription endpoints: `POST /api/subscriptions`, `POST /api/subscriptions/{id}/change-plan`,
-  `POST /api/subscriptions/{id}/cancel`
-- Webhook signature docs: `Revolut-Request-Timestamp`, `Revolut-Signature`, HMAC SHA-256 over
-  `v1.{timestamp}.{rawPayload}`
+This provider phase follows Revolut Merchant API `2026-04-20`: `json/merchant-2026-04-20.json` from
+`revolut-engineering/revolut-openapi`, production `https://merchant.revolut.com`, sandbox
+`https://sandbox-merchant.revolut.com`, customer endpoints `POST /api/customers` and
+`PATCH /api/customers/{id}`, subscription endpoints under `/api/subscriptions`, and webhook signatures
+with `Revolut-Request-Timestamp`, `Revolut-Signature`, and HMAC SHA-256 over
+`v1.{timestamp}.{rawPayload}`.
 
 ---
 

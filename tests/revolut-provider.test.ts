@@ -2,7 +2,7 @@ import { inspect } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import { PayableError } from '../src/domain/errors/payable-error';
 import { Money } from '../src/domain/value-objects/money';
-import { isPaymentWebhookCapable } from '../src/index';
+import { isCustomerCapable, isPaymentWebhookCapable } from '../src/index';
 import {
   REVOLUT_MERCHANT_API_VERSION,
   RevolutProvider,
@@ -58,9 +58,10 @@ describe('RevolutProvider', () => {
     expect(capabilities.has('checkout')).toBe(true);
     expect(capabilities.has('refunds')).toBe(true);
     expect(capabilities.has('webhooks')).toBe(true);
-    expect(capabilities.has('customers')).toBe(false);
+    expect(capabilities.has('customers')).toBe(true);
     expect(capabilities.has('catalog')).toBe(false);
     expect(capabilities.has('subscriptions')).toBe(true);
+    expect(isCustomerCapable(instance)).toBe(true);
     expect(isPaymentWebhookCapable(instance)).toBe(true);
   });
 
