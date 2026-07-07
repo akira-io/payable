@@ -2,8 +2,8 @@
 
 `StripeProvider` (`src/infrastructure/providers/stripe/stripe-provider.ts`) is the reference
 implementation of `PaymentProvider`. It implements the base contract plus all three optional
-interfaces: `ChargeCapable`, `DirectSubscriptionCapable`, and `InvoiceCapable`. Its registry `name` is
-`'stripe'`.
+interfaces: `ChargeCapable`, `DirectSubscriptionCapable`, `InvoiceCapable`, and
+`PaymentWebhookCapable`. Its registry `name` is `'stripe'`.
 
 ## Construction and options
 
@@ -55,7 +55,7 @@ capabilities(): ProviderCapabilities {
 
 Stripe supports every current Payable provider capability except `meteredBilling` (absent from the
 set). It is the only built-in provider that implements `ChargeCapable`, `DirectSubscriptionCapable`,
-and `InvoiceCapable` (`listInvoices`, `downloadInvoicePdf`).
+`InvoiceCapable` (`listInvoices`, `downloadInvoicePdf`), and `PaymentWebhookCapable`.
 
 ## Subscription handling
 
@@ -129,6 +129,28 @@ unrecognized event is still persisted, just not reconciled.
 Disputes, payouts, setup intents, payment methods, Connect, Treasury, Terminal, Issuing, Identity, and
 Financial Connections events remain intentionally unmapped until Payable has an approved generic
 optional capability for that domain.
+
+## Payment webhook reconciliation
+
+`StripeProvider` implements `PaymentWebhookCapable` so the generic webhook pipeline can reconcile local
+payment rows after signature verification. `reconcilePayment(verified)` is synchronous and pure. It
+returns `null` for non-payment events or malformed payment payloads.
+
+Supported payment reconciliation sources:
+
+| Stripe event type | Local payment id | Domain status |
+| --- | --- | --- |
+| `payment_intent.succeeded` | `PaymentIntent.id` | `succeeded` |
+| `payment_intent.payment_failed` | `PaymentIntent.id` | `failed` |
+| `charge.succeeded` | `Charge.payment_intent` | `succeeded` |
+| `charge.failed` | `Charge.payment_intent` | `failed` |
+| `checkout.session.completed` with `payment_status: 'paid'` | `Checkout.Session.id` | `succeeded` |
+| `checkout.session.async_payment_succeeded` | `Checkout.Session.id` | `succeeded` |
+| `checkout.session.async_payment_failed` | `Checkout.Session.id` | `failed` |
+
+The checkout-session id is used because Payable records redirect-checkout pending payments under the
+session id before the browser leaves the application. The pipeline still gates the update through
+`PaymentStateMachine`, so stale Stripe events cannot move a final local payment into an invalid state.
 
 ## Webhook verification
 
