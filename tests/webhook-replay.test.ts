@@ -119,6 +119,35 @@ describe('webhook replay', () => {
     expect(audits[0]?.after).toEqual({ id: 'authoritative' });
   });
 
+  it('does not re-verify replay when the provider no longer declares webhooks', async () => {
+    const provider = new FakeProvider();
+    provider.supportedCapabilities.delete('webhooks');
+    provider.verifyError = new Error('verifyWebhook should not be called');
+    const payable = createPayable({ providers: { stripe: provider }, storage, clock });
+
+    const event = await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_stored_only',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      payload: '{"signed":true}',
+      signature: 'sig-1',
+      data: { id: 'stored' },
+      headers: {},
+      status: 'failed',
+      correlationId: 'corr_stored_only',
+      receivedAt: clock.now(),
+    });
+
+    await payable.replayWebhook(event.id, { allowed: true, actorId: 'admin-1' });
+
+    expect(provider.lastVerifyInput).toBeUndefined();
+    expect((await storage.webhookEvents.findById(event.id))?.status).toBe('processed');
+    const audits = await storage.auditLogs.list({ resourceType: 'webhook_event' });
+    expect(audits[0]?.after).toEqual({ id: 'stored' });
+  });
+
   it('fails replay when the stored signature no longer verifies', async () => {
     const provider = new FakeProvider();
     provider.verifyResult = verifyResult;
