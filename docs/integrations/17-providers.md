@@ -83,11 +83,11 @@ callback flow, not an asynchronous provider webhook.
 
 | Capability | Stripe | Paddle | SISP | Revolut |
 | --- | --- | --- | --- | --- |
-| `checkout` | yes | yes | yes (redirect form) | yes (amount order) |
+| `checkout` | yes | yes | yes (redirect form) | yes (amount order, subscription setup order) |
 | `refunds` | yes | yes | yes | yes (amount required) |
 | `customers` | yes | yes | no (local-only customers) | no |
 | `catalog` | yes | yes | no | no |
-| `subscriptions` | yes | yes | no | no |
+| `subscriptions` | yes | yes | no | yes (limited) |
 | `billingPortal` | yes | yes | no | no |
 | `webhooks` (`WebhookCapable`) | yes | yes | no (uses redirect callback) | yes |
 | `PaymentWebhookCapable` | yes | no | no | yes |

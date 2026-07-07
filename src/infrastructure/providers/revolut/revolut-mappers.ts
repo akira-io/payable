@@ -1,8 +1,10 @@
 import type { CheckoutSessionDTO } from '../../../domain/dtos/checkout.dto';
 import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
+import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import type { RefundStatus } from '../../../domain/value-objects/refund-status';
-import type { RevolutOrder } from './revolut-types';
+import type { SubscriptionStatus } from '../../../domain/value-objects/subscription-status';
+import type { RevolutOrder, RevolutSubscription } from './revolut-types';
 
 const REFUND_STATUS_BY_STATE: Record<string, RefundStatus> = {
   pending: 'pending',
@@ -13,6 +15,15 @@ const REFUND_STATUS_BY_STATE: Record<string, RefundStatus> = {
   cancelled: 'failed',
 };
 
+const SUBSCRIPTION_STATUS_BY_STATE: Record<string, SubscriptionStatus> = {
+  pending: 'incomplete',
+  active: 'active',
+  overdue: 'past_due',
+  paused: 'paused',
+  cancelled: 'canceled',
+  finished: 'canceled',
+};
+
 export function toRevolutCheckoutSessionDTO(order: RevolutOrder): CheckoutSessionDTO {
   if (!order.checkout_url) {
     throw new PayableError('Revolut order did not return a checkout URL', {
@@ -21,6 +32,15 @@ export function toRevolutCheckoutSessionDTO(order: RevolutOrder): CheckoutSessio
     });
   }
   return { id: order.id, url: order.checkout_url };
+}
+
+export function toRevolutSubscriptionDTO(subscription: RevolutSubscription): SubscriptionDTO {
+  return {
+    providerSubscriptionId: subscription.id,
+    status: subscriptionStatus(subscription.state),
+    currentPeriodEnd: null,
+    trialEndsAt: dateOrNull(subscription.trial_end_date),
+  };
 }
 
 export function toRevolutRefundResultDTO(
@@ -39,4 +59,18 @@ function refundStatus(state?: string): RefundStatus {
     return 'pending';
   }
   return REFUND_STATUS_BY_STATE[state] ?? 'pending';
+}
+
+function subscriptionStatus(state?: string): SubscriptionStatus {
+  if (!state) {
+    return 'incomplete';
+  }
+  return SUBSCRIPTION_STATUS_BY_STATE[state] ?? 'incomplete';
+}
+
+function dateOrNull(value?: string): Date | null {
+  if (!value) {
+    return null;
+  }
+  return new Date(value);
 }

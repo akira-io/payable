@@ -52,7 +52,7 @@ function provider(fetch: RevolutProviderOptions['fetch']) {
 }
 
 describe('RevolutProvider', () => {
-  it('reports only the Merchant capabilities implemented in this phase', () => {
+  it('reports the Merchant capabilities implemented by Revolut', () => {
     const instance = new RevolutProvider({ secretKey: 'sk_rev_test', webhookSecret: 'wsk_test' });
     const capabilities = instance.capabilities();
     expect(capabilities.has('checkout')).toBe(true);
@@ -60,7 +60,7 @@ describe('RevolutProvider', () => {
     expect(capabilities.has('webhooks')).toBe(true);
     expect(capabilities.has('customers')).toBe(false);
     expect(capabilities.has('catalog')).toBe(false);
-    expect(capabilities.has('subscriptions')).toBe(false);
+    expect(capabilities.has('subscriptions')).toBe(true);
     expect(isPaymentWebhookCapable(instance)).toBe(true);
   });
 
@@ -118,7 +118,7 @@ describe('RevolutProvider', () => {
     expect(calls[0]?.headers['idempotency-key']).toBeUndefined();
   });
 
-  it('rejects non-payment checkout because Revolut subscriptions are outside this phase', async () => {
+  it('rejects subscription checkout without a plan variation line item', async () => {
     const { fetch } = fakeFetch();
     await expect(
       provider(fetch).createCheckoutSession(
@@ -132,7 +132,7 @@ describe('RevolutProvider', () => {
         },
         ctx,
       ),
-    ).rejects.toMatchObject({ code: 'PROVIDER_OPERATION_UNSUPPORTED' });
+    ).rejects.toMatchObject({ code: 'PROVIDER_CAPABILITY_NOT_SUPPORTED' });
   });
 
   it('requires an amount for Revolut checkout orders', async () => {

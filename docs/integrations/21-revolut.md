@@ -1,12 +1,9 @@
 # Revolut Provider
 
-`RevolutProvider` (`src/infrastructure/providers/revolut/revolut-provider.ts`) implements the
-Merchant API payment flow that fits Payable's current `PaymentProvider` contract: amount-based hosted
-checkout orders, amount-based refunds, signed webhooks, and payment webhook reconciliation.
-
-It does not implement Revolut Business API/Treasury features. Accounts, balances, counterparties,
-transfers, FX, banking transactions, cards, team, and accounting belong in a separate future track, not
-inside `PaymentProvider`.
+`RevolutProvider` (`src/infrastructure/providers/revolut/revolut-provider.ts`) implements the Merchant
+API flow that fits Payable's current `PaymentProvider` contract: amount checkout orders, subscription
+setup orders, direct subscriptions, refunds, signed webhooks, and payment/subscription reconciliation.
+Business API/Treasury features remain outside `PaymentProvider`.
 
 ## Construction and options
 
@@ -50,23 +47,23 @@ const payable = createPayable({
 });
 ```
 
-No SDK or peer dependency is required for the Merchant core provider.
+No SDK or peer dependency is required.
 
 ## Declared capabilities
 
 ```ts
 capabilities(): ProviderCapabilities {
-  return new Set(['checkout', 'refunds', 'webhooks']);
+  return new Set(['checkout', 'refunds', 'webhooks', 'subscriptions']);
 }
 ```
 
 The provider also implements `PaymentWebhookCapable`, so verified Revolut order events can reconcile
 local pending payments by `order_id`.
 
-It intentionally does not declare `customers`, `catalog`, `subscriptions`, `charges`, `billingPortal`,
-or `invoicePdf` in this phase.
+It implements `DirectSubscriptionCapable` and `SubscriptionManagementCapable` with the limitations below.
+It intentionally does not declare `customers`, `catalog`, `charges`, `billingPortal`, or `invoicePdf`.
 
-## Checkout
+## Payment Checkout
 
 Revolut Merchant orders require an explicit amount and currency, so use Payable's amount-based redirect
 checkout builder:
@@ -98,12 +95,87 @@ The provider calls `POST /api/orders` with:
 ```
 
 `lineItems` and Payable catalog price ids are not sent to Revolut in this phase because the Merchant
-order endpoint is amount-based. A subscription checkout request throws `PROVIDER_OPERATION_UNSUPPORTED`;
-a checkout without `amount` throws `CHECKOUT_AMOUNT_REQUIRED`.
+order endpoint is amount-based. A payment checkout without `amount` throws `CHECKOUT_AMOUNT_REQUIRED`.
 
 The OpenAPI spec for `POST /api/orders` does not declare `Idempotency-Key`, so the provider does not
 invent that header for order creation. Payable's own idempotency layer still deduplicates the local
 checkout operation.
+
+## Subscription Checkout
+
+For Revolut Hosted Payment Page subscription setup, use the normal catalog checkout builder with
+`mode('subscription')`. Payable maps the first line item's `priceId` to Revolut
+`plan_variation_id`:
+
+```ts
+const session = await payable
+  .customer({ billableType: 'User', billableId: '1', email: 'jane@example.com' }, 'revolut')
+  .checkout()
+  .mode('subscription')
+  .addPrice('revolut_plan_variation_id')
+  .create({
+    successUrl: 'https://shop.example/subscription/setup/complete',
+    cancelUrl: 'https://shop.example/account',
+  });
+
+// session.id  -> Revolut setup order id
+// session.url -> Revolut Hosted Payment Page URL
+```
+
+The provider calls `POST /api/subscriptions` with `plan_variation_id`, `customer_id`,
+`setup_order_redirect_url`, and optional `trial_duration`, then retrieves
+`GET /api/orders/{setup_order_id}` for the setup order `checkout_url`.
+
+The subscription checkout path supports exactly one plan variation with quantity `1`. Multi-item
+subscriptions, quantity changes, and coupons throw `ProviderCapabilityNotSupportedError` because
+Revolut subscription plans carry those details in the plan variation, not in Payable line items.
+
+## Direct Subscriptions
+
+`createSubscription(input, ctx)` is supported through Revolut `POST /api/subscriptions`.
+
+Payable maps:
+
+| Payable input | Revolut field |
+| --- | --- |
+| `providerCustomerId` | `customer_id` |
+| `priceId` | `plan_variation_id` |
+| `trialDays` | `trial_duration` as `P{days}D` |
+
+The returned `SubscriptionDTO` maps Revolut states as:
+
+| Revolut state | Payable status |
+| --- | --- |
+| `pending` | `incomplete` |
+| `active` | `active` |
+| `overdue` | `past_due` |
+| `paused` | `paused` |
+| `cancelled`, `finished` | `canceled` |
+
+The Merchant response omits the current cycle end date, so `currentPeriodEnd` is `null`;
+`trial_end_date` still maps to `trialEndsAt`.
+
+## Subscription Management
+
+`updateSubscription(input, ctx)` supports plan changes only. When `priceId` is provided, the provider
+calls `POST /api/subscriptions/{subscription_id}/change-plan` with:
+
+```json
+{
+  "plan_variation_id": "new_revolut_plan_variation_id",
+  "scheduled": "at_cycle_end"
+}
+```
+
+The endpoint returns `204`; the provider then retrieves `GET /api/subscriptions/{subscription_id}`
+and maps the response to `SubscriptionDTO`.
+
+`cancelSubscription(input, ctx)` supports only `immediately: true`, the path used by
+`cancelSubscriptionNow`. Period-end cancellation is not equivalent, so `immediately: false` throws
+`ProviderCapabilityNotSupportedError`.
+
+`resumeSubscription` throws `ProviderCapabilityNotSupportedError` because the Merchant API does not
+provide a resume endpoint.
 
 ## Refunds
 
@@ -133,12 +205,8 @@ Refund order states map to Payable refund statuses as:
 
 `RevolutProvider` implements `WebhookCapable`.
 
-`verifyWebhook(input)` verifies:
-
-- `Revolut-Request-Timestamp`
-- `Revolut-Signature`
-- HMAC SHA-256 signature over `v1.{timestamp}.{rawPayload}`
-- 5 minute timestamp tolerance by default
+`verifyWebhook(input)` verifies `Revolut-Request-Timestamp`, `Revolut-Signature`, HMAC SHA-256 over
+`v1.{timestamp}.{rawPayload}`, and 5 minute timestamp tolerance by default.
 
 The raw payload must be passed unmodified, the same as Stripe and Paddle. On signature failure the
 provider throws `InvalidWebhookSignatureError`.
@@ -187,9 +255,20 @@ Unmapped events normalize to `null` and are still stored.
 | `ORDER_PAYMENT_FAILED` | `failed` |
 | `ORDER_CANCELLED` | `canceled` |
 
-Subscription webhook reconciliation intentionally returns `null` in this phase. Revolut subscriptions
-need a separate provider phase before Payable should create or update local subscription records from
-those events.
+## Subscription Reconciliation
+
+`reconcileSubscription(verified)` maps verified subscription events to local subscriptions by
+`subscription_id`:
+
+| Revolut event | Payable subscription status |
+| --- | --- |
+| `SUBSCRIPTION_INITIATED` | `incomplete` |
+| `SUBSCRIPTION_CANCELLED` | `canceled` |
+| `SUBSCRIPTION_FINISHED` | `canceled` |
+| `SUBSCRIPTION_OVERDUE` | `past_due` |
+
+`currentPeriodEnd` and `trialEndsAt` are `null` for webhook-only reconciliation because the webhook
+payload contains the subscription id and event type, not the full subscription object.
 
 ## Error handling
 
@@ -211,6 +290,8 @@ This provider phase follows the official Revolut Merchant API version `2026-04-2
 
 - Merchant OpenAPI: `revolut-engineering/revolut-openapi`, `json/merchant-2026-04-20.json`
 - Merchant servers: `https://merchant.revolut.com`, `https://sandbox-merchant.revolut.com`
+- Subscription endpoints: `POST /api/subscriptions`, `POST /api/subscriptions/{id}/change-plan`,
+  `POST /api/subscriptions/{id}/cancel`
 - Webhook signature docs: `Revolut-Request-Timestamp`, `Revolut-Signature`, HMAC SHA-256 over
   `v1.{timestamp}.{rawPayload}`
 

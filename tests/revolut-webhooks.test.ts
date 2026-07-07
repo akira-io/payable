@@ -76,7 +76,7 @@ describe('RevolutProvider webhooks', () => {
     ).toBeNull();
   });
 
-  it('does not reconcile subscriptions in the Merchant core phase', () => {
+  it('reconciles Revolut subscription cancellation webhooks', () => {
     expect(
       provider().reconcileSubscription({
         providerEventId: 'evt_1',
@@ -84,6 +84,11 @@ describe('RevolutProvider webhooks', () => {
         normalizedType: 'subscription.cancelled',
         data: { event: 'SUBSCRIPTION_CANCELLED', subscription_id: 'sub_1' },
       }),
-    ).toBeNull();
+    ).toEqual({
+      providerSubscriptionId: 'sub_1',
+      status: 'canceled',
+      currentPeriodEnd: null,
+      trialEndsAt: null,
+    });
   });
 });
