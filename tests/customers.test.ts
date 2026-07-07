@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
+import { ProviderCapabilityNotSupportedError } from '../src/domain/errors/provider-capability-not-supported.error';
 import { IdempotencyKey } from '../src/domain/value-objects/idempotency-key';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
@@ -116,6 +117,25 @@ describe('payable.customers', () => {
 
     expect(provider.lastUpdateCustomer?.providerCustomerId).toBe('cus_fake');
     expect(updated.name).toBe('Renamed');
+    await db.destroy();
+  });
+
+  it('rejects provider-backed updates when the provider declares customers without the update method', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new FakeProvider();
+    const payable = createPayable({
+      providers: { stripe: provider },
+      storage: new KnexStorageDriver(db, new FakeClock()),
+    });
+
+    await payable.customers().create(billable);
+    Object.defineProperty(provider, 'updateCustomer', { value: undefined });
+
+    await expect(payable.customers().update(billable, { name: 'Renamed' })).rejects.toBeInstanceOf(
+      ProviderCapabilityNotSupportedError,
+    );
+    expect((await payable.customers().get(billable))?.name).toBe('User');
     await db.destroy();
   });
 

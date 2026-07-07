@@ -6,6 +6,7 @@ import { CorrelationId } from '../../domain/value-objects/correlation-id';
 import { Email } from '../../domain/value-objects/email';
 import { IdempotencyKey } from '../../domain/value-objects/idempotency-key';
 import { SyncCustomerWithProviderAction } from '../actions/customers/sync-customer-with-provider.action';
+import { assertCapableProvider } from '../services/provider-capabilities/assert-provider-capability';
 import type { Billable } from './billable';
 import type { BillingDependencies } from './billing-dependencies';
 
@@ -55,11 +56,8 @@ export class CustomerResource {
       throw new CustomerNotFoundError(billable.billableId);
     }
     const provider = this.deps.provider;
-    if (
-      provider.capabilities().has('customers') &&
-      existing.providerCustomerId &&
-      isCustomerCapable(provider)
-    ) {
+    if (provider.capabilities().has('customers') && existing.providerCustomerId) {
+      assertCapableProvider(provider, 'customers', isCustomerCapable);
       const key = IdempotencyKey.forCustomer({
         tenantId,
         provider: this.deps.providerName,

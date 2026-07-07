@@ -152,7 +152,9 @@ write APIs:
 
 - **`customers`** guards `payable.customers().create(...)` and `.update(...)`. A read with `.get(...)`
   comes from local storage and is not gated. Provider-backed customer sync also requires the
-  `customers` capability before calling `createCustomer` or `updateCustomer`.
+  `customers` capability before calling `createCustomer` or `updateCustomer`. If a stored customer has
+  a provider customer id and the provider declares `customers`, update requires the full
+  `CustomerCapable` interface instead of silently falling back to local-only changes.
 - **`catalog`** guards `payable.products().create(...) / .update(...)` and `payable.prices().create(...)`.
 - **`subscriptions`** guards subscription management. Direct subscription creation also requires this
   declared capability before storage or provider calls, but a provider may still omit
