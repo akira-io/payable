@@ -91,8 +91,9 @@ methods. Every call forwards `ctx.idempotencyKey` to Stripe's `idempotencyKey` r
   to `incomplete`. `currentPeriodEnd` is read from the first item's `current_period_end` (falling back
   to the subscription-level field) and converted from Unix seconds. `trialEndsAt` comes from
   `trial_end`.
-- `PAYMENT_STATUS` and `REFUND_STATUS` lookup tables translate Stripe states into the domain
-  `PaymentStatus` / `RefundStatus` value objects; unmapped states default to `pending`.
+- `PAYMENT_STATUS` exhaustively covers the Stripe SDK's `PaymentIntent.Status` union and translates it
+  into the domain `PaymentStatus`. `REFUND_STATUS` translates known refund states into
+  `RefundStatus`. Runtime-unmapped states default to `pending`.
 
 ## Event normalization
 
