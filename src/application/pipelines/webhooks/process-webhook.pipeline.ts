@@ -6,6 +6,7 @@ import { PayableError } from '../../../domain/errors/payable-error';
 import { WebhookProcessedEvent } from '../../../domain/events/webhook-processed.event';
 import { reconcileSubscriptionStatus } from '../../../domain/states/subscription-state-machine';
 import type { WebhookDependencies } from '../../builders/webhook-dependencies';
+import { assertCapableProvider } from '../../services/provider-capabilities/assert-provider-capability';
 
 export interface ProcessWebhookInput {
   verified: VerifiedWebhook;
@@ -88,9 +89,10 @@ export class ProcessWebhookPipeline {
     tenantId: string | null,
   ): Promise<void> {
     const { provider, providerName } = this.deps;
-    if (!isWebhookCapable(provider)) {
+    if (!provider.capabilities().has('webhooks')) {
       return;
     }
+    assertCapableProvider(provider, 'webhooks', isWebhookCapable);
     const dto = provider.reconcileSubscription(verified);
     if (!dto) {
       return;

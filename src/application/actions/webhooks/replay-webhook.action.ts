@@ -10,6 +10,7 @@ import {
   CanReplayWebhookPolicy,
   type ReplayWebhookContext,
 } from '../../policies/can-replay-webhook.policy';
+import { assertCapableProvider } from '../../services/provider-capabilities/assert-provider-capability';
 
 export class ReplayWebhookAction {
   constructor(
@@ -62,24 +63,25 @@ export class ReplayWebhookAction {
 
   private async verify(event: WebhookEvent): Promise<VerifiedWebhook> {
     const provider = this.deps.provider;
-    if (isWebhookCapable(provider)) {
-      if (event.signature === null) {
-        throw new PayableError('Cannot replay a webhook without a stored signature to re-verify', {
-          code: 'WEBHOOK_REPLAY_UNVERIFIABLE',
-          context: { webhookEventId: event.id },
-        });
-      }
-      return provider.verifyWebhook({
-        payload: event.payload,
-        signature: event.signature,
-        headers: event.headers,
+    if (!provider.capabilities().has('webhooks')) {
+      return {
+        providerEventId: event.providerEventId,
+        type: event.type,
+        normalizedType: event.normalizedType as NormalizedEventName | null,
+        data: event.data,
+      };
+    }
+    assertCapableProvider(provider, 'webhooks', isWebhookCapable);
+    if (event.signature === null) {
+      throw new PayableError('Cannot replay a webhook without a stored signature to re-verify', {
+        code: 'WEBHOOK_REPLAY_UNVERIFIABLE',
+        context: { webhookEventId: event.id },
       });
     }
-    return {
-      providerEventId: event.providerEventId,
-      type: event.type,
-      normalizedType: event.normalizedType as NormalizedEventName | null,
-      data: event.data,
-    };
+    return provider.verifyWebhook({
+      payload: event.payload,
+      signature: event.signature,
+      headers: event.headers,
+    });
   }
 }

@@ -157,6 +157,8 @@ write APIs:
 - **`charges`** guards direct charge creation before the provider is called.
 - **`invoicePdf`** guards invoice listing and PDF download before invoice provider methods are used.
 - **`webhooks`** guards webhook receipt before signature verification is delegated to the provider.
+  Replay and subscription reconciliation also treat providers without this declared capability as
+  stored-event-only, even if a provider object happens to expose webhook-shaped methods.
 
 A provider whose set omits a required capability rejects the corresponding operation with
 `PROVIDER_CAPABILITY_NOT_SUPPORTED` (HTTP 422) before any network call.

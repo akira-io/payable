@@ -233,6 +233,52 @@ describe('webhook subscription reconciliation (C1)', () => {
     expect(reloaded?.status).toBe(subscription.status);
   });
 
+  it('does not reconcile subscriptions when the provider no longer declares webhooks', async () => {
+    const subscription = await seedSubscription();
+    provider.supportedCapabilities.delete('webhooks');
+    provider.reconcileResult = {
+      providerSubscriptionId: subscription.providerSubscriptionId ?? 'sub_fake',
+      status: 'past_due',
+      currentPeriodEnd: new Date('2026-07-22T00:00:00.000Z'),
+      trialEndsAt: null,
+    };
+    const event = await storage.webhookEvents.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerEventId: 'evt_no_capability_reconcile',
+      type: 'customer.subscription.updated',
+      normalizedType: 'subscription.updated',
+      payload: '{}',
+      data: {},
+      headers: {},
+      status: 'processing',
+      correlationId: 'corr_no_capability_reconcile',
+      receivedAt: clock.now(),
+    });
+
+    await new ProcessWebhookPipeline({
+      provider,
+      providerName: 'stripe',
+      storage,
+      queue: new SyncQueueDriver(),
+      events: new InMemoryEventBus(),
+      clock,
+    }).handle({
+      verified: {
+        providerEventId: 'evt_no_capability_reconcile',
+        type: 'customer.subscription.updated',
+        normalizedType: 'subscription.updated',
+        data: {},
+      },
+      webhookEventId: event.id,
+      correlationId: 'corr_no_capability_reconcile',
+      tenantId: null,
+    });
+
+    const reloaded = await storage.subscriptions.findByProviderId('stripe', 'sub_fake');
+    expect(reloaded?.status).toBe(subscription.status);
+  });
+
   it('keeps a webhook processed when the post-commit event emit fails', async () => {
     const seeded = await storage.webhookEvents.create({
       tenantId: null,
