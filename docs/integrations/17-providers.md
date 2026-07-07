@@ -154,6 +154,9 @@ write APIs:
   comes from local storage and is not gated. Provider-backed customer sync also requires the
   `customers` capability before calling `createCustomer` or `updateCustomer`.
 - **`catalog`** guards `payable.products().create(...) / .update(...)` and `payable.prices().create(...)`.
+- **`subscriptions`** guards subscription management. Direct subscription creation also requires this
+  declared capability before storage or provider calls, but a provider may still omit
+  `DirectSubscriptionCapable` and support subscription creation only through checkout.
 - **`charges`** guards direct charge creation before the provider is called.
 - **`invoicePdf`** guards invoice listing and PDF download before invoice provider methods are used.
 - **`webhooks`** guards webhook receipt before signature verification is delegated to the provider.

@@ -24,7 +24,7 @@ export interface CreateSubscriptionInputData {
 export class CreateSubscriptionAction extends SubscriptionAction {
   async handle(input: CreateSubscriptionInputData): Promise<Subscription> {
     const provider = this.deps.provider;
-    if (!isDirectSubscriptionCapable(provider)) {
+    if (!provider.capabilities().has('subscriptions') || !isDirectSubscriptionCapable(provider)) {
       throw new ProviderCapabilityNotSupportedError(provider.name, 'direct subscription creation');
     }
     if (input.quantity !== undefined) {

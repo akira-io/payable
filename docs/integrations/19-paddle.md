@@ -55,7 +55,8 @@ are:
 - **No `ChargeCapable`.** Paddle has no `charge` method; one-off direct charges are not available.
   `isChargeCapable(paddleProvider)` returns `false`.
 - **No `DirectSubscriptionCapable`.** Paddle has no `createSubscription` method. Subscriptions are
-  created through the checkout/transaction flow, not a direct API call.
+  created through the checkout/transaction flow, not a direct API call. Paddle still declares
+  `subscriptions` for subscription management and webhook reconciliation.
   `isDirectSubscriptionCapable(paddleProvider)` returns `false`.
 - **Partial refunds are not supported.** `refund` throws when `input.amount` is set (see Failure
   scenarios). `meteredBilling` is absent, the same as Stripe.

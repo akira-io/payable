@@ -72,6 +72,24 @@ describe('provider capability guard', () => {
     ).rejects.toBeInstanceOf(ProviderCapabilityNotSupportedError);
   });
 
+  it('blocks direct subscription creation when the provider method exists but the capability is not declared', async () => {
+    const provider = new FakeProvider();
+    provider.supportedCapabilities.delete('subscriptions');
+
+    await expect(
+      new CreateSubscriptionAction({
+        provider,
+        providerName: 'fake',
+        clock: new FakeClock(),
+      } as BillingDependencies).handle({
+        billable,
+        name: 'Pro',
+        priceId: 'price_pro',
+      }),
+    ).rejects.toBeInstanceOf(ProviderCapabilityNotSupportedError);
+    expect(provider.createdSubscriptions).toBe(0);
+  });
+
   it('blocks listing invoices for a provider that cannot list them', async () => {
     await expect(new ListInvoicesAction(paddleDeps()).handle(billable)).rejects.toBeInstanceOf(
       ProviderCapabilityNotSupportedError,
