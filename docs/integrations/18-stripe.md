@@ -104,6 +104,8 @@ methods. Every call forwards `ctx.idempotencyKey` to Stripe's `idempotencyKey` r
 | `checkout.session.completed` | `checkout.completed` |
 | `checkout.session.async_payment_succeeded` | `checkout.completed` |
 | `checkout.session.async_payment_failed` | `payment.failed` |
+| `charge.succeeded` | `payment.succeeded` |
+| `charge.failed` | `payment.failed` |
 | `payment_intent.succeeded` | `payment.succeeded` |
 | `payment_intent.payment_failed` | `payment.failed` |
 | `customer.created` | `customer.created` |
