@@ -128,6 +128,7 @@ export class RefundPaymentAction {
           providerPaymentId: payment.providerPaymentId,
           amount: input.amount,
           reason: input.reason,
+          reference: input.reference,
         },
         { correlationId, idempotencyKey: key.toString() },
       );

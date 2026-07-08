@@ -169,7 +169,12 @@ describe('RevolutProvider', () => {
     });
 
     const dto = await provider(fetch).refund(
-      { providerPaymentId: 'ord_1', amount: Money.of(100, 'GBP'), reason: 'Returned item' },
+      {
+        providerPaymentId: 'ord_1',
+        amount: Money.of(100, 'GBP'),
+        reason: 'Returned item',
+        reference: 'refund_42',
+      },
       ctx,
     );
 
@@ -180,7 +185,12 @@ describe('RevolutProvider', () => {
     expect(calls[0]).toMatchObject({
       url: 'https://sandbox-merchant.revolut.com/api/orders/ord_1/refund',
       method: 'POST',
-      body: { amount: 100, currency: 'GBP', description: 'Returned item' },
+      body: {
+        amount: 100,
+        currency: 'GBP',
+        description: 'Returned item',
+        merchant_order_data: { reference: 'refund_42' },
+      },
     });
     expect(calls[0]?.headers['idempotency-key']).toBe('idem-1');
   });

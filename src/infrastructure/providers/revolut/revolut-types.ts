@@ -48,6 +48,7 @@ export interface RevolutRefundPayload {
   amount: number;
   currency: string;
   description?: string;
+  merchant_order_data?: { reference: string };
 }
 
 export interface RevolutSubscription {
