@@ -148,6 +148,7 @@ export class RevolutProvider
       amount: input.amount.amount(),
       currency: input.amount.currency(),
       description: input.reason,
+      merchant_order_data: input.reference ? { reference: input.reference } : undefined,
     };
     const order = await this.request<RevolutOrder>(
       `/api/orders/${encodeURIComponent(input.providerPaymentId)}/refund`,

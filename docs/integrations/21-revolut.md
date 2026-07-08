@@ -180,19 +180,19 @@ provide a resume endpoint.
 
 ## Refunds
 
-Revolut refunds are created with `POST /api/orders/{order_id}/refund`. The endpoint requires amount and
-currency, so `RefundInput.amount` is required for this provider:
+Revolut refunds use `POST /api/orders/{order_id}/refund` and require amount/currency:
 
 ```ts
 await payable
   .customer(billable, 'revolut')
   .refund('6516e61c-d279-a454-a837-bc52ce55ed49', Money.of(100, 'GBP'), {
     reason: 'Returned item',
+    reference: 'refund-42',
   });
 ```
 
-The provider forwards `ctx.idempotencyKey` as `Idempotency-Key` for refunds because the Merchant API
-declares that header on the refund endpoint.
+The provider forwards `ctx.idempotencyKey` as `Idempotency-Key` and `reference` as
+`merchant_order_data.reference`; both are declared by the Merchant API refund endpoint.
 
 Refund order states map to Payable refund statuses as:
 

@@ -236,6 +236,7 @@ export class StripeProvider
           payment_intent: input.providerPaymentId,
           amount: input.amount ? stripeAmount(input.amount) : undefined,
           reason: stripeRefundReason(input.reason),
+          metadata: input.reference ? { reference: input.reference } : undefined,
         },
         { idempotencyKey: ctx.idempotencyKey },
       ),

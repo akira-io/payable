@@ -61,6 +61,7 @@ set). It is the only built-in provider that implements `ChargeCapable`, `DirectS
 
 `createCheckoutSession` calls `checkout.sessions.create`. Payable checkout `reference` is forwarded
 as Stripe `client_reference_id`; idempotency still uses Stripe's request option.
+Refund `reference` is forwarded as Stripe refund `metadata.reference`.
 
 ## Subscription handling
 
