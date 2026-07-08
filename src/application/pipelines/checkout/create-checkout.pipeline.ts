@@ -44,6 +44,7 @@ export class CreateCheckoutPipeline {
         lineItems: input.lineItems,
         successUrl: input.successUrl,
         cancelUrl: input.cancelUrl,
+        reference: input.reference,
         trialDays: input.trialDays,
         coupon: input.coupon,
       },

@@ -50,6 +50,7 @@ export class RedirectCheckoutBuilder {
         lineItems: [],
         successUrl: request.successUrl ?? '',
         cancelUrl: request.cancelUrl ?? '',
+        reference: request.reference,
         amount: this.amount,
       },
       idempotencyKey: key.toString(),

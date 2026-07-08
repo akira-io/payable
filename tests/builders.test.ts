@@ -116,6 +116,7 @@ describe('payment-mode checkout builder', () => {
       .addPrice('price_one')
       .create({ ...urls, reference: 'order_1' });
     const first = provider.lastCheckout?.ctx.idempotencyKey;
+    const firstInput = provider.lastCheckout?.input;
 
     await payable
       .customer(billable)
@@ -127,6 +128,7 @@ describe('payment-mode checkout builder', () => {
 
     expect(first).toContain(':order_1');
     expect(first).not.toBe(second);
+    expect(firstInput?.reference).toBe('order_1');
   });
 
   it('rejects a non-positive or non-integer line-item quantity', () => {

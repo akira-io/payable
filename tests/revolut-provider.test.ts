@@ -95,6 +95,7 @@ describe('RevolutProvider', () => {
         lineItems: [],
         successUrl: 'https://shop.test/success',
         cancelUrl: 'https://shop.test/cancel',
+        reference: 'order_42',
         amount: Money.of(500, 'GBP'),
       },
       ctx,
@@ -112,6 +113,7 @@ describe('RevolutProvider', () => {
         amount: 500,
         currency: 'GBP',
         customer: { id: 'f757b068-f287-43c8-8d05-9c073fecbe73' },
+        merchant_order_data: { reference: 'order_42' },
         redirect_url: 'https://shop.test/success',
       },
     });

@@ -40,6 +40,7 @@ export interface RevolutOrderCreationPayload {
   amount: number;
   currency: string;
   customer?: { id: string };
+  merchant_order_data?: { reference: string };
   redirect_url?: string;
 }
 

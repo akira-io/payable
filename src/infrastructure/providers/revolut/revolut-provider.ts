@@ -130,6 +130,7 @@ export class RevolutProvider
       amount: input.amount.amount(),
       currency: input.amount.currency(),
       customer: { id: input.providerCustomerId },
+      merchant_order_data: input.reference ? { reference: input.reference } : undefined,
       redirect_url: input.successUrl,
     };
     const order = await this.request<RevolutOrder>('/api/orders', { method: 'POST', body });

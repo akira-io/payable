@@ -13,6 +13,7 @@ export interface CreateCheckoutSessionInput {
   lineItems: CheckoutLineItem[];
   successUrl: string;
   cancelUrl: string;
+  reference?: string;
   trialDays?: number;
   coupon?: string;
   amount?: Money;
