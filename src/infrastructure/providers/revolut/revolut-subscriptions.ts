@@ -33,6 +33,7 @@ export class RevolutSubscriptions {
       {
         plan_variation_id: planVariationId,
         customer_id: input.providerCustomerId,
+        external_reference: input.reference,
         setup_order_redirect_url: input.successUrl || undefined,
         trial_duration: trialDuration(input.trialDays),
       },

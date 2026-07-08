@@ -99,6 +99,7 @@ describe('RevolutProvider subscriptions', () => {
         lineItems: [{ priceId: 'plan_var_1', quantity: 1 }],
         successUrl: 'https://shop.test/subscription/ok',
         cancelUrl: 'https://shop.test/subscription/cancel',
+        reference: 'sub_checkout_1',
         trialDays: 14,
       },
       ctx,
@@ -114,6 +115,7 @@ describe('RevolutProvider subscriptions', () => {
       body: {
         plan_variation_id: 'plan_var_1',
         customer_id: 'cus_1',
+        external_reference: 'sub_checkout_1',
         setup_order_redirect_url: 'https://shop.test/subscription/ok',
         trial_duration: 'P14D',
       },

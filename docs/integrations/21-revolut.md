@@ -117,6 +117,7 @@ const session = await payable
   .create({
     successUrl: 'https://shop.example/subscription/setup/complete',
     cancelUrl: 'https://shop.example/account',
+    reference: 'sub-42',
   });
 
 // session.id  -> Revolut setup order id
@@ -124,12 +125,12 @@ const session = await payable
 ```
 
 The provider calls `POST /api/subscriptions` with `plan_variation_id`, `customer_id`,
-`setup_order_redirect_url`, and optional `trial_duration`, then retrieves
-`GET /api/orders/{setup_order_id}` for the setup order `checkout_url`.
+`external_reference`, `setup_order_redirect_url`, and optional `trial_duration`, then retrieves the
+setup order `checkout_url`.
 
-The subscription checkout path supports exactly one plan variation with quantity `1`. Multi-item
-subscriptions, quantity changes, and coupons throw `ProviderCapabilityNotSupportedError` because
-Revolut subscription plans carry those details in the plan variation, not in Payable line items.
+This path supports one plan variation with quantity `1`. Multi-item subscriptions, quantity changes,
+and coupons throw `ProviderCapabilityNotSupportedError` because Revolut keeps those details in the
+plan variation.
 
 ## Direct Subscriptions
 
@@ -290,9 +291,8 @@ The error context includes `{ provider: 'revolut', revolutCode, status }` and ne
 This provider phase follows Revolut Merchant API `2026-04-20`: `json/merchant-2026-04-20.json` from
 `revolut-engineering/revolut-openapi`, production `https://merchant.revolut.com`, sandbox
 `https://sandbox-merchant.revolut.com`, customer endpoints `POST /api/customers` and
-`PATCH /api/customers/{id}`, subscription endpoints under `/api/subscriptions`, and webhook signatures
-with `Revolut-Request-Timestamp`, `Revolut-Signature`, and HMAC SHA-256 over
-`v1.{timestamp}.{rawPayload}`.
+`PATCH /api/customers/{id}`, subscription endpoints under `/api/subscriptions`, and webhook
+signatures using HMAC SHA-256 over `v1.{timestamp}.{rawPayload}`.
 
 ---
 

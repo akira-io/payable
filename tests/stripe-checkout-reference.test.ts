@@ -39,4 +39,37 @@ describe('StripeProvider checkout references', () => {
     });
     expect(calls.get('checkout.sessions.create')?.options.idempotencyKey).toBe('idem-1');
   });
+
+  it('forwards subscription checkout references as Stripe client references', async () => {
+    const calls = new Map<string, { params: unknown; options: { idempotencyKey?: string } }>();
+    const stripe = {
+      checkout: {
+        sessions: {
+          create: (params: unknown, options: { idempotencyKey?: string }) => {
+            calls.set('checkout.sessions.create', { params, options });
+            return Promise.resolve({ id: 'cs_sub_1', url: 'https://checkout.stripe.test/sub' });
+          },
+        },
+      },
+    } as unknown as Stripe;
+
+    await new StripeProvider(
+      { secretKey: 'stripe_test_key', webhookSecret: 'stripe_webhook_secret' },
+      stripe,
+    ).createCheckoutSession(
+      {
+        providerCustomerId: 'cus_1',
+        mode: 'subscription',
+        lineItems: [{ priceId: 'price_1', quantity: 1 }],
+        successUrl: 'https://app.test/s',
+        cancelUrl: 'https://app.test/c',
+        reference: 'sub_checkout_1',
+      },
+      ctx,
+    );
+
+    expect(calls.get('checkout.sessions.create')?.params).toMatchObject({
+      client_reference_id: 'sub_checkout_1',
+    });
+  });
 });

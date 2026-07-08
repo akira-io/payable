@@ -24,7 +24,7 @@ describe('fluent subscription checkout', () => {
       .newSubscription('default')
       .price('price_pro')
       .trialDays(14)
-      .checkout(urls);
+      .checkout({ ...urls, reference: 'sub_checkout_1' });
 
     expect(session).toEqual({ id: 'cs_fake', url: 'https://fake.test/cs' });
     expect(provider.createCustomerCalls).toBe(1);
@@ -33,10 +33,11 @@ describe('fluent subscription checkout', () => {
       providerCustomerId: 'cus_fake',
       mode: 'subscription',
       lineItems: [{ priceId: 'price_pro', quantity: 1 }],
+      reference: 'sub_checkout_1',
       trialDays: 14,
     });
     expect(provider.lastCheckout?.ctx.idempotencyKey).toBe(
-      'checkout::stripe:User:1:price_pro%3A1:default',
+      'checkout::stripe:User:1:price_pro%3A1:default:sub_checkout_1',
     );
   });
 
