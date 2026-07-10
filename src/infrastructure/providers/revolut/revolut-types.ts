@@ -68,6 +68,7 @@ export interface RevolutSubscription {
 export interface RevolutSubscriptionCreationPayload {
   plan_variation_id: string;
   customer_id: string;
+  external_reference?: string;
   setup_order_redirect_url?: string;
   trial_duration?: string;
 }

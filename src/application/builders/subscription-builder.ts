@@ -74,6 +74,7 @@ export class SubscriptionBuilder {
       successUrl: request.successUrl,
       cancelUrl: request.cancelUrl,
       subscriptionName: this.state.name,
+      reference: request.reference,
       trialDays: this.state.trialDays,
       coupon: this.state.coupon,
     });
