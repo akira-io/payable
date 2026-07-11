@@ -251,8 +251,11 @@ Unmapped events normalize to `null` and are still stored.
 
 | Revolut event | Payable payment status |
 | --- | --- |
+| `ORDER_AUTHORISED` | `processing` |
 | `ORDER_COMPLETED` | `succeeded` |
 | `ORDER_FAILED` | `failed` |
+| `ORDER_PAYMENT_AUTHENTICATED` | `processing` |
+| `ORDER_PAYMENT_AUTHENTICATION_CHALLENGED` | `pending` |
 | `ORDER_PAYMENT_DECLINED` | `failed` |
 | `ORDER_PAYMENT_FAILED` | `failed` |
 | `ORDER_CANCELLED` | `canceled` |
@@ -269,8 +272,8 @@ Unmapped events normalize to `null` and are still stored.
 | `SUBSCRIPTION_FINISHED` | `canceled` |
 | `SUBSCRIPTION_OVERDUE` | `past_due` |
 
-`currentPeriodEnd` and `trialEndsAt` are `null` for webhook-only reconciliation because the webhook
-payload contains the subscription id and event type, not the full subscription object.
+`currentPeriodEnd` and `trialEndsAt` are `null` for webhook-only reconciliation because the payload
+does not contain the full subscription object.
 
 ## Error handling
 
@@ -288,11 +291,9 @@ The error context includes `{ provider: 'revolut', revolutCode, status }` and ne
 
 ## Source references
 
-This provider phase follows Revolut Merchant API `2026-04-20`: `json/merchant-2026-04-20.json` from
+This provider phase follows Revolut Merchant API `2026-04-20` from
 `revolut-engineering/revolut-openapi`, production `https://merchant.revolut.com`, sandbox
-`https://sandbox-merchant.revolut.com`, customer endpoints `POST /api/customers` and
-`PATCH /api/customers/{id}`, subscription endpoints under `/api/subscriptions`, and webhook
-signatures using HMAC SHA-256 over `v1.{timestamp}.{rawPayload}`.
+`https://sandbox-merchant.revolut.com`, customer/subscription endpoints, and HMAC SHA-256 webhooks.
 
 ---
 

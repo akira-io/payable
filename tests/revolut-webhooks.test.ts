@@ -76,6 +76,35 @@ describe('RevolutProvider webhooks', () => {
     ).toBeNull();
   });
 
+  it('reconciles in-flight Revolut payment webhooks by order id', () => {
+    const instance = provider();
+
+    expect(
+      instance.reconcilePayment({
+        providerEventId: 'evt_auth_1',
+        type: 'ORDER_AUTHORISED',
+        normalizedType: null,
+        data: { event: 'ORDER_AUTHORISED', order_id: 'ord_1' },
+      }),
+    ).toEqual({ providerPaymentId: 'ord_1', status: 'processing' });
+    expect(
+      instance.reconcilePayment({
+        providerEventId: 'evt_auth_2',
+        type: 'ORDER_PAYMENT_AUTHENTICATED',
+        normalizedType: null,
+        data: { event: 'ORDER_PAYMENT_AUTHENTICATED', order_id: 'ord_1' },
+      }),
+    ).toEqual({ providerPaymentId: 'ord_1', status: 'processing' });
+    expect(
+      instance.reconcilePayment({
+        providerEventId: 'evt_auth_3',
+        type: 'ORDER_PAYMENT_AUTHENTICATION_CHALLENGED',
+        normalizedType: null,
+        data: { event: 'ORDER_PAYMENT_AUTHENTICATION_CHALLENGED', order_id: 'ord_1' },
+      }),
+    ).toEqual({ providerPaymentId: 'ord_1', status: 'pending' });
+  });
+
   it('reconciles Revolut subscription cancellation webhooks', () => {
     expect(
       provider().reconcileSubscription({
