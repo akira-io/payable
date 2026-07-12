@@ -148,6 +148,7 @@ Supported payment reconciliation sources:
 | --- | --- | --- |
 | `payment_intent.succeeded` | `PaymentIntent.id` | `succeeded` |
 | `payment_intent.payment_failed` | `PaymentIntent.id` | `failed` |
+| `payment_intent.canceled` | `PaymentIntent.id` | `canceled` |
 | `charge.succeeded` | `Charge.payment_intent` | `succeeded` |
 | `charge.failed` | `Charge.payment_intent` | `failed` |
 | `checkout.session.completed` with `payment_status: 'paid'` | `Checkout.Session.id` | `succeeded` |

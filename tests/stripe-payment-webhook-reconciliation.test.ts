@@ -30,6 +30,17 @@ describe('StripeProvider payment webhook reconciliation', () => {
     expect(dto).toEqual({ providerPaymentId: 'pi_1', status: 'succeeded' });
   });
 
+  it('maps canceled payment intent events to local payment cancellation', () => {
+    const dto = provider().reconcilePayment({
+      providerEventId: 'evt_pi_canceled',
+      type: 'payment_intent.canceled',
+      normalizedType: null,
+      data: { id: 'pi_canceled' },
+    });
+
+    expect(dto).toEqual({ providerPaymentId: 'pi_canceled', status: 'canceled' });
+  });
+
   it('maps charge events through the related payment intent id', () => {
     const dto = provider().reconcilePayment({
       providerEventId: 'evt_charge',
