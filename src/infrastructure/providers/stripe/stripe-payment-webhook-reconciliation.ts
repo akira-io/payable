@@ -6,6 +6,7 @@ export function reconcileStripePaymentWebhook(
 ): PaymentWebhookReconciliation | null {
   switch (verified.type) {
     case 'payment_intent.canceled':
+    case 'payment_intent.processing':
     case 'payment_intent.succeeded':
     case 'payment_intent.payment_failed':
       return reconcilePaymentIntentWebhook(verified);
@@ -63,6 +64,9 @@ function reconcileCheckoutSessionWebhook(
 function paymentStatus(verified: VerifiedWebhook): PaymentWebhookReconciliation['status'] | null {
   if (verified.type === 'payment_intent.canceled') {
     return 'canceled';
+  }
+  if (verified.type === 'payment_intent.processing') {
+    return 'processing';
   }
   if (verified.normalizedType === 'payment.succeeded') {
     return 'succeeded';

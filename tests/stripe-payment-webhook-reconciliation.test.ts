@@ -41,6 +41,17 @@ describe('StripeProvider payment webhook reconciliation', () => {
     expect(dto).toEqual({ providerPaymentId: 'pi_canceled', status: 'canceled' });
   });
 
+  it('maps processing payment intent events to local payment processing', () => {
+    const dto = provider().reconcilePayment({
+      providerEventId: 'evt_pi_processing',
+      type: 'payment_intent.processing',
+      normalizedType: null,
+      data: { id: 'pi_processing' },
+    });
+
+    expect(dto).toEqual({ providerPaymentId: 'pi_processing', status: 'processing' });
+  });
+
   it('maps charge events through the related payment intent id', () => {
     const dto = provider().reconcilePayment({
       providerEventId: 'evt_charge',
