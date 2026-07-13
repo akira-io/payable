@@ -66,4 +66,8 @@ export type {
   TreasuryTransferDestination,
   TreasuryTransferDTO,
 } from './treasury.dto';
+export type {
+  TreasuryWebhookEventType,
+  VerifiedTreasuryWebhook,
+} from './treasury-webhook.dto';
 export type { VerifiedWebhook, WebhookVerificationInput } from './webhook.dto';

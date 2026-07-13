@@ -87,6 +87,7 @@ export type {
   TreasuryProvider,
   TreasuryTransactionCapable,
   TreasuryTransferCapable,
+  TreasuryWebhookCapable,
 } from './treasury-provider.contract';
 export {
   isTreasuryAccountCapable,
@@ -94,6 +95,7 @@ export {
   isTreasuryExchangeCapable,
   isTreasuryTransactionCapable,
   isTreasuryTransferCapable,
+  isTreasuryWebhookCapable,
 } from './treasury-provider.contract';
 export type {
   NewWebhookDelivery,

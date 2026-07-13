@@ -5,7 +5,8 @@ export type TreasuryCapability =
   | 'transactions'
   | 'transfers'
   | 'counterparties'
-  | 'exchange';
+  | 'exchange'
+  | 'webhooks';
 export type TreasuryCapabilityValue = TreasuryCapability | (string & {});
 export type TreasuryCapabilities = ReadonlySet<TreasuryCapabilityValue>;
 
