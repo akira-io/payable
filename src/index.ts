@@ -164,6 +164,10 @@ export {
   StripeProvider,
   type StripeProviderOptions,
 } from './infrastructure/providers/stripe/stripe-provider';
+export {
+  StripeTreasuryProvider,
+  type StripeTreasuryProviderOptions,
+} from './infrastructure/providers/stripe/stripe-treasury-provider';
 export { StripeWebhookVerifier } from './infrastructure/providers/stripe/stripe-webhook-verifier';
 export {
   BullMQQueueDriver,

@@ -36,6 +36,7 @@ tree.
 17. [integrations/17-providers.md](integrations/17-providers.md) - The `PaymentProvider` contract, optional capability interfaces, and capability detection.
     - [integrations/17a-treasury-providers.md](integrations/17a-treasury-providers.md) - Separate Treasury contracts, registry, capabilities, and normalized DTOs.
 18. [integrations/18-stripe.md](integrations/18-stripe.md) - The Stripe provider, webhook verifier, and normalizer.
+    - [integrations/18a-stripe-treasury.md](integrations/18a-stripe-treasury.md) - Stripe Financial Accounts, transactions, and Outbound Transfers through the separate Treasury contract.
 19. [integrations/19-paddle.md](integrations/19-paddle.md) - The Paddle provider, webhook verifier, and normalizer.
 20. [integrations/20-sisp.md](integrations/20-sisp.md) - The SISP (Cabo Verde / vinti4) provider: redirect checkout, callback reconciliation, and the optional `@akira-io/payable/sisp` subpath.
 21. [integrations/21-revolut.md](integrations/21-revolut.md) - The Revolut Merchant provider: amount checkout, refunds, webhooks, and payment reconciliation.
