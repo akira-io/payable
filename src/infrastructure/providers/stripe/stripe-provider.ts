@@ -10,6 +10,7 @@ import type {
   PaymentWebhookCapable,
   PaymentWebhookReconciliation,
   PayoutCapable,
+  ProviderWebhookEndpointManagementCapable,
   ResumeSubscriptionInput,
 } from '../../../domain/contracts/payment-provider.contract';
 import type { BillingPortalDTO, BillingPortalInput } from '../../../domain/dtos/billing-portal.dto';
@@ -43,6 +44,12 @@ import type {
   ProductDTO,
   UpdateProductInput,
 } from '../../../domain/dtos/product.dto';
+import type {
+  CreateProviderWebhookEndpointInput,
+  ListProviderWebhookEndpointsInput,
+  ProviderWebhookEndpointDTO,
+  UpdateProviderWebhookEndpointInput,
+} from '../../../domain/dtos/provider-webhook-endpoint.dto';
 import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type {
   CancelSubscriptionInput,
@@ -51,21 +58,18 @@ import type {
   UpdateSubscriptionInput,
 } from '../../../domain/dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
-import { assertSubscriptionPayload } from '../webhook-subscription-payload';
 import { StripeBillingPortal } from './stripe-billing-portal';
 import { StripeCatalog } from './stripe-catalog';
+import { StripeCheckout } from './stripe-checkout';
 import { StripeCustomers } from './stripe-customers';
 import { StripeDisputes } from './stripe-disputes';
-import { withStripeErrors } from './stripe-errors';
-import { StripeEventNormalizer } from './stripe-event-normalizer';
 import { StripeInvoices } from './stripe-invoices';
-import { toCheckoutSessionDTO, toSubscriptionDTOFromWebhook } from './stripe-mappers';
 import { StripePaymentMethods } from './stripe-payment-methods';
-import { reconcileStripePaymentWebhook } from './stripe-payment-webhook-reconciliation';
 import { StripePayments } from './stripe-payments';
 import { StripePayouts } from './stripe-payouts';
 import { StripeSubscriptions } from './stripe-subscriptions';
-import { StripeWebhookVerifier } from './stripe-webhook-verifier';
+import { StripeWebhookEndpoints } from './stripe-webhook-endpoints';
+import { StripeWebhooks } from './stripe-webhooks';
 
 export const STRIPE_API_VERSION = '2026-06-24.dahlia' as const;
 
@@ -84,12 +88,12 @@ export class StripeProvider
     InvoiceCapable,
     PaymentMethodCapable,
     PaymentWebhookCapable,
-    PayoutCapable
+    PayoutCapable,
+    ProviderWebhookEndpointManagementCapable
 {
   readonly name = 'stripe';
   private client?: Stripe;
-  private readonly verifier: StripeWebhookVerifier;
-  private readonly normalizer: StripeEventNormalizer;
+  private readonly webhooks: StripeWebhooks;
   private readonly subscriptions = new StripeSubscriptions(() => this.stripe());
   private readonly invoices = new StripeInvoices(() => this.stripe());
   private readonly catalog = new StripeCatalog(() => this.stripe());
@@ -99,14 +103,15 @@ export class StripeProvider
   private readonly payments = new StripePayments(() => this.stripe());
   private readonly disputes = new StripeDisputes(() => this.stripe());
   private readonly payouts = new StripePayouts(() => this.stripe());
+  private readonly checkout = new StripeCheckout(() => this.stripe());
+  private readonly webhookEndpoints = new StripeWebhookEndpoints(() => this.stripe());
 
   constructor(
     private readonly options: StripeProviderOptions,
     client?: Stripe,
   ) {
-    this.normalizer = new StripeEventNormalizer(options.logger);
     this.client = client;
-    this.verifier = new StripeWebhookVerifier(options.webhookSecret);
+    this.webhooks = new StripeWebhooks(() => this.stripe(), options.webhookSecret, options.logger);
   }
 
   toJSON(): { name: string } {
@@ -132,6 +137,7 @@ export class StripeProvider
       'paymentMethods',
       'disputes',
       'payouts',
+      'webhookEndpointManagement',
       'catalog',
     ]);
   }
@@ -172,6 +178,34 @@ export class StripeProvider
     return this.payouts.retrieve(providerPayoutId);
   }
 
+  createWebhookEndpoint(
+    input: CreateProviderWebhookEndpointInput,
+    ctx: OperationContext,
+  ): Promise<ProviderWebhookEndpointDTO> {
+    return this.webhookEndpoints.create(input, ctx);
+  }
+
+  listWebhookEndpoints(
+    input?: ListProviderWebhookEndpointsInput,
+  ): Promise<ProviderWebhookEndpointDTO[]> {
+    return this.webhookEndpoints.list(input);
+  }
+
+  retrieveWebhookEndpoint(providerWebhookEndpointId: string): Promise<ProviderWebhookEndpointDTO> {
+    return this.webhookEndpoints.retrieve(providerWebhookEndpointId);
+  }
+
+  updateWebhookEndpoint(
+    input: UpdateProviderWebhookEndpointInput,
+    ctx: OperationContext,
+  ): Promise<ProviderWebhookEndpointDTO> {
+    return this.webhookEndpoints.update(input, ctx);
+  }
+
+  deleteWebhookEndpoint(providerWebhookEndpointId: string, ctx: OperationContext): Promise<void> {
+    return this.webhookEndpoints.delete(providerWebhookEndpointId, ctx);
+  }
+
   async createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO> {
     return this.catalog.createProduct(input, ctx);
   }
@@ -188,25 +222,7 @@ export class StripeProvider
     input: CreateCheckoutSessionInput,
     ctx: OperationContext,
   ): Promise<CheckoutSessionDTO> {
-    const stripe = await this.stripe();
-    const params: Stripe.Checkout.SessionCreateParams = {
-      customer: input.providerCustomerId,
-      mode: input.mode,
-      line_items: input.lineItems.map((item) => ({ price: item.priceId, quantity: item.quantity })),
-      success_url: input.successUrl,
-      cancel_url: input.cancelUrl,
-      client_reference_id: input.reference,
-    };
-    if (input.mode === 'subscription' && input.trialDays !== undefined) {
-      params.subscription_data = { trial_period_days: input.trialDays };
-    }
-    if (input.coupon) {
-      params.discounts = [{ coupon: input.coupon }];
-    }
-    const session = await withStripeErrors(() =>
-      stripe.checkout.sessions.create(params, { idempotencyKey: ctx.idempotencyKey }),
-    );
-    return toCheckoutSessionDTO(session);
+    return this.checkout.create(input, ctx);
   }
 
   createSubscription(
@@ -246,26 +262,15 @@ export class StripeProvider
   }
 
   async verifyWebhook(input: WebhookVerificationInput): Promise<VerifiedWebhook> {
-    const stripe = await this.stripe();
-    const event = await this.verifier.verify(stripe, input.payload, input.signature);
-    return {
-      providerEventId: event.id,
-      type: event.type,
-      normalizedType: this.normalizer.normalize(event.type),
-      data: (event.data.object ?? {}) as unknown as Record<string, unknown>,
-    };
+    return this.webhooks.verify(input);
   }
 
   reconcileSubscription(verified: VerifiedWebhook): SubscriptionDTO | null {
-    if (!verified.normalizedType?.startsWith('subscription.')) {
-      return null;
-    }
-    assertSubscriptionPayload(verified.data, 'stripe');
-    return toSubscriptionDTOFromWebhook(verified.data);
+    return this.webhooks.reconcileSubscription(verified);
   }
 
   reconcilePayment(verified: VerifiedWebhook): PaymentWebhookReconciliation | null {
-    return reconcileStripePaymentWebhook(verified);
+    return this.webhooks.reconcilePayment(verified);
   }
 
   billingPortal(input: BillingPortalInput, ctx: OperationContext): Promise<BillingPortalDTO> {

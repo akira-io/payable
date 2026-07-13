@@ -167,6 +167,16 @@ continues across pages without requesting more than Stripe's per-page maximum.
 Payouts map provider id, normalized lifecycle status, amount, creation time, and expected arrival
 time. Creating, canceling, and reversing payouts remain outside the read-only generic capability.
 
+## Provider webhook management
+
+`StripeProvider` implements remote webhook endpoint create, list, retrieve, update, and delete through
+`ProviderWebhookEndpointManagementCapable`. Write operations forward `ctx.idempotencyKey`; list uses
+bounded auto-pagination.
+
+Stripe returns a signing secret only when an endpoint is created, so `signingSecret` is normally
+`null` on list, retrieve, and update responses. Signing-secret rotation is not exposed because Stripe
+does not provide an equivalent operation.
+
 ## Payment webhook reconciliation
 
 `StripeProvider` implements `PaymentWebhookCapable` so the generic webhook pipeline can reconcile local
