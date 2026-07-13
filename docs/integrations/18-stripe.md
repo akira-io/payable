@@ -148,6 +148,16 @@ Only generic display data is returned: provider id, type, card brand, last four 
 Fields that do not apply to a payment method type are `null`. Collection and attachment remain a
 SetupIntent or PaymentIntent concern and are not exposed by this capability.
 
+## Disputes
+
+`StripeProvider` implements `DisputeCapable` with `listDisputes`, `retrieveDispute`, and
+`acceptDispute`. Accepting maps to Stripe `disputes.close` and forwards `ctx.idempotencyKey`; it is
+irreversible and acknowledges the dispute as lost.
+
+Disputes expose normalized status, amount, reason, creation time, response deadline, and the related
+PaymentIntent id, falling back to the Charge id. Evidence submission is not generalized because its
+shape and upload lifecycle differ across providers.
+
 ## Payment webhook reconciliation
 
 `StripeProvider` implements `PaymentWebhookCapable` so the generic webhook pipeline can reconcile local
