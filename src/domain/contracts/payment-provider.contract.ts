@@ -11,6 +11,10 @@ import type {
   ListPaymentMethodsInput,
   PaymentMethodDTO,
 } from '../dtos/payment-method.dto';
+import type {
+  CreatePaymentMethodSetupInput,
+  PaymentMethodSetupDTO,
+} from '../dtos/payment-method-setup.dto';
 import type { ListPayoutsInput, PayoutDTO } from '../dtos/payout.dto';
 import type { CreatePriceInput, PriceDTO } from '../dtos/price.dto';
 import type { CreateProductInput, ProductDTO, UpdateProductInput } from '../dtos/product.dto';
@@ -117,6 +121,17 @@ export interface InvoiceCapable {
 export interface PaymentMethodCapable {
   listPaymentMethods(input: ListPaymentMethodsInput): Promise<PaymentMethodDTO[]>;
   deletePaymentMethod(input: DeletePaymentMethodInput, ctx: OperationContext): Promise<void>;
+}
+export interface PaymentMethodSetupCapable {
+  createPaymentMethodSetup(
+    input: CreatePaymentMethodSetupInput,
+    ctx: OperationContext,
+  ): Promise<PaymentMethodSetupDTO>;
+  retrievePaymentMethodSetup(providerSetupId: string): Promise<PaymentMethodSetupDTO>;
+  cancelPaymentMethodSetup(
+    providerSetupId: string,
+    ctx: OperationContext,
+  ): Promise<PaymentMethodSetupDTO>;
 }
 
 export interface DisputeCapable {
@@ -238,6 +253,16 @@ export function isPaymentMethodCapable(
   return (
     typeof candidate.listPaymentMethods === 'function' &&
     typeof candidate.deletePaymentMethod === 'function'
+  );
+}
+export function isPaymentMethodSetupCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & PaymentMethodSetupCapable {
+  const candidate = provider as Partial<PaymentMethodSetupCapable>;
+  return (
+    typeof candidate.createPaymentMethodSetup === 'function' &&
+    typeof candidate.retrievePaymentMethodSetup === 'function' &&
+    typeof candidate.cancelPaymentMethodSetup === 'function'
   );
 }
 

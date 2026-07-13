@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { AuthorizationConfig, AuthorizationContext } from '../src/index';
+import type {
+  AuthorizationConfig,
+  AuthorizationContext,
+  CreatePaymentMethodSetupInput,
+  PaymentMethodSetupCapable,
+  PaymentMethodSetupDTO,
+} from '../src/index';
 import * as payable from '../src/index';
 
 describe('public API surface', () => {
@@ -16,6 +22,7 @@ describe('public API surface', () => {
     expect(typeof payable.isChargeCapable).toBe('function');
     expect(typeof payable.isDisputeCapable).toBe('function');
     expect(typeof payable.isPaymentMethodCapable).toBe('function');
+    expect(typeof payable.isPaymentMethodSetupCapable).toBe('function');
     expect(typeof payable.isPayoutCapable).toBe('function');
     expect(typeof payable.isProviderWebhookEndpointManagementCapable).toBe('function');
     expect(typeof payable.isPaymentWebhookCapable).toBe('function');
@@ -30,6 +37,27 @@ describe('public API surface', () => {
   it('exports AuthorizationConfig alongside the sibling config types', () => {
     const config: AuthorizationConfig = { enabled: true };
     expect(config.enabled).toBe(true);
+  });
+
+  it('exports the payment method setup contract types', () => {
+    const input: CreatePaymentMethodSetupInput = {
+      providerCustomerId: 'customer_1',
+      usage: 'off_session',
+    };
+    const setup: PaymentMethodSetupDTO = {
+      providerSetupId: 'setup_1',
+      providerCustomerId: input.providerCustomerId,
+      status: 'requires_action',
+      usage: input.usage,
+      clientSecret: null,
+      checkoutUrl: null,
+      providerPaymentMethodId: null,
+      createdAt: null,
+    };
+    const capable = {} as PaymentMethodSetupCapable;
+
+    expect(setup.providerCustomerId).toBe('customer_1');
+    expect(typeof capable).toBe('object');
   });
 
   it('does not export the not-yet-implemented Redis drivers', () => {

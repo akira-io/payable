@@ -11,6 +11,7 @@ export type ProviderCapability =
   | 'webhooks'
   | 'customers'
   | 'paymentMethods'
+  | 'paymentMethodSetup'
   | 'disputes'
   | 'payouts'
   | 'webhookEndpointManagement'

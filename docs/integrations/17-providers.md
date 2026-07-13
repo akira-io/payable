@@ -47,6 +47,7 @@ method or throws `ProviderCapabilityNotSupportedError`.
 | `DirectSubscriptionCapable` | `createSubscription(input, ctx)` | `isDirectSubscriptionCapable(provider)` |
 | `InvoiceCapable` | `listInvoices(input)`, `downloadInvoicePdf(id)` | `isInvoiceCapable(provider)` |
 | `PaymentMethodCapable` | `listPaymentMethods(input)`, `deletePaymentMethod(input, ctx)` | `isPaymentMethodCapable(provider)` |
+| `PaymentMethodSetupCapable` | `createPaymentMethodSetup(input, ctx)`, `retrievePaymentMethodSetup(id)`, `cancelPaymentMethodSetup(id, ctx)` | `isPaymentMethodSetupCapable(provider)` |
 | `DisputeCapable` | `listDisputes(input)`, `retrieveDispute(id)`, `acceptDispute(id, ctx)` | `isDisputeCapable(provider)` |
 | `PayoutCapable` | `listPayouts(input)`, `retrievePayout(id)` | `isPayoutCapable(provider)` |
 | `ProviderWebhookEndpointManagementCapable` | provider webhook endpoint CRUD with bounded listing | `isProviderWebhookEndpointManagementCapable(provider)` |
@@ -61,6 +62,9 @@ Notes on the non-obvious members:
 - `PaymentWebhookCapable` is separate from `WebhookCapable`. It lets hosted-checkout providers map an
   already-verified payment webhook to `{ providerPaymentId, status }` without forcing every
   webhook-capable provider to implement payment reconciliation.
+- `PaymentMethodSetupCapable` manages the setup lifecycle independently from charging. Its normalized
+  result can expose a client secret, a hosted checkout URL, or the resulting provider payment method
+  ID without exposing vendor SDK types.
 - `RedirectCallbackCapable` models a synchronous browser-POST callback (SISP), not an asynchronous
   signed webhook. `handleRedirectCallback` returns a normalized `{ providerPaymentId, status }` the
   engine uses to reconcile a local payment. See [SISP](20-sisp.md).
@@ -99,6 +103,7 @@ callback flow, not an asynchronous provider webhook.
 | `charges` (`ChargeCapable`) | yes | no | no | no |
 | `invoicePdf` (`InvoiceCapable`) | yes | no | no | no |
 | `paymentMethods` (`PaymentMethodCapable`) | yes | no | no | yes |
+| `paymentMethodSetup` (`PaymentMethodSetupCapable`) | no | no | no | no |
 | `disputes` (`DisputeCapable`) | yes | no | no | yes (production only) |
 | `payouts` (`PayoutCapable`) | yes | no | no | yes |
 | `webhookEndpointManagement` | yes | no | no | yes |
@@ -122,6 +127,7 @@ export type ProviderCapability =
   | 'webhooks'
   | 'customers'
   | 'paymentMethods'
+  | 'paymentMethodSetup'
   | 'disputes'
   | 'payouts'
   | 'webhookEndpointManagement'

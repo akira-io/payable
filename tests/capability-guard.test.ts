@@ -12,6 +12,7 @@ import {
   isDisputeCapable,
   isInvoiceCapable,
   isPaymentMethodCapable,
+  isPaymentMethodSetupCapable,
   isPayoutCapable,
   isProviderWebhookEndpointManagementCapable,
   type PaymentProvider,
@@ -19,6 +20,7 @@ import {
 import { ProviderCapabilityNotSupportedError } from '../src/domain/errors/provider-capability-not-supported.error';
 import { Money } from '../src/domain/value-objects/money';
 import { PaddleProvider } from '../src/infrastructure/providers/paddle/paddle-provider';
+import { RevolutProvider } from '../src/infrastructure/providers/revolut/revolut-provider';
 import {
   SispProvider,
   type SispProviderOptions,
@@ -120,6 +122,21 @@ describe('provider capability guard', () => {
     expect(isPaymentMethodCapable(capable)).toBe(true);
   });
 
+  it('requires every payment method setup operation', () => {
+    const partial = {
+      name: 'partial',
+      createPaymentMethodSetup: async () => ({}),
+      retrievePaymentMethodSetup: async () => ({}),
+    } as unknown as PaymentProvider;
+    expect(isPaymentMethodSetupCapable(partial)).toBe(false);
+
+    const capable = {
+      ...partial,
+      cancelPaymentMethodSetup: async () => ({}),
+    } as unknown as PaymentProvider;
+    expect(isPaymentMethodSetupCapable(capable)).toBe(true);
+  });
+
   it('requires every dispute operation', () => {
     const partial = {
       name: 'partial',
@@ -172,6 +189,17 @@ describe('provider capability guard', () => {
     expect(paddle().capabilities().has('charges')).toBe(false);
     expect(paddle().capabilities().has('webhooks')).toBe(true);
     expect(new SispProvider(sispOptions).capabilities().has('webhooks')).toBe(false);
+  });
+
+  it('does not advertise payment method setup before provider adapters implement it', () => {
+    expect(stripe().capabilities().has('paymentMethodSetup')).toBe(false);
+    expect(paddle().capabilities().has('paymentMethodSetup')).toBe(false);
+    expect(
+      new RevolutProvider({ secretKey: 'sk_test', webhookSecret: 'wh_test' })
+        .capabilities()
+        .has('paymentMethodSetup'),
+    ).toBe(false);
+    expect(new SispProvider(sispOptions).capabilities().has('paymentMethodSetup')).toBe(false);
   });
 
   it('blocks charge when the provider method exists but the capability is not declared', async () => {

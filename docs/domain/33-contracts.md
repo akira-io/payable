@@ -112,11 +112,17 @@ export interface PaymentProvider {
 | `ChargeCapable` | `charge` | `isChargeCapable` |
 | `InvoiceCapable` | `listInvoices`, `downloadInvoicePdf` | `isInvoiceCapable` |
 | `BillingPortalCapable` | `billingPortal` | `isBillingPortalCapable` |
+| `PaymentMethodSetupCapable` | `createPaymentMethodSetup`, `retrievePaymentMethodSetup`, `cancelPaymentMethodSetup` | `isPaymentMethodSetupCapable` |
 | `WebhookCapable` | `verifyWebhook`, `reconcileSubscription` | `isWebhookCapable` |
 | `PaymentWebhookCapable` | `reconcilePayment` | `isPaymentWebhookCapable` |
 | `RedirectCallbackCapable` | `verifyCallback`, `handleRedirectCallback` | `isRedirectCallbackCapable` |
 
 Implementations: `StripeProvider` (charge, direct subscription, invoice, and more), `PaddleProvider`, and `SispProvider` (redirect-callback based). See [Providers](../integrations/17-providers.md) for the capability matrix.
+
+`PaymentMethodSetupCapable` models saving a payment method without charging it. Its normalized DTO
+supports provider flows that return a client secret, a hosted checkout URL, or a saved payment method
+ID. It remains optional, and a provider advertises `paymentMethodSetup` only after implementing all
+three lifecycle methods.
 
 ### EventBus
 

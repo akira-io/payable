@@ -20,6 +20,12 @@ export type {
   ListPaymentMethodsInput,
   PaymentMethodDTO,
 } from './payment-method.dto';
+export type {
+  CreatePaymentMethodSetupInput,
+  PaymentMethodSetupDTO,
+  PaymentMethodSetupStatus,
+  PaymentMethodSetupUsage,
+} from './payment-method-setup.dto';
 export type { ListPayoutsInput, PayoutDTO, PayoutStatus } from './payout.dto';
 export type { CreatePriceInput, PriceDTO } from './price.dto';
 export type { CreateProductInput, ProductDTO, UpdateProductInput } from './product.dto';
