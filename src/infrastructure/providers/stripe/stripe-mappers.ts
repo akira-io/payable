@@ -8,6 +8,7 @@ import type { PaymentMethodDTO } from '../../../domain/dtos/payment-method.dto';
 import type { PayoutDTO, PayoutStatus } from '../../../domain/dtos/payout.dto';
 import type { PriceDTO } from '../../../domain/dtos/price.dto';
 import type { ProductDTO } from '../../../domain/dtos/product.dto';
+import type { ProviderWebhookEndpointDTO } from '../../../domain/dtos/provider-webhook-endpoint.dto';
 import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import type { RecurringInterval } from '../../../domain/entities/common';
@@ -115,6 +116,20 @@ export function toStripePayoutDTO(payout: Stripe.Payout): PayoutDTO {
     amount: stripeMoney(payout.amount, payout.currency),
     createdAt: fromUnixSeconds(payout.created),
     arrivalAt: fromUnixSeconds(payout.arrival_date),
+  };
+}
+
+export function toStripeWebhookEndpointDTO(
+  endpoint: Stripe.WebhookEndpoint,
+): ProviderWebhookEndpointDTO {
+  const status =
+    endpoint.status === 'enabled' || endpoint.status === 'disabled' ? endpoint.status : null;
+  return {
+    providerWebhookEndpointId: endpoint.id,
+    url: endpoint.url,
+    events: endpoint.enabled_events,
+    signingSecret: endpoint.secret ?? null,
+    status,
   };
 }
 
