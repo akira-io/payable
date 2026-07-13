@@ -9,6 +9,7 @@ import type { BillingDependencies } from '../src/application/builders/billing-de
 import type { WebhookDependencies } from '../src/application/builders/webhook-dependencies';
 import { assertProviderCapability } from '../src/application/services/provider-capabilities/assert-provider-capability';
 import {
+  isDisputeCapable,
   isInvoiceCapable,
   isPaymentMethodCapable,
   type PaymentProvider,
@@ -115,6 +116,21 @@ describe('provider capability guard', () => {
       deletePaymentMethod: async () => undefined,
     } as unknown as PaymentProvider;
     expect(isPaymentMethodCapable(capable)).toBe(true);
+  });
+
+  it('requires every dispute operation', () => {
+    const partial = {
+      name: 'partial',
+      listDisputes: async () => [],
+      retrieveDispute: async () => ({}),
+    } as unknown as PaymentProvider;
+    expect(isDisputeCapable(partial)).toBe(false);
+
+    const capable = {
+      ...partial,
+      acceptDispute: async () => undefined,
+    } as unknown as PaymentProvider;
+    expect(isDisputeCapable(capable)).toBe(true);
   });
 
   it('declares charge and webhook capabilities for built-in providers that support them', () => {

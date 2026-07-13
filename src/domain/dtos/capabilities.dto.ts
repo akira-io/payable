@@ -11,6 +11,7 @@ export type ProviderCapability =
   | 'webhooks'
   | 'customers'
   | 'paymentMethods'
+  | 'disputes'
   | 'catalog';
 
 export type ProviderCapabilityValue = ProviderCapability | (string & {});
