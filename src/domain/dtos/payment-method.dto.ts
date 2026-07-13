@@ -1,5 +1,6 @@
 export interface ListPaymentMethodsInput {
   providerCustomerId: string;
+  limit?: number;
 }
 
 export interface DeletePaymentMethodInput {
