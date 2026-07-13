@@ -13,6 +13,7 @@ import {
   isInvoiceCapable,
   isPaymentMethodCapable,
   isPayoutCapable,
+  isProviderWebhookEndpointManagementCapable,
   type PaymentProvider,
 } from '../src/domain/contracts/payment-provider.contract';
 import { ProviderCapabilityNotSupportedError } from '../src/domain/errors/provider-capability-not-supported.error';
@@ -146,6 +147,23 @@ describe('provider capability guard', () => {
       retrievePayout: async () => ({}),
     } as unknown as PaymentProvider;
     expect(isPayoutCapable(capable)).toBe(true);
+  });
+
+  it('requires every provider webhook endpoint management operation', () => {
+    const partial = {
+      name: 'partial',
+      createWebhookEndpoint: async () => ({}),
+      listWebhookEndpoints: async () => [],
+      retrieveWebhookEndpoint: async () => ({}),
+      updateWebhookEndpoint: async () => ({}),
+    } as unknown as PaymentProvider;
+    expect(isProviderWebhookEndpointManagementCapable(partial)).toBe(false);
+
+    const capable = {
+      ...partial,
+      deleteWebhookEndpoint: async () => undefined,
+    } as unknown as PaymentProvider;
+    expect(isProviderWebhookEndpointManagementCapable(capable)).toBe(true);
   });
 
   it('declares charge and webhook capabilities for built-in providers that support them', () => {

@@ -14,6 +14,11 @@ import type {
 import type { ListPayoutsInput, PayoutDTO } from '../dtos/payout.dto';
 import type { CreatePriceInput, PriceDTO } from '../dtos/price.dto';
 import type { CreateProductInput, ProductDTO, UpdateProductInput } from '../dtos/product.dto';
+import type {
+  CreateProviderWebhookEndpointInput,
+  ProviderWebhookEndpointDTO,
+  UpdateProviderWebhookEndpointInput,
+} from '../dtos/provider-webhook-endpoint.dto';
 import type { RefundInput, RefundResultDTO } from '../dtos/refund.dto';
 import type {
   CancelSubscriptionInput,
@@ -122,6 +127,20 @@ export interface DisputeCapable {
 export interface PayoutCapable {
   listPayouts(input?: ListPayoutsInput): Promise<PayoutDTO[]>;
   retrievePayout(providerPayoutId: string): Promise<PayoutDTO>;
+}
+
+export interface ProviderWebhookEndpointManagementCapable {
+  createWebhookEndpoint(
+    input: CreateProviderWebhookEndpointInput,
+    ctx: OperationContext,
+  ): Promise<ProviderWebhookEndpointDTO>;
+  listWebhookEndpoints(): Promise<ProviderWebhookEndpointDTO[]>;
+  retrieveWebhookEndpoint(providerWebhookEndpointId: string): Promise<ProviderWebhookEndpointDTO>;
+  updateWebhookEndpoint(
+    input: UpdateProviderWebhookEndpointInput,
+    ctx: OperationContext,
+  ): Promise<ProviderWebhookEndpointDTO>;
+  deleteWebhookEndpoint(providerWebhookEndpointId: string, ctx: OperationContext): Promise<void>;
 }
 
 export function isCustomerCapable(
@@ -236,5 +255,18 @@ export function isPayoutCapable(
   const candidate = provider as Partial<PayoutCapable>;
   return (
     typeof candidate.listPayouts === 'function' && typeof candidate.retrievePayout === 'function'
+  );
+}
+
+export function isProviderWebhookEndpointManagementCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & ProviderWebhookEndpointManagementCapable {
+  const candidate = provider as Partial<ProviderWebhookEndpointManagementCapable>;
+  return (
+    typeof candidate.createWebhookEndpoint === 'function' &&
+    typeof candidate.listWebhookEndpoints === 'function' &&
+    typeof candidate.retrieveWebhookEndpoint === 'function' &&
+    typeof candidate.updateWebhookEndpoint === 'function' &&
+    typeof candidate.deleteWebhookEndpoint === 'function'
   );
 }

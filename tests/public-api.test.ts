@@ -17,6 +17,7 @@ describe('public API surface', () => {
     expect(typeof payable.isDisputeCapable).toBe('function');
     expect(typeof payable.isPaymentMethodCapable).toBe('function');
     expect(typeof payable.isPayoutCapable).toBe('function');
+    expect(typeof payable.isProviderWebhookEndpointManagementCapable).toBe('function');
     expect(typeof payable.isPaymentWebhookCapable).toBe('function');
     expect(typeof payable.SubscriptionStateMachine).toBe('function');
   });
