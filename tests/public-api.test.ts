@@ -14,6 +14,7 @@ describe('public API surface', () => {
     expect(typeof payable.KnexStorageDriver).toBe('function');
     expect(typeof payable.ok).toBe('function');
     expect(typeof payable.isChargeCapable).toBe('function');
+    expect(typeof payable.isDisputeCapable).toBe('function');
     expect(typeof payable.isPaymentMethodCapable).toBe('function');
     expect(typeof payable.isPaymentWebhookCapable).toBe('function');
     expect(typeof payable.SubscriptionStateMachine).toBe('function');

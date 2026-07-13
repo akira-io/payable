@@ -4,6 +4,7 @@ import type { ChargeInput, ChargeResultDTO } from '../dtos/charge.dto';
 import type { CheckoutSessionDTO, CreateCheckoutSessionInput } from '../dtos/checkout.dto';
 import type { OperationContext } from '../dtos/common.dto';
 import type { CreateCustomerInput, CustomerDTO, UpdateCustomerInput } from '../dtos/customer.dto';
+import type { DisputeDTO, ListDisputesInput } from '../dtos/dispute.dto';
 import type { InvoiceDTO, InvoicePdfDTO, ListInvoicesInput } from '../dtos/invoice.dto';
 import type {
   DeletePaymentMethodInput,
@@ -111,6 +112,12 @@ export interface PaymentMethodCapable {
   deletePaymentMethod(input: DeletePaymentMethodInput, ctx: OperationContext): Promise<void>;
 }
 
+export interface DisputeCapable {
+  listDisputes(input?: ListDisputesInput): Promise<DisputeDTO[]>;
+  retrieveDispute(providerDisputeId: string): Promise<DisputeDTO>;
+  acceptDispute(providerDisputeId: string, ctx: OperationContext): Promise<void>;
+}
+
 export function isCustomerCapable(
   provider: PaymentProvider,
 ): provider is PaymentProvider & CustomerCapable {
@@ -203,5 +210,16 @@ export function isPaymentMethodCapable(
   return (
     typeof candidate.listPaymentMethods === 'function' &&
     typeof candidate.deletePaymentMethod === 'function'
+  );
+}
+
+export function isDisputeCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & DisputeCapable {
+  const candidate = provider as Partial<DisputeCapable>;
+  return (
+    typeof candidate.listDisputes === 'function' &&
+    typeof candidate.retrieveDispute === 'function' &&
+    typeof candidate.acceptDispute === 'function'
   );
 }

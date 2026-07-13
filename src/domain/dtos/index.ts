@@ -13,6 +13,7 @@ export type {
 } from './checkout.dto';
 export type { OperationContext } from './common.dto';
 export type { CreateCustomerInput, CustomerDTO, UpdateCustomerInput } from './customer.dto';
+export type { DisputeDTO, DisputeStatus, ListDisputesInput } from './dispute.dto';
 export type { InvoiceDTO, InvoicePdfDTO, ListInvoicesInput } from './invoice.dto';
 export type {
   DeletePaymentMethodInput,
