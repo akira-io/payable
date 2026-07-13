@@ -12,6 +12,7 @@ import {
   isDisputeCapable,
   isInvoiceCapable,
   isPaymentMethodCapable,
+  isPayoutCapable,
   type PaymentProvider,
 } from '../src/domain/contracts/payment-provider.contract';
 import { ProviderCapabilityNotSupportedError } from '../src/domain/errors/provider-capability-not-supported.error';
@@ -131,6 +132,20 @@ describe('provider capability guard', () => {
       acceptDispute: async () => undefined,
     } as unknown as PaymentProvider;
     expect(isDisputeCapable(capable)).toBe(true);
+  });
+
+  it('requires both payout operations', () => {
+    const partial = {
+      name: 'partial',
+      listPayouts: async () => [],
+    } as unknown as PaymentProvider;
+    expect(isPayoutCapable(partial)).toBe(false);
+
+    const capable = {
+      ...partial,
+      retrievePayout: async () => ({}),
+    } as unknown as PaymentProvider;
+    expect(isPayoutCapable(capable)).toBe(true);
   });
 
   it('declares charge and webhook capabilities for built-in providers that support them', () => {

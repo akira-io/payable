@@ -46,6 +46,9 @@ method or throws `ProviderCapabilityNotSupportedError`.
 | `ChargeCapable` | `charge(input, ctx)` | `isChargeCapable(provider)` |
 | `DirectSubscriptionCapable` | `createSubscription(input, ctx)` | `isDirectSubscriptionCapable(provider)` |
 | `InvoiceCapable` | `listInvoices(input)`, `downloadInvoicePdf(id)` | `isInvoiceCapable(provider)` |
+| `PaymentMethodCapable` | `listPaymentMethods(input)`, `deletePaymentMethod(input, ctx)` | `isPaymentMethodCapable(provider)` |
+| `DisputeCapable` | `listDisputes(input)`, `retrieveDispute(id)`, `acceptDispute(id, ctx)` | `isDisputeCapable(provider)` |
+| `PayoutCapable` | `listPayouts(input)`, `retrievePayout(id)` | `isPayoutCapable(provider)` |
 
 Notes on the non-obvious members:
 
@@ -94,6 +97,9 @@ callback flow, not an asynchronous provider webhook.
 | `RedirectCallbackCapable` | no | no | yes | no |
 | `charges` (`ChargeCapable`) | yes | no | no | no |
 | `invoicePdf` (`InvoiceCapable`) | yes | no | no | no |
+| `paymentMethods` (`PaymentMethodCapable`) | yes | no | no | yes |
+| `disputes` (`DisputeCapable`) | yes | no | no | yes (production only) |
+| `payouts` (`PayoutCapable`) | planned | no | no | planned |
 
 ## The capabilities system
 
@@ -113,6 +119,9 @@ export type ProviderCapability =
   | 'invoicePdf'
   | 'webhooks'
   | 'customers'
+  | 'paymentMethods'
+  | 'disputes'
+  | 'payouts'
   | 'catalog';
 
 export type ProviderCapabilityValue = ProviderCapability | (string & {});

@@ -11,6 +11,7 @@ import type {
   ListPaymentMethodsInput,
   PaymentMethodDTO,
 } from '../dtos/payment-method.dto';
+import type { ListPayoutsInput, PayoutDTO } from '../dtos/payout.dto';
 import type { CreatePriceInput, PriceDTO } from '../dtos/price.dto';
 import type { CreateProductInput, ProductDTO, UpdateProductInput } from '../dtos/product.dto';
 import type { RefundInput, RefundResultDTO } from '../dtos/refund.dto';
@@ -118,6 +119,11 @@ export interface DisputeCapable {
   acceptDispute(providerDisputeId: string, ctx: OperationContext): Promise<void>;
 }
 
+export interface PayoutCapable {
+  listPayouts(input?: ListPayoutsInput): Promise<PayoutDTO[]>;
+  retrievePayout(providerPayoutId: string): Promise<PayoutDTO>;
+}
+
 export function isCustomerCapable(
   provider: PaymentProvider,
 ): provider is PaymentProvider & CustomerCapable {
@@ -221,5 +227,14 @@ export function isDisputeCapable(
     typeof candidate.listDisputes === 'function' &&
     typeof candidate.retrieveDispute === 'function' &&
     typeof candidate.acceptDispute === 'function'
+  );
+}
+
+export function isPayoutCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & PayoutCapable {
+  const candidate = provider as Partial<PayoutCapable>;
+  return (
+    typeof candidate.listPayouts === 'function' && typeof candidate.retrievePayout === 'function'
   );
 }

@@ -12,6 +12,7 @@ export type ProviderCapability =
   | 'customers'
   | 'paymentMethods'
   | 'disputes'
+  | 'payouts'
   | 'catalog';
 
 export type ProviderCapabilityValue = ProviderCapability | (string & {});
