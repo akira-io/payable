@@ -3,6 +3,7 @@ import type { Logger } from '../../../domain/contracts/logger.contract';
 import type {
   ChargeCapable,
   DirectSubscriptionCapable,
+  DisputeCapable,
   InvoiceCapable,
   PaymentMethodCapable,
   PaymentProvider,
@@ -23,6 +24,7 @@ import type {
   CustomerDTO,
   UpdateCustomerInput,
 } from '../../../domain/dtos/customer.dto';
+import type { DisputeDTO, ListDisputesInput } from '../../../domain/dtos/dispute.dto';
 import type {
   InvoiceDTO,
   InvoicePdfDTO,
@@ -48,33 +50,21 @@ import type {
 } from '../../../domain/dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { assertSubscriptionPayload } from '../webhook-subscription-payload';
-import { stripeAmount } from './stripe-amounts';
 import { StripeBillingPortal } from './stripe-billing-portal';
 import { StripeCatalog } from './stripe-catalog';
 import { StripeCustomers } from './stripe-customers';
+import { StripeDisputes } from './stripe-disputes';
 import { withStripeErrors } from './stripe-errors';
 import { StripeEventNormalizer } from './stripe-event-normalizer';
 import { StripeInvoices } from './stripe-invoices';
-import {
-  toChargeResultDTO,
-  toCheckoutSessionDTO,
-  toRefundResultDTO,
-  toSubscriptionDTOFromWebhook,
-} from './stripe-mappers';
+import { toCheckoutSessionDTO, toSubscriptionDTOFromWebhook } from './stripe-mappers';
 import { StripePaymentMethods } from './stripe-payment-methods';
 import { reconcileStripePaymentWebhook } from './stripe-payment-webhook-reconciliation';
+import { StripePayments } from './stripe-payments';
 import { StripeSubscriptions } from './stripe-subscriptions';
 import { StripeWebhookVerifier } from './stripe-webhook-verifier';
 
 export const STRIPE_API_VERSION = '2026-06-24.dahlia' as const;
-
-const STRIPE_REFUND_REASONS = new Set(['duplicate', 'fraudulent', 'requested_by_customer']);
-
-function stripeRefundReason(reason?: string): Stripe.RefundCreateParams.Reason | undefined {
-  return reason && STRIPE_REFUND_REASONS.has(reason)
-    ? (reason as Stripe.RefundCreateParams.Reason)
-    : undefined;
-}
 
 export interface StripeProviderOptions {
   secretKey: string;
@@ -87,6 +77,7 @@ export class StripeProvider
     PaymentProvider,
     ChargeCapable,
     DirectSubscriptionCapable,
+    DisputeCapable,
     InvoiceCapable,
     PaymentMethodCapable,
     PaymentWebhookCapable
@@ -101,6 +92,8 @@ export class StripeProvider
   private readonly customers = new StripeCustomers(() => this.stripe());
   private readonly paymentMethods = new StripePaymentMethods(() => this.stripe());
   private readonly billingPortalSessions = new StripeBillingPortal(() => this.stripe());
+  private readonly payments = new StripePayments(() => this.stripe());
+  private readonly disputes = new StripeDisputes(() => this.stripe());
 
   constructor(
     private readonly options: StripeProviderOptions,
@@ -132,6 +125,7 @@ export class StripeProvider
       'webhooks',
       'customers',
       'paymentMethods',
+      'disputes',
       'catalog',
     ]);
   }
@@ -150,6 +144,18 @@ export class StripeProvider
 
   deletePaymentMethod(input: DeletePaymentMethodInput, ctx: OperationContext): Promise<void> {
     return this.paymentMethods.delete(input, ctx);
+  }
+
+  listDisputes(input?: ListDisputesInput): Promise<DisputeDTO[]> {
+    return this.disputes.list(input);
+  }
+
+  retrieveDispute(providerDisputeId: string): Promise<DisputeDTO> {
+    return this.disputes.retrieve(providerDisputeId);
+  }
+
+  acceptDispute(providerDisputeId: string, ctx: OperationContext): Promise<void> {
+    return this.disputes.accept(providerDisputeId, ctx);
   }
 
   async createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO> {
@@ -217,37 +223,12 @@ export class StripeProvider
     return this.subscriptions.resume(input, ctx);
   }
 
-  async charge(input: ChargeInput, ctx: OperationContext): Promise<ChargeResultDTO> {
-    const stripe = await this.stripe();
-    const intent = await withStripeErrors(() =>
-      stripe.paymentIntents.create(
-        {
-          amount: stripeAmount(input.amount),
-          currency: input.amount.currency().toLowerCase(),
-          customer: input.providerCustomerId,
-          description: input.description,
-          metadata: input.reference ? { reference: input.reference } : undefined,
-        },
-        { idempotencyKey: ctx.idempotencyKey },
-      ),
-    );
-    return toChargeResultDTO(intent);
+  charge(input: ChargeInput, ctx: OperationContext): Promise<ChargeResultDTO> {
+    return this.payments.charge(input, ctx);
   }
 
-  async refund(input: RefundInput, ctx: OperationContext): Promise<RefundResultDTO> {
-    const stripe = await this.stripe();
-    const refund = await withStripeErrors(() =>
-      stripe.refunds.create(
-        {
-          payment_intent: input.providerPaymentId,
-          amount: input.amount ? stripeAmount(input.amount) : undefined,
-          reason: stripeRefundReason(input.reason),
-          metadata: input.reference ? { reference: input.reference } : undefined,
-        },
-        { idempotencyKey: ctx.idempotencyKey },
-      ),
-    );
-    return toRefundResultDTO(refund);
+  refund(input: RefundInput, ctx: OperationContext): Promise<RefundResultDTO> {
+    return this.payments.refund(input, ctx);
   }
 
   async verifyWebhook(input: WebhookVerificationInput): Promise<VerifiedWebhook> {

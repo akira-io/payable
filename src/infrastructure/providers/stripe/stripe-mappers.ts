@@ -2,6 +2,7 @@ import type Stripe from 'stripe';
 import type { ChargeResultDTO } from '../../../domain/dtos/charge.dto';
 import type { CheckoutSessionDTO } from '../../../domain/dtos/checkout.dto';
 import type { CustomerDTO } from '../../../domain/dtos/customer.dto';
+import type { DisputeDTO } from '../../../domain/dtos/dispute.dto';
 import type { InvoiceDTO } from '../../../domain/dtos/invoice.dto';
 import type { PaymentMethodDTO } from '../../../domain/dtos/payment-method.dto';
 import type { PriceDTO } from '../../../domain/dtos/price.dto';
@@ -84,6 +85,25 @@ export function toStripePaymentMethodDTO(
     expiresMonth: method.card?.exp_month ?? null,
     expiresYear: method.card?.exp_year ?? null,
   };
+}
+
+export function toStripeDisputeDTO(dispute: Stripe.Dispute): DisputeDTO {
+  return {
+    providerDisputeId: dispute.id,
+    providerPaymentId: stripeResourceId(dispute.payment_intent) ?? stripeResourceId(dispute.charge),
+    status: dispute.status,
+    reason: dispute.reason ?? null,
+    amount: stripeMoney(dispute.amount, dispute.currency),
+    responseDueAt: fromUnixSeconds(dispute.evidence_details?.due_by),
+    createdAt: fromUnixSeconds(dispute.created),
+  };
+}
+
+function stripeResourceId(resource: { id: string } | string | null | undefined): string | null {
+  if (!resource) {
+    return null;
+  }
+  return typeof resource === 'string' ? resource : resource.id;
 }
 
 export function toProductDTO(product: Stripe.Product): ProductDTO {
