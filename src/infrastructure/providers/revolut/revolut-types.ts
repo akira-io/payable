@@ -26,6 +26,20 @@ export interface RevolutCustomerUpdatePayload {
   full_name?: string;
 }
 
+export interface RevolutPaymentMethod {
+  id: string;
+  type: string;
+  brand?: string;
+  last_four?: string;
+  debtor_iban_last_four?: string;
+  expiry_month?: number;
+  expiry_year?: number;
+}
+
+export interface RevolutCustomerPaymentMethods {
+  payment_methods: RevolutPaymentMethod[];
+}
+
 export interface RevolutOrder {
   id: string;
   type?: string;

@@ -1,11 +1,17 @@
 import type { CheckoutSessionDTO } from '../../../domain/dtos/checkout.dto';
 import type { CustomerDTO } from '../../../domain/dtos/customer.dto';
+import type { PaymentMethodDTO } from '../../../domain/dtos/payment-method.dto';
 import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import type { RefundStatus } from '../../../domain/value-objects/refund-status';
 import type { SubscriptionStatus } from '../../../domain/value-objects/subscription-status';
-import type { RevolutCustomer, RevolutOrder, RevolutSubscription } from './revolut-types';
+import type {
+  RevolutCustomer,
+  RevolutOrder,
+  RevolutPaymentMethod,
+  RevolutSubscription,
+} from './revolut-types';
 
 const REFUND_STATUS_BY_STATE: Record<string, RefundStatus> = {
   pending: 'pending',
@@ -40,6 +46,21 @@ export function toRevolutCustomerDTO(customer: RevolutCustomer): CustomerDTO {
     providerCustomerId: customer.id,
     email: customer.email ?? null,
     name: customer.full_name ?? null,
+  };
+}
+
+export function toRevolutPaymentMethodDTO(
+  method: RevolutPaymentMethod,
+  providerCustomerId: string,
+): PaymentMethodDTO {
+  return {
+    providerPaymentMethodId: method.id,
+    providerCustomerId,
+    type: method.type,
+    brand: method.brand ?? null,
+    last4: method.last_four ?? method.debtor_iban_last_four ?? null,
+    expiresMonth: method.expiry_month ?? null,
+    expiresYear: method.expiry_year ?? null,
   };
 }
 
