@@ -4,6 +4,7 @@ import type {
   ChargeCapable,
   DirectSubscriptionCapable,
   InvoiceCapable,
+  PaymentMethodCapable,
   PaymentProvider,
   PaymentWebhookCapable,
   PaymentWebhookReconciliation,
@@ -27,6 +28,11 @@ import type {
   InvoicePdfDTO,
   ListInvoicesInput,
 } from '../../../domain/dtos/invoice.dto';
+import type {
+  DeletePaymentMethodInput,
+  ListPaymentMethodsInput,
+  PaymentMethodDTO,
+} from '../../../domain/dtos/payment-method.dto';
 import type { CreatePriceInput, PriceDTO } from '../../../domain/dtos/price.dto';
 import type {
   CreateProductInput,
@@ -43,17 +49,19 @@ import type {
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { assertSubscriptionPayload } from '../webhook-subscription-payload';
 import { stripeAmount } from './stripe-amounts';
+import { StripeBillingPortal } from './stripe-billing-portal';
 import { StripeCatalog } from './stripe-catalog';
+import { StripeCustomers } from './stripe-customers';
 import { withStripeErrors } from './stripe-errors';
 import { StripeEventNormalizer } from './stripe-event-normalizer';
 import { StripeInvoices } from './stripe-invoices';
 import {
   toChargeResultDTO,
   toCheckoutSessionDTO,
-  toCustomerDTO,
   toRefundResultDTO,
   toSubscriptionDTOFromWebhook,
 } from './stripe-mappers';
+import { StripePaymentMethods } from './stripe-payment-methods';
 import { reconcileStripePaymentWebhook } from './stripe-payment-webhook-reconciliation';
 import { StripeSubscriptions } from './stripe-subscriptions';
 import { StripeWebhookVerifier } from './stripe-webhook-verifier';
@@ -80,6 +88,7 @@ export class StripeProvider
     ChargeCapable,
     DirectSubscriptionCapable,
     InvoiceCapable,
+    PaymentMethodCapable,
     PaymentWebhookCapable
 {
   readonly name = 'stripe';
@@ -89,6 +98,9 @@ export class StripeProvider
   private readonly subscriptions = new StripeSubscriptions(() => this.stripe());
   private readonly invoices = new StripeInvoices(() => this.stripe());
   private readonly catalog = new StripeCatalog(() => this.stripe());
+  private readonly customers = new StripeCustomers(() => this.stripe());
+  private readonly paymentMethods = new StripePaymentMethods(() => this.stripe());
+  private readonly billingPortalSessions = new StripeBillingPortal(() => this.stripe());
 
   constructor(
     private readonly options: StripeProviderOptions,
@@ -119,31 +131,25 @@ export class StripeProvider
       'invoicePdf',
       'webhooks',
       'customers',
+      'paymentMethods',
       'catalog',
     ]);
   }
 
-  async createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
-    const stripe = await this.stripe();
-    const customer = await withStripeErrors(() =>
-      stripe.customers.create(
-        { email: input.email, name: input.name, metadata: input.metadata },
-        { idempotencyKey: ctx.idempotencyKey },
-      ),
-    );
-    return toCustomerDTO(customer);
+  createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
+    return this.customers.create(input, ctx);
   }
 
-  async updateCustomer(input: UpdateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
-    const stripe = await this.stripe();
-    const customer = await withStripeErrors(() =>
-      stripe.customers.update(
-        input.providerCustomerId,
-        { email: input.email, name: input.name, metadata: input.metadata },
-        { idempotencyKey: ctx.idempotencyKey },
-      ),
-    );
-    return toCustomerDTO(customer);
+  updateCustomer(input: UpdateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
+    return this.customers.update(input, ctx);
+  }
+
+  listPaymentMethods(input: ListPaymentMethodsInput): Promise<PaymentMethodDTO[]> {
+    return this.paymentMethods.list(input);
+  }
+
+  deletePaymentMethod(input: DeletePaymentMethodInput, ctx: OperationContext): Promise<void> {
+    return this.paymentMethods.delete(input, ctx);
   }
 
   async createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO> {
@@ -267,15 +273,8 @@ export class StripeProvider
     return reconcileStripePaymentWebhook(verified);
   }
 
-  async billingPortal(input: BillingPortalInput, ctx: OperationContext): Promise<BillingPortalDTO> {
-    const stripe = await this.stripe();
-    const session = await withStripeErrors(() =>
-      stripe.billingPortal.sessions.create(
-        { customer: input.providerCustomerId, return_url: input.returnUrl },
-        { idempotencyKey: ctx.idempotencyKey },
-      ),
-    );
-    return { url: session.url };
+  billingPortal(input: BillingPortalInput, ctx: OperationContext): Promise<BillingPortalDTO> {
+    return this.billingPortalSessions.create(input, ctx);
   }
 
   async listInvoices(input: ListInvoicesInput): Promise<InvoiceDTO[]> {

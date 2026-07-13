@@ -132,9 +132,21 @@ methods. Every call forwards `ctx.idempotencyKey` to Stripe's `idempotencyKey` r
 Unmapped types normalize to `null`. The provider keeps the raw `type` alongside `normalizedType`, so an
 unrecognized event is still persisted, just not reconciled.
 
-Disputes, payouts, setup intents, payment methods, Connect, Treasury, Terminal, Issuing, Identity, and
-Financial Connections events remain intentionally unmapped until Payable has an approved generic
-optional capability for that domain.
+Disputes, payouts, setup intents, payment-method lifecycle, Connect, Treasury, Terminal, Issuing,
+Identity, and Financial Connections events remain intentionally unmapped because no approved generic
+webhook reconciliation flow consumes them.
+
+## Saved payment methods
+
+`StripeProvider` implements `PaymentMethodCapable` for customer-scoped saved methods. Use
+`listPaymentMethods({ providerCustomerId, limit })` to retrieve normalized display fields, or
+`deletePaymentMethod({ providerCustomerId, providerPaymentMethodId }, ctx)` to detach one. Deletion
+first retrieves the method through the customer-scoped Stripe endpoint, then forwards
+`ctx.idempotencyKey` to `paymentMethods.detach`.
+
+Only generic display data is returned: provider id, type, card brand, last four digits, and expiry.
+Fields that do not apply to a payment method type are `null`. Collection and attachment remain a
+SetupIntent or PaymentIntent concern and are not exposed by this capability.
 
 ## Payment webhook reconciliation
 

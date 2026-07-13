@@ -3,6 +3,7 @@ import type { ChargeResultDTO } from '../../../domain/dtos/charge.dto';
 import type { CheckoutSessionDTO } from '../../../domain/dtos/checkout.dto';
 import type { CustomerDTO } from '../../../domain/dtos/customer.dto';
 import type { InvoiceDTO } from '../../../domain/dtos/invoice.dto';
+import type { PaymentMethodDTO } from '../../../domain/dtos/payment-method.dto';
 import type { PriceDTO } from '../../../domain/dtos/price.dto';
 import type { ProductDTO } from '../../../domain/dtos/product.dto';
 import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
@@ -67,6 +68,21 @@ export function toCustomerDTO(customer: Stripe.Customer): CustomerDTO {
     providerCustomerId: customer.id,
     email: customer.email ?? null,
     name: customer.name ?? null,
+  };
+}
+
+export function toStripePaymentMethodDTO(
+  method: Stripe.PaymentMethod,
+  providerCustomerId: string,
+): PaymentMethodDTO {
+  return {
+    providerPaymentMethodId: method.id,
+    providerCustomerId,
+    type: method.type,
+    brand: method.card?.brand ?? null,
+    last4: method.card?.last4 ?? null,
+    expiresMonth: method.card?.exp_month ?? null,
+    expiresYear: method.card?.exp_year ?? null,
   };
 }
 
