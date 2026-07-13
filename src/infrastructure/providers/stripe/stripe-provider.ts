@@ -9,6 +9,7 @@ import type {
   PaymentProvider,
   PaymentWebhookCapable,
   PaymentWebhookReconciliation,
+  PayoutCapable,
   ResumeSubscriptionInput,
 } from '../../../domain/contracts/payment-provider.contract';
 import type { BillingPortalDTO, BillingPortalInput } from '../../../domain/dtos/billing-portal.dto';
@@ -35,6 +36,7 @@ import type {
   ListPaymentMethodsInput,
   PaymentMethodDTO,
 } from '../../../domain/dtos/payment-method.dto';
+import type { ListPayoutsInput, PayoutDTO } from '../../../domain/dtos/payout.dto';
 import type { CreatePriceInput, PriceDTO } from '../../../domain/dtos/price.dto';
 import type {
   CreateProductInput,
@@ -61,6 +63,7 @@ import { toCheckoutSessionDTO, toSubscriptionDTOFromWebhook } from './stripe-map
 import { StripePaymentMethods } from './stripe-payment-methods';
 import { reconcileStripePaymentWebhook } from './stripe-payment-webhook-reconciliation';
 import { StripePayments } from './stripe-payments';
+import { StripePayouts } from './stripe-payouts';
 import { StripeSubscriptions } from './stripe-subscriptions';
 import { StripeWebhookVerifier } from './stripe-webhook-verifier';
 
@@ -80,7 +83,8 @@ export class StripeProvider
     DisputeCapable,
     InvoiceCapable,
     PaymentMethodCapable,
-    PaymentWebhookCapable
+    PaymentWebhookCapable,
+    PayoutCapable
 {
   readonly name = 'stripe';
   private client?: Stripe;
@@ -94,6 +98,7 @@ export class StripeProvider
   private readonly billingPortalSessions = new StripeBillingPortal(() => this.stripe());
   private readonly payments = new StripePayments(() => this.stripe());
   private readonly disputes = new StripeDisputes(() => this.stripe());
+  private readonly payouts = new StripePayouts(() => this.stripe());
 
   constructor(
     private readonly options: StripeProviderOptions,
@@ -126,6 +131,7 @@ export class StripeProvider
       'customers',
       'paymentMethods',
       'disputes',
+      'payouts',
       'catalog',
     ]);
   }
@@ -156,6 +162,14 @@ export class StripeProvider
 
   acceptDispute(providerDisputeId: string, ctx: OperationContext): Promise<void> {
     return this.disputes.accept(providerDisputeId, ctx);
+  }
+
+  listPayouts(input?: ListPayoutsInput): Promise<PayoutDTO[]> {
+    return this.payouts.list(input);
+  }
+
+  retrievePayout(providerPayoutId: string): Promise<PayoutDTO> {
+    return this.payouts.retrieve(providerPayoutId);
   }
 
   async createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO> {
