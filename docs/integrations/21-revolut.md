@@ -7,21 +7,6 @@ Business API/Treasury features remain outside `PaymentProvider`.
 
 ## Construction and options
 
-```ts
-export interface RevolutProviderOptions {
-  secretKey: string;
-  webhookSecret: string;
-  environment?: 'sandbox' | 'production';
-  baseUrl?: string;
-  apiVersion?: string;
-  webhookToleranceMs?: number;
-  logger?: Logger;
-  fetch?: RevolutFetch;
-}
-
-new RevolutProvider(options: RevolutProviderOptions);
-```
-
 - `secretKey` - Merchant API secret key sent as `Authorization: Bearer <key>`.
 - `webhookSecret` - Merchant webhook signing secret returned when creating or retrieving a Revolut
   webhook.
@@ -51,10 +36,9 @@ No SDK or peer dependency is required.
 
 ## Declared capabilities
 
-`capabilities()` returns `checkout`, `refunds`, `webhooks`, `customers`, and `subscriptions`. The
-provider also implements `PaymentWebhookCapable`, `CustomerCapable`, `DirectSubscriptionCapable`, and
-`SubscriptionManagementCapable`. It intentionally does not declare `catalog`, `charges`,
-`billingPortal`, or `invoicePdf`.
+`capabilities()` returns `checkout`, `refunds`, `webhooks`, `customers`, `paymentMethods`, and
+`subscriptions`. The provider implements the corresponding optional contracts and intentionally does
+not declare `catalog`, `charges`, `billingPortal`, or `invoicePdf`.
 
 ## Customers
 
@@ -63,6 +47,16 @@ provider also implements `PaymentWebhookCapable`, `CustomerCapable`, `DirectSubs
 `email`, and `full_name` to `CustomerDTO`. Payable customer `metadata` is not sent because the
 Merchant schema does not support it. These endpoints do not declare `Idempotency-Key`, so the provider
 does not forward `ctx.idempotencyKey`.
+
+## Saved payment methods
+
+`listPaymentMethods({ providerCustomerId, limit })` calls
+`GET /api/customers/{customer_id}/payment-methods` and maps card, Revolut Pay, and SEPA Direct Debit
+methods to generic display fields. Non-card fields that do not apply are `null`.
+
+`deletePaymentMethod({ providerCustomerId, providerPaymentMethodId }, ctx)` calls the customer-scoped
+`DELETE` endpoint. The Merchant API does not declare `Idempotency-Key` for this operation, so the
+provider does not invent one.
 
 ## Payment Checkout
 

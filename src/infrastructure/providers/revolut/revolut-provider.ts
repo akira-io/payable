@@ -3,6 +3,7 @@ import type { Logger } from '../../../domain/contracts/logger.contract';
 import type {
   CustomerCapable,
   DirectSubscriptionCapable,
+  PaymentMethodCapable,
   PaymentProvider,
   PaymentWebhookCapable,
   PaymentWebhookReconciliation,
@@ -21,6 +22,11 @@ import type {
   CustomerDTO,
   UpdateCustomerInput,
 } from '../../../domain/dtos/customer.dto';
+import type {
+  DeletePaymentMethodInput,
+  ListPaymentMethodsInput,
+  PaymentMethodDTO,
+} from '../../../domain/dtos/payment-method.dto';
 import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type {
   CancelSubscriptionInput,
@@ -34,6 +40,7 @@ import { RevolutCustomers } from './revolut-customers';
 import { revolutNetworkError, toRevolutPayableError } from './revolut-errors';
 import { RevolutEventNormalizer } from './revolut-event-normalizer';
 import { toRevolutCheckoutSessionDTO, toRevolutRefundResultDTO } from './revolut-mappers';
+import { RevolutPaymentMethods } from './revolut-payment-methods';
 import { reconcileRevolutPaymentWebhook } from './revolut-payment-webhook-reconciliation';
 import { reconcileRevolutSubscriptionWebhook } from './revolut-subscription-webhook-reconciliation';
 import { RevolutSubscriptions } from './revolut-subscriptions';
@@ -70,6 +77,7 @@ export class RevolutProvider
     PaymentProvider,
     WebhookCapable,
     PaymentWebhookCapable,
+    PaymentMethodCapable,
     CustomerCapable,
     DirectSubscriptionCapable,
     SubscriptionManagementCapable
@@ -79,6 +87,9 @@ export class RevolutProvider
   private readonly verifier: RevolutWebhookVerifier;
   private readonly customers = new RevolutCustomers((path, options) => this.request(path, options));
   private readonly subscriptions = new RevolutSubscriptions((path, options) =>
+    this.request(path, options),
+  );
+  private readonly paymentMethods = new RevolutPaymentMethods((path, options) =>
     this.request(path, options),
   );
 
@@ -96,7 +107,14 @@ export class RevolutProvider
   }
 
   capabilities(): ProviderCapabilities {
-    return new Set(['checkout', 'refunds', 'webhooks', 'customers', 'subscriptions']);
+    return new Set([
+      'checkout',
+      'refunds',
+      'webhooks',
+      'customers',
+      'paymentMethods',
+      'subscriptions',
+    ]);
   }
 
   createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
@@ -105,6 +123,14 @@ export class RevolutProvider
 
   updateCustomer(input: UpdateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
     return this.customers.update(input, ctx);
+  }
+
+  listPaymentMethods(input: ListPaymentMethodsInput): Promise<PaymentMethodDTO[]> {
+    return this.paymentMethods.list(input);
+  }
+
+  deletePaymentMethod(input: DeletePaymentMethodInput, ctx: OperationContext): Promise<void> {
+    return this.paymentMethods.delete(input, ctx);
   }
 
   async createCheckoutSession(
