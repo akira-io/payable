@@ -10,6 +10,7 @@ export type ProviderCapability =
   | 'invoicePdf'
   | 'webhooks'
   | 'customers'
+  | 'paymentMethods'
   | 'catalog';
 
 export type ProviderCapabilityValue = ProviderCapability | (string & {});

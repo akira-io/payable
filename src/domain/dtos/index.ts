@@ -14,6 +14,11 @@ export type {
 export type { OperationContext } from './common.dto';
 export type { CreateCustomerInput, CustomerDTO, UpdateCustomerInput } from './customer.dto';
 export type { InvoiceDTO, InvoicePdfDTO, ListInvoicesInput } from './invoice.dto';
+export type {
+  DeletePaymentMethodInput,
+  ListPaymentMethodsInput,
+  PaymentMethodDTO,
+} from './payment-method.dto';
 export type { CreatePriceInput, PriceDTO } from './price.dto';
 export type { CreateProductInput, ProductDTO, UpdateProductInput } from './product.dto';
 export type { RefundInput, RefundResultDTO } from './refund.dto';
