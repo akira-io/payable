@@ -5,6 +5,7 @@ import type { CustomerDTO } from '../../../domain/dtos/customer.dto';
 import type { DisputeDTO } from '../../../domain/dtos/dispute.dto';
 import type { InvoiceDTO } from '../../../domain/dtos/invoice.dto';
 import type { PaymentMethodDTO } from '../../../domain/dtos/payment-method.dto';
+import type { PayoutDTO, PayoutStatus } from '../../../domain/dtos/payout.dto';
 import type { PriceDTO } from '../../../domain/dtos/price.dto';
 import type { ProductDTO } from '../../../domain/dtos/product.dto';
 import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
@@ -33,6 +34,14 @@ const REFUND_STATUS: Record<string, RefundStatus> = {
   failed: 'failed',
   canceled: 'canceled',
   requires_action: 'pending',
+};
+
+const PAYOUT_STATUS: Record<string, PayoutStatus> = {
+  pending: 'pending',
+  in_transit: 'in_transit',
+  paid: 'paid',
+  failed: 'failed',
+  canceled: 'canceled',
 };
 
 function fromUnixSeconds(value: number | null | undefined): Date | null {
@@ -96,6 +105,16 @@ export function toStripeDisputeDTO(dispute: Stripe.Dispute): DisputeDTO {
     amount: stripeMoney(dispute.amount, dispute.currency),
     responseDueAt: fromUnixSeconds(dispute.evidence_details?.due_by),
     createdAt: fromUnixSeconds(dispute.created),
+  };
+}
+
+export function toStripePayoutDTO(payout: Stripe.Payout): PayoutDTO {
+  return {
+    providerPayoutId: payout.id,
+    status: PAYOUT_STATUS[payout.status] ?? 'pending',
+    amount: stripeMoney(payout.amount, payout.currency),
+    createdAt: fromUnixSeconds(payout.created),
+    arrivalAt: fromUnixSeconds(payout.arrival_date),
   };
 }
 

@@ -158,6 +158,15 @@ Disputes expose normalized status, amount, reason, creation time, response deadl
 PaymentIntent id, falling back to the Charge id. Evidence submission is not generalized because its
 shape and upload lifecycle differ across providers.
 
+## Payouts
+
+`StripeProvider` implements `PayoutCapable` with `listPayouts` and `retrievePayout`. List operations
+use Stripe auto-pagination with a default page size and result limit of 100; a larger requested limit
+continues across pages without requesting more than Stripe's per-page maximum.
+
+Payouts map provider id, normalized lifecycle status, amount, creation time, and expected arrival
+time. Creating, canceling, and reversing payouts remain outside the read-only generic capability.
+
 ## Payment webhook reconciliation
 
 `StripeProvider` implements `PaymentWebhookCapable` so the generic webhook pipeline can reconcile local
