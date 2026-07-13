@@ -209,7 +209,7 @@ Full documentation lives in [docs/](docs/00-index.md). Start with the
 - [Getting started](docs/03-getting-started.md) and [Configuration reference](docs/04-configuration.md)
 - Domain: [model](docs/domain/05-domain-model.md), [value objects](docs/domain/06-value-objects.md), [state machines](docs/domain/07-state-machines.md)
 - Features: [subscriptions](docs/features/10-subscriptions.md), [charges and refunds](docs/features/11-charges-refunds.md), [webhooks](docs/features/13-webhooks.md), [idempotency](docs/features/14-idempotency.md), [reliability](docs/features/15-reliability.md), [multi-tenancy](docs/features/16-multi-tenancy.md)
-- Integrations: [providers](docs/integrations/17-providers.md), [Stripe](docs/integrations/18-stripe.md), [Paddle](docs/integrations/19-paddle.md), [SISP](docs/integrations/20-sisp.md)
+- Integrations: [providers](docs/integrations/17-providers.md), [Treasury providers](docs/integrations/17a-treasury-providers.md), [Stripe](docs/integrations/18-stripe.md), [Paddle](docs/integrations/19-paddle.md), [SISP](docs/integrations/20-sisp.md)
 - Persistence: [Knex storage](docs/persistence/21-storage-knex.md), [Prisma storage](docs/persistence/21b-storage-prisma.md), [queue](docs/persistence/22-queue.md)
 - Adapters: [Express](docs/adapters/23-express.md), [Fastify](docs/adapters/24-fastify.md), [NestJS](docs/adapters/25-nestjs.md)
 - Cross-cutting: [data flows](docs/27-data-flows.md), [security](docs/28-security.md), [development](docs/29-development.md), [operations](docs/30-operations.md), [troubleshooting](docs/31-troubleshooting.md), [FAQ](docs/32-faq.md)

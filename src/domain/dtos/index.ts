@@ -36,4 +36,28 @@ export type {
   SubscriptionDTO,
   UpdateSubscriptionInput,
 } from './subscription.dto';
+export type {
+  CreateTreasuryExchangeInput,
+  CreateTreasuryTransferInput,
+  ListTreasuryAccountsInput,
+  ListTreasuryCounterpartiesInput,
+  ListTreasuryTransactionsInput,
+  ListTreasuryTransfersInput,
+  TreasuryAccountDTO,
+  TreasuryAccountStatus,
+  TreasuryBalanceDTO,
+  TreasuryCapabilities,
+  TreasuryCapability,
+  TreasuryCapabilityValue,
+  TreasuryCounterpartyAccountDTO,
+  TreasuryCounterpartyDTO,
+  TreasuryExchangeDTO,
+  TreasuryExchangeQuoteDTO,
+  TreasuryExchangeQuoteInput,
+  TreasuryTransactionDTO,
+  TreasuryTransactionLegDTO,
+  TreasuryTransactionStatus,
+  TreasuryTransferDestination,
+  TreasuryTransferDTO,
+} from './treasury.dto';
 export type { VerifiedWebhook, WebhookVerificationInput } from './webhook.dto';

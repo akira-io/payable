@@ -10,6 +10,7 @@ import type { PaymentProvider } from '../../domain/contracts/payment-provider.co
 import type { QueueDriver } from '../../domain/contracts/queue-driver.contract';
 import type { StorageDriver } from '../../domain/contracts/storage-driver.contract';
 import type { TenantResolver } from '../../domain/contracts/tenant-resolver.contract';
+import type { TreasuryProvider } from '../../domain/contracts/treasury-provider.contract';
 import { InMemoryEventBus } from '../../infrastructure/event-bus/in-memory-event-bus';
 import { SyncQueueDriver } from '../../infrastructure/queue/sync/sync-queue-driver';
 import { SystemClock } from '../clock/system-clock';
@@ -36,6 +37,7 @@ export interface PayableConfig {
   tenant?: TenantConfig;
   authorization?: AuthorizationConfig;
   providers: Record<string, PaymentProvider>;
+  treasuryProviders?: Record<string, TreasuryProvider>;
   storage?: StorageDriver;
   queue?: QueueDriver;
   cache?: CacheDriver;
@@ -58,6 +60,7 @@ export interface ResolvedConfig {
   tenantResolver?: TenantResolver;
   authorizationEnabled: boolean;
   providers: Map<string, PaymentProvider>;
+  treasuryProviders: Map<string, TreasuryProvider>;
   storage?: StorageDriver;
   cache?: CacheDriver;
   locks?: LockDriver;
@@ -106,6 +109,7 @@ export function resolveConfig(config: PayableConfig): ResolvedConfig {
     tenantResolver: config.tenant?.resolver,
     authorizationEnabled: config.authorization?.enabled ?? false,
     providers: new Map(entries),
+    treasuryProviders: new Map(Object.entries(config.treasuryProviders ?? {})),
     storage: config.storage,
     cache: config.cache,
     locks: config.locks,
