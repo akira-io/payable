@@ -40,6 +40,7 @@ tree.
 21. [integrations/21-revolut.md](integrations/21-revolut.md) - The Revolut Merchant provider: amount checkout, refunds, webhooks, and payment reconciliation.
     - [integrations/21a-revolut-disputes.md](integrations/21a-revolut-disputes.md) - Production-only dispute listing, retrieval, and acceptance.
     - [integrations/21b-revolut-payouts.md](integrations/21b-revolut-payouts.md) - Merchant payout listing, retrieval, and status mapping.
+    - [integrations/21c-revolut-webhook-management.md](integrations/21c-revolut-webhook-management.md) - Remote Merchant webhook endpoint CRUD.
 
 ## Persistence
 
