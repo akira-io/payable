@@ -1,13 +1,16 @@
 import type { CheckoutSessionDTO } from '../../../domain/dtos/checkout.dto';
 import type { CustomerDTO } from '../../../domain/dtos/customer.dto';
+import type { DisputeDTO } from '../../../domain/dtos/dispute.dto';
 import type { PaymentMethodDTO } from '../../../domain/dtos/payment-method.dto';
 import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
+import { Money } from '../../../domain/value-objects/money';
 import type { RefundStatus } from '../../../domain/value-objects/refund-status';
 import type { SubscriptionStatus } from '../../../domain/value-objects/subscription-status';
 import type {
   RevolutCustomer,
+  RevolutDispute,
   RevolutOrder,
   RevolutPaymentMethod,
   RevolutSubscription,
@@ -61,6 +64,18 @@ export function toRevolutPaymentMethodDTO(
     last4: method.last_four ?? method.debtor_iban_last_four ?? null,
     expiresMonth: method.expiry_month ?? null,
     expiresYear: method.expiry_year ?? null,
+  };
+}
+
+export function toRevolutDisputeDTO(dispute: RevolutDispute): DisputeDTO {
+  return {
+    providerDisputeId: dispute.id,
+    providerPaymentId: dispute.payment?.order_id ?? dispute.payment?.id ?? null,
+    status: dispute.state,
+    reason: dispute.reason_code ?? null,
+    amount: Money.of(dispute.amount, dispute.currency),
+    responseDueAt: dateOrNull(dispute.response_due_date),
+    createdAt: dateOrNull(dispute.created_at),
   };
 }
 

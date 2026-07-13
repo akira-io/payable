@@ -3,6 +3,7 @@ import type { Logger } from '../../../domain/contracts/logger.contract';
 import type {
   CustomerCapable,
   DirectSubscriptionCapable,
+  DisputeCapable,
   PaymentMethodCapable,
   PaymentProvider,
   PaymentWebhookCapable,
@@ -22,6 +23,7 @@ import type {
   CustomerDTO,
   UpdateCustomerInput,
 } from '../../../domain/dtos/customer.dto';
+import type { DisputeDTO, ListDisputesInput } from '../../../domain/dtos/dispute.dto';
 import type {
   DeletePaymentMethodInput,
   ListPaymentMethodsInput,
@@ -36,8 +38,9 @@ import type {
 } from '../../../domain/dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
+import { RevolutClient } from './revolut-client';
 import { RevolutCustomers } from './revolut-customers';
-import { revolutNetworkError, toRevolutPayableError } from './revolut-errors';
+import { RevolutDisputes } from './revolut-disputes';
 import { RevolutEventNormalizer } from './revolut-event-normalizer';
 import { toRevolutCheckoutSessionDTO, toRevolutRefundResultDTO } from './revolut-mappers';
 import { RevolutPaymentMethods } from './revolut-payment-methods';
@@ -50,16 +53,10 @@ import type {
   RevolutOrder,
   RevolutOrderCreationPayload,
   RevolutRefundPayload,
-  RevolutRequestOptions,
 } from './revolut-types';
 import { RevolutWebhookVerifier } from './revolut-webhook-verifier';
 
-export const REVOLUT_MERCHANT_API_VERSION = '2026-04-20' as const;
-
-const REVOLUT_BASE_URL: Record<RevolutEnvironment, string> = {
-  production: 'https://merchant.revolut.com',
-  sandbox: 'https://sandbox-merchant.revolut.com',
-};
+export { REVOLUT_MERCHANT_API_VERSION } from './revolut-client';
 
 export interface RevolutProviderOptions {
   secretKey: string;
@@ -78,6 +75,7 @@ export class RevolutProvider
     WebhookCapable,
     PaymentWebhookCapable,
     PaymentMethodCapable,
+    DisputeCapable,
     CustomerCapable,
     DirectSubscriptionCapable,
     SubscriptionManagementCapable
@@ -85,15 +83,19 @@ export class RevolutProvider
   readonly name = 'revolut';
   private readonly normalizer: RevolutEventNormalizer;
   private readonly verifier: RevolutWebhookVerifier;
-  private readonly customers = new RevolutCustomers((path, options) => this.request(path, options));
-  private readonly subscriptions = new RevolutSubscriptions((path, options) =>
-    this.request(path, options),
-  );
-  private readonly paymentMethods = new RevolutPaymentMethods((path, options) =>
-    this.request(path, options),
-  );
+  private readonly client: RevolutClient;
+  private readonly customers: RevolutCustomers;
+  private readonly subscriptions: RevolutSubscriptions;
+  private readonly paymentMethods: RevolutPaymentMethods;
+  private readonly disputes: RevolutDisputes;
 
-  constructor(private readonly options: RevolutProviderOptions) {
+  constructor(options: RevolutProviderOptions) {
+    this.client = new RevolutClient(options);
+    const request = this.client.request.bind(this.client);
+    this.customers = new RevolutCustomers(request);
+    this.subscriptions = new RevolutSubscriptions(request);
+    this.paymentMethods = new RevolutPaymentMethods(request);
+    this.disputes = new RevolutDisputes(request, this.client.environment);
     this.normalizer = new RevolutEventNormalizer(options.logger);
     this.verifier = new RevolutWebhookVerifier(options.webhookSecret, options.webhookToleranceMs);
   }
@@ -113,6 +115,7 @@ export class RevolutProvider
       'webhooks',
       'customers',
       'paymentMethods',
+      'disputes',
       'subscriptions',
     ]);
   }
@@ -131,6 +134,18 @@ export class RevolutProvider
 
   deletePaymentMethod(input: DeletePaymentMethodInput, ctx: OperationContext): Promise<void> {
     return this.paymentMethods.delete(input, ctx);
+  }
+
+  listDisputes(input?: ListDisputesInput): Promise<DisputeDTO[]> {
+    return this.disputes.list(input);
+  }
+
+  retrieveDispute(providerDisputeId: string): Promise<DisputeDTO> {
+    return this.disputes.retrieve(providerDisputeId);
+  }
+
+  acceptDispute(providerDisputeId: string, ctx: OperationContext): Promise<void> {
+    return this.disputes.accept(providerDisputeId, ctx);
   }
 
   async createCheckoutSession(
@@ -159,7 +174,7 @@ export class RevolutProvider
       merchant_order_data: input.reference ? { reference: input.reference } : undefined,
       redirect_url: input.successUrl,
     };
-    const order = await this.request<RevolutOrder>('/api/orders', { method: 'POST', body });
+    const order = await this.client.request<RevolutOrder>('/api/orders', { method: 'POST', body });
     return toRevolutCheckoutSessionDTO(order);
   }
 
@@ -176,7 +191,7 @@ export class RevolutProvider
       description: input.reason,
       merchant_order_data: input.reference ? { reference: input.reference } : undefined,
     };
-    const order = await this.request<RevolutOrder>(
+    const order = await this.client.request<RevolutOrder>(
       `/api/orders/${encodeURIComponent(input.providerPaymentId)}/refund`,
       { method: 'POST', body, idempotencyKey: ctx.idempotencyKey },
     );
@@ -227,68 +242,5 @@ export class RevolutProvider
 
   reconcilePayment(verified: VerifiedWebhook): PaymentWebhookReconciliation | null {
     return reconcileRevolutPaymentWebhook(verified);
-  }
-
-  private async request<T>(path: string, options: RevolutRequestOptions): Promise<T> {
-    const response = await this.fetch(this.url(path), {
-      method: options.method,
-      headers: this.headers(options),
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    }).catch((error: unknown) => {
-      throw revolutNetworkError(error);
-    });
-    const body = await parseResponseBody(response);
-    if (!response.ok) {
-      throw toRevolutPayableError(response.status, body);
-    }
-    return body as T;
-  }
-
-  private headers(options: RevolutRequestOptions): Record<string, string> {
-    const headers: Record<string, string> = {
-      accept: 'application/json',
-      authorization: `Bearer ${this.options.secretKey}`,
-      'revolut-api-version': this.options.apiVersion ?? REVOLUT_MERCHANT_API_VERSION,
-    };
-    if (options.body !== undefined) {
-      headers['content-type'] = 'application/json';
-    }
-    if (options.idempotencyKey) {
-      headers['idempotency-key'] = options.idempotencyKey;
-    }
-    return headers;
-  }
-
-  private url(path: string): string {
-    return `${this.baseUrl()}${path}`;
-  }
-
-  private baseUrl(): string {
-    return (
-      this.options.baseUrl ?? REVOLUT_BASE_URL[this.options.environment ?? 'production']
-    ).replace(/\/+$/, '');
-  }
-
-  private fetch(input: string | URL, init?: RequestInit): Promise<Response> {
-    const request = this.options.fetch ?? globalThis.fetch;
-    if (!request) {
-      throw new PayableError('No fetch implementation available for RevolutProvider', {
-        code: 'PROVIDER_HTTP_CLIENT_UNAVAILABLE',
-        context: { provider: this.name },
-      });
-    }
-    return request(input, init);
-  }
-}
-
-async function parseResponseBody(response: Response): Promise<unknown> {
-  const text = await response.text();
-  if (!text) {
-    return null;
-  }
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return text;
   }
 }
