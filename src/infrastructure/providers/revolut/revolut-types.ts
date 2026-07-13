@@ -36,6 +36,20 @@ export interface RevolutPaymentMethod {
   expiry_year?: number;
 }
 
+export interface RevolutDispute {
+  id: string;
+  state: 'needs_response' | 'under_review' | 'won' | 'lost';
+  created_at?: string;
+  response_due_date?: string;
+  reason_code?: string;
+  amount: number;
+  currency: string;
+  payment?: {
+    id?: string;
+    order_id?: string;
+  };
+}
+
 export interface RevolutCustomerPaymentMethods {
   payment_methods: RevolutPaymentMethod[];
 }

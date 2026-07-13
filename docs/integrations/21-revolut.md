@@ -34,11 +34,14 @@ const payable = createPayable({
 
 No SDK or peer dependency is required.
 
+Dispute operations and their production-only restriction are documented in
+[Revolut Disputes](21a-revolut-disputes.md).
+
 ## Declared capabilities
 
-`capabilities()` returns `checkout`, `refunds`, `webhooks`, `customers`, `paymentMethods`, and
-`subscriptions`. The provider implements the corresponding optional contracts and intentionally does
-not declare `catalog`, `charges`, `billingPortal`, or `invoicePdf`.
+`capabilities()` returns `checkout`, `refunds`, `webhooks`, `customers`, `paymentMethods`, `disputes`,
+and `subscriptions`. The provider implements the corresponding optional contracts and intentionally
+does not declare `catalog`, `charges`, `billingPortal`, or `invoicePdf`.
 
 ## Customers
 
