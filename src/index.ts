@@ -203,3 +203,4 @@ export {
   type Result,
   unwrap,
 } from './support/result/result';
+export { TreasuryProviderRegistry } from './treasury-provider-registry';

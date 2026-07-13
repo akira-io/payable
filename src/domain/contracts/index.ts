@@ -79,6 +79,21 @@ export type {
   TenantResolver,
 } from './tenant-resolver.contract';
 export type {
+  TreasuryAccountCapable,
+  TreasuryCounterpartyCapable,
+  TreasuryExchangeCapable,
+  TreasuryProvider,
+  TreasuryTransactionCapable,
+  TreasuryTransferCapable,
+} from './treasury-provider.contract';
+export {
+  isTreasuryAccountCapable,
+  isTreasuryCounterpartyCapable,
+  isTreasuryExchangeCapable,
+  isTreasuryTransactionCapable,
+  isTreasuryTransferCapable,
+} from './treasury-provider.contract';
+export type {
   NewWebhookDelivery,
   WebhookDeliveryRepository,
 } from './webhook-delivery-repository.contract';

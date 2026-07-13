@@ -52,6 +52,7 @@ import {
 } from './infrastructure/outbox/outbox-service';
 import { ProviderRegistry } from './provider-registry';
 import type { ResolvedConfig } from './support/config/payable-config';
+import { TreasuryProviderRegistry } from './treasury-provider-registry';
 
 export interface RefundRequest {
   paymentId: string;
@@ -71,10 +72,12 @@ export interface DeliverWebhooksOptions {
 
 export class Payable {
   private readonly registry: ProviderRegistry;
+  private readonly treasuryRegistry: TreasuryProviderRegistry;
   private readonly factory: DependencyFactory;
 
   constructor(private readonly resolved: ResolvedConfig) {
     this.registry = new ProviderRegistry(resolved.providers);
+    this.treasuryRegistry = new TreasuryProviderRegistry(resolved.treasuryProviders);
     this.factory = new DependencyFactory(resolved, this.registry);
     this.resolved.queue.process(PROCESS_WEBHOOK_JOB, (job: QueueJob) =>
       this.processWebhookJob(job),
@@ -83,6 +86,10 @@ export class Payable {
 
   providers(): ProviderRegistry {
     return this.registry;
+  }
+
+  treasuryProviders(): TreasuryProviderRegistry {
+    return this.treasuryRegistry;
   }
 
   events(): EventBus {
