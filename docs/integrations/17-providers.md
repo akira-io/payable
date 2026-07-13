@@ -101,7 +101,7 @@ callback flow, not an asynchronous provider webhook.
 | `paymentMethods` (`PaymentMethodCapable`) | yes | no | no | yes |
 | `disputes` (`DisputeCapable`) | yes | no | no | yes (production only) |
 | `payouts` (`PayoutCapable`) | yes | no | no | yes |
-| `webhookEndpointManagement` | yes | no | no | planned |
+| `webhookEndpointManagement` | yes | no | no | yes |
 
 ## The capabilities system
 

@@ -3,6 +3,7 @@ import type { CustomerDTO } from '../../../domain/dtos/customer.dto';
 import type { DisputeDTO } from '../../../domain/dtos/dispute.dto';
 import type { PaymentMethodDTO } from '../../../domain/dtos/payment-method.dto';
 import type { PayoutDTO, PayoutStatus } from '../../../domain/dtos/payout.dto';
+import type { ProviderWebhookEndpointDTO } from '../../../domain/dtos/provider-webhook-endpoint.dto';
 import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
@@ -16,6 +17,7 @@ import type {
   RevolutPaymentMethod,
   RevolutPayout,
   RevolutSubscription,
+  RevolutWebhook,
 } from './revolut-types';
 
 const REFUND_STATUS_BY_STATE: Record<string, RefundStatus> = {
@@ -97,6 +99,16 @@ export function toRevolutPayoutDTO(payout: RevolutPayout): PayoutDTO {
         : Money.of(payout.amount, payout.currency),
     createdAt: dateOrNull(payout.created_at),
     arrivalAt: null,
+  };
+}
+
+export function toRevolutWebhookEndpointDTO(endpoint: RevolutWebhook): ProviderWebhookEndpointDTO {
+  return {
+    providerWebhookEndpointId: endpoint.id,
+    url: endpoint.url,
+    events: endpoint.events,
+    signingSecret: endpoint.signing_secret,
+    status: null,
   };
 }
 

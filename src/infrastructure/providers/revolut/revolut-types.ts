@@ -59,6 +59,17 @@ export interface RevolutPayout {
   currency?: string;
 }
 
+export interface RevolutWebhook {
+  id: string;
+  url: string;
+  events: string[];
+  signing_secret: string;
+}
+
+export interface RevolutWebhooks {
+  webhooks: RevolutWebhook[];
+}
+
 export interface RevolutCustomerPaymentMethods {
   payment_methods: RevolutPaymentMethod[];
 }
