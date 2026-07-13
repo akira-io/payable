@@ -8,6 +8,7 @@ import type {
   PaymentProvider,
   PaymentWebhookCapable,
   PaymentWebhookReconciliation,
+  PayoutCapable,
   ResumeSubscriptionInput,
   SubscriptionManagementCapable,
   WebhookCapable,
@@ -29,6 +30,7 @@ import type {
   ListPaymentMethodsInput,
   PaymentMethodDTO,
 } from '../../../domain/dtos/payment-method.dto';
+import type { ListPayoutsInput, PayoutDTO } from '../../../domain/dtos/payout.dto';
 import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type {
   CancelSubscriptionInput,
@@ -45,6 +47,7 @@ import { RevolutEventNormalizer } from './revolut-event-normalizer';
 import { toRevolutCheckoutSessionDTO, toRevolutRefundResultDTO } from './revolut-mappers';
 import { RevolutPaymentMethods } from './revolut-payment-methods';
 import { reconcileRevolutPaymentWebhook } from './revolut-payment-webhook-reconciliation';
+import { RevolutPayouts } from './revolut-payouts';
 import { reconcileRevolutSubscriptionWebhook } from './revolut-subscription-webhook-reconciliation';
 import { RevolutSubscriptions } from './revolut-subscriptions';
 import type {
@@ -76,6 +79,7 @@ export class RevolutProvider
     PaymentWebhookCapable,
     PaymentMethodCapable,
     DisputeCapable,
+    PayoutCapable,
     CustomerCapable,
     DirectSubscriptionCapable,
     SubscriptionManagementCapable
@@ -88,6 +92,7 @@ export class RevolutProvider
   private readonly subscriptions: RevolutSubscriptions;
   private readonly paymentMethods: RevolutPaymentMethods;
   private readonly disputes: RevolutDisputes;
+  private readonly payouts: RevolutPayouts;
 
   constructor(options: RevolutProviderOptions) {
     this.client = new RevolutClient(options);
@@ -96,6 +101,7 @@ export class RevolutProvider
     this.subscriptions = new RevolutSubscriptions(request);
     this.paymentMethods = new RevolutPaymentMethods(request);
     this.disputes = new RevolutDisputes(request, this.client.environment);
+    this.payouts = new RevolutPayouts(request);
     this.normalizer = new RevolutEventNormalizer(options.logger);
     this.verifier = new RevolutWebhookVerifier(options.webhookSecret, options.webhookToleranceMs);
   }
@@ -116,6 +122,7 @@ export class RevolutProvider
       'customers',
       'paymentMethods',
       'disputes',
+      'payouts',
       'subscriptions',
     ]);
   }
@@ -146,6 +153,14 @@ export class RevolutProvider
 
   acceptDispute(providerDisputeId: string, ctx: OperationContext): Promise<void> {
     return this.disputes.accept(providerDisputeId, ctx);
+  }
+
+  listPayouts(input?: ListPayoutsInput): Promise<PayoutDTO[]> {
+    return this.payouts.list(input);
+  }
+
+  retrievePayout(providerPayoutId: string): Promise<PayoutDTO> {
+    return this.payouts.retrieve(providerPayoutId);
   }
 
   async createCheckoutSession(

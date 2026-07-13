@@ -2,6 +2,7 @@ import type { CheckoutSessionDTO } from '../../../domain/dtos/checkout.dto';
 import type { CustomerDTO } from '../../../domain/dtos/customer.dto';
 import type { DisputeDTO } from '../../../domain/dtos/dispute.dto';
 import type { PaymentMethodDTO } from '../../../domain/dtos/payment-method.dto';
+import type { PayoutDTO, PayoutStatus } from '../../../domain/dtos/payout.dto';
 import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
@@ -13,6 +14,7 @@ import type {
   RevolutDispute,
   RevolutOrder,
   RevolutPaymentMethod,
+  RevolutPayout,
   RevolutSubscription,
 } from './revolut-types';
 
@@ -32,6 +34,12 @@ const SUBSCRIPTION_STATUS_BY_STATE: Record<string, SubscriptionStatus> = {
   paused: 'paused',
   cancelled: 'canceled',
   finished: 'canceled',
+};
+
+const PAYOUT_STATUS_BY_STATE: Record<string, PayoutStatus> = {
+  processing: 'pending',
+  completed: 'paid',
+  failed: 'failed',
 };
 
 export function toRevolutCheckoutSessionDTO(order: RevolutOrder): CheckoutSessionDTO {
@@ -76,6 +84,19 @@ export function toRevolutDisputeDTO(dispute: RevolutDispute): DisputeDTO {
     amount: Money.of(dispute.amount, dispute.currency),
     responseDueAt: dateOrNull(dispute.response_due_date),
     createdAt: dateOrNull(dispute.created_at),
+  };
+}
+
+export function toRevolutPayoutDTO(payout: RevolutPayout): PayoutDTO {
+  return {
+    providerPayoutId: payout.id,
+    status: PAYOUT_STATUS_BY_STATE[payout.state] ?? 'pending',
+    amount:
+      payout.amount === undefined || payout.currency === undefined
+        ? null
+        : Money.of(payout.amount, payout.currency),
+    createdAt: dateOrNull(payout.created_at),
+    arrivalAt: null,
   };
 }
 

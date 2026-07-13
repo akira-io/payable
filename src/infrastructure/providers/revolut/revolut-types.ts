@@ -50,6 +50,15 @@ export interface RevolutDispute {
   };
 }
 
+export interface RevolutPayout {
+  id: string;
+  state: 'processing' | 'completed' | 'failed';
+  created_at: string;
+  destination_type: string;
+  amount?: number;
+  currency?: string;
+}
+
 export interface RevolutCustomerPaymentMethods {
   payment_methods: RevolutPaymentMethod[];
 }
