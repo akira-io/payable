@@ -25,6 +25,7 @@ export type { CreatePriceInput, PriceDTO } from './price.dto';
 export type { CreateProductInput, ProductDTO, UpdateProductInput } from './product.dto';
 export type {
   CreateProviderWebhookEndpointInput,
+  ListProviderWebhookEndpointsInput,
   ProviderWebhookEndpointDTO,
   UpdateProviderWebhookEndpointInput,
 } from './provider-webhook-endpoint.dto';

@@ -9,6 +9,10 @@ export interface UpdateProviderWebhookEndpointInput {
   events?: string[];
 }
 
+export interface ListProviderWebhookEndpointsInput {
+  limit?: number;
+}
+
 export interface ProviderWebhookEndpointDTO {
   providerWebhookEndpointId: string;
   url: string;

@@ -16,6 +16,7 @@ import type { CreatePriceInput, PriceDTO } from '../dtos/price.dto';
 import type { CreateProductInput, ProductDTO, UpdateProductInput } from '../dtos/product.dto';
 import type {
   CreateProviderWebhookEndpointInput,
+  ListProviderWebhookEndpointsInput,
   ProviderWebhookEndpointDTO,
   UpdateProviderWebhookEndpointInput,
 } from '../dtos/provider-webhook-endpoint.dto';
@@ -134,7 +135,9 @@ export interface ProviderWebhookEndpointManagementCapable {
     input: CreateProviderWebhookEndpointInput,
     ctx: OperationContext,
   ): Promise<ProviderWebhookEndpointDTO>;
-  listWebhookEndpoints(): Promise<ProviderWebhookEndpointDTO[]>;
+  listWebhookEndpoints(
+    input?: ListProviderWebhookEndpointsInput,
+  ): Promise<ProviderWebhookEndpointDTO[]>;
   retrieveWebhookEndpoint(providerWebhookEndpointId: string): Promise<ProviderWebhookEndpointDTO>;
   updateWebhookEndpoint(
     input: UpdateProviderWebhookEndpointInput,

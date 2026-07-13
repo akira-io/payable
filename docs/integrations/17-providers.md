@@ -49,7 +49,7 @@ method or throws `ProviderCapabilityNotSupportedError`.
 | `PaymentMethodCapable` | `listPaymentMethods(input)`, `deletePaymentMethod(input, ctx)` | `isPaymentMethodCapable(provider)` |
 | `DisputeCapable` | `listDisputes(input)`, `retrieveDispute(id)`, `acceptDispute(id, ctx)` | `isDisputeCapable(provider)` |
 | `PayoutCapable` | `listPayouts(input)`, `retrievePayout(id)` | `isPayoutCapable(provider)` |
-| `ProviderWebhookEndpointManagementCapable` | provider webhook endpoint CRUD | `isProviderWebhookEndpointManagementCapable(provider)` |
+| `ProviderWebhookEndpointManagementCapable` | provider webhook endpoint CRUD with bounded listing | `isProviderWebhookEndpointManagementCapable(provider)` |
 
 Notes on the non-obvious members:
 
