@@ -10,6 +10,7 @@ import type { WebhookDependencies } from '../src/application/builders/webhook-de
 import { assertProviderCapability } from '../src/application/services/provider-capabilities/assert-provider-capability';
 import {
   isInvoiceCapable,
+  isPaymentMethodCapable,
   type PaymentProvider,
 } from '../src/domain/contracts/payment-provider.contract';
 import { ProviderCapabilityNotSupportedError } from '../src/domain/errors/provider-capability-not-supported.error';
@@ -99,6 +100,21 @@ describe('provider capability guard', () => {
   it('treats a provider that only lists invoices as not invoice-capable', () => {
     const partial = { name: 'partial', listInvoices: async () => [] } as unknown as PaymentProvider;
     expect(isInvoiceCapable(partial)).toBe(false);
+  });
+
+  it('requires both payment method operations', () => {
+    const partial = {
+      name: 'partial',
+      listPaymentMethods: async () => [],
+    } as unknown as PaymentProvider;
+    expect(isPaymentMethodCapable(partial)).toBe(false);
+
+    const capable = {
+      name: 'capable',
+      listPaymentMethods: async () => [],
+      deletePaymentMethod: async () => undefined,
+    } as unknown as PaymentProvider;
+    expect(isPaymentMethodCapable(capable)).toBe(true);
   });
 
   it('declares charge and webhook capabilities for built-in providers that support them', () => {

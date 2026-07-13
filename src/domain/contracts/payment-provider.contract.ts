@@ -5,6 +5,11 @@ import type { CheckoutSessionDTO, CreateCheckoutSessionInput } from '../dtos/che
 import type { OperationContext } from '../dtos/common.dto';
 import type { CreateCustomerInput, CustomerDTO, UpdateCustomerInput } from '../dtos/customer.dto';
 import type { InvoiceDTO, InvoicePdfDTO, ListInvoicesInput } from '../dtos/invoice.dto';
+import type {
+  DeletePaymentMethodInput,
+  ListPaymentMethodsInput,
+  PaymentMethodDTO,
+} from '../dtos/payment-method.dto';
 import type { CreatePriceInput, PriceDTO } from '../dtos/price.dto';
 import type { CreateProductInput, ProductDTO, UpdateProductInput } from '../dtos/product.dto';
 import type { RefundInput, RefundResultDTO } from '../dtos/refund.dto';
@@ -101,6 +106,11 @@ export interface InvoiceCapable {
   downloadInvoicePdf(providerInvoiceId: string): Promise<InvoicePdfDTO>;
 }
 
+export interface PaymentMethodCapable {
+  listPaymentMethods(input: ListPaymentMethodsInput): Promise<PaymentMethodDTO[]>;
+  deletePaymentMethod(input: DeletePaymentMethodInput, ctx: OperationContext): Promise<void>;
+}
+
 export function isCustomerCapable(
   provider: PaymentProvider,
 ): provider is PaymentProvider & CustomerCapable {
@@ -183,5 +193,15 @@ export function isInvoiceCapable(
   return (
     typeof candidate.listInvoices === 'function' &&
     typeof candidate.downloadInvoicePdf === 'function'
+  );
+}
+
+export function isPaymentMethodCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & PaymentMethodCapable {
+  const candidate = provider as Partial<PaymentMethodCapable>;
+  return (
+    typeof candidate.listPaymentMethods === 'function' &&
+    typeof candidate.deletePaymentMethod === 'function'
   );
 }
