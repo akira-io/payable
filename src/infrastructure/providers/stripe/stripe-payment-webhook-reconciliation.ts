@@ -16,6 +16,7 @@ export function reconcileStripePaymentWebhook(
     case 'checkout.session.completed':
     case 'checkout.session.async_payment_succeeded':
     case 'checkout.session.async_payment_failed':
+    case 'checkout.session.expired':
       return reconcileCheckoutSessionWebhook(verified);
     default:
       return null;
@@ -48,6 +49,9 @@ function reconcileCheckoutSessionWebhook(
   const providerPaymentId = stringValue(verified.data.id);
   if (!providerPaymentId) {
     return null;
+  }
+  if (verified.type === 'checkout.session.expired') {
+    return { providerPaymentId, status: 'canceled' };
   }
   if (verified.type === 'checkout.session.async_payment_failed') {
     return { providerPaymentId, status: 'failed' };

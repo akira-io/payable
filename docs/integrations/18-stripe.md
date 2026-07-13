@@ -155,6 +155,7 @@ Supported payment reconciliation sources:
 | `checkout.session.completed` with `payment_status: 'paid'` | `Checkout.Session.id` | `succeeded` |
 | `checkout.session.async_payment_succeeded` | `Checkout.Session.id` | `succeeded` |
 | `checkout.session.async_payment_failed` | `Checkout.Session.id` | `failed` |
+| `checkout.session.expired` | `Checkout.Session.id` | `canceled` |
 
 The checkout-session id is used because Payable records redirect-checkout pending payments under the
 session id before the browser leaves the application. The pipeline still gates the update through
