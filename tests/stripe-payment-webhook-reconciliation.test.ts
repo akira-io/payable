@@ -96,6 +96,17 @@ describe('StripeProvider payment webhook reconciliation', () => {
     expect(dto).toEqual({ providerPaymentId: 'cs_failed', status: 'failed' });
   });
 
+  it('maps expired checkout sessions to local payment cancellation', () => {
+    const dto = provider().reconcilePayment({
+      providerEventId: 'evt_checkout_expired',
+      type: 'checkout.session.expired',
+      normalizedType: null,
+      data: { id: 'cs_expired', payment_status: 'unpaid' },
+    });
+
+    expect(dto).toEqual({ providerPaymentId: 'cs_expired', status: 'canceled' });
+  });
+
   it('ignores non-payment events and malformed payment payloads', () => {
     expect(
       provider().reconcilePayment({
