@@ -155,6 +155,11 @@ export {
   type PaddleProviderOptions,
 } from './infrastructure/providers/paddle/paddle-provider';
 export {
+  type RevolutBusinessTokenProvider,
+  RevolutBusinessTreasuryProvider,
+  type RevolutBusinessTreasuryProviderOptions,
+} from './infrastructure/providers/revolut/revolut-business-treasury-provider';
+export {
   REVOLUT_MERCHANT_API_VERSION,
   RevolutProvider,
   type RevolutProviderOptions,
