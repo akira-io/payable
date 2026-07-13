@@ -56,6 +56,7 @@ Treasury contracts expose Payable DTOs and `Money`, never a provider SDK type.
 - Transactions contain one or more normalized legs so multi-account and cross-currency activity is
   not flattened.
 - Transfer destinations are discriminated as another account, a payment method, or a counterparty.
+  Retrieved transfers use `null` when the provider does not return a stable destination identifier.
 - Transaction and transfer lifecycle states use `pending`, `completed`, `failed`, `canceled`,
   `reversed`, or `unknown`.
 - Exchange creation accepts either a known source amount or a known target amount, but not both.

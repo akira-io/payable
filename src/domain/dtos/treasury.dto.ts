@@ -90,7 +90,7 @@ export interface ListTreasuryTransfersInput {
 export interface TreasuryTransferDTO {
   providerTransferId: string;
   sourceProviderAccountId: string;
-  destination: TreasuryTransferDestination;
+  destination: TreasuryTransferDestination | null;
   amount: Money;
   status: TreasuryTransactionStatus;
   reference: string | null;

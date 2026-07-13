@@ -58,6 +58,7 @@ import type {
   UpdateSubscriptionInput,
 } from '../../../domain/dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
+import { STRIPE_API_VERSION } from './stripe-api-version';
 import { StripeBillingPortal } from './stripe-billing-portal';
 import { StripeCatalog } from './stripe-catalog';
 import { StripeCheckout } from './stripe-checkout';
@@ -71,7 +72,7 @@ import { StripeSubscriptions } from './stripe-subscriptions';
 import { StripeWebhookEndpoints } from './stripe-webhook-endpoints';
 import { StripeWebhooks } from './stripe-webhooks';
 
-export const STRIPE_API_VERSION = '2026-06-24.dahlia' as const;
+export { STRIPE_API_VERSION } from './stripe-api-version';
 
 export interface StripeProviderOptions {
   secretKey: string;
