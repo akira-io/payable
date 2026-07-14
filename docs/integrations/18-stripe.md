@@ -331,15 +331,16 @@ hands it to the selected Reader through `terminal.readers.processPaymentIntent`.
 is the default and `captureMethod: 'manual'` forwards Stripe's manual capture mode. Both write calls
 receive `ctx.idempotencyKey`.
 
-Stripe Reader actions do not have independent identifiers. The provider therefore returns the Reader
-ID as `providerTerminalPaymentId`; that is the identifier required by Stripe to retrieve the current
-action and call `cancelAction`. `providerPaymentId` contains the PaymentIntent ID. Retrieval reads the
-Reader action and then the PaymentIntent to normalize amount, failure code, and lifecycle status.
+Stripe Reader actions do not have independent identifiers. The provider therefore returns an opaque,
+versioned `providerTerminalPaymentId` that identifies both the Reader and PaymentIntent.
+`providerPaymentId` contains the PaymentIntent ID. Retrieval loads that exact PaymentIntent and only
+uses Reader action state when the action belongs to the same payment.
 
-`cancelTerminalPayment` cancels the active Reader action and returns terminal status `canceled`. It
-does not cancel the underlying PaymentIntent because Stripe's Reader cancellation endpoint and
-PaymentIntent cancellation are separate operations. If handoff fails after PaymentIntent creation,
-retrying with the same idempotency key reuses the same Stripe write results.
+`cancelTerminalPayment` verifies that the Reader's active action belongs to the requested payment
+before calling Stripe. A stale payment identifier cannot cancel a newer action. The operation returns
+terminal status `canceled` but does not cancel the underlying PaymentIntent because Stripe's Reader
+cancellation endpoint and PaymentIntent cancellation are separate operations. If handoff fails after
+PaymentIntent creation, retrying with the same idempotency key reuses the same Stripe write results.
 
 ## Identity verification
 

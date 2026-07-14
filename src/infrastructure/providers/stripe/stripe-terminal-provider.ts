@@ -12,6 +12,7 @@ import type {
   TerminalDeviceDTO,
   TerminalPaymentDTO,
 } from '../../../domain/dtos/terminal.dto';
+import { PayableError } from '../../../domain/errors/payable-error';
 import { stripeAmount } from './stripe-amounts';
 import { STRIPE_API_VERSION } from './stripe-api-version';
 import { withStripeErrors } from './stripe-errors';
@@ -19,6 +20,7 @@ import {
   assertActiveStripeTerminalReader,
   mapStripeTerminalDevice,
   mapStripeTerminalPayment,
+  parseStripeTerminalPaymentId,
   stripeTerminalActionPaymentIntentId,
 } from './stripe-terminal-mappers';
 
@@ -95,10 +97,11 @@ export class StripeTerminalProvider
   }
 
   async retrieveTerminalPayment(providerTerminalPaymentId: string): Promise<TerminalPaymentDTO> {
-    const reader = await this.retrieveReader(providerTerminalPaymentId);
-    const paymentIntent = await this.retrievePaymentIntent(
-      stripeTerminalActionPaymentIntentId(reader),
-    );
+    const identity = parseStripeTerminalPaymentId(providerTerminalPaymentId);
+    const [reader, paymentIntent] = await Promise.all([
+      this.retrieveReader(identity.providerDeviceId),
+      this.retrievePaymentIntent(identity.providerPaymentIntentId),
+    ]);
     return mapStripeTerminalPayment(reader, paymentIntent);
   }
 
@@ -106,17 +109,29 @@ export class StripeTerminalProvider
     providerTerminalPaymentId: string,
     ctx: OperationContext,
   ): Promise<TerminalPaymentDTO> {
-    const reader = await this.retrieveReader(providerTerminalPaymentId);
-    const paymentIntentId = stripeTerminalActionPaymentIntentId(reader);
+    const identity = parseStripeTerminalPaymentId(providerTerminalPaymentId);
+    const reader = await this.retrieveReader(identity.providerDeviceId);
+    const activePaymentIntentId = stripeTerminalActionPaymentIntentId(reader);
+    if (activePaymentIntentId !== identity.providerPaymentIntentId) {
+      throw new PayableError('Stripe Terminal reader is processing a different payment', {
+        code: 'PROVIDER_REQUEST_INVALID',
+        context: {
+          provider: this.name,
+          providerDeviceId: identity.providerDeviceId,
+          expectedPaymentIntentId: identity.providerPaymentIntentId,
+          actualPaymentIntentId: activePaymentIntentId,
+        },
+      });
+    }
     const stripe = await this.stripe();
     await withStripeErrors(
       () =>
-        stripe.terminal.readers.cancelAction(providerTerminalPaymentId, {}, this.idempotency(ctx)),
+        stripe.terminal.readers.cancelAction(identity.providerDeviceId, {}, this.idempotency(ctx)),
       this.name,
     );
     return mapStripeTerminalPayment(
       reader,
-      await this.retrievePaymentIntent(paymentIntentId),
+      await this.retrievePaymentIntent(identity.providerPaymentIntentId),
       'canceled',
     );
   }
