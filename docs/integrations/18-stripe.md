@@ -329,7 +329,8 @@ networking details, metadata, and device secrets are not returned.
 `createTerminalPayment` creates a PaymentIntent with `payment_method_types: ['card_present']`, then
 hands it to the selected Reader through `terminal.readers.processPaymentIntent`. Automatic capture
 is the default and `captureMethod: 'manual'` forwards Stripe's manual capture mode. Both write calls
-receive `ctx.idempotencyKey`.
+receive distinct deterministic keys derived from `ctx.idempotencyKey`. Long Payable keys are hashed
+so every forwarded key remains within Stripe's 255-character limit.
 
 Stripe Reader actions do not have independent identifiers. The provider therefore returns an opaque,
 versioned `providerTerminalPaymentId` that identifies both the Reader and PaymentIntent.
