@@ -43,6 +43,12 @@ describe('public API surface', () => {
     expect(typeof payable.isIssuingTransactionCapable).toBe('function');
     expect(typeof payable.IssuingProviderRegistry).toBe('function');
     expect(typeof payable.IssuingProviderNotFoundError).toBe('function');
+    expect(typeof payable.isMarketplaceAccountCapable).toBe('function');
+    expect(typeof payable.isMarketplaceOnboardingCapable).toBe('function');
+    expect(typeof payable.isMarketplaceTransferCapable).toBe('function');
+    expect(typeof payable.isMarketplacePayoutCapable).toBe('function');
+    expect(typeof payable.MarketplaceProviderRegistry).toBe('function');
+    expect(typeof payable.MarketplaceProviderNotFoundError).toBe('function');
     expect(typeof payable.SubscriptionStateMachine).toBe('function');
   });
 

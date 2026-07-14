@@ -51,6 +51,7 @@ import {
   type OutboxServiceOptions,
 } from './infrastructure/outbox/outbox-service';
 import { IssuingProviderRegistry } from './issuing-provider-registry';
+import { MarketplaceProviderRegistry } from './marketplace-provider-registry';
 import { ProviderRegistry } from './provider-registry';
 import type { ResolvedConfig } from './support/config/payable-config';
 import { TaxProviderRegistry } from './tax-provider-registry';
@@ -75,6 +76,7 @@ export interface DeliverWebhooksOptions {
 export class Payable {
   private readonly registry: ProviderRegistry;
   private readonly issuingRegistry: IssuingProviderRegistry;
+  private readonly marketplaceRegistry: MarketplaceProviderRegistry;
   private readonly taxRegistry: TaxProviderRegistry;
   private readonly treasuryRegistry: TreasuryProviderRegistry;
   private readonly factory: DependencyFactory;
@@ -82,6 +84,7 @@ export class Payable {
   constructor(private readonly resolved: ResolvedConfig) {
     this.registry = new ProviderRegistry(resolved.providers);
     this.issuingRegistry = new IssuingProviderRegistry(resolved.issuingProviders);
+    this.marketplaceRegistry = new MarketplaceProviderRegistry(resolved.marketplaceProviders);
     this.taxRegistry = new TaxProviderRegistry(resolved.taxProviders);
     this.treasuryRegistry = new TreasuryProviderRegistry(resolved.treasuryProviders);
     this.factory = new DependencyFactory(resolved, this.registry);
@@ -96,6 +99,10 @@ export class Payable {
 
   issuingProviders(): IssuingProviderRegistry {
     return this.issuingRegistry;
+  }
+
+  marketplaceProviders(): MarketplaceProviderRegistry {
+    return this.marketplaceRegistry;
   }
 
   taxProviders(): TaxProviderRegistry {

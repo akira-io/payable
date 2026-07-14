@@ -7,6 +7,7 @@ import type { IdempotencyStore } from '../../domain/contracts/idempotency-store.
 import type { IssuingProvider } from '../../domain/contracts/issuing-provider.contract';
 import type { LockDriver } from '../../domain/contracts/lock-driver.contract';
 import type { Logger } from '../../domain/contracts/logger.contract';
+import type { MarketplaceProvider } from '../../domain/contracts/marketplace-provider.contract';
 import type { PaymentProvider } from '../../domain/contracts/payment-provider.contract';
 import type { QueueDriver } from '../../domain/contracts/queue-driver.contract';
 import type { StorageDriver } from '../../domain/contracts/storage-driver.contract';
@@ -40,6 +41,7 @@ export interface PayableConfig {
   authorization?: AuthorizationConfig;
   providers: Record<string, PaymentProvider>;
   issuingProviders?: Record<string, IssuingProvider>;
+  marketplaceProviders?: Record<string, MarketplaceProvider>;
   taxProviders?: Record<string, TaxProvider>;
   treasuryProviders?: Record<string, TreasuryProvider>;
   storage?: StorageDriver;
@@ -65,6 +67,7 @@ export interface ResolvedConfig {
   authorizationEnabled: boolean;
   providers: Map<string, PaymentProvider>;
   issuingProviders: Map<string, IssuingProvider>;
+  marketplaceProviders: Map<string, MarketplaceProvider>;
   taxProviders: Map<string, TaxProvider>;
   treasuryProviders: Map<string, TreasuryProvider>;
   storage?: StorageDriver;
@@ -116,6 +119,7 @@ export function resolveConfig(config: PayableConfig): ResolvedConfig {
     authorizationEnabled: config.authorization?.enabled ?? false,
     providers: new Map(entries),
     issuingProviders: new Map(Object.entries(config.issuingProviders ?? {})),
+    marketplaceProviders: new Map(Object.entries(config.marketplaceProviders ?? {})),
     taxProviders: new Map(Object.entries(config.taxProviders ?? {})),
     treasuryProviders: new Map(Object.entries(config.treasuryProviders ?? {})),
     storage: config.storage,

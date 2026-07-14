@@ -185,6 +185,12 @@ operation requires its matching structural guard, and no built-in adapter is reg
 Normalized card DTOs expose only non-sensitive display metadata. Full card numbers, CVV, PIN, track
 data, and provider secrets are excluded from the contracts.
 
+## Marketplace providers
+
+Seller account coordination uses `MarketplaceProvider` and the optional `marketplaceProviders`
+configuration. Accounts, onboarding, transfers, and payouts are separate capabilities with complete
+runtime guards. Payment acceptance remains the responsibility of payment providers.
+
 - Purpose: fail fast and explicitly before reaching the provider API for an unsupported operation.
 - Edge case: a provider may also throw `ProviderCapabilityNotSupportedError` from inside a method for a
   partial limitation. Paddle does this for partial refunds (see the Paddle integration page).

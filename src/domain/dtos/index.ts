@@ -35,6 +35,25 @@ export type {
   RespondIssuingAuthorizationInput,
 } from './issuing.dto';
 export type {
+  CreateMarketplaceAccountInput,
+  CreateMarketplaceOnboardingLinkInput,
+  CreateMarketplacePayoutInput,
+  CreateMarketplaceTransferInput,
+  ListMarketplaceAccountsInput,
+  ListMarketplacePayoutsInput,
+  ListMarketplaceTransfersInput,
+  MarketplaceAccountDTO,
+  MarketplaceAccountStatus,
+  MarketplaceCapabilities,
+  MarketplaceCapability,
+  MarketplaceCapabilityValue,
+  MarketplaceOnboardingLinkDTO,
+  MarketplacePayoutDTO,
+  MarketplacePayoutStatus,
+  MarketplaceTransferDTO,
+  MarketplaceTransferStatus,
+} from './marketplace.dto';
+export type {
   DeletePaymentMethodInput,
   ListPaymentMethodsInput,
   PaymentMethodDTO,
