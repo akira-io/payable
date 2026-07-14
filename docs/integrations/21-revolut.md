@@ -170,8 +170,8 @@ to `checkoutUrl`.
 
 This setup flow is for future merchant-initiated payments, so only `off_session` usage is supported.
 An `on_session` request fails before the HTTP call with `PROVIDER_OPERATION_UNSUPPORTED`. Order states
-map to the normalized setup lifecycle, and a saved `payment_method.id` is exposed only after Revolut
-returns it.
+map to the normalized setup lifecycle. After Revolut completes the order, the adapter exposes the
+saved `payment_method.id` from its last completed payment.
 
 ## Payment Checkout
 
