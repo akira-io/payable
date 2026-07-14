@@ -134,22 +134,24 @@ describe('Stripe Terminal provider', () => {
     expect(processKeys[0]?.length).toBeLessThanOrEqual(255);
   });
 
-  it('forwards manual capture to the PaymentIntent', async () => {
+  it('rejects manual capture before creating Stripe resources', async () => {
     const { client, calls } = fakeStripeTerminal();
 
-    await provider(client).createTerminalPayment(
-      {
-        providerDeviceId: 'tmr_1',
-        amount: Money.of(5_000, 'USD'),
-        captureMethod: 'manual',
-      },
-      context,
-    );
-
-    expect(calls.paymentIntentsCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ capture_method: 'manual' }),
-      { idempotencyKey: 'terminal-idem-1:stripe-terminal:payment-intent' },
-    );
+    await expect(
+      provider(client).createTerminalPayment(
+        {
+          providerDeviceId: 'tmr_1',
+          amount: Money.of(5_000, 'USD'),
+          captureMethod: 'manual',
+        },
+        context,
+      ),
+    ).rejects.toMatchObject({
+      code: 'PROVIDER_OPERATION_UNSUPPORTED',
+      context: expect.objectContaining({ provider: 'stripe-terminal' }),
+    });
+    expect(calls.paymentIntentsCreate).not.toHaveBeenCalled();
+    expect(calls.readersProcessPaymentIntent).not.toHaveBeenCalled();
   });
 
   it('retrieves reader action and PaymentIntent state', async () => {
@@ -176,6 +178,29 @@ describe('Stripe Terminal provider', () => {
     expect(calls.paymentIntentsRetrieve).toHaveBeenCalledWith('pi_terminal_1');
     expect(payment.providerTerminalPaymentId).toBe('v1:tmr_1:pi_terminal_1');
     expect(payment.status).toBe('succeeded');
+  });
+
+  it('reports authorized manual-capture PaymentIntents as pending', async () => {
+    const { client, calls } = fakeStripeTerminal();
+    calls.readersRetrieve.mockResolvedValue(
+      stripeTerminalReader({
+        action: {
+          api_error: null,
+          failure_code: null,
+          failure_message: null,
+          process_payment_intent: { payment_intent: 'pi_terminal_1' },
+          status: 'succeeded',
+          type: 'process_payment_intent',
+        },
+      }),
+    );
+    calls.paymentIntentsRetrieve.mockResolvedValue(
+      stripeTerminalPaymentIntent({ capture_method: 'manual', status: 'requires_capture' }),
+    );
+
+    const payment = await provider(client).retrieveTerminalPayment('v1:tmr_1:pi_terminal_1');
+
+    expect(payment.status).toBe('pending');
   });
 
   it('retrieves the intended payment while the reader processes a newer payment', async () => {

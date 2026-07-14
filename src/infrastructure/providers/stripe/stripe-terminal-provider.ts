@@ -73,6 +73,12 @@ export class StripeTerminalProvider
     input: CreateTerminalPaymentInput,
     ctx: OperationContext,
   ): Promise<TerminalPaymentDTO> {
+    if (input.captureMethod === 'manual') {
+      throw new PayableError('Stripe Terminal manual capture is not supported', {
+        code: 'PROVIDER_OPERATION_UNSUPPORTED',
+        context: { provider: this.name, captureMethod: input.captureMethod },
+      });
+    }
     const stripe = await this.stripe();
     const paymentIntent = await withStripeErrors(
       () =>
