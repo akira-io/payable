@@ -1,3 +1,23 @@
+export type {
+  AccountingCapabilities,
+  AccountingCapability,
+  AccountingCapabilityValue,
+  AccountingCategoryDTO,
+  AccountingExpenseDTO,
+  AccountingLabelDTO,
+  AccountingLedgerEntryDTO,
+  AccountingListInput,
+  AccountingTaxRateDTO,
+  CreateAccountingCategoryInput,
+  CreateAccountingLabelInput,
+  CreateAccountingTaxRateInput,
+  ListAccountingExpensesInput,
+  ListAccountingLedgerEntriesInput,
+  UpdateAccountingCategoryInput,
+  UpdateAccountingExpenseInput,
+  UpdateAccountingLabelInput,
+  UpdateAccountingTaxRateInput,
+} from './accounting.dto';
 export type { BillingPortalDTO, BillingPortalInput } from './billing-portal.dto';
 export type {
   ProviderCapabilities,

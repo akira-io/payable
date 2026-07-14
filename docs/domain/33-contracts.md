@@ -149,6 +149,12 @@ Marketplace providers coordinate seller accounts, onboarding, transfers, and pay
 independent registry. They identify recipients and move funds but do not process customer payments
 automatically or add connected-account fields to payment DTOs.
 
+### AccountingProvider
+
+Accounting providers expose granular contracts for categories, bookkeeping tax-rate metadata, labels,
+expenses, and ledger entries. These tax rates describe accounting records and do not satisfy
+`TaxProvider` calculation or transaction capabilities.
+
 ### IdentityProvider
 
 Identity providers expose verification-session lifecycle operations through an independent registry.

@@ -1,3 +1,4 @@
+export { AccountingProviderRegistry } from './accounting-provider-registry';
 export {
   ReconcileRedirectPaymentAction,
   type ReconcileRedirectPaymentResult,
