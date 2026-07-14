@@ -11,6 +11,7 @@ const REVOLUT_BASE_URL: Record<RevolutEnvironment, string> = {
 
 export interface RevolutClientOptions {
   secretKey: string;
+  providerName?: string;
   environment?: RevolutEnvironment;
   baseUrl?: string;
   apiVersion?: string;
@@ -19,9 +20,11 @@ export interface RevolutClientOptions {
 
 export class RevolutClient {
   readonly environment: RevolutEnvironment;
+  private readonly providerName: string;
 
   constructor(private readonly options: RevolutClientOptions) {
     this.environment = options.environment ?? 'production';
+    this.providerName = options.providerName ?? 'revolut';
   }
 
   async request<T>(path: string, options: RevolutRequestOptions): Promise<T> {
@@ -30,11 +33,11 @@ export class RevolutClient {
       headers: this.headers(options),
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     }).catch((error: unknown) => {
-      throw revolutNetworkError(error);
+      throw revolutNetworkError(error, this.providerName);
     });
     const body = await parseResponseBody(response);
     if (!response.ok) {
-      throw toRevolutPayableError(response.status, body);
+      throw toRevolutPayableError(response.status, body, this.providerName);
     }
     return body as T;
   }
@@ -64,7 +67,7 @@ export class RevolutClient {
     if (!request) {
       throw new PayableError('No fetch implementation available for RevolutProvider', {
         code: 'PROVIDER_HTTP_CLIENT_UNAVAILABLE',
-        context: { provider: 'revolut' },
+        context: { provider: this.providerName },
       });
     }
     return request(input, init);

@@ -56,6 +56,28 @@ request and uses the same production Business API base URL as the Treasury provi
 make its Cards API available in Sandbox; use injected HTTP tests or an approved production test
 account for card integration testing.
 
+### Revolut Terminal
+
+`RevolutTerminalProvider` implements the independent terminal contracts for server-driven push
+payments. It uses the Merchant API directly and does not add a device SDK or peer dependency.
+
+```ts
+import { RevolutTerminalProvider } from '@akira-io/payable';
+
+const terminal = new RevolutTerminalProvider({
+  secretKey: process.env.REVOLUT_MERCHANT_SECRET_KEY!,
+  environment: 'sandbox',
+  locationId: process.env.REVOLUT_LOCATION_ID!,
+  fulfilmentType: 'eat_in',
+  posPartnerName: 'My POS',
+});
+```
+
+`locationId` is required because Revolut links every POS order and terminal to one physical
+location. `fulfilmentType` defaults to `eat_in`; set it to `take_away` when that is the merchant's
+transaction context. `posPartnerName` defaults to `Payable` and is sent as
+`metadata.pos_partner_name`.
+
 Provider-specific details are documented in [Disputes](21a-revolut-disputes.md),
 [Payouts](21b-revolut-payouts.md), and [Webhook Management](21c-revolut-webhook-management.md).
 
@@ -338,6 +360,39 @@ Issuing transaction reads reuse Business `GET /transactions` and `GET /transacti
 are restricted to records containing a card ID, can be filtered by `providerCardId`, and map card
 payments, refunds, and reverted transactions to `capture`, `refund`, and `reversal` respectively.
 The Business API has no issuing authorization identifier, so that optional generic filter is rejected.
+
+## Terminal push payments
+
+`RevolutTerminalProvider` declares `devices` and `payments`. Device discovery calls
+`GET /api/terminals?operation_mode=pos&location_id={locationId}`. Because the response does not
+include a location identifier, the normalized device receives the location used for the query.
+`retrieveTerminalDevice` searches that filtered result; the Merchant API does not expose a separate
+terminal retrieval endpoint.
+
+Payment creation follows Revolut's required sequence:
+
+1. Confirm that the selected terminal is online at the configured location.
+2. Create a Merchant order with `channel: pos`, `capture_mode: manual`, the configured location and
+   fulfilment context, and the exact amount and currency.
+3. Create the payment intent for that order and terminal with the same minor-unit amount.
+
+The `manual` order field is controlled by Revolut's push-payment protocol. It does not provide the
+caller with delayed-capture control: `captureMethod: 'manual'` is therefore rejected before HTTP with
+`PROVIDER_OPERATION_UNSUPPORTED`. The terminal automatically captures or cancels the payment.
+
+Intent polling maps `pending`, `processing`, `failed`, and `cancelled` to the generic lifecycle. A
+Revolut intent in `completed` state is still `in_progress` because completion only means the terminal
+interaction ended. When the intent contains `payment_id`, the adapter reads `/api/payments/{id}` and
+only maps `captured` or `completed` to `succeeded`; transitional states remain `in_progress`, while
+`declined`, `failed`, and `cancelled` remain unsuccessful final states.
+
+The current order, payment-intent, and cancel endpoint schemas do not declare `Idempotency-Key` or a
+request-ID header. The adapter accepts the standard operation context but does not send unsupported
+headers. Cancellation is available only while the intent remains pending, as enforced by Revolut.
+
+Sandbox uses `https://sandbox-merchant.revolut.com`; its virtual terminal ID is
+`11111111-0000-0000-0000-000000000000`. Keep Merchant keys server-side and encrypted. Provider
+serialization and inspection expose only `{ name: 'revolut-terminal' }`.
 
 ## Error handling
 
