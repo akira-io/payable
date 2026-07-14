@@ -194,6 +194,10 @@ export {
   type StripeIssuingProviderOptions,
 } from './infrastructure/providers/stripe/stripe-issuing-provider';
 export {
+  StripeMarketplaceProvider,
+  type StripeMarketplaceProviderOptions,
+} from './infrastructure/providers/stripe/stripe-marketplace-provider';
+export {
   StripeProvider,
   type StripeProviderOptions,
 } from './infrastructure/providers/stripe/stripe-provider';
