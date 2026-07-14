@@ -4,9 +4,9 @@ Stripe Treasury is implemented by the separate `StripeTreasuryProvider`; see
 [Stripe Treasury](18a-stripe-treasury.md).
 
 `StripeProvider` (`src/infrastructure/providers/stripe/stripe-provider.ts`) is the reference
-implementation of `PaymentProvider`. It implements the base contract plus all three optional
-interfaces: `ChargeCapable`, `DirectSubscriptionCapable`, `InvoiceCapable`, and
-`PaymentWebhookCapable`. Its registry `name` is `'stripe'`.
+implementation of `PaymentProvider`. It implements the base contract and optional capabilities for
+charges, subscriptions, invoices, saved payment methods, payment-method setup, disputes, payouts,
+webhooks, and catalog operations. Its registry `name` is `'stripe'`.
 
 ## Construction and options
 
@@ -50,8 +50,10 @@ capabilities(): ProviderCapabilities {
     'billingPortal',
     'invoicePdf',
     'webhooks',
-    'customers',
-    'catalog',
+      'customers',
+      'paymentMethods',
+      'paymentMethodSetup',
+      'catalog',
   ]);
 }
 ```
@@ -148,8 +150,19 @@ first retrieves the method through the customer-scoped Stripe endpoint, then for
 `ctx.idempotencyKey` to `paymentMethods.detach`.
 
 Only generic display data is returned: provider id, type, card brand, last four digits, and expiry.
-Fields that do not apply to a payment method type are `null`. Collection and attachment remain a
-SetupIntent or PaymentIntent concern and are not exposed by this capability.
+Fields that do not apply to a payment method type are `null`. Collection and attachment use the
+separate payment-method setup capability.
+
+## Payment method setup
+
+`StripeProvider` implements `PaymentMethodSetupCapable` through Setup Intents. Creation forwards the
+customer, usage, optional payment method types, return URL, opaque reference metadata, and operation
+idempotency key. The normalized currency field is accepted but not sent because Stripe Setup Intents
+do not take a currency.
+
+Retrieve and cancel return the same normalized setup DTO. Stripe states that require further input or
+confirmation map to `requires_action`; processing, succeeded, and canceled states map directly. The
+result exposes only the client secret and resulting payment method ID needed by the setup lifecycle.
 
 ## Disputes
 

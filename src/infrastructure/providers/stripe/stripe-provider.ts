@@ -6,6 +6,7 @@ import type {
   DisputeCapable,
   InvoiceCapable,
   PaymentMethodCapable,
+  PaymentMethodSetupCapable,
   PaymentProvider,
   PaymentWebhookCapable,
   PaymentWebhookReconciliation,
@@ -65,6 +66,7 @@ import { StripeCheckout } from './stripe-checkout';
 import { StripeCustomers } from './stripe-customers';
 import { StripeDisputes } from './stripe-disputes';
 import { StripeInvoices } from './stripe-invoices';
+import { StripePaymentMethodSetup } from './stripe-payment-method-setup';
 import { StripePaymentMethods } from './stripe-payment-methods';
 import { StripePayments } from './stripe-payments';
 import { StripePayouts } from './stripe-payouts';
@@ -88,6 +90,7 @@ export class StripeProvider
     DisputeCapable,
     InvoiceCapable,
     PaymentMethodCapable,
+    PaymentMethodSetupCapable,
     PaymentWebhookCapable,
     PayoutCapable,
     ProviderWebhookEndpointManagementCapable
@@ -100,6 +103,12 @@ export class StripeProvider
   private readonly catalog = new StripeCatalog(() => this.stripe());
   private readonly customers = new StripeCustomers(() => this.stripe());
   private readonly paymentMethods = new StripePaymentMethods(() => this.stripe());
+  private readonly paymentMethodSetup = new StripePaymentMethodSetup(() => this.stripe());
+  readonly createPaymentMethodSetup = this.paymentMethodSetup.create.bind(this.paymentMethodSetup);
+  readonly retrievePaymentMethodSetup = this.paymentMethodSetup.retrieve.bind(
+    this.paymentMethodSetup,
+  );
+  readonly cancelPaymentMethodSetup = this.paymentMethodSetup.cancel.bind(this.paymentMethodSetup);
   private readonly billingPortalSessions = new StripeBillingPortal(() => this.stripe());
   private readonly payments = new StripePayments(() => this.stripe());
   private readonly disputes = new StripeDisputes(() => this.stripe());
@@ -136,6 +145,7 @@ export class StripeProvider
       'webhooks',
       'customers',
       'paymentMethods',
+      'paymentMethodSetup',
       'disputes',
       'payouts',
       'webhookEndpointManagement',
@@ -146,35 +156,27 @@ export class StripeProvider
   createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
     return this.customers.create(input, ctx);
   }
-
   updateCustomer(input: UpdateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
     return this.customers.update(input, ctx);
   }
-
   listPaymentMethods(input: ListPaymentMethodsInput): Promise<PaymentMethodDTO[]> {
     return this.paymentMethods.list(input);
   }
-
   deletePaymentMethod(input: DeletePaymentMethodInput, ctx: OperationContext): Promise<void> {
     return this.paymentMethods.delete(input, ctx);
   }
-
   listDisputes(input?: ListDisputesInput): Promise<DisputeDTO[]> {
     return this.disputes.list(input);
   }
-
   retrieveDispute(providerDisputeId: string): Promise<DisputeDTO> {
     return this.disputes.retrieve(providerDisputeId);
   }
-
   acceptDispute(providerDisputeId: string, ctx: OperationContext): Promise<void> {
     return this.disputes.accept(providerDisputeId, ctx);
   }
-
   listPayouts(input?: ListPayoutsInput): Promise<PayoutDTO[]> {
     return this.payouts.list(input);
   }
-
   retrievePayout(providerPayoutId: string): Promise<PayoutDTO> {
     return this.payouts.retrieve(providerPayoutId);
   }
@@ -214,7 +216,6 @@ export class StripeProvider
   async updateProduct(input: UpdateProductInput, ctx: OperationContext): Promise<ProductDTO> {
     return this.catalog.updateProduct(input, ctx);
   }
-
   async createPrice(input: CreatePriceInput, ctx: OperationContext): Promise<PriceDTO> {
     return this.catalog.createPrice(input, ctx);
   }
@@ -281,7 +282,6 @@ export class StripeProvider
   async listInvoices(input: ListInvoicesInput): Promise<InvoiceDTO[]> {
     return this.invoices.list(input);
   }
-
   async downloadInvoicePdf(providerInvoiceId: string): Promise<InvoicePdfDTO> {
     return this.invoices.downloadPdf(providerInvoiceId);
   }
