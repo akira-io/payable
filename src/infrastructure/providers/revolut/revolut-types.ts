@@ -76,11 +76,15 @@ export interface RevolutCustomerPaymentMethods {
 
 export interface RevolutOrder {
   id: string;
+  token?: string;
   type?: string;
   state?: string;
+  created_at?: string;
   amount?: number;
   currency?: string;
   checkout_url?: string;
+  customer?: { id: string };
+  payment_method?: { id?: string; type?: string };
   related_order_id?: string;
 }
 

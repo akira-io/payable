@@ -5,6 +5,7 @@ import type {
   DirectSubscriptionCapable,
   DisputeCapable,
   PaymentMethodCapable,
+  PaymentMethodSetupCapable,
   PaymentProvider,
   PaymentWebhookCapable,
   PaymentWebhookReconciliation,
@@ -31,6 +32,10 @@ import type {
   ListPaymentMethodsInput,
   PaymentMethodDTO,
 } from '../../../domain/dtos/payment-method.dto';
+import type {
+  CreatePaymentMethodSetupInput,
+  PaymentMethodSetupDTO,
+} from '../../../domain/dtos/payment-method-setup.dto';
 import type { ListPayoutsInput, PayoutDTO } from '../../../domain/dtos/payout.dto';
 import type {
   CreateProviderWebhookEndpointInput,
@@ -52,6 +57,7 @@ import { RevolutCustomers } from './revolut-customers';
 import { RevolutDisputes } from './revolut-disputes';
 import { RevolutEventNormalizer } from './revolut-event-normalizer';
 import { toRevolutCheckoutSessionDTO, toRevolutRefundResultDTO } from './revolut-mappers';
+import { RevolutPaymentMethodSetup } from './revolut-payment-method-setup';
 import { RevolutPaymentMethods } from './revolut-payment-methods';
 import { reconcileRevolutPaymentWebhook } from './revolut-payment-webhook-reconciliation';
 import { RevolutPayouts } from './revolut-payouts';
@@ -86,6 +92,7 @@ export class RevolutProvider
     WebhookCapable,
     PaymentWebhookCapable,
     PaymentMethodCapable,
+    PaymentMethodSetupCapable,
     DisputeCapable,
     PayoutCapable,
     ProviderWebhookEndpointManagementCapable,
@@ -100,31 +107,29 @@ export class RevolutProvider
   private readonly customers: RevolutCustomers;
   private readonly subscriptions: RevolutSubscriptions;
   private readonly paymentMethods: RevolutPaymentMethods;
+  private readonly paymentMethodSetup: RevolutPaymentMethodSetup;
   private readonly disputes: RevolutDisputes;
   private readonly payouts: RevolutPayouts;
   private readonly webhookEndpoints: RevolutWebhookEndpoints;
-
   constructor(options: RevolutProviderOptions) {
     this.client = new RevolutClient(options);
     const request = this.client.request.bind(this.client);
     this.customers = new RevolutCustomers(request);
     this.subscriptions = new RevolutSubscriptions(request);
     this.paymentMethods = new RevolutPaymentMethods(request);
+    this.paymentMethodSetup = new RevolutPaymentMethodSetup(request);
     this.disputes = new RevolutDisputes(request, this.client.environment);
     this.payouts = new RevolutPayouts(request);
     this.webhookEndpoints = new RevolutWebhookEndpoints(request);
     this.normalizer = new RevolutEventNormalizer(options.logger);
     this.verifier = new RevolutWebhookVerifier(options.webhookSecret, options.webhookToleranceMs);
   }
-
   toJSON(): { name: string } {
     return { name: this.name };
   }
-
   [Symbol.for('nodejs.util.inspect.custom')](): string {
     return `RevolutProvider { name: '${this.name}' }`;
   }
-
   capabilities(): ProviderCapabilities {
     return new Set([
       'checkout',
@@ -132,45 +137,52 @@ export class RevolutProvider
       'webhooks',
       'customers',
       'paymentMethods',
+      'paymentMethodSetup',
       'disputes',
       'payouts',
       'webhookEndpointManagement',
       'subscriptions',
     ]);
   }
-
   createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
     return this.customers.create(input, ctx);
   }
-
   updateCustomer(input: UpdateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
     return this.customers.update(input, ctx);
   }
-
   listPaymentMethods(input: ListPaymentMethodsInput): Promise<PaymentMethodDTO[]> {
     return this.paymentMethods.list(input);
   }
-
   deletePaymentMethod(input: DeletePaymentMethodInput, ctx: OperationContext): Promise<void> {
     return this.paymentMethods.delete(input, ctx);
   }
-
+  createPaymentMethodSetup(
+    input: CreatePaymentMethodSetupInput,
+    ctx: OperationContext,
+  ): Promise<PaymentMethodSetupDTO> {
+    return this.paymentMethodSetup.create(input, ctx);
+  }
+  retrievePaymentMethodSetup(providerSetupId: string): Promise<PaymentMethodSetupDTO> {
+    return this.paymentMethodSetup.retrieve(providerSetupId);
+  }
+  cancelPaymentMethodSetup(
+    providerSetupId: string,
+    ctx: OperationContext,
+  ): Promise<PaymentMethodSetupDTO> {
+    return this.paymentMethodSetup.cancel(providerSetupId, ctx);
+  }
   listDisputes(input?: ListDisputesInput): Promise<DisputeDTO[]> {
     return this.disputes.list(input);
   }
-
   retrieveDispute(providerDisputeId: string): Promise<DisputeDTO> {
     return this.disputes.retrieve(providerDisputeId);
   }
-
   acceptDispute(providerDisputeId: string, ctx: OperationContext): Promise<void> {
     return this.disputes.accept(providerDisputeId, ctx);
   }
-
   listPayouts(input?: ListPayoutsInput): Promise<PayoutDTO[]> {
     return this.payouts.list(input);
   }
-
   retrievePayout(providerPayoutId: string): Promise<PayoutDTO> {
     return this.payouts.retrieve(providerPayoutId);
   }
@@ -180,28 +192,23 @@ export class RevolutProvider
   ): Promise<ProviderWebhookEndpointDTO> {
     return this.webhookEndpoints.create(input, ctx);
   }
-
   listWebhookEndpoints(
     input?: ListProviderWebhookEndpointsInput,
   ): Promise<ProviderWebhookEndpointDTO[]> {
     return this.webhookEndpoints.list(input);
   }
-
   retrieveWebhookEndpoint(providerWebhookEndpointId: string): Promise<ProviderWebhookEndpointDTO> {
     return this.webhookEndpoints.retrieve(providerWebhookEndpointId);
   }
-
   updateWebhookEndpoint(
     input: UpdateProviderWebhookEndpointInput,
     ctx: OperationContext,
   ): Promise<ProviderWebhookEndpointDTO> {
     return this.webhookEndpoints.update(input, ctx);
   }
-
   deleteWebhookEndpoint(providerWebhookEndpointId: string, ctx: OperationContext): Promise<void> {
     return this.webhookEndpoints.delete(providerWebhookEndpointId, ctx);
   }
-
   async createCheckoutSession(
     input: CreateCheckoutSessionInput,
     ctx: OperationContext,
@@ -231,7 +238,6 @@ export class RevolutProvider
     const order = await this.client.request<RevolutOrder>('/api/orders', { method: 'POST', body });
     return toRevolutCheckoutSessionDTO(order);
   }
-
   async refund(input: RefundInput, ctx: OperationContext): Promise<RefundResultDTO> {
     if (!input.amount) {
       throw new PayableError('Revolut refunds require an explicit amount', {
@@ -251,35 +257,30 @@ export class RevolutProvider
     );
     return toRevolutRefundResultDTO(order, input.amount);
   }
-
   createSubscription(
     input: CreateSubscriptionInput,
     ctx: OperationContext,
   ): Promise<SubscriptionDTO> {
     return this.subscriptions.create(input, ctx);
   }
-
   updateSubscription(
     input: UpdateSubscriptionInput,
     ctx: OperationContext,
   ): Promise<SubscriptionDTO> {
     return this.subscriptions.update(input, ctx);
   }
-
   cancelSubscription(
     input: CancelSubscriptionInput,
     ctx: OperationContext,
   ): Promise<SubscriptionDTO> {
     return this.subscriptions.cancel(input, ctx);
   }
-
   resumeSubscription(
     input: ResumeSubscriptionInput,
     ctx: OperationContext,
   ): Promise<SubscriptionDTO> {
     return this.subscriptions.resume(input, ctx);
   }
-
   async verifyWebhook(input: WebhookVerificationInput): Promise<VerifiedWebhook> {
     const payload = this.verifier.verify(input);
     return {
@@ -289,11 +290,9 @@ export class RevolutProvider
       data: payload,
     };
   }
-
   reconcileSubscription(verified: VerifiedWebhook): SubscriptionDTO | null {
     return reconcileRevolutSubscriptionWebhook(verified);
   }
-
   reconcilePayment(verified: VerifiedWebhook): PaymentWebhookReconciliation | null {
     return reconcileRevolutPaymentWebhook(verified);
   }
