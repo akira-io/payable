@@ -3,6 +3,9 @@
 Stripe Treasury, including its independent webhook verifier, is implemented by the separate
 `StripeTreasuryProvider`; see [Stripe Treasury](18a-stripe-treasury.md).
 
+Stripe Tax is also exposed independently through `StripeTaxProvider`. It implements the generic tax
+calculation and transaction contracts without adding Stripe-specific methods to `PaymentProvider`.
+
 `StripeProvider` (`src/infrastructure/providers/stripe/stripe-provider.ts`) is the reference
 implementation of `PaymentProvider`. It implements the base contract and optional capabilities for
 charges, subscriptions, invoices, saved payment methods, payment-method setup, disputes, payouts,
@@ -35,6 +38,20 @@ const stripe = new StripeProvider({
 
 const payable = createPayable({ providers: { stripe }, /* storage, queue, ... */ });
 ```
+
+### Stripe Tax provider
+
+```ts
+import { StripeTaxProvider } from '@akira-io/payable';
+
+const tax = new StripeTaxProvider({
+  secretKey: process.env.STRIPE_SECRET_KEY!,
+});
+```
+
+`StripeTaxProvider` has the registry name `stripe-tax` and declares the `calculations` and
+`transactions` tax capabilities. Like the payment and Treasury providers, it loads the optional
+Stripe SDK dynamically when no client is injected.
 
 ## Declared capabilities
 
@@ -182,6 +199,22 @@ continues across pages without requesting more than Stripe's per-page maximum.
 
 Payouts map provider id, normalized lifecycle status, amount, creation time, and expected arrival
 time. Creating, canceling, and reversing payouts remain outside the read-only generic capability.
+
+## Tax calculations and transactions
+
+`StripeTaxProvider` creates and retrieves Stripe Tax calculations. It maps multiple line items,
+shipping cost, customer and shipping addresses, tax behavior, product tax codes, and customer tax
+IDs into the generic tax contracts. Customer tax IDs use the portable `type:value` form, for example
+`eu_vat:DE123456789`, because Stripe requires both values.
+
+All line items and shipping in one calculation must use the same currency. A mixed-currency request
+is rejected before the SDK call with `PROVIDER_TAX_CURRENCY_MISMATCH`. Successful Stripe Tax
+calculation responses map to `complete`; Stripe returns an API error instead of an asynchronous
+calculation object when calculation cannot complete.
+
+`commitTaxTransaction` creates a Stripe Tax transaction from a completed calculation and forwards
+the operation idempotency key. `reverseTaxTransaction` currently performs a full transaction
+reversal. Partial reversals remain outside the generic contract.
 
 ## Provider webhook management
 
