@@ -25,6 +25,19 @@ function parseDate(value?: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function savedPaymentMethodId(order: RevolutOrder): string | null {
+  if (order.state !== 'completed') {
+    return null;
+  }
+  for (let index = (order.payments?.length ?? 0) - 1; index >= 0; index -= 1) {
+    const payment = order.payments?.[index];
+    if (payment?.state === 'completed' && payment.payment_method?.id) {
+      return payment.payment_method.id;
+    }
+  }
+  return null;
+}
+
 function toPaymentMethodSetupDTO(
   order: RevolutOrder,
   usage: PaymentMethodSetupUsage = 'off_session',
@@ -37,7 +50,7 @@ function toPaymentMethodSetupDTO(
     usage,
     clientSecret: order.token ?? null,
     checkoutUrl: order.checkout_url ?? null,
-    providerPaymentMethodId: order.payment_method?.id ?? null,
+    providerPaymentMethodId: savedPaymentMethodId(order),
     createdAt: parseDate(order.created_at),
   };
 }

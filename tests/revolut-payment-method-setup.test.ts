@@ -140,7 +140,20 @@ describe('Revolut payment method setup', () => {
 
   it('retrieves a completed setup and maps the saved payment method', async () => {
     const { fetch, calls } = fakeFetch({
-      body: order('completed', { payment_method: { id: 'payment_method_1', type: 'card' } }),
+      body: order('completed', {
+        payments: [
+          {
+            id: 'payment_failed',
+            state: 'failed',
+            payment_method: { id: 'payment_method_failed', type: 'card' },
+          },
+          {
+            id: 'payment_completed',
+            state: 'completed',
+            payment_method: { id: 'payment_method_1', type: 'card' },
+          },
+        ],
+      }),
     });
 
     const result = await provider(fetch).retrievePaymentMethodSetup('order/1');
@@ -153,6 +166,32 @@ describe('Revolut payment method setup', () => {
       status: 'succeeded',
       providerPaymentMethodId: 'payment_method_1',
     });
+  });
+
+  it('does not expose a payment method before the setup order completes', async () => {
+    const { fetch } = fakeFetch({
+      body: order('pending', {
+        payments: [
+          {
+            id: 'payment_completed',
+            state: 'completed',
+            payment_method: { id: 'payment_method_1', type: 'card' },
+          },
+        ],
+      }),
+    });
+
+    const result = await provider(fetch).retrievePaymentMethodSetup('order_1');
+
+    expect(result.providerPaymentMethodId).toBeNull();
+  });
+
+  it('returns no payment method when a completed order has no payments', async () => {
+    const { fetch } = fakeFetch({ body: order('completed') });
+
+    const result = await provider(fetch).retrievePaymentMethodSetup('order_1');
+
+    expect(result.providerPaymentMethodId).toBeNull();
   });
 
   it('cancels a setup order with the operation idempotency key', async () => {
