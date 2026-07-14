@@ -5,6 +5,9 @@ import type {
   CreatePaymentMethodSetupInput,
   PaymentMethodSetupCapable,
   PaymentMethodSetupDTO,
+  TaxCalculationDTO,
+  TaxCalculationStatus,
+  TaxProvider,
   TreasuryWebhookCapable,
   TreasuryWebhookEventType,
   VerifiedTreasuryWebhook,
@@ -30,6 +33,10 @@ describe('public API surface', () => {
     expect(typeof payable.isProviderWebhookEndpointManagementCapable).toBe('function');
     expect(typeof payable.isPaymentWebhookCapable).toBe('function');
     expect(typeof payable.isTreasuryWebhookCapable).toBe('function');
+    expect(typeof payable.isTaxCalculationCapable).toBe('function');
+    expect(typeof payable.isTaxTransactionCapable).toBe('function');
+    expect(typeof payable.TaxProviderRegistry).toBe('function');
+    expect(typeof payable.TaxProviderNotFoundError).toBe('function');
     expect(typeof payable.SubscriptionStateMachine).toBe('function');
   });
 
@@ -77,6 +84,22 @@ describe('public API surface', () => {
 
     expect(webhook.normalizedType).toBe(normalizedType);
     expect(typeof capable).toBe('object');
+  });
+
+  it('exports the tax provider contract types', () => {
+    const status: TaxCalculationStatus = 'complete';
+    const calculation = {
+      providerCalculationId: 'taxcalc_1',
+      status,
+      subtotal: payable.Money.of(1000, 'USD'),
+      tax: payable.Money.of(100, 'USD'),
+      total: payable.Money.of(1100, 'USD'),
+      expiresAt: null,
+    } satisfies TaxCalculationDTO;
+    const provider = {} as TaxProvider;
+
+    expect(calculation.status).toBe('complete');
+    expect(typeof provider).toBe('object');
   });
 
   it('does not export the not-yet-implemented Redis drivers', () => {

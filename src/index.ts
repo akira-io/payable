@@ -212,4 +212,5 @@ export {
   type Result,
   unwrap,
 } from './support/result/result';
+export { TaxProviderRegistry } from './tax-provider-registry';
 export { TreasuryProviderRegistry } from './treasury-provider-registry';

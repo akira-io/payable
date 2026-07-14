@@ -7,4 +7,5 @@ export { PayableError, type PayableErrorOptions } from './payable-error';
 export { ProviderCapabilityNotSupportedError } from './provider-capability-not-supported.error';
 export { ProviderNotFoundError } from './provider-not-found.error';
 export { SubscriptionNotFoundError } from './subscription-not-found.error';
+export { TaxProviderNotFoundError } from './tax-provider-not-found.error';
 export { TreasuryProviderNotFoundError } from './treasury-provider-not-found.error';

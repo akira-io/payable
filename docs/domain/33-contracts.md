@@ -124,6 +124,19 @@ supports provider flows that return a client secret, a hosted checkout URL, or a
 ID. It remains optional, and a provider advertises `paymentMethodSetup` only after implementing all
 three lifecycle methods.
 
+### TaxProvider
+
+`src/domain/contracts/tax-provider.contract.ts`. Tax providers use a registry independent from payment
+and Treasury providers. The base contract exposes only `name` and `capabilities()`.
+
+| Capability interface | Methods | Guard |
+| --- | --- | --- |
+| `TaxCalculationCapable` | `calculateTax`, `retrieveTaxCalculation` | `isTaxCalculationCapable` |
+| `TaxTransactionCapable` | `commitTaxTransaction`, `reverseTaxTransaction` | `isTaxTransactionCapable` |
+
+Tax DTOs use `Money` for every amount and do not expose vendor SDK types. Applications select an
+adapter through `payable.taxProviders()` and narrow it with the matching guard.
+
 ### EventBus
 
 `src/domain/contracts/event-bus.contract.ts`. The publish/subscribe seam for [domain events](34-domain-events.md).

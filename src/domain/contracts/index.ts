@@ -77,6 +77,15 @@ export type {
 } from './subscription-item-repository.contract';
 export type { NewSubscription, SubscriptionRepository } from './subscription-repository.contract';
 export type {
+  TaxCalculationCapable,
+  TaxProvider,
+  TaxTransactionCapable,
+} from './tax-provider.contract';
+export {
+  isTaxCalculationCapable,
+  isTaxTransactionCapable,
+} from './tax-provider.contract';
+export type {
   TenantResolutionContext,
   TenantResolver,
 } from './tenant-resolver.contract';
