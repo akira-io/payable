@@ -22,12 +22,12 @@ import {
   mapStripeTerminalDevice,
   mapStripeTerminalPayment,
   parseStripeTerminalPaymentId,
-  stripeTerminalActionPaymentIntentId,
 } from './stripe-terminal-mappers';
 
 const DEFAULT_LIST_LIMIT = 100;
 const STRIPE_PAGE_LIMIT = 100;
 const STRIPE_IDEMPOTENCY_KEY_LIMIT = 255;
+const TERMINAL_READER_METADATA_KEY = 'payable_terminal_reader_id';
 
 type StripeTerminalWriteOperation = 'payment-intent' | 'reader-process';
 
@@ -88,7 +88,10 @@ export class StripeTerminalProvider
             currency: input.amount.currency().toLowerCase(),
             capture_method: input.captureMethod ?? 'automatic',
             payment_method_types: ['card_present'],
-            metadata: input.reference ? { reference: input.reference } : undefined,
+            metadata: {
+              [TERMINAL_READER_METADATA_KEY]: input.providerDeviceId,
+              ...(input.reference ? { reference: input.reference } : {}),
+            },
           },
           this.terminalWriteIdempotency(ctx, 'payment-intent'),
         ),
@@ -112,38 +115,18 @@ export class StripeTerminalProvider
       this.retrieveReader(identity.providerDeviceId),
       this.retrievePaymentIntent(identity.providerPaymentIntentId),
     ]);
+    this.assertPaymentIntentReader(paymentIntent, identity.providerDeviceId);
     return mapStripeTerminalPayment(reader, paymentIntent);
   }
 
   async cancelTerminalPayment(
-    providerTerminalPaymentId: string,
-    ctx: OperationContext,
+    _providerTerminalPaymentId: string,
+    _ctx: OperationContext,
   ): Promise<TerminalPaymentDTO> {
-    const identity = parseStripeTerminalPaymentId(providerTerminalPaymentId);
-    const reader = await this.retrieveReader(identity.providerDeviceId);
-    const activePaymentIntentId = stripeTerminalActionPaymentIntentId(reader);
-    if (activePaymentIntentId !== identity.providerPaymentIntentId) {
-      throw new PayableError('Stripe Terminal reader is processing a different payment', {
-        code: 'PROVIDER_REQUEST_INVALID',
-        context: {
-          provider: this.name,
-          providerDeviceId: identity.providerDeviceId,
-          expectedPaymentIntentId: identity.providerPaymentIntentId,
-          actualPaymentIntentId: activePaymentIntentId,
-        },
-      });
-    }
-    const stripe = await this.stripe();
-    await withStripeErrors(
-      () =>
-        stripe.terminal.readers.cancelAction(identity.providerDeviceId, {}, this.idempotency(ctx)),
-      this.name,
-    );
-    return mapStripeTerminalPayment(
-      reader,
-      await this.retrievePaymentIntent(identity.providerPaymentIntentId),
-      'canceled',
-    );
+    throw new PayableError('Stripe Terminal payment cancellation is not supported', {
+      code: 'PROVIDER_OPERATION_UNSUPPORTED',
+      context: { provider: this.name, operation: 'cancelTerminalPayment' },
+    });
   }
 
   toJSON(): { name: string } {
@@ -166,14 +149,26 @@ export class StripeTerminalProvider
     return withStripeErrors(() => stripe.paymentIntents.retrieve(providerPaymentId), this.name);
   }
 
-  private idempotency(ctx: OperationContext): Stripe.RequestOptions {
-    return { idempotencyKey: ctx.idempotencyKey };
+  private assertPaymentIntentReader(
+    paymentIntent: Stripe.PaymentIntent,
+    expectedReaderId: string,
+  ): void {
+    const actualReaderId = paymentIntent.metadata[TERMINAL_READER_METADATA_KEY] ?? null;
+    if (actualReaderId !== expectedReaderId) {
+      throw new PayableError('Stripe Terminal payment does not belong to the requested reader', {
+        code: 'PROVIDER_REQUEST_INVALID',
+        context: { provider: this.name, expectedReaderId, actualReaderId },
+      });
+    }
   }
 
   private terminalWriteIdempotency(
     ctx: OperationContext,
     operation: StripeTerminalWriteOperation,
-  ): Stripe.RequestOptions {
+  ): Stripe.RequestOptions | undefined {
+    if (!ctx.idempotencyKey) {
+      return undefined;
+    }
     const suffix = `:stripe-terminal:${operation}`;
     const readableKey = `${ctx.idempotencyKey}${suffix}`;
     if (readableKey.length <= STRIPE_IDEMPOTENCY_KEY_LIMIT) {

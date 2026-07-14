@@ -81,12 +81,19 @@ describe('Stripe Treasury webhooks', () => {
     });
   });
 
-  it('accepts accountless events delivered directly to the connected account endpoint', async () => {
+  it('rejects accountless events that cannot prove the configured connected account', async () => {
     const { provider } = subject(stripeEvent('treasury.transaction.created', null));
 
     await expect(
       provider.verifyTreasuryWebhook({ payload, signature: 'stripe-signature' }),
-    ).resolves.toMatchObject({ providerEventId: 'evt_treasury_1' });
+    ).rejects.toMatchObject({
+      code: 'PROVIDER_WEBHOOK_ACCOUNT_MISMATCH',
+      context: {
+        provider: 'stripe-treasury',
+        expectedAccountId: 'acct_1',
+        actualAccountId: null,
+      },
+    });
   });
 
   it('reports missing webhook configuration without calling Stripe', async () => {

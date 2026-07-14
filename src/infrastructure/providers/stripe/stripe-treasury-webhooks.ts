@@ -42,13 +42,13 @@ export class StripeTreasuryWebhooks {
       throw new InvalidWebhookSignatureError('stripe-treasury', { cause: error });
     }
     const expectedAccountId = this.connectedAccountId();
-    if (event.account && event.account !== expectedAccountId) {
+    if (event.account !== expectedAccountId) {
       throw new PayableError('Stripe Treasury webhook account does not match configuration', {
         code: 'PROVIDER_WEBHOOK_ACCOUNT_MISMATCH',
         context: {
           provider: 'stripe-treasury',
           expectedAccountId,
-          actualAccountId: event.account,
+          actualAccountId: event.account ?? null,
         },
       });
     }
