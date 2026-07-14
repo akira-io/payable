@@ -31,16 +31,36 @@ export function mapStripeTerminalPayment(
   paymentIntent: Stripe.PaymentIntent,
   statusOverride?: TerminalPaymentStatus,
 ): TerminalPaymentDTO {
+  const matchingAction = stripeTerminalPaymentAction(reader, paymentIntent.id);
   return {
-    providerTerminalPaymentId: reader.id,
+    providerTerminalPaymentId: stripeTerminalPaymentId(reader.id, paymentIntent.id),
     providerPaymentId: paymentIntent.id,
     providerDeviceId: reader.id,
     amount: stripeMoney(paymentIntent.amount, paymentIntent.currency),
-    status: statusOverride ?? stripeTerminalPaymentStatus(reader.action, paymentIntent.status),
-    failureCode: reader.action?.failure_code ?? paymentIntent.last_payment_error?.code ?? null,
+    status: statusOverride ?? stripeTerminalPaymentStatus(matchingAction, paymentIntent.status),
+    failureCode: matchingAction?.failure_code ?? paymentIntent.last_payment_error?.code ?? null,
     createdAt: new Date(paymentIntent.created * 1000),
     updatedAt: null,
   };
+}
+
+export function stripeTerminalPaymentId(readerId: string, paymentIntentId: string): string {
+  return `v1:${readerId}:${paymentIntentId}`;
+}
+
+export function parseStripeTerminalPaymentId(providerTerminalPaymentId: string): {
+  providerDeviceId: string;
+  providerPaymentIntentId: string;
+} {
+  const [version, providerDeviceId, providerPaymentIntentId, extra] =
+    providerTerminalPaymentId.split(':');
+  if (version !== 'v1' || !providerDeviceId || !providerPaymentIntentId || extra !== undefined) {
+    throw new PayableError('Invalid Stripe Terminal payment identifier', {
+      code: 'PROVIDER_REQUEST_INVALID',
+      context: { provider: 'stripe-terminal', providerTerminalPaymentId },
+    });
+  }
+  return { providerDeviceId, providerPaymentIntentId };
 }
 
 export function stripeTerminalActionPaymentIntentId(reader: Stripe.Terminal.Reader): string {
@@ -102,6 +122,20 @@ function stripeTerminalPaymentStatus(
     return 'pending';
   }
   return 'unknown';
+}
+
+function stripeTerminalPaymentAction(
+  reader: Stripe.Terminal.Reader,
+  paymentIntentId: string,
+): Stripe.Terminal.Reader.Action | null {
+  const action = reader.action;
+  if (action?.type !== 'process_payment_intent' || !action.process_payment_intent) {
+    return null;
+  }
+  const actionPaymentIntent = action.process_payment_intent.payment_intent;
+  const actionPaymentIntentId =
+    typeof actionPaymentIntent === 'string' ? actionPaymentIntent : actionPaymentIntent.id;
+  return actionPaymentIntentId === paymentIntentId ? action : null;
 }
 
 function stripeTerminalResourceId(resource: { id: string } | string | null): string | null {

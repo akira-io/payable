@@ -82,12 +82,31 @@ describe('Stripe Terminal provider', () => {
       { idempotencyKey: 'terminal-idem-1' },
     );
     expect(payment).toMatchObject({
-      providerTerminalPaymentId: 'tmr_1',
+      providerTerminalPaymentId: 'v1:tmr_1:pi_terminal_1',
       providerPaymentId: 'pi_terminal_1',
       providerDeviceId: 'tmr_1',
       status: 'in_progress',
     });
     expect(payment.amount.amount()).toBe(2_500);
+  });
+
+  it('returns distinct payment identities for sequential payments on one reader', async () => {
+    const { client, calls } = fakeStripeTerminal();
+    calls.paymentIntentsCreate
+      .mockResolvedValueOnce(stripeTerminalPaymentIntent({ id: 'pi_terminal_1' }))
+      .mockResolvedValueOnce(stripeTerminalPaymentIntent({ id: 'pi_terminal_2' }));
+
+    const first = await provider(client).createTerminalPayment(
+      { providerDeviceId: 'tmr_1', amount: Money.of(2_500, 'EUR') },
+      context,
+    );
+    const second = await provider(client).createTerminalPayment(
+      { providerDeviceId: 'tmr_1', amount: Money.of(3_500, 'EUR') },
+      context,
+    );
+
+    expect(first.providerTerminalPaymentId).toBe('v1:tmr_1:pi_terminal_1');
+    expect(second.providerTerminalPaymentId).toBe('v1:tmr_1:pi_terminal_2');
   });
 
   it('forwards manual capture to the PaymentIntent', async () => {
@@ -126,17 +145,43 @@ describe('Stripe Terminal provider', () => {
       stripeTerminalPaymentIntent({ status: 'succeeded', amount_received: 2_500 }),
     );
 
-    const payment = await provider(client).retrieveTerminalPayment('tmr_1');
+    const payment = await provider(client).retrieveTerminalPayment('v1:tmr_1:pi_terminal_1');
 
     expect(calls.readersRetrieve).toHaveBeenCalledWith('tmr_1');
     expect(calls.paymentIntentsRetrieve).toHaveBeenCalledWith('pi_terminal_1');
+    expect(payment.providerTerminalPaymentId).toBe('v1:tmr_1:pi_terminal_1');
+    expect(payment.status).toBe('succeeded');
+  });
+
+  it('retrieves the intended payment while the reader processes a newer payment', async () => {
+    const { client, calls } = fakeStripeTerminal();
+    calls.readersRetrieve.mockResolvedValue(
+      stripeTerminalReader({
+        action: {
+          api_error: null,
+          failure_code: null,
+          failure_message: null,
+          process_payment_intent: { payment_intent: 'pi_terminal_2' },
+          status: 'in_progress',
+          type: 'process_payment_intent',
+        },
+      }),
+    );
+    calls.paymentIntentsRetrieve.mockResolvedValue(
+      stripeTerminalPaymentIntent({ id: 'pi_terminal_1', status: 'succeeded' }),
+    );
+
+    const payment = await provider(client).retrieveTerminalPayment('v1:tmr_1:pi_terminal_1');
+
+    expect(calls.paymentIntentsRetrieve).toHaveBeenCalledWith('pi_terminal_1');
+    expect(payment.providerPaymentId).toBe('pi_terminal_1');
     expect(payment.status).toBe('succeeded');
   });
 
   it('cancels the current reader action with idempotency', async () => {
     const { client, calls } = fakeStripeTerminal();
 
-    const payment = await provider(client).cancelTerminalPayment('tmr_1', context);
+    const payment = await provider(client).cancelTerminalPayment('v1:tmr_1:pi_terminal_1', context);
 
     expect(calls.readersRetrieve).toHaveBeenCalledWith('tmr_1');
     expect(calls.readersCancelAction).toHaveBeenCalledWith(
@@ -146,6 +191,45 @@ describe('Stripe Terminal provider', () => {
     );
     expect(calls.paymentIntentsRetrieve).toHaveBeenCalledWith('pi_terminal_1');
     expect(payment.status).toBe('canceled');
+  });
+
+  it('does not cancel a newer reader action through a stale payment identity', async () => {
+    const { client, calls } = fakeStripeTerminal();
+    calls.readersRetrieve.mockResolvedValue(
+      stripeTerminalReader({
+        action: {
+          api_error: null,
+          failure_code: null,
+          failure_message: null,
+          process_payment_intent: { payment_intent: 'pi_terminal_2' },
+          status: 'in_progress',
+          type: 'process_payment_intent',
+        },
+      }),
+    );
+
+    await expect(
+      provider(client).cancelTerminalPayment('v1:tmr_1:pi_terminal_1', context),
+    ).rejects.toMatchObject({
+      code: 'PROVIDER_REQUEST_INVALID',
+      context: expect.objectContaining({
+        provider: 'stripe-terminal',
+        providerDeviceId: 'tmr_1',
+        expectedPaymentIntentId: 'pi_terminal_1',
+        actualPaymentIntentId: 'pi_terminal_2',
+      }),
+    });
+    expect(calls.readersCancelAction).not.toHaveBeenCalled();
+  });
+
+  it('rejects legacy reader-only payment identities', async () => {
+    const { client, calls } = fakeStripeTerminal();
+
+    await expect(provider(client).retrieveTerminalPayment('tmr_1')).rejects.toMatchObject({
+      code: 'PROVIDER_REQUEST_INVALID',
+      context: expect.objectContaining({ provider: 'stripe-terminal' }),
+    });
+    expect(calls.readersRetrieve).not.toHaveBeenCalled();
   });
 
   it('normalizes Stripe Terminal errors', async () => {
