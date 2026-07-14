@@ -175,6 +175,10 @@ export {
   type PaddleProviderOptions,
 } from './infrastructure/providers/paddle/paddle-provider';
 export {
+  RevolutBusinessIssuingProvider,
+  type RevolutBusinessIssuingProviderOptions,
+} from './infrastructure/providers/revolut/revolut-business-issuing-provider';
+export {
   type RevolutBusinessTokenProvider,
   RevolutBusinessTreasuryProvider,
   type RevolutBusinessTreasuryProviderOptions,

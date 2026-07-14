@@ -6,7 +6,7 @@ import type {
 } from './revolut-business-types';
 import { revolutNetworkError, toRevolutPayableError } from './revolut-errors';
 
-const PROVIDER = 'revolut-business-treasury';
+const DEFAULT_PROVIDER = 'revolut-business-treasury';
 const BASE_URL: Record<RevolutBusinessEnvironment, string> = {
   production: 'https://b2b.revolut.com/api/1.0',
   sandbox: 'https://sandbox-b2b.revolut.com/api/1.0',
@@ -18,6 +18,7 @@ export interface RevolutBusinessTokenProvider {
 
 export interface RevolutBusinessClientOptions {
   tokenProvider: RevolutBusinessTokenProvider;
+  providerName?: string;
   environment?: RevolutBusinessEnvironment;
   baseUrl?: string;
   fetch?: RevolutBusinessFetch;
@@ -25,9 +26,11 @@ export interface RevolutBusinessClientOptions {
 
 export class RevolutBusinessClient {
   readonly environment: RevolutBusinessEnvironment;
+  private readonly providerName: string;
 
   constructor(private readonly options: RevolutBusinessClientOptions) {
     this.environment = options.environment ?? 'production';
+    this.providerName = options.providerName ?? DEFAULT_PROVIDER;
   }
 
   async request<T>(path: string, options: RevolutBusinessRequestOptions): Promise<T> {
@@ -41,11 +44,11 @@ export class RevolutBusinessClient {
       },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     }).catch((error: unknown) => {
-      throw revolutNetworkError(error, PROVIDER);
+      throw revolutNetworkError(error, this.providerName);
     });
     const body = await parseResponseBody(response);
     if (!response.ok) {
-      throw toRevolutPayableError(response.status, body, PROVIDER);
+      throw toRevolutPayableError(response.status, body, this.providerName);
     }
     return body as T;
   }
@@ -57,14 +60,14 @@ export class RevolutBusinessClient {
     } catch (error) {
       throw new PayableError('Unable to obtain a Revolut Business access token', {
         code: 'PROVIDER_AUTH_FAILED',
-        context: { provider: PROVIDER },
+        context: { provider: this.providerName },
         cause: error,
       });
     }
     if (!token.trim()) {
       throw new PayableError('Revolut Business access token cannot be empty', {
         code: 'PROVIDER_AUTH_FAILED',
-        context: { provider: PROVIDER },
+        context: { provider: this.providerName },
       });
     }
     return token;
@@ -80,7 +83,7 @@ export class RevolutBusinessClient {
     if (!request) {
       throw new PayableError('No fetch implementation available for Revolut Business', {
         code: 'PROVIDER_HTTP_CLIENT_UNAVAILABLE',
-        context: { provider: PROVIDER },
+        context: { provider: this.providerName },
       });
     }
     return request(input, init);
