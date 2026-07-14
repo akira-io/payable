@@ -43,6 +43,20 @@ export type {
   UpdateSubscriptionInput,
 } from './subscription.dto';
 export type {
+  CalculateTaxInput,
+  CommitTaxTransactionInput,
+  ReverseTaxTransactionInput,
+  TaxAddressDTO,
+  TaxCalculationDTO,
+  TaxCalculationStatus,
+  TaxCapabilities,
+  TaxCapability,
+  TaxCapabilityValue,
+  TaxLineItemInput,
+  TaxTransactionDTO,
+  TaxTransactionStatus,
+} from './tax.dto';
+export type {
   CreateTreasuryExchangeInput,
   CreateTreasuryTransferInput,
   ListTreasuryAccountsInput,

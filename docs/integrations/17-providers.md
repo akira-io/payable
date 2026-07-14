@@ -166,6 +166,16 @@ When the capability is absent from the set, it throws `ProviderCapabilityNotSupp
 `Provider '<name>' does not support capability: <capability>`. The error context carries
 `{ provider, capability }`.
 
+## Tax providers
+
+Tax calculation and transaction recording use the independent `TaxProvider` family. Configure
+adapters through `taxProviders` and retrieve them with `payable.taxProviders()`. The registry is empty
+when omitted and throws `TaxProviderNotFoundError` for unknown names.
+
+`TaxCalculationCapable` calculates and retrieves normalized tax calculations.
+`TaxTransactionCapable` commits and reverses tax transactions. Tax providers are not payment
+providers, and no tax adapter is registered automatically.
+
 - Purpose: fail fast and explicitly before reaching the provider API for an unsupported operation.
 - Edge case: a provider may also throw `ProviderCapabilityNotSupportedError` from inside a method for a
   partial limitation. Paddle does this for partial refunds (see the Paddle integration page).
