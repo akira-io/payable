@@ -143,6 +143,12 @@ Issuing providers have an independent registry and optional contracts for cardho
 authorizations, and issuing transactions. Card DTOs expose only last four, expiry, brand, status, and
 provider identifiers. PAN, CVV, PIN, and track data are outside the domain contract.
 
+### MarketplaceProvider
+
+Marketplace providers coordinate seller accounts, onboarding, transfers, and payouts through an
+independent registry. They identify recipients and move funds but do not process customer payments
+automatically or add connected-account fields to payment DTOs.
+
 ### EventBus
 
 `src/domain/contracts/event-bus.contract.ts`. The publish/subscribe seam for [domain events](34-domain-events.md).

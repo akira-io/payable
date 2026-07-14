@@ -35,6 +35,19 @@ export type { ListCursor, ListOptions } from './list-options.contract';
 export type { Lock, LockDriver } from './lock-driver.contract';
 export type { LogContext, Logger, LogLevel } from './logger.contract';
 export type {
+  MarketplaceAccountCapable,
+  MarketplaceOnboardingCapable,
+  MarketplacePayoutCapable,
+  MarketplaceProvider,
+  MarketplaceTransferCapable,
+} from './marketplace-provider.contract';
+export {
+  isMarketplaceAccountCapable,
+  isMarketplaceOnboardingCapable,
+  isMarketplacePayoutCapable,
+  isMarketplaceTransferCapable,
+} from './marketplace-provider.contract';
+export type {
   NewOutboxEvent,
   OutboxEvent,
   OutboxEventRepository,
