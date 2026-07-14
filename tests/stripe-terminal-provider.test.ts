@@ -221,22 +221,7 @@ describe('Stripe Terminal provider', () => {
     });
   });
 
-  it('cancels the exact PaymentIntent with operation idempotency', async () => {
-    const { client, calls } = fakeStripeTerminal();
-
-    const payment = await provider(client).cancelTerminalPayment('v1:tmr_1:pi_terminal_1', context);
-
-    expect(calls.readersRetrieve).toHaveBeenCalledWith('tmr_1');
-    expect(calls.paymentIntentsCancel).toHaveBeenCalledWith(
-      'pi_terminal_1',
-      {},
-      { idempotencyKey: 'terminal-idem-1:stripe-terminal:payment-intent-cancel' },
-    );
-    expect(calls.readersCancelAction).not.toHaveBeenCalled();
-    expect(payment.status).toBe('canceled');
-  });
-
-  it('does not cancel a newer reader action through a stale payment identity', async () => {
+  it('rejects cancellation before Stripe can affect a newer reader action', async () => {
     const { client, calls } = fakeStripeTerminal();
     calls.readersRetrieve.mockResolvedValue(
       stripeTerminalReader({
@@ -253,12 +238,13 @@ describe('Stripe Terminal provider', () => {
 
     await expect(
       provider(client).cancelTerminalPayment('v1:tmr_1:pi_terminal_1', context),
-    ).resolves.toMatchObject({ providerPaymentId: 'pi_terminal_1', status: 'canceled' });
-    expect(calls.paymentIntentsCancel).toHaveBeenCalledWith(
-      'pi_terminal_1',
-      {},
-      expect.any(Object),
-    );
+    ).rejects.toMatchObject({
+      code: 'PROVIDER_OPERATION_UNSUPPORTED',
+      context: expect.objectContaining({ provider: 'stripe-terminal' }),
+    });
+    expect(calls.readersRetrieve).not.toHaveBeenCalled();
+    expect(calls.paymentIntentsRetrieve).not.toHaveBeenCalled();
+    expect(calls.paymentIntentsCancel).not.toHaveBeenCalled();
     expect(calls.readersCancelAction).not.toHaveBeenCalled();
   });
 

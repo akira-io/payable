@@ -29,7 +29,7 @@ const STRIPE_PAGE_LIMIT = 100;
 const STRIPE_IDEMPOTENCY_KEY_LIMIT = 255;
 const TERMINAL_READER_METADATA_KEY = 'payable_terminal_reader_id';
 
-type StripeTerminalWriteOperation = 'payment-intent' | 'reader-process' | 'payment-intent-cancel';
+type StripeTerminalWriteOperation = 'payment-intent' | 'reader-process';
 
 export interface StripeTerminalProviderOptions {
   secretKey: string;
@@ -120,26 +120,13 @@ export class StripeTerminalProvider
   }
 
   async cancelTerminalPayment(
-    providerTerminalPaymentId: string,
-    ctx: OperationContext,
+    _providerTerminalPaymentId: string,
+    _ctx: OperationContext,
   ): Promise<TerminalPaymentDTO> {
-    const identity = parseStripeTerminalPaymentId(providerTerminalPaymentId);
-    const [reader, paymentIntent] = await Promise.all([
-      this.retrieveReader(identity.providerDeviceId),
-      this.retrievePaymentIntent(identity.providerPaymentIntentId),
-    ]);
-    this.assertPaymentIntentReader(paymentIntent, identity.providerDeviceId);
-    const stripe = await this.stripe();
-    const canceledPaymentIntent = await withStripeErrors(
-      () =>
-        stripe.paymentIntents.cancel(
-          identity.providerPaymentIntentId,
-          {},
-          this.terminalWriteIdempotency(ctx, 'payment-intent-cancel'),
-        ),
-      this.name,
-    );
-    return mapStripeTerminalPayment(reader, canceledPaymentIntent, 'canceled');
+    throw new PayableError('Stripe Terminal payment cancellation is not supported', {
+      code: 'PROVIDER_OPERATION_UNSUPPORTED',
+      context: { provider: this.name, operation: 'cancelTerminalPayment' },
+    });
   }
 
   toJSON(): { name: string } {

@@ -95,13 +95,7 @@ export function fakeStripeTerminal() {
     readersCancelAction: vi.fn().mockResolvedValue({ ...reader, action: null }),
     paymentIntentsCreate: vi.fn().mockResolvedValue(paymentIntent),
     paymentIntentsRetrieve: vi.fn().mockResolvedValue(paymentIntent),
-    paymentIntentsCancel: vi.fn().mockResolvedValue(
-      stripeTerminalPaymentIntent({
-        canceled_at: 1_725_100_200,
-        cancellation_reason: 'requested_by_customer',
-        status: 'canceled',
-      }),
-    ),
+    paymentIntentsCancel: vi.fn(),
     readersPage,
   };
   const client = {
@@ -114,7 +108,6 @@ export function fakeStripeTerminal() {
       },
     },
     paymentIntents: {
-      cancel: calls.paymentIntentsCancel,
       create: calls.paymentIntentsCreate,
       retrieve: calls.paymentIntentsRetrieve,
     },

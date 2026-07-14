@@ -343,10 +343,11 @@ ID in PaymentIntent metadata and rejects identifiers whose Reader and PaymentInt
 Legacy Reader-only identifiers cannot identify a payment safely and are rejected. Persist the
 versioned identifier returned by `createTerminalPayment` after upgrading.
 
-`cancelTerminalPayment` validates the Reader relationship and cancels the exact PaymentIntent. It does
-not call Stripe's Reader-wide `cancel_action` endpoint, so a stale identifier cannot cancel a newer
-Reader action. Cancellation has its own derived idempotency key. If handoff fails after PaymentIntent
-creation, retrying with the same idempotency key reuses the same Stripe write results.
+`cancelTerminalPayment` returns `PROVIDER_OPERATION_UNSUPPORTED` before calling Stripe. Stripe's
+server-driven `cancel_action` endpoint targets the Reader's current action, not a specific
+PaymentIntent, so it cannot safely fulfill a payment-specific cancellation contract when actions
+change concurrently. If handoff fails after PaymentIntent creation, retrying with the same
+idempotency key reuses the same Stripe write results.
 
 ## Identity verification
 
