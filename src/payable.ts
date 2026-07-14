@@ -55,6 +55,7 @@ import { MarketplaceProviderRegistry } from './marketplace-provider-registry';
 import { ProviderRegistry } from './provider-registry';
 import type { ResolvedConfig } from './support/config/payable-config';
 import { TaxProviderRegistry } from './tax-provider-registry';
+import { TerminalProviderRegistry } from './terminal-provider-registry';
 import { TreasuryProviderRegistry } from './treasury-provider-registry';
 
 export interface RefundRequest {
@@ -78,6 +79,7 @@ export class Payable {
   private readonly issuingRegistry: IssuingProviderRegistry;
   private readonly marketplaceRegistry: MarketplaceProviderRegistry;
   private readonly taxRegistry: TaxProviderRegistry;
+  private readonly terminalRegistry: TerminalProviderRegistry;
   private readonly treasuryRegistry: TreasuryProviderRegistry;
   private readonly factory: DependencyFactory;
 
@@ -86,6 +88,7 @@ export class Payable {
     this.issuingRegistry = new IssuingProviderRegistry(resolved.issuingProviders);
     this.marketplaceRegistry = new MarketplaceProviderRegistry(resolved.marketplaceProviders);
     this.taxRegistry = new TaxProviderRegistry(resolved.taxProviders);
+    this.terminalRegistry = new TerminalProviderRegistry(resolved.terminalProviders);
     this.treasuryRegistry = new TreasuryProviderRegistry(resolved.treasuryProviders);
     this.factory = new DependencyFactory(resolved, this.registry);
     this.resolved.queue.process(PROCESS_WEBHOOK_JOB, (job: QueueJob) =>
@@ -107,6 +110,10 @@ export class Payable {
 
   taxProviders(): TaxProviderRegistry {
     return this.taxRegistry;
+  }
+
+  terminalProviders(): TerminalProviderRegistry {
+    return this.terminalRegistry;
   }
 
   treasuryProviders(): TreasuryProviderRegistry {

@@ -215,4 +215,5 @@ export {
   unwrap,
 } from './support/result/result';
 export { TaxProviderRegistry } from './tax-provider-registry';
+export { TerminalProviderRegistry } from './terminal-provider-registry';
 export { TreasuryProviderRegistry } from './treasury-provider-registry';

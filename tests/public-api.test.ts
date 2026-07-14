@@ -49,6 +49,10 @@ describe('public API surface', () => {
     expect(typeof payable.isMarketplacePayoutCapable).toBe('function');
     expect(typeof payable.MarketplaceProviderRegistry).toBe('function');
     expect(typeof payable.MarketplaceProviderNotFoundError).toBe('function');
+    expect(typeof payable.isTerminalDeviceCapable).toBe('function');
+    expect(typeof payable.isTerminalPaymentCapable).toBe('function');
+    expect(typeof payable.TerminalProviderRegistry).toBe('function');
+    expect(typeof payable.TerminalProviderNotFoundError).toBe('function');
     expect(typeof payable.SubscriptionStateMachine).toBe('function');
   });
 

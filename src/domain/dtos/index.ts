@@ -95,6 +95,17 @@ export type {
   TaxTransactionStatus,
 } from './tax.dto';
 export type {
+  CreateTerminalPaymentInput,
+  ListTerminalDevicesInput,
+  TerminalCapabilities,
+  TerminalCapability,
+  TerminalCapabilityValue,
+  TerminalDeviceDTO,
+  TerminalDeviceStatus,
+  TerminalPaymentDTO,
+  TerminalPaymentStatus,
+} from './terminal.dto';
+export type {
   CreateTreasuryExchangeInput,
   CreateTreasuryTransferInput,
   ListTreasuryAccountsInput,

@@ -149,6 +149,12 @@ Marketplace providers coordinate seller accounts, onboarding, transfers, and pay
 independent registry. They identify recipients and move funds but do not process customer payments
 automatically or add connected-account fields to payment DTOs.
 
+### TerminalProvider
+
+Terminal providers expose in-person device discovery and server-driven payment actions through an
+independent registry. Their DTOs contain device and action identifiers but no card-present secrets,
+and the contracts do not require browser, mobile, Bluetooth, or hardware SDK dependencies.
+
 ### EventBus
 
 `src/domain/contracts/event-bus.contract.ts`. The publish/subscribe seam for [domain events](34-domain-events.md).
