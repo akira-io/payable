@@ -30,6 +30,7 @@ describe('public API surface', () => {
     expect(typeof payable.RevolutProvider).toBe('function');
     expect(typeof payable.RevolutBusinessIssuingProvider).toBe('function');
     expect(typeof payable.RevolutTerminalProvider).toBe('function');
+    expect(typeof payable.RevolutBusinessAccountingProvider).toBe('function');
     expect(typeof payable.KnexStorageDriver).toBe('function');
     expect(typeof payable.ok).toBe('function');
     expect(typeof payable.isChargeCapable).toBe('function');
@@ -60,6 +61,7 @@ describe('public API surface', () => {
     expect(typeof payable.isAccountingTaxRateCapable).toBe('function');
     expect(typeof payable.isAccountingLabelCapable).toBe('function');
     expect(typeof payable.isAccountingExpenseCapable).toBe('function');
+    expect(typeof payable.isAccountingExpenseReadCapable).toBe('function');
     expect(typeof payable.isAccountingLedgerCapable).toBe('function');
     expect(typeof payable.AccountingProviderRegistry).toBe('function');
     expect(typeof payable.AccountingProviderNotFoundError).toBe('function');

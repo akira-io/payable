@@ -1,6 +1,7 @@
 export type {
   AccountingCategoryCapable,
   AccountingExpenseCapable,
+  AccountingExpenseReadCapable,
   AccountingLabelCapable,
   AccountingLedgerCapable,
   AccountingProvider,
@@ -9,6 +10,7 @@ export type {
 export {
   isAccountingCategoryCapable,
   isAccountingExpenseCapable,
+  isAccountingExpenseReadCapable,
   isAccountingLabelCapable,
   isAccountingLedgerCapable,
   isAccountingTaxRateCapable,

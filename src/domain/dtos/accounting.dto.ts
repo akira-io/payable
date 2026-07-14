@@ -1,6 +1,12 @@
 import type { Money } from '../value-objects/money';
 
-export type AccountingCapability = 'categories' | 'taxRates' | 'labels' | 'expenses' | 'ledger';
+export type AccountingCapability =
+  | 'categories'
+  | 'taxRates'
+  | 'labels'
+  | 'expenseReads'
+  | 'expenses'
+  | 'ledger';
 export type AccountingCapabilityValue = AccountingCapability | (string & {});
 export type AccountingCapabilities = ReadonlySet<AccountingCapabilityValue>;
 

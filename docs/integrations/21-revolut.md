@@ -10,6 +10,10 @@ Business API card issuing uses the independent `RevolutBusinessIssuingProvider`.
 generic Issuing card and transaction contracts without adding Business operations to
 `RevolutProvider` or `PaymentProvider`.
 
+Business accounting settings and expense reads use the independent
+`RevolutBusinessAccountingProvider`. They are registered as an `AccountingProvider`, not as payment,
+Treasury, or tax-calculation capabilities.
+
 ## Construction and options
 
 - `secretKey` - Merchant API secret key sent as `Authorization: Bearer <key>`.
@@ -80,6 +84,57 @@ transaction context. `posPartnerName` defaults to `Payable` and is sent as
 
 Provider-specific details are documented in [Disputes](21a-revolut-disputes.md),
 [Payouts](21b-revolut-payouts.md), and [Webhook Management](21c-revolut-webhook-management.md).
+
+### Revolut Business Accounting
+
+```ts
+import {
+  isAccountingExpenseReadCapable,
+  RevolutBusinessAccountingProvider,
+} from '@akira-io/payable';
+
+const accounting = new RevolutBusinessAccountingProvider({
+  tokenProvider: {
+    getAccessToken: () => accessTokenStore.current(),
+  },
+});
+
+if (isAccountingExpenseReadCapable(accounting)) {
+  const expenses = await accounting.listAccountingExpenses({ limit: 100 });
+}
+```
+
+The provider name is `revolut-business-accounting`. It obtains a fresh Business access token for each
+request through `tokenProvider`, keeping OAuth, JWT, and certificate renewal outside the adapter. Configure
+Business API `READ` access for list and retrieve operations and `WRITE` access for setting mutations.
+
+It declares `categories`, `taxRates`, `labels`, and `expenseReads`:
+
+- Categories support create, list, retrieve, update, and delete. Revolut requires `code` on creation;
+  omission fails before HTTP with `PROVIDER_REQUEST_INVALID`.
+- Tax rates support create, list, retrieve, rename, and delete. Revolut percentages are immutable after
+  creation, matching the generic update input, which only accepts a new name.
+- Labels support create, list, retrieve, rename, and delete. Creation requires
+  `providerGroupId`. Because Revolut addresses labels inside groups, normalized `providerLabelId`
+  values are opaque compound IDs in the form `{groupId}:{labelId}`; callers should persist and return
+  them unchanged.
+- Expenses support list and retrieve only. Revolut has no expense update endpoint, so the adapter
+  implements `AccountingExpenseReadCapable` and intentionally does not advertise full `expenses`.
+
+Category, tax-rate, label-group, and label lists follow Revolut cursor pagination. Expense listing
+uses the API's `expense_date` boundary, supports `from`, `to`, normalized status filtering, and requests
+at most 500 records per page. When an expense has different category or tax-rate IDs across its splits,
+the singular normalized field is `null` instead of choosing an incorrect value.
+
+The adapter does not fetch receipt content and does not expose receipt IDs, payer names, or other
+provider-only expense details. Revolut Expenses is unavailable in Sandbox, so expense integration
+tests require an approved production test account or an injected HTTP client. Accounting settings can
+still be tested with the injected client.
+
+Business accounting writes do not declare a request ID or idempotency field. The standard operation
+context is accepted for contract consistency, but the adapter does not invent unsupported headers or
+body fields. Ledger access, expense updates, and `TaxProvider` calculation capabilities are not
+advertised.
 
 ## Declared capabilities
 

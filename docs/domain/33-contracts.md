@@ -160,6 +160,20 @@ Accounting providers expose granular contracts for categories, bookkeeping tax-r
 expenses, and ledger entries. These tax rates describe accounting records and do not satisfy
 `TaxProvider` calculation or transaction capabilities.
 
+| Capability interface | Methods | Guard |
+| --- | --- | --- |
+| `AccountingCategoryCapable` | category create, list, retrieve, update, and delete | `isAccountingCategoryCapable` |
+| `AccountingTaxRateCapable` | bookkeeping tax-rate create, list, retrieve, update, and delete | `isAccountingTaxRateCapable` |
+| `AccountingLabelCapable` | label create, list, retrieve, update, and delete | `isAccountingLabelCapable` |
+| `AccountingExpenseReadCapable` | `listAccountingExpenses`, `retrieveAccountingExpense` | `isAccountingExpenseReadCapable` |
+| `AccountingExpenseCapable` | expense reads plus `updateAccountingExpense` | `isAccountingExpenseCapable` |
+| `AccountingLedgerCapable` | ledger-entry list and retrieve | `isAccountingLedgerCapable` |
+
+Expense access is deliberately split by behavior. A read-only provider advertises `expenseReads` and
+implements `AccountingExpenseReadCapable`. A provider may advertise `expenses` only when it also
+implements updates through `AccountingExpenseCapable`. This keeps capability sets honest without
+weakening the existing full expense contract.
+
 ### IdentityProvider
 
 Identity providers expose verification-session lifecycle operations through an independent registry.
