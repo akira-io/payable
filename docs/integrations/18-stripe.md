@@ -6,6 +6,9 @@ Stripe Treasury, including its independent webhook verifier, is implemented by t
 Stripe Tax is also exposed independently through `StripeTaxProvider`. It implements the generic tax
 calculation and transaction contracts without adding Stripe-specific methods to `PaymentProvider`.
 
+Stripe Issuing is exposed through `StripeIssuingProvider`, with a separate registry and no card data
+or operations added to the payment provider.
+
 `StripeProvider` (`src/infrastructure/providers/stripe/stripe-provider.ts`) is the reference
 implementation of `PaymentProvider`. It implements the base contract and optional capabilities for
 charges, subscriptions, invoices, saved payment methods, payment-method setup, disputes, payouts,
@@ -52,6 +55,19 @@ const tax = new StripeTaxProvider({
 `StripeTaxProvider` has the registry name `stripe-tax` and declares the `calculations` and
 `transactions` tax capabilities. Like the payment and Treasury providers, it loads the optional
 Stripe SDK dynamically when no client is injected.
+
+### Stripe Issuing provider
+
+```ts
+import { StripeIssuingProvider } from '@akira-io/payable';
+
+const issuing = new StripeIssuingProvider({
+  secretKey: process.env.STRIPE_SECRET_KEY!,
+});
+```
+
+`StripeIssuingProvider` has the registry name `stripe-issuing` and declares `cardholders`, `cards`,
+`authorizations`, and `transactions`. It uses the same dynamic optional Stripe SDK boundary.
 
 ## Declared capabilities
 
@@ -215,6 +231,25 @@ calculation object when calculation cannot complete.
 `commitTaxTransaction` creates a Stripe Tax transaction from a completed calculation and forwards
 the operation idempotency key. `reverseTaxTransaction` currently performs a full transaction
 reversal. Partial reversals remain outside the generic contract.
+
+## Issuing
+
+`StripeIssuingProvider` creates and retrieves cardholders, creates virtual and physical cards,
+updates card status, and provides bounded reads for cards, authorizations, and transactions. Stripe
+requires a billing address for cardholders and a currency for cards. Physical cards also require a
+generic shipping contact. Missing required fields are rejected before the SDK call.
+
+A `spendingLimit` maps to a per-authorization Stripe spending limit. `active`, `inactive`, and
+`canceled` card states are supported; the generic `blocked` state is rejected because Stripe does not
+provide an equivalent card state. Card mappers return only brand, last four, expiry, status, form,
+provider identifiers, and creation time. PAN, CVC, PIN, shipping details, and expanded provider
+objects are never returned.
+
+Authorization reads normalize Stripe lifecycle and decision state. `respondIssuingAuthorization`
+uses Stripe's approve and decline REST methods and forwards idempotency. Stripe marks those methods
+deprecated in favor of responding directly to real-time authorization webhooks, so new applications
+should treat this method as a compatibility path until a generic synchronous webhook-response
+contract is approved.
 
 ## Provider webhook management
 

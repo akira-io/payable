@@ -143,6 +143,11 @@ Issuing providers have an independent registry and optional contracts for cardho
 authorizations, and issuing transactions. Card DTOs expose only last four, expiry, brand, status, and
 provider identifiers. PAN, CVV, PIN, and track data are outside the domain contract.
 
+Cardholder creation can carry a generic billing address and phone number. Card creation can carry a
+currency, spending limit, and generic shipping contact. These inputs are optional at the domain
+boundary because provider requirements differ; an adapter rejects a request before its remote call
+when a provider-required field is absent.
+
 ### MarketplaceProvider
 
 Marketplace providers coordinate seller accounts, onboarding, transfers, and payouts through an
