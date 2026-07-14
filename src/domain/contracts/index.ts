@@ -116,6 +116,15 @@ export type {
   TenantResolver,
 } from './tenant-resolver.contract';
 export type {
+  TerminalDeviceCapable,
+  TerminalPaymentCapable,
+  TerminalProvider,
+} from './terminal-provider.contract';
+export {
+  isTerminalDeviceCapable,
+  isTerminalPaymentCapable,
+} from './terminal-provider.contract';
+export type {
   TreasuryAccountCapable,
   TreasuryCounterpartyCapable,
   TreasuryExchangeCapable,

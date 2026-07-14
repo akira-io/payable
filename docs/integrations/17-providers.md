@@ -313,6 +313,10 @@ Constraints to honour:
 
 Register it like any built-in provider through the engine config (`{ providers: { acme: new AcmeProvider(...) } }`).
 
+Terminal integrations use the independent `terminalProviders` config and
+`payable.terminalProviders()` registry. They discover devices and coordinate server-driven terminal
+actions without extending `PaymentProvider` or adding device SDK dependencies to the core package.
+
 ---
 
 [Previous: Multi-tenancy](../features/16-multi-tenancy.md) · [Index](../00-index.md) · [Next: Stripe](18-stripe.md)

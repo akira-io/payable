@@ -13,6 +13,7 @@ import type { QueueDriver } from '../../domain/contracts/queue-driver.contract';
 import type { StorageDriver } from '../../domain/contracts/storage-driver.contract';
 import type { TaxProvider } from '../../domain/contracts/tax-provider.contract';
 import type { TenantResolver } from '../../domain/contracts/tenant-resolver.contract';
+import type { TerminalProvider } from '../../domain/contracts/terminal-provider.contract';
 import type { TreasuryProvider } from '../../domain/contracts/treasury-provider.contract';
 import { InMemoryEventBus } from '../../infrastructure/event-bus/in-memory-event-bus';
 import { SyncQueueDriver } from '../../infrastructure/queue/sync/sync-queue-driver';
@@ -43,6 +44,7 @@ export interface PayableConfig {
   issuingProviders?: Record<string, IssuingProvider>;
   marketplaceProviders?: Record<string, MarketplaceProvider>;
   taxProviders?: Record<string, TaxProvider>;
+  terminalProviders?: Record<string, TerminalProvider>;
   treasuryProviders?: Record<string, TreasuryProvider>;
   storage?: StorageDriver;
   queue?: QueueDriver;
@@ -69,6 +71,7 @@ export interface ResolvedConfig {
   issuingProviders: Map<string, IssuingProvider>;
   marketplaceProviders: Map<string, MarketplaceProvider>;
   taxProviders: Map<string, TaxProvider>;
+  terminalProviders: Map<string, TerminalProvider>;
   treasuryProviders: Map<string, TreasuryProvider>;
   storage?: StorageDriver;
   cache?: CacheDriver;
@@ -121,6 +124,7 @@ export function resolveConfig(config: PayableConfig): ResolvedConfig {
     issuingProviders: new Map(Object.entries(config.issuingProviders ?? {})),
     marketplaceProviders: new Map(Object.entries(config.marketplaceProviders ?? {})),
     taxProviders: new Map(Object.entries(config.taxProviders ?? {})),
+    terminalProviders: new Map(Object.entries(config.terminalProviders ?? {})),
     treasuryProviders: new Map(Object.entries(config.treasuryProviders ?? {})),
     storage: config.storage,
     cache: config.cache,

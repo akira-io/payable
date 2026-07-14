@@ -10,4 +10,5 @@ export { ProviderCapabilityNotSupportedError } from './provider-capability-not-s
 export { ProviderNotFoundError } from './provider-not-found.error';
 export { SubscriptionNotFoundError } from './subscription-not-found.error';
 export { TaxProviderNotFoundError } from './tax-provider-not-found.error';
+export { TerminalProviderNotFoundError } from './terminal-provider-not-found.error';
 export { TreasuryProviderNotFoundError } from './treasury-provider-not-found.error';
