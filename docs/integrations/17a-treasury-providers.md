@@ -30,8 +30,8 @@ interface TreasuryProvider {
 }
 ```
 
-The common capability names are `accounts`, `transactions`, `transfers`, `counterparties`, and
-`exchange`. As with payment providers, the set remains open for custom provider capabilities.
+The common capability names are `accounts`, `transactions`, `transfers`, `counterparties`, `exchange`,
+and `webhooks`. As with payment providers, the set remains open for custom provider capabilities.
 
 ## Optional capabilities
 
@@ -42,6 +42,7 @@ The common capability names are `accounts`, `transactions`, `transfers`, `counte
 | `TreasuryTransferCapable` | Create, list, and retrieve transfers. |
 | `TreasuryCounterpartyCapable` | List and retrieve existing counterparties. |
 | `TreasuryExchangeCapable` | Quote and execute currency exchange. |
+| `TreasuryWebhookCapable` | Verify signatures and normalize Treasury events. |
 
 Each interface has a structural `isTreasuryXCapable` guard. A provider implements only the
 operations it can honor; for example, a provider can expose accounts and transactions without
@@ -66,6 +67,21 @@ it through the provider's supported idempotency mechanism.
 
 Treasury contracts do not add local storage or billing-engine actions. Applications call a selected
 Treasury provider explicitly after narrowing it with the relevant guard.
+
+## Treasury webhooks
+
+`TreasuryWebhookCapable` receives the exact raw request body, signature, and optional headers through
+`WebhookVerificationInput`. Signature verification and provider-specific normalization happen inside
+the adapter and return `VerifiedTreasuryWebhook`.
+
+The normalized event vocabulary covers account, transaction, transfer, exchange, and payout-link
+lifecycle changes. Unknown provider events remain valid verified deliveries with
+`normalizedType: null`; consumers can store or ignore them without treating them as signature errors.
+
+Payment and Treasury webhook contracts remain separate. Implementing `WebhookCapable` does not make a
+provider `TreasuryWebhookCapable`, and Treasury events do not enter payment reconciliation pipelines.
+Stripe Treasury and Revolut Business do not advertise `webhooks` until their dedicated adapters are
+implemented.
 
 ---
 

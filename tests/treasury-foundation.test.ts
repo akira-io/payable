@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
 import * as PayableApi from '../src/index';
+import { RevolutBusinessTreasuryProvider } from '../src/infrastructure/providers/revolut/revolut-business-treasury-provider';
+import { StripeTreasuryProvider } from '../src/infrastructure/providers/stripe/stripe-treasury-provider';
 import type { PayableConfig } from '../src/support/config/payable-config';
 import { FakeProvider } from './support/fake-provider';
 
@@ -66,6 +68,7 @@ describe('treasury provider foundation', () => {
       ['listTreasuryCounterparties', 'retrieveTreasuryCounterparty'],
     ],
     ['isTreasuryExchangeCapable', ['quoteTreasuryExchange', 'createTreasuryExchange']],
+    ['isTreasuryWebhookCapable', ['verifyTreasuryWebhook']],
   ])('requires every method for %s', (exportName, methods) => {
     const guard = Reflect.get(PayableApi, exportName) as (provider: object) => boolean;
     const complete = Object.fromEntries(methods.map((method) => [method, async () => undefined]));
@@ -76,5 +79,18 @@ describe('treasury provider foundation', () => {
     expect(guard).toBeTypeOf('function');
     expect(guard({ ...treasuryProvider, ...partial })).toBe(false);
     expect(guard({ ...treasuryProvider, ...complete })).toBe(true);
+  });
+
+  it('does not advertise Treasury webhooks before provider adapters implement them', () => {
+    const stripe = new StripeTreasuryProvider({
+      secretKey: 'sk_test',
+      connectedAccountId: 'acct_1',
+    });
+    const revolut = new RevolutBusinessTreasuryProvider({
+      tokenProvider: { getAccessToken: async () => 'access-token' },
+    });
+
+    expect(stripe.capabilities().has('webhooks')).toBe(false);
+    expect(revolut.capabilities().has('webhooks')).toBe(false);
   });
 });

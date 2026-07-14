@@ -5,6 +5,9 @@ import type {
   CreatePaymentMethodSetupInput,
   PaymentMethodSetupCapable,
   PaymentMethodSetupDTO,
+  TreasuryWebhookCapable,
+  TreasuryWebhookEventType,
+  VerifiedTreasuryWebhook,
 } from '../src/index';
 import * as payable from '../src/index';
 
@@ -26,6 +29,7 @@ describe('public API surface', () => {
     expect(typeof payable.isPayoutCapable).toBe('function');
     expect(typeof payable.isProviderWebhookEndpointManagementCapable).toBe('function');
     expect(typeof payable.isPaymentWebhookCapable).toBe('function');
+    expect(typeof payable.isTreasuryWebhookCapable).toBe('function');
     expect(typeof payable.SubscriptionStateMachine).toBe('function');
   });
 
@@ -57,6 +61,21 @@ describe('public API surface', () => {
     const capable = {} as PaymentMethodSetupCapable;
 
     expect(setup.providerCustomerId).toBe('customer_1');
+    expect(typeof capable).toBe('object');
+  });
+
+  it('exports the Treasury webhook contract types', () => {
+    const normalizedType: TreasuryWebhookEventType = 'treasury.transaction.updated';
+    const webhook: VerifiedTreasuryWebhook = {
+      providerEventId: 'event_1',
+      type: 'TransactionStateChanged',
+      normalizedType,
+      occurredAt: null,
+      data: {},
+    };
+    const capable = {} as TreasuryWebhookCapable;
+
+    expect(webhook.normalizedType).toBe(normalizedType);
     expect(typeof capable).toBe('object');
   });
 

@@ -15,6 +15,8 @@ import type {
   TreasuryTransactionDTO,
   TreasuryTransferDTO,
 } from '../dtos/treasury.dto';
+import type { VerifiedTreasuryWebhook } from '../dtos/treasury-webhook.dto';
+import type { WebhookVerificationInput } from '../dtos/webhook.dto';
 
 export interface TreasuryProvider {
   readonly name: string;
@@ -53,6 +55,10 @@ export interface TreasuryExchangeCapable {
     input: CreateTreasuryExchangeInput,
     ctx: OperationContext,
   ): Promise<TreasuryExchangeDTO>;
+}
+
+export interface TreasuryWebhookCapable {
+  verifyTreasuryWebhook(input: WebhookVerificationInput): Promise<VerifiedTreasuryWebhook>;
 }
 
 export function isTreasuryAccountCapable(
@@ -104,4 +110,10 @@ export function isTreasuryExchangeCapable(
     typeof candidate.quoteTreasuryExchange === 'function' &&
     typeof candidate.createTreasuryExchange === 'function'
   );
+}
+
+export function isTreasuryWebhookCapable(
+  provider: TreasuryProvider,
+): provider is TreasuryProvider & TreasuryWebhookCapable {
+  return typeof (provider as Partial<TreasuryWebhookCapable>).verifyTreasuryWebhook === 'function';
 }
