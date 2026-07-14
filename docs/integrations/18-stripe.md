@@ -290,6 +290,40 @@ Marketplace transfers do not create customer payments and are not automatically 
 unrelated payment fails. The application remains responsible for choosing the payment flow, waiting
 for asynchronous funds when required, and reconciling transfer reversals.
 
+## Terminal
+
+`StripeTerminalProvider` is an independent server-driven Terminal provider. It lists and retrieves
+registered Readers and processes card-present PaymentIntents without introducing browser, mobile,
+Bluetooth, or hardware SDK dependencies.
+
+```ts
+import { StripeTerminalProvider } from '@akira-io/payable';
+
+const terminal = new StripeTerminalProvider({
+  secretKey: process.env.STRIPE_SECRET_KEY!,
+});
+```
+
+Device listing supports Stripe location filters and bounded auto-pagination. A Reader with an active
+action maps to `busy`; otherwise Stripe's `online` and `offline` states retain their meaning. Device
+DTOs include the Reader ID, label, location ID, serial number, and device type. IP addresses,
+networking details, metadata, and device secrets are not returned.
+
+`createTerminalPayment` creates a PaymentIntent with `payment_method_types: ['card_present']`, then
+hands it to the selected Reader through `terminal.readers.processPaymentIntent`. Automatic capture
+is the default and `captureMethod: 'manual'` forwards Stripe's manual capture mode. Both write calls
+receive `ctx.idempotencyKey`.
+
+Stripe Reader actions do not have independent identifiers. The provider therefore returns the Reader
+ID as `providerTerminalPaymentId`; that is the identifier required by Stripe to retrieve the current
+action and call `cancelAction`. `providerPaymentId` contains the PaymentIntent ID. Retrieval reads the
+Reader action and then the PaymentIntent to normalize amount, failure code, and lifecycle status.
+
+`cancelTerminalPayment` cancels the active Reader action and returns terminal status `canceled`. It
+does not cancel the underlying PaymentIntent because Stripe's Reader cancellation endpoint and
+PaymentIntent cancellation are separate operations. If handoff fails after PaymentIntent creation,
+retrying with the same idempotency key reuses the same Stripe write results.
+
 ## Provider webhook management
 
 `StripeProvider` implements remote webhook endpoint create, list, retrieve, update, and delete through
