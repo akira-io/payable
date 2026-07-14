@@ -23,5 +23,9 @@ export {
   SubscriptionUpdatedEvent,
   type SubscriptionUpdatedPayload,
 } from './subscription-updated.event';
+export {
+  TreasuryWebhookProcessedEvent,
+  type TreasuryWebhookProcessedPayload,
+} from './treasury-webhook-processed.event';
 export { WebhookProcessedEvent, type WebhookProcessedPayload } from './webhook-processed.event';
 export { WebhookReceivedEvent, type WebhookReceivedPayload } from './webhook-received.event';

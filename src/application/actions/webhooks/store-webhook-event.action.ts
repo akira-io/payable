@@ -1,11 +1,24 @@
-import type { VerifiedWebhook } from '../../../domain/dtos/webhook.dto';
+import type { Clock } from '../../../domain/contracts/clock.contract';
+import type { StorageDriver } from '../../../domain/contracts/storage-driver.contract';
 import type { WebhookEventStatus } from '../../../domain/entities/webhook-event.entity';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { redactHeaders } from '../../../support/redact-headers';
-import type { WebhookDependencies } from '../../builders/webhook-dependencies';
+
+export interface VerifiedProviderWebhook {
+  providerEventId: string;
+  type: string;
+  normalizedType: string | null;
+  data: Record<string, unknown>;
+}
+
+export interface WebhookEventStorageDependencies {
+  storage: StorageDriver;
+  providerName: string;
+  clock: Clock;
+}
 
 export interface StoreWebhookEventInput {
-  verified: VerifiedWebhook;
+  verified: VerifiedProviderWebhook;
   payload: string;
   signature?: string | null;
   headers?: Record<string, string>;
@@ -20,7 +33,7 @@ export interface StoredWebhookEvent {
 }
 
 export class StoreWebhookEventAction {
-  constructor(private readonly deps: WebhookDependencies) {}
+  constructor(private readonly deps: WebhookEventStorageDependencies) {}
 
   async handle(input: StoreWebhookEventInput): Promise<StoredWebhookEvent> {
     const { storage, providerName, clock } = this.deps;

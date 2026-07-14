@@ -15,6 +15,7 @@ export type NormalizedEventName =
   | 'refund.created'
   | 'refund.succeeded'
   | 'refund.failed'
+  | 'treasury.webhook.processed'
   | 'webhook.received'
   | 'webhook.processed';
 
