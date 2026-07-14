@@ -105,8 +105,11 @@ function stripeTerminalPaymentStatus(
   if (action?.status === 'in_progress') {
     return 'in_progress';
   }
-  if (paymentIntentStatus === 'succeeded' || paymentIntentStatus === 'requires_capture') {
+  if (paymentIntentStatus === 'succeeded') {
     return 'succeeded';
+  }
+  if (paymentIntentStatus === 'requires_capture') {
+    return 'pending';
   }
   if (paymentIntentStatus === 'canceled') {
     return 'canceled';
