@@ -7,6 +7,25 @@ it asynchronously. Processing reconciles local state, writes an audit log, stage
 and emits a domain event. Every step is idempotent so the same provider event can arrive twice
 without double-applying.
 
+Treasury webhooks use a parallel entry point and queue. They share durable delivery storage and
+claim semantics, but never run payment or subscription reconciliation.
+
+```ts
+await payable.receiveTreasuryWebhook({
+  provider: 'revolut',
+  payload: rawBody,
+  signature: request.headers['revolut-signature'],
+  headers: {
+    'Revolut-Request-Timestamp': request.headers['revolut-request-timestamp'],
+  },
+});
+```
+
+Treasury processing dispatches `payable.treasury-webhook.process`, writes audit actions prefixed
+with `treasury.webhook.`, creates outbox events only for normalized types, and emits
+`treasury.webhook.processed`. Exact provider redeliveries reuse the stored event and retry only
+pending or failed processing.
+
 ## Pipeline overview
 
 ```mermaid

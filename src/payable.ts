@@ -1,10 +1,18 @@
-import { AccountingProviderRegistry } from './accounting-provider-registry';
 import {
   ReconcileRedirectPaymentAction,
   type ReconcileRedirectPaymentResult,
   type RedirectCallbackInput,
 } from './application/actions/checkout/reconcile-redirect-payment.action';
 import { RefundPaymentAction } from './application/actions/refunds/refund-payment.action';
+import {
+  PROCESS_TREASURY_WEBHOOK_JOB,
+  ProcessTreasuryWebhookAction,
+  type ProcessTreasuryWebhookJobPayload,
+} from './application/actions/treasury-webhooks/process-treasury-webhook.action';
+import {
+  ReceiveTreasuryWebhookAction,
+  type ReceiveTreasuryWebhookInput,
+} from './application/actions/treasury-webhooks/receive-treasury-webhook.action';
 import {
   PROCESS_WEBHOOK_JOB,
   ProcessWebhookAction,
@@ -46,19 +54,13 @@ import type { Refund } from './domain/entities/refund.entity';
 import type { Subscription } from './domain/entities/subscription.entity';
 import { PayableError } from './domain/errors/payable-error';
 import type { Money } from './domain/value-objects/money';
-import { IdentityProviderRegistry } from './identity-provider-registry';
 import {
   type OutboxPublishResult,
   OutboxService,
   type OutboxServiceOptions,
 } from './infrastructure/outbox/outbox-service';
-import { IssuingProviderRegistry } from './issuing-provider-registry';
-import { MarketplaceProviderRegistry } from './marketplace-provider-registry';
-import { ProviderRegistry } from './provider-registry';
+import { ProviderRegistries } from './provider-registries';
 import type { ResolvedConfig } from './support/config/payable-config';
-import { TaxProviderRegistry } from './tax-provider-registry';
-import { TerminalProviderRegistry } from './terminal-provider-registry';
-import { TreasuryProviderRegistry } from './treasury-provider-registry';
 
 export interface RefundRequest {
   paymentId: string;
@@ -76,56 +78,20 @@ export interface DeliverWebhooksOptions {
   outbox?: OutboxServiceOptions;
 }
 
-export class Payable {
-  private readonly registry: ProviderRegistry;
-  private readonly accountingRegistry: AccountingProviderRegistry;
-  private readonly identityRegistry: IdentityProviderRegistry;
-  private readonly issuingRegistry: IssuingProviderRegistry;
-  private readonly marketplaceRegistry: MarketplaceProviderRegistry;
-  private readonly taxRegistry: TaxProviderRegistry;
-  private readonly terminalRegistry: TerminalProviderRegistry;
-  private readonly treasuryRegistry: TreasuryProviderRegistry;
+export class Payable extends ProviderRegistries {
   private readonly factory: DependencyFactory;
 
   constructor(private readonly resolved: ResolvedConfig) {
-    this.registry = new ProviderRegistry(resolved.providers);
-    this.accountingRegistry = new AccountingProviderRegistry(resolved.accountingProviders);
-    this.identityRegistry = new IdentityProviderRegistry(resolved.identityProviders);
-    this.issuingRegistry = new IssuingProviderRegistry(resolved.issuingProviders);
-    this.marketplaceRegistry = new MarketplaceProviderRegistry(resolved.marketplaceProviders);
-    this.taxRegistry = new TaxProviderRegistry(resolved.taxProviders);
-    this.terminalRegistry = new TerminalProviderRegistry(resolved.terminalProviders);
-    this.treasuryRegistry = new TreasuryProviderRegistry(resolved.treasuryProviders);
-    this.factory = new DependencyFactory(resolved, this.registry);
+    super(resolved);
+    this.factory = new DependencyFactory(resolved, this.registry, this.treasuryRegistry);
     this.resolved.queue.process(PROCESS_WEBHOOK_JOB, (job: QueueJob) =>
       this.processWebhookJob(job),
     );
+    this.resolved.queue.process(PROCESS_TREASURY_WEBHOOK_JOB, (job: QueueJob) =>
+      this.processTreasuryWebhookJob(job),
+    );
   }
 
-  providers(): ProviderRegistry {
-    return this.registry;
-  }
-  accountingProviders(): AccountingProviderRegistry {
-    return this.accountingRegistry;
-  }
-  identityProviders(): IdentityProviderRegistry {
-    return this.identityRegistry;
-  }
-  issuingProviders(): IssuingProviderRegistry {
-    return this.issuingRegistry;
-  }
-  marketplaceProviders(): MarketplaceProviderRegistry {
-    return this.marketplaceRegistry;
-  }
-  taxProviders(): TaxProviderRegistry {
-    return this.taxRegistry;
-  }
-  terminalProviders(): TerminalProviderRegistry {
-    return this.terminalRegistry;
-  }
-  treasuryProviders(): TreasuryProviderRegistry {
-    return this.treasuryRegistry;
-  }
   events(): EventBus {
     return this.resolved.events;
   }
@@ -168,6 +134,14 @@ export class Payable {
     input: ReceiveWebhookInput & { provider?: string },
   ): Promise<ReceiveWebhookResult> {
     return new ReceiveWebhookAction(this.factory.webhook(input.provider)).handle(input);
+  }
+
+  receiveTreasuryWebhook(
+    input: ReceiveTreasuryWebhookInput & { provider?: string },
+  ): Promise<ReceiveWebhookResult> {
+    return new ReceiveTreasuryWebhookAction(this.factory.treasuryWebhook(input.provider)).handle(
+      input,
+    );
   }
 
   async receiveRedirectCallback(
@@ -271,6 +245,13 @@ export class Payable {
   private async processWebhookJob(job: QueueJob): Promise<void> {
     const payload = job.payload as ProcessWebhookJobPayload;
     await new ProcessWebhookAction(this.factory.webhook(payload.providerName)).handle(payload);
+  }
+
+  private async processTreasuryWebhookJob(job: QueueJob): Promise<void> {
+    const payload = job.payload as ProcessTreasuryWebhookJobPayload;
+    await new ProcessTreasuryWebhookAction(
+      this.factory.treasuryWebhook(payload.providerName),
+    ).handle(payload);
   }
 
   async refund(request: RefundRequest, tenantId?: string | null): Promise<Refund> {

@@ -14,6 +14,7 @@ export {
 export { RefundResource } from './refund-resource';
 export { SubscriptionBuilder } from './subscription-builder';
 export { SubscriptionManager } from './subscription-manager';
+export type { TreasuryWebhookDependencies } from './treasury-webhook-dependencies';
 export type { WebhookDependencies } from './webhook-dependencies';
 export {
   type RegisterWebhookEndpointInput,
