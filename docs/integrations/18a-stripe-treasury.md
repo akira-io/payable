@@ -26,6 +26,7 @@ const stripe = new StripeProvider({
 const stripeTreasury = new StripeTreasuryProvider({
   secretKey: process.env.STRIPE_SECRET_KEY!,
   connectedAccountId: process.env.STRIPE_CONNECTED_ACCOUNT_ID!,
+  webhookSecret: process.env.STRIPE_TREASURY_WEBHOOK_SECRET!,
 });
 
 const payable = createPayable({
@@ -36,7 +37,8 @@ const payable = createPayable({
 
 `connectedAccountId` is required. Every Treasury SDK request forwards it as Stripe's
 `stripeAccount` request option. The SDK remains dynamically imported on first use, and the shared
-pinned API version is used by both Stripe providers.
+pinned API version is used by both Stripe providers. `webhookSecret` is optional for backwards
+compatibility but required before calling `verifyTreasuryWebhook`.
 
 ## Capabilities
 
@@ -45,6 +47,7 @@ pinned API version is used by both Stripe providers.
 | `accounts` | List and retrieve Financial Accounts. |
 | `transactions` | List account transactions and retrieve one transaction. |
 | `transfers` | Create, list, and retrieve Outbound Transfers. |
+| `webhooks` | Verify and normalize Stripe Treasury events. |
 | `counterparties` | Not supported by Stripe Treasury. |
 | `exchange` | Not supported by Stripe Treasury. |
 
@@ -108,6 +111,17 @@ requested total limit. Each Stripe request remains bounded to the 100-object pag
 routes `obp_` ids to Outbound Payments and other ids to Outbound Transfers. Stripe errors use the same
 normalized `PayableError` mapping as `StripeProvider`. Historical movements created with inline
 destination data can omit the PaymentMethod id; those records return `destination: null`.
+
+## Webhooks
+
+`verifyTreasuryWebhook` passes the exact raw payload, Stripe signature, and configured Treasury
+webhook secret to `webhooks.constructEventAsync`. Invalid signatures throw
+`InvalidWebhookSignatureError` with provider `stripe-treasury`.
+
+Financial Account creation, closure, and feature-status changes normalize to account events.
+Transaction events remain transaction events, while Outbound Payment and Outbound Transfer events
+normalize to generic transfer events. Unknown verified event types remain available with
+`normalizedType: null`; they never enter payment webhook reconciliation.
 
 ---
 

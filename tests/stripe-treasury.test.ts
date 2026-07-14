@@ -7,6 +7,7 @@ import {
   isTreasuryExchangeCapable,
   isTreasuryTransactionCapable,
   isTreasuryTransferCapable,
+  isTreasuryWebhookCapable,
 } from '../src/domain/contracts/treasury-provider.contract';
 import { Money } from '../src/domain/value-objects/money';
 import { StripeTreasuryProvider } from '../src/infrastructure/providers/stripe/stripe-treasury-provider';
@@ -32,10 +33,13 @@ describe('Stripe Treasury provider', () => {
   it('declares only the Treasury capabilities it implements', () => {
     const instance = subject(fakeStripeTreasury().client);
 
-    expect(instance.capabilities()).toEqual(new Set(['accounts', 'transactions', 'transfers']));
+    expect(instance.capabilities()).toEqual(
+      new Set(['accounts', 'transactions', 'transfers', 'webhooks']),
+    );
     expect(isTreasuryAccountCapable(instance)).toBe(true);
     expect(isTreasuryTransactionCapable(instance)).toBe(true);
     expect(isTreasuryTransferCapable(instance)).toBe(true);
+    expect(isTreasuryWebhookCapable(instance)).toBe(true);
     expect(isTreasuryCounterpartyCapable(instance)).toBe(false);
     expect(isTreasuryExchangeCapable(instance)).toBe(false);
   });

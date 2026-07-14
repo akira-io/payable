@@ -4,6 +4,7 @@ import type {
   TreasuryProvider,
   TreasuryTransactionCapable,
   TreasuryTransferCapable,
+  TreasuryWebhookCapable,
 } from '../../../domain/contracts/treasury-provider.contract';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type {
@@ -16,14 +17,18 @@ import type {
   TreasuryTransactionDTO,
   TreasuryTransferDTO,
 } from '../../../domain/dtos/treasury.dto';
+import type { VerifiedTreasuryWebhook } from '../../../domain/dtos/treasury-webhook.dto';
+import type { WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { STRIPE_API_VERSION } from './stripe-api-version';
 import { StripeTreasuryAccounts } from './stripe-treasury-accounts';
 import { StripeTreasuryTransactions } from './stripe-treasury-transactions';
 import { StripeTreasuryTransfers } from './stripe-treasury-transfers';
+import { StripeTreasuryWebhooks } from './stripe-treasury-webhooks';
 
 export interface StripeTreasuryProviderOptions {
   secretKey: string;
   connectedAccountId: string;
+  webhookSecret?: string;
 }
 
 export class StripeTreasuryProvider
@@ -31,7 +36,8 @@ export class StripeTreasuryProvider
     TreasuryProvider,
     TreasuryAccountCapable,
     TreasuryTransactionCapable,
-    TreasuryTransferCapable
+    TreasuryTransferCapable,
+    TreasuryWebhookCapable
 {
   readonly name = 'stripe-treasury';
   private client?: Stripe;
@@ -47,6 +53,10 @@ export class StripeTreasuryProvider
     () => this.stripe(),
     () => this.requestOptions(),
   );
+  private readonly webhooks = new StripeTreasuryWebhooks(
+    () => this.stripe(),
+    () => this.options.webhookSecret,
+  );
 
   constructor(
     private readonly options: StripeTreasuryProviderOptions,
@@ -56,7 +66,7 @@ export class StripeTreasuryProvider
   }
 
   capabilities(): TreasuryCapabilities {
-    return new Set(['accounts', 'transactions', 'transfers']);
+    return new Set(['accounts', 'transactions', 'transfers', 'webhooks']);
   }
 
   listTreasuryAccounts(input?: ListTreasuryAccountsInput): Promise<TreasuryAccountDTO[]> {
@@ -90,6 +100,10 @@ export class StripeTreasuryProvider
 
   retrieveTreasuryTransfer(providerTransferId: string): Promise<TreasuryTransferDTO> {
     return this.transfers.retrieve(providerTransferId);
+  }
+
+  verifyTreasuryWebhook(input: WebhookVerificationInput): Promise<VerifiedTreasuryWebhook> {
+    return this.webhooks.verify(input);
   }
 
   toJSON(): { name: string } {

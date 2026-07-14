@@ -81,7 +81,7 @@ describe('treasury provider foundation', () => {
     expect(guard({ ...treasuryProvider, ...complete })).toBe(true);
   });
 
-  it('does not advertise Treasury webhooks before provider adapters implement them', () => {
+  it('advertises Treasury webhooks only for providers with a complete adapter', () => {
     const stripe = new StripeTreasuryProvider({
       secretKey: 'sk_test',
       connectedAccountId: 'acct_1',
@@ -90,7 +90,8 @@ describe('treasury provider foundation', () => {
       tokenProvider: { getAccessToken: async () => 'access-token' },
     });
 
-    expect(stripe.capabilities().has('webhooks')).toBe(false);
+    expect(stripe.capabilities().has('webhooks')).toBe(true);
+    expect(PayableApi.isTreasuryWebhookCapable(stripe)).toBe(true);
     expect(revolut.capabilities().has('webhooks')).toBe(false);
   });
 });
