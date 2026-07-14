@@ -45,6 +45,7 @@ import type { Refund } from './domain/entities/refund.entity';
 import type { Subscription } from './domain/entities/subscription.entity';
 import { PayableError } from './domain/errors/payable-error';
 import type { Money } from './domain/value-objects/money';
+import { IdentityProviderRegistry } from './identity-provider-registry';
 import {
   type OutboxPublishResult,
   OutboxService,
@@ -76,6 +77,7 @@ export interface DeliverWebhooksOptions {
 
 export class Payable {
   private readonly registry: ProviderRegistry;
+  private readonly identityRegistry: IdentityProviderRegistry;
   private readonly issuingRegistry: IssuingProviderRegistry;
   private readonly marketplaceRegistry: MarketplaceProviderRegistry;
   private readonly taxRegistry: TaxProviderRegistry;
@@ -85,6 +87,7 @@ export class Payable {
 
   constructor(private readonly resolved: ResolvedConfig) {
     this.registry = new ProviderRegistry(resolved.providers);
+    this.identityRegistry = new IdentityProviderRegistry(resolved.identityProviders);
     this.issuingRegistry = new IssuingProviderRegistry(resolved.issuingProviders);
     this.marketplaceRegistry = new MarketplaceProviderRegistry(resolved.marketplaceProviders);
     this.taxRegistry = new TaxProviderRegistry(resolved.taxProviders);
@@ -99,23 +102,21 @@ export class Payable {
   providers(): ProviderRegistry {
     return this.registry;
   }
-
+  identityProviders(): IdentityProviderRegistry {
+    return this.identityRegistry;
+  }
   issuingProviders(): IssuingProviderRegistry {
     return this.issuingRegistry;
   }
-
   marketplaceProviders(): MarketplaceProviderRegistry {
     return this.marketplaceRegistry;
   }
-
   taxProviders(): TaxProviderRegistry {
     return this.taxRegistry;
   }
-
   terminalProviders(): TerminalProviderRegistry {
     return this.terminalRegistry;
   }
-
   treasuryProviders(): TreasuryProviderRegistry {
     return this.treasuryRegistry;
   }

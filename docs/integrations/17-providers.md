@@ -313,6 +313,11 @@ Constraints to honour:
 
 Register it like any built-in provider through the engine config (`{ providers: { acme: new AcmeProvider(...) } }`).
 
+Identity integrations use the independent `identityProviders` config and
+`payable.identityProviders()` registry. Applications remain responsible for consent, retention,
+access control, and legal compliance; provider adapters must not return raw identity evidence through
+the normalized contracts.
+
 Terminal integrations use the independent `terminalProviders` config and
 `payable.terminalProviders()` registry. They discover devices and coordinate server-driven terminal
 actions without extending `PaymentProvider` or adding device SDK dependencies to the core package.

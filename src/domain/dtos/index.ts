@@ -14,6 +14,15 @@ export type {
 export type { OperationContext } from './common.dto';
 export type { CreateCustomerInput, CustomerDTO, UpdateCustomerInput } from './customer.dto';
 export type { DisputeDTO, DisputeStatus, ListDisputesInput } from './dispute.dto';
+export type {
+  CreateIdentityVerificationInput,
+  IdentityCapabilities,
+  IdentityCapability,
+  IdentityCapabilityValue,
+  IdentityCheck,
+  IdentityVerificationDTO,
+  IdentityVerificationStatus,
+} from './identity.dto';
 export type { InvoiceDTO, InvoicePdfDTO, ListInvoicesInput } from './invoice.dto';
 export type {
   CreateIssuingCardholderInput,

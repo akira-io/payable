@@ -17,6 +17,11 @@ export type {
   IdempotencyStatus,
   IdempotencyStore,
 } from './idempotency-store.contract';
+export type {
+  IdentityProvider,
+  IdentityVerificationCapable,
+} from './identity-provider.contract';
+export { isIdentityVerificationCapable } from './identity-provider.contract';
 export type { InvoiceRepository, NewInvoice } from './invoice-repository.contract';
 export type {
   IssuingAuthorizationCapable,

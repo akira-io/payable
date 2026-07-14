@@ -1,6 +1,7 @@
 export { CustomerNotFoundError } from './customer-not-found.error';
 export { IdempotencyConflictError } from './idempotency-conflict.error';
 export { IdempotencyInProgressError } from './idempotency-in-progress.error';
+export { IdentityProviderNotFoundError } from './identity-provider-not-found.error';
 export { InvalidStateTransitionError } from './invalid-state-transition.error';
 export { InvalidWebhookSignatureError } from './invalid-webhook-signature.error';
 export { IssuingProviderNotFoundError } from './issuing-provider-not-found.error';
