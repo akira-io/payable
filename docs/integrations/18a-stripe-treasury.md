@@ -118,9 +118,9 @@ destination data can omit the PaymentMethod id; those records return `destinatio
 webhook secret to `webhooks.constructEventAsync`. Invalid signatures throw
 `InvalidWebhookSignatureError` with provider `stripe-treasury`.
 
-Connect events must identify the same account configured by `connectedAccountId`; events signed for
-a different connected account are rejected. Accountless events remain valid for webhook endpoints
-configured directly on the connected account.
+Connect events must identify the same account configured by `connectedAccountId`. Events signed for
+a different connected account, or events without an `account`, are rejected. Configure the webhook
+endpoint to receive events from connected accounts.
 
 Financial Account creation, closure, and feature-status changes normalize to account events.
 Transaction events remain transaction events, while Outbound Payment and Outbound Transfer events

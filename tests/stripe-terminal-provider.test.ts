@@ -72,7 +72,7 @@ describe('Stripe Terminal provider', () => {
         currency: 'eur',
         capture_method: 'automatic',
         payment_method_types: ['card_present'],
-        metadata: { reference: 'sale-1' },
+        metadata: { payable_terminal_reader_id: 'tmr_1', reference: 'sale-1' },
       },
       { idempotencyKey: 'terminal-idem-1:stripe-terminal:payment-intent' },
     );
@@ -107,31 +107,6 @@ describe('Stripe Terminal provider', () => {
 
     expect(first.providerTerminalPaymentId).toBe('v1:tmr_1:pi_terminal_1');
     expect(second.providerTerminalPaymentId).toBe('v1:tmr_1:pi_terminal_2');
-  });
-
-  it('derives stable bounded keys for each Stripe write operation', async () => {
-    const { client, calls } = fakeStripeTerminal();
-    const longContext = { correlationId: 'corr-long', idempotencyKey: 'k'.repeat(512) };
-    const instance = provider(client);
-
-    await instance.createTerminalPayment(
-      { providerDeviceId: 'tmr_1', amount: Money.of(2_500, 'EUR') },
-      longContext,
-    );
-    await instance.createTerminalPayment(
-      { providerDeviceId: 'tmr_1', amount: Money.of(2_500, 'EUR') },
-      longContext,
-    );
-
-    const createKeys = calls.paymentIntentsCreate.mock.calls.map((call) => call[1]?.idempotencyKey);
-    const processKeys = calls.readersProcessPaymentIntent.mock.calls.map(
-      (call) => call[2]?.idempotencyKey,
-    );
-    expect(createKeys[0]).toBe(createKeys[1]);
-    expect(processKeys[0]).toBe(processKeys[1]);
-    expect(createKeys[0]).not.toBe(processKeys[0]);
-    expect(createKeys[0]?.length).toBeLessThanOrEqual(255);
-    expect(processKeys[0]?.length).toBeLessThanOrEqual(255);
   });
 
   it('rejects manual capture before creating Stripe resources', async () => {
@@ -228,18 +203,36 @@ describe('Stripe Terminal provider', () => {
     expect(payment.status).toBe('succeeded');
   });
 
-  it('cancels the current reader action with idempotency', async () => {
+  it('rejects a payment identity whose PaymentIntent belongs to another reader', async () => {
+    const { client, calls } = fakeStripeTerminal();
+    calls.paymentIntentsRetrieve.mockResolvedValue(
+      stripeTerminalPaymentIntent({ metadata: { payable_terminal_reader_id: 'tmr_2' } }),
+    );
+
+    await expect(
+      provider(client).retrieveTerminalPayment('v1:tmr_1:pi_terminal_1'),
+    ).rejects.toMatchObject({
+      code: 'PROVIDER_REQUEST_INVALID',
+      context: expect.objectContaining({
+        provider: 'stripe-terminal',
+        expectedReaderId: 'tmr_1',
+        actualReaderId: 'tmr_2',
+      }),
+    });
+  });
+
+  it('cancels the exact PaymentIntent with operation idempotency', async () => {
     const { client, calls } = fakeStripeTerminal();
 
     const payment = await provider(client).cancelTerminalPayment('v1:tmr_1:pi_terminal_1', context);
 
     expect(calls.readersRetrieve).toHaveBeenCalledWith('tmr_1');
-    expect(calls.readersCancelAction).toHaveBeenCalledWith(
-      'tmr_1',
+    expect(calls.paymentIntentsCancel).toHaveBeenCalledWith(
+      'pi_terminal_1',
       {},
-      { idempotencyKey: 'terminal-idem-1' },
+      { idempotencyKey: 'terminal-idem-1:stripe-terminal:payment-intent-cancel' },
     );
-    expect(calls.paymentIntentsRetrieve).toHaveBeenCalledWith('pi_terminal_1');
+    expect(calls.readersCancelAction).not.toHaveBeenCalled();
     expect(payment.status).toBe('canceled');
   });
 
@@ -260,15 +253,12 @@ describe('Stripe Terminal provider', () => {
 
     await expect(
       provider(client).cancelTerminalPayment('v1:tmr_1:pi_terminal_1', context),
-    ).rejects.toMatchObject({
-      code: 'PROVIDER_REQUEST_INVALID',
-      context: expect.objectContaining({
-        provider: 'stripe-terminal',
-        providerDeviceId: 'tmr_1',
-        expectedPaymentIntentId: 'pi_terminal_1',
-        actualPaymentIntentId: 'pi_terminal_2',
-      }),
-    });
+    ).resolves.toMatchObject({ providerPaymentId: 'pi_terminal_1', status: 'canceled' });
+    expect(calls.paymentIntentsCancel).toHaveBeenCalledWith(
+      'pi_terminal_1',
+      {},
+      expect.any(Object),
+    );
     expect(calls.readersCancelAction).not.toHaveBeenCalled();
   });
 

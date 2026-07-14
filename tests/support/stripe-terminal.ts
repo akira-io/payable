@@ -28,7 +28,7 @@ export function stripeTerminalPaymentIntent(
     latest_charge: null,
     livemode: false,
     managed_payments: null,
-    metadata: {},
+    metadata: { payable_terminal_reader_id: 'tmr_1' },
     next_action: null,
     on_behalf_of: null,
     payment_details: null,
@@ -95,6 +95,13 @@ export function fakeStripeTerminal() {
     readersCancelAction: vi.fn().mockResolvedValue({ ...reader, action: null }),
     paymentIntentsCreate: vi.fn().mockResolvedValue(paymentIntent),
     paymentIntentsRetrieve: vi.fn().mockResolvedValue(paymentIntent),
+    paymentIntentsCancel: vi.fn().mockResolvedValue(
+      stripeTerminalPaymentIntent({
+        canceled_at: 1_725_100_200,
+        cancellation_reason: 'requested_by_customer',
+        status: 'canceled',
+      }),
+    ),
     readersPage,
   };
   const client = {
@@ -107,6 +114,7 @@ export function fakeStripeTerminal() {
       },
     },
     paymentIntents: {
+      cancel: calls.paymentIntentsCancel,
       create: calls.paymentIntentsCreate,
       retrieve: calls.paymentIntentsRetrieve,
     },

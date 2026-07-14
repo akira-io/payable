@@ -332,18 +332,21 @@ is the supported mode. `captureMethod: 'manual'` is rejected before creating Str
 the current generic Terminal contract has no capture operation. PaymentIntents encountered in
 `requires_capture` normalize to `pending`, never `succeeded`. Both write calls receive distinct
 deterministic keys derived from `ctx.idempotencyKey`. Long Payable keys are hashed so every forwarded
-key remains within Stripe's 255-character limit.
+key remains within Stripe's 255-character limit. When Payable does not provide a key, the adapter
+omits Stripe idempotency options instead of deriving a shared fallback.
 
 Stripe Reader actions do not have independent identifiers. The provider therefore returns an opaque,
 versioned `providerTerminalPaymentId` that identifies both the Reader and PaymentIntent.
 `providerPaymentId` contains the PaymentIntent ID. Retrieval loads that exact PaymentIntent and only
-uses Reader action state when the action belongs to the same payment.
+uses Reader action state when the action belongs to the same payment. The provider records the Reader
+ID in PaymentIntent metadata and rejects identifiers whose Reader and PaymentIntent do not match.
+Legacy Reader-only identifiers cannot identify a payment safely and are rejected. Persist the
+versioned identifier returned by `createTerminalPayment` after upgrading.
 
-`cancelTerminalPayment` verifies that the Reader's active action belongs to the requested payment
-before calling Stripe. A stale payment identifier cannot cancel a newer action. The operation returns
-terminal status `canceled` but does not cancel the underlying PaymentIntent because Stripe's Reader
-cancellation endpoint and PaymentIntent cancellation are separate operations. If handoff fails after
-PaymentIntent creation, retrying with the same idempotency key reuses the same Stripe write results.
+`cancelTerminalPayment` validates the Reader relationship and cancels the exact PaymentIntent. It does
+not call Stripe's Reader-wide `cancel_action` endpoint, so a stale identifier cannot cancel a newer
+Reader action. Cancellation has its own derived idempotency key. If handoff fails after PaymentIntent
+creation, retrying with the same idempotency key reuses the same Stripe write results.
 
 ## Identity verification
 
