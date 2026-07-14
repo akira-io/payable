@@ -40,10 +40,10 @@ Provider-specific details are documented in [Disputes](21a-revolut-disputes.md),
 
 ## Declared capabilities
 
-`capabilities()` returns `checkout`, `refunds`, `webhooks`, `customers`, `paymentMethods`, `disputes`,
-`payouts`, `webhookEndpointManagement`, and `subscriptions`. The provider implements the corresponding
-optional contracts and intentionally does not declare `catalog`, `charges`, `billingPortal`, or
-`invoicePdf`.
+`capabilities()` returns `checkout`, `refunds`, `webhooks`, `customers`, `paymentMethods`,
+`paymentMethodSetup`, `disputes`, `payouts`, `webhookEndpointManagement`, and `subscriptions`. The
+provider implements the corresponding optional contracts and intentionally does not declare
+`catalog`, `charges`, `billingPortal`, or `invoicePdf`.
 
 ## Customers
 
@@ -62,6 +62,18 @@ methods to generic display fields. Non-card fields that do not apply are `null`.
 `deletePaymentMethod({ providerCustomerId, providerPaymentMethodId }, ctx)` calls the customer-scoped
 `DELETE` endpoint. The Merchant API does not declare `Idempotency-Key` for this operation, so the
 provider does not invent one.
+
+## Payment method setup
+
+`RevolutProvider` implements `PaymentMethodSetupCapable` with a zero-amount Merchant order linked to
+the customer. Currency is required, and the adapter forwards the return URL, opaque reference, and
+operation idempotency key. The order token maps to `clientSecret`, while the hosted payment link maps
+to `checkoutUrl`.
+
+This setup flow is for future merchant-initiated payments, so only `off_session` usage is supported.
+An `on_session` request fails before the HTTP call with `PROVIDER_OPERATION_UNSUPPORTED`. Order states
+map to the normalized setup lifecycle, and a saved `payment_method.id` is exposed only after Revolut
+returns it.
 
 ## Payment Checkout
 

@@ -195,11 +195,9 @@ describe('provider capability guard', () => {
     expect(stripe().capabilities().has('paymentMethodSetup')).toBe(true);
     expect(isPaymentMethodSetupCapable(stripe())).toBe(true);
     expect(paddle().capabilities().has('paymentMethodSetup')).toBe(false);
-    expect(
-      new RevolutProvider({ secretKey: 'sk_test', webhookSecret: 'wh_test' })
-        .capabilities()
-        .has('paymentMethodSetup'),
-    ).toBe(false);
+    const revolut = new RevolutProvider({ secretKey: 'sk_test', webhookSecret: 'wh_test' });
+    expect(revolut.capabilities().has('paymentMethodSetup')).toBe(true);
+    expect(isPaymentMethodSetupCapable(revolut)).toBe(true);
     expect(new SispProvider(sispOptions).capabilities().has('paymentMethodSetup')).toBe(false);
   });
 
