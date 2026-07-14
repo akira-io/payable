@@ -135,6 +135,7 @@ export {
   TenantId,
   type WebhookKeyParts,
 } from './domain/value-objects';
+export { IdentityProviderRegistry } from './identity-provider-registry';
 export { type AuditEntryInput, AuditService } from './infrastructure/audit/audit-service';
 export { MemoryCacheDriver } from './infrastructure/cache/memory/memory-cache-driver';
 export {

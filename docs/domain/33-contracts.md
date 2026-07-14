@@ -149,6 +149,12 @@ Marketplace providers coordinate seller accounts, onboarding, transfers, and pay
 independent registry. They identify recipients and move funds but do not process customer payments
 automatically or add connected-account fields to payment DTOs.
 
+### IdentityProvider
+
+Identity providers expose verification-session lifecycle operations through an independent registry.
+Normalized results contain opaque references and status data only; raw documents, images, biometric
+data, national identifiers, and provider verification reports are excluded from the contracts.
+
 ### TerminalProvider
 
 Terminal providers expose in-person device discovery and server-driven payment actions through an
