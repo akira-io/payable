@@ -313,6 +313,10 @@ Constraints to honour:
 
 Register it like any built-in provider through the engine config (`{ providers: { acme: new AcmeProvider(...) } }`).
 
+Accounting integrations use the independent `accountingProviders` config and
+`payable.accountingProviders()` registry. Their tax-rate metadata is for bookkeeping only and remains
+separate from tax calculation providers.
+
 Identity integrations use the independent `identityProviders` config and
 `payable.identityProviders()` registry. Applications remain responsible for consent, retention,
 access control, and legal compliance; provider adapters must not return raw identity evidence through

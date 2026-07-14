@@ -1,3 +1,4 @@
+import { AccountingProviderRegistry } from './accounting-provider-registry';
 import {
   ReconcileRedirectPaymentAction,
   type ReconcileRedirectPaymentResult,
@@ -77,6 +78,7 @@ export interface DeliverWebhooksOptions {
 
 export class Payable {
   private readonly registry: ProviderRegistry;
+  private readonly accountingRegistry: AccountingProviderRegistry;
   private readonly identityRegistry: IdentityProviderRegistry;
   private readonly issuingRegistry: IssuingProviderRegistry;
   private readonly marketplaceRegistry: MarketplaceProviderRegistry;
@@ -87,6 +89,7 @@ export class Payable {
 
   constructor(private readonly resolved: ResolvedConfig) {
     this.registry = new ProviderRegistry(resolved.providers);
+    this.accountingRegistry = new AccountingProviderRegistry(resolved.accountingProviders);
     this.identityRegistry = new IdentityProviderRegistry(resolved.identityProviders);
     this.issuingRegistry = new IssuingProviderRegistry(resolved.issuingProviders);
     this.marketplaceRegistry = new MarketplaceProviderRegistry(resolved.marketplaceProviders);
@@ -101,6 +104,9 @@ export class Payable {
 
   providers(): ProviderRegistry {
     return this.registry;
+  }
+  accountingProviders(): AccountingProviderRegistry {
+    return this.accountingRegistry;
   }
   identityProviders(): IdentityProviderRegistry {
     return this.identityRegistry;
@@ -120,15 +126,12 @@ export class Payable {
   treasuryProviders(): TreasuryProviderRegistry {
     return this.treasuryRegistry;
   }
-
   events(): EventBus {
     return this.resolved.events;
   }
-
   clock(): Clock {
     return this.resolved.clock;
   }
-
   logger(): Logger {
     return this.resolved.logger;
   }

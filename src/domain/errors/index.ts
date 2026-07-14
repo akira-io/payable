@@ -1,3 +1,4 @@
+export { AccountingProviderNotFoundError } from './accounting-provider-not-found.error';
 export { CustomerNotFoundError } from './customer-not-found.error';
 export { IdempotencyConflictError } from './idempotency-conflict.error';
 export { IdempotencyInProgressError } from './idempotency-in-progress.error';

@@ -1,4 +1,19 @@
 export type {
+  AccountingCategoryCapable,
+  AccountingExpenseCapable,
+  AccountingLabelCapable,
+  AccountingLedgerCapable,
+  AccountingProvider,
+  AccountingTaxRateCapable,
+} from './accounting-provider.contract';
+export {
+  isAccountingCategoryCapable,
+  isAccountingExpenseCapable,
+  isAccountingLabelCapable,
+  isAccountingLedgerCapable,
+  isAccountingTaxRateCapable,
+} from './accounting-provider.contract';
+export type {
   AuditLogQuery,
   AuditLogRepository,
   NewAuditLog,

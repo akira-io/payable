@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { AccountingProvider } from '../../domain/contracts/accounting-provider.contract';
 import type { CacheDriver } from '../../domain/contracts/cache-driver.contract';
 import type { Clock } from '../../domain/contracts/clock.contract';
 import type { Encryption } from '../../domain/contracts/encryption.contract';
@@ -42,6 +43,7 @@ export interface PayableConfig {
   tenant?: TenantConfig;
   authorization?: AuthorizationConfig;
   providers: Record<string, PaymentProvider>;
+  accountingProviders?: Record<string, AccountingProvider>;
   identityProviders?: Record<string, IdentityProvider>;
   issuingProviders?: Record<string, IssuingProvider>;
   marketplaceProviders?: Record<string, MarketplaceProvider>;
@@ -70,6 +72,7 @@ export interface ResolvedConfig {
   tenantResolver?: TenantResolver;
   authorizationEnabled: boolean;
   providers: Map<string, PaymentProvider>;
+  accountingProviders: Map<string, AccountingProvider>;
   identityProviders: Map<string, IdentityProvider>;
   issuingProviders: Map<string, IssuingProvider>;
   marketplaceProviders: Map<string, MarketplaceProvider>;
@@ -124,6 +127,7 @@ export function resolveConfig(config: PayableConfig): ResolvedConfig {
     tenantResolver: config.tenant?.resolver,
     authorizationEnabled: config.authorization?.enabled ?? false,
     providers: new Map(entries),
+    accountingProviders: new Map(Object.entries(config.accountingProviders ?? {})),
     identityProviders: new Map(Object.entries(config.identityProviders ?? {})),
     issuingProviders: new Map(Object.entries(config.issuingProviders ?? {})),
     marketplaceProviders: new Map(Object.entries(config.marketplaceProviders ?? {})),
