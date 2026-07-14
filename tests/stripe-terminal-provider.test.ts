@@ -1,0 +1,164 @@
+import { inspect } from 'node:util';
+import type Stripe from 'stripe';
+import { describe, expect, it } from 'vitest';
+import {
+  isTerminalDeviceCapable,
+  isTerminalPaymentCapable,
+} from '../src/domain/contracts/terminal-provider.contract';
+import { Money } from '../src/domain/value-objects/money';
+import { StripeTerminalProvider } from '../src/infrastructure/providers/stripe/stripe-terminal-provider';
+import {
+  fakeStripeTerminal,
+  stripeTerminalPaymentIntent,
+  stripeTerminalReader,
+} from './support/stripe-terminal';
+
+const context = { correlationId: 'corr-1', idempotencyKey: 'terminal-idem-1' };
+
+function provider(client: Stripe): StripeTerminalProvider {
+  return new StripeTerminalProvider({ secretKey: 'sk_test' }, client);
+}
+
+describe('Stripe Terminal provider', () => {
+  it('advertises complete device and payment capabilities without exposing secrets', () => {
+    const { client } = fakeStripeTerminal();
+    const instance = provider(client);
+
+    expect(instance.capabilities()).toEqual(new Set(['devices', 'payments']));
+    expect(isTerminalDeviceCapable(instance)).toBe(true);
+    expect(isTerminalPaymentCapable(instance)).toBe(true);
+    const configured = new StripeTerminalProvider({ secretKey: 'sk_live_private' });
+    expect(JSON.stringify(configured)).not.toContain('sk_live_private');
+    expect(inspect(configured)).not.toContain('sk_live_private');
+  });
+
+  it('lists and retrieves readers with bounded location filtering', async () => {
+    const { client, calls } = fakeStripeTerminal();
+    const instance = provider(client);
+
+    const devices = await instance.listTerminalDevices({ locationId: 'tml_1', limit: 150 });
+    const retrieved = await instance.retrieveTerminalDevice('tmr_1');
+
+    expect(calls.readersList).toHaveBeenCalledWith({ location: 'tml_1', limit: 100 });
+    expect(calls.readersPage.autoPagingToArray).toHaveBeenCalledWith({ limit: 150 });
+    expect(calls.readersRetrieve).toHaveBeenCalledWith('tmr_1');
+    expect(devices.map((device) => device.status)).toEqual(['busy', 'offline']);
+    expect(retrieved).toEqual({
+      providerDeviceId: 'tmr_1',
+      label: 'Front desk',
+      locationId: 'tml_1',
+      status: 'busy',
+      serialNumber: 'S700-123',
+      deviceType: 'stripe_s700',
+    });
+    expect(JSON.stringify(retrieved)).not.toContain('10.0.0.20');
+  });
+
+  it('creates and hands a card-present PaymentIntent to the reader', async () => {
+    const { client, calls } = fakeStripeTerminal();
+
+    const payment = await provider(client).createTerminalPayment(
+      {
+        providerDeviceId: 'tmr_1',
+        amount: Money.of(2_500, 'EUR'),
+        reference: 'sale-1',
+      },
+      context,
+    );
+
+    expect(calls.paymentIntentsCreate).toHaveBeenCalledWith(
+      {
+        amount: 2_500,
+        currency: 'eur',
+        capture_method: 'automatic',
+        payment_method_types: ['card_present'],
+        metadata: { reference: 'sale-1' },
+      },
+      { idempotencyKey: 'terminal-idem-1' },
+    );
+    expect(calls.readersProcessPaymentIntent).toHaveBeenCalledWith(
+      'tmr_1',
+      { payment_intent: 'pi_terminal_1' },
+      { idempotencyKey: 'terminal-idem-1' },
+    );
+    expect(payment).toMatchObject({
+      providerTerminalPaymentId: 'tmr_1',
+      providerPaymentId: 'pi_terminal_1',
+      providerDeviceId: 'tmr_1',
+      status: 'in_progress',
+    });
+    expect(payment.amount.amount()).toBe(2_500);
+  });
+
+  it('forwards manual capture to the PaymentIntent', async () => {
+    const { client, calls } = fakeStripeTerminal();
+
+    await provider(client).createTerminalPayment(
+      {
+        providerDeviceId: 'tmr_1',
+        amount: Money.of(5_000, 'USD'),
+        captureMethod: 'manual',
+      },
+      context,
+    );
+
+    expect(calls.paymentIntentsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ capture_method: 'manual' }),
+      { idempotencyKey: 'terminal-idem-1' },
+    );
+  });
+
+  it('retrieves reader action and PaymentIntent state', async () => {
+    const { client, calls } = fakeStripeTerminal();
+    calls.readersRetrieve.mockResolvedValue(
+      stripeTerminalReader({
+        action: {
+          api_error: null,
+          failure_code: null,
+          failure_message: null,
+          process_payment_intent: { payment_intent: 'pi_terminal_1' },
+          status: 'succeeded',
+          type: 'process_payment_intent',
+        },
+      }),
+    );
+    calls.paymentIntentsRetrieve.mockResolvedValue(
+      stripeTerminalPaymentIntent({ status: 'succeeded', amount_received: 2_500 }),
+    );
+
+    const payment = await provider(client).retrieveTerminalPayment('tmr_1');
+
+    expect(calls.readersRetrieve).toHaveBeenCalledWith('tmr_1');
+    expect(calls.paymentIntentsRetrieve).toHaveBeenCalledWith('pi_terminal_1');
+    expect(payment.status).toBe('succeeded');
+  });
+
+  it('cancels the current reader action with idempotency', async () => {
+    const { client, calls } = fakeStripeTerminal();
+
+    const payment = await provider(client).cancelTerminalPayment('tmr_1', context);
+
+    expect(calls.readersRetrieve).toHaveBeenCalledWith('tmr_1');
+    expect(calls.readersCancelAction).toHaveBeenCalledWith(
+      'tmr_1',
+      {},
+      { idempotencyKey: 'terminal-idem-1' },
+    );
+    expect(calls.paymentIntentsRetrieve).toHaveBeenCalledWith('pi_terminal_1');
+    expect(payment.status).toBe('canceled');
+  });
+
+  it('normalizes Stripe Terminal errors', async () => {
+    const { client, calls } = fakeStripeTerminal();
+    calls.readersRetrieve.mockRejectedValue({
+      type: 'StripeInvalidRequestError',
+      code: 'terminal_reader_offline',
+      message: 'Reader offline',
+    });
+
+    await expect(provider(client).retrieveTerminalDevice('offline')).rejects.toMatchObject({
+      code: 'PROVIDER_REQUEST_INVALID',
+      context: expect.objectContaining({ provider: 'stripe-terminal' }),
+    });
+  });
+});

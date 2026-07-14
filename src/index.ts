@@ -206,6 +206,10 @@ export {
   type StripeTaxProviderOptions,
 } from './infrastructure/providers/stripe/stripe-tax-provider';
 export {
+  StripeTerminalProvider,
+  type StripeTerminalProviderOptions,
+} from './infrastructure/providers/stripe/stripe-terminal-provider';
+export {
   StripeTreasuryProvider,
   type StripeTreasuryProviderOptions,
 } from './infrastructure/providers/stripe/stripe-treasury-provider';
