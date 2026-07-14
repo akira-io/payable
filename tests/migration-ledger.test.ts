@@ -17,6 +17,7 @@ describe('migration ledger', () => {
       '002-system-tables',
       '003-alter-existing-tables',
       '004-widen-endpoint-secret',
+      '005-webhook-occurred-at',
     ]);
     await db.destroy();
   });

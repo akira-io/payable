@@ -71,9 +71,9 @@ async function harness(options?: {
 describe('Treasury webhook processing', () => {
   it('verifies, stores, processes, audits, emits, and deduplicates independently', async () => {
     const events = new InMemoryEventBus();
-    const emitted: string[] = [];
+    const emitted: { name: string; occurredAt: Date }[] = [];
     events.listen('treasury.webhook.processed', (event) => {
-      emitted.push(event.name);
+      emitted.push({ name: event.name, occurredAt: event.occurredAt });
     });
     const { db, storage, provider, payable } = await harness({ events });
 
@@ -94,14 +94,26 @@ describe('Treasury webhook processing', () => {
     expect(second).toMatchObject({ duplicate: true, status: 'processed' });
     expect(
       await storage.webhookEvents.findByProviderEvent('bank', 'treasury-event-1'),
-    ).toMatchObject({ status: 'processed', normalizedType: 'treasury.transaction.created' });
+    ).toMatchObject({
+      status: 'processed',
+      normalizedType: 'treasury.transaction.created',
+      occurredAt: new Date('2026-07-14T10:00:00.000Z'),
+    });
     expect(await storage.auditLogs.list({ resourceType: 'webhook_event' })).toMatchObject([
       { action: 'treasury.webhook.TransactionCreated', actorId: 'bank' },
     ]);
-    expect(await db('payable_outbox_events').select('event_type')).toEqual([
-      { event_type: 'treasury.transaction.created.v1' },
+    const [outbox] = await db('payable_outbox_events').select('event_type', 'payload');
+    expect(outbox.event_type).toBe('treasury.transaction.created.v1');
+    expect(JSON.parse(outbox.payload)).toMatchObject({
+      providerEventId: 'treasury-event-1',
+      occurredAt: '2026-07-14T10:00:00.000Z',
+    });
+    expect(emitted).toEqual([
+      {
+        name: 'treasury.webhook.processed',
+        occurredAt: new Date('2026-07-14T10:00:00.000Z'),
+      },
     ]);
-    expect(emitted).toEqual(['treasury.webhook.processed']);
     await db.destroy();
   });
 
@@ -155,7 +167,7 @@ describe('Treasury webhook processing', () => {
   });
 
   it('marks failed processing and retries the same stored event on redelivery', async () => {
-    const { db, storage, payable } = await harness();
+    const { db, storage, provider, payable } = await harness();
     const transaction = storage.transaction.bind(storage);
     let fail = true;
     storage.transaction = async (work) => {
@@ -173,9 +185,15 @@ describe('Treasury webhook processing', () => {
       await storage.webhookEvents.findByProviderEvent('bank', 'treasury-event-1'),
     ).toMatchObject({ status: 'failed' });
 
+    provider.result = {
+      ...provider.result,
+      occurredAt: new Date('2026-07-14T12:00:00.000Z'),
+    };
     await expect(
       payable.receiveTreasuryWebhook({ provider: 'bank', payload: '{}', signature: 'sig' }),
     ).resolves.toMatchObject({ duplicate: true, status: 'processed' });
+    const [outbox] = await db('payable_outbox_events').select('payload');
+    expect(JSON.parse(outbox.payload).occurredAt).toBe('2026-07-14T10:00:00.000Z');
     await db.destroy();
   });
 });

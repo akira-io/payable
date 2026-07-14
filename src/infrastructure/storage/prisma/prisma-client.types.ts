@@ -130,6 +130,7 @@ export interface PrismaWebhookEventRow {
   headers: string;
   status: string;
   correlationId: string;
+  occurredAt: Date | null;
   receivedAt: Date;
   processedAt: Date | null;
   claimedUntil: Date | null;

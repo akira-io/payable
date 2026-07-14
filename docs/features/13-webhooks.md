@@ -24,7 +24,8 @@ await payable.receiveTreasuryWebhook({
 Treasury processing dispatches `payable.treasury-webhook.process`, writes audit actions prefixed
 with `treasury.webhook.`, creates outbox events only for normalized types, and emits
 `treasury.webhook.processed`. Exact provider redeliveries reuse the stored event and retry only
-pending or failed processing.
+pending or failed processing. Provider `occurredAt` timestamps survive storage and retry, appear in
+normalized Treasury outbox payloads, and become the domain event occurrence time.
 
 ## Pipeline overview
 

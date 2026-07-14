@@ -42,7 +42,7 @@ export class ProcessTreasuryWebhookAction {
           providerEventId: event.providerEventId,
           type: event.type,
           normalizedType: event.normalizedType as TreasuryWebhookEventType | null,
-          occurredAt: null,
+          occurredAt: event.occurredAt ?? null,
           data: event.data,
         },
         webhookEventId: event.id,

@@ -168,6 +168,7 @@ model PayableWebhookEvent {
   headers         String
   status          String
   correlationId   String    @map("correlation_id")
+  occurredAt      DateTime? @map("occurred_at")
   receivedAt      DateTime  @map("received_at")
   processedAt     DateTime? @map("processed_at")
   claimedUntil    DateTime? @map("claimed_until")

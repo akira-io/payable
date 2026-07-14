@@ -15,6 +15,7 @@ export async function createSystemTables(knex: Knex): Promise<void> {
     table.text('headers').notNullable();
     table.string('status').notNullable();
     table.string('correlation_id').notNullable();
+    table.timestamp('occurred_at', { useTz: true }).nullable();
     table.timestamp('received_at', { useTz: true }).notNullable();
     table.timestamp('processed_at', { useTz: true }).nullable();
     table.timestamp('claimed_until', { useTz: true }).nullable();

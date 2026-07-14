@@ -17,6 +17,8 @@ export class ProcessTreasuryWebhookPipeline {
   async handle(input: ProcessTreasuryWebhookInput): Promise<void> {
     const { storage, events, clock, providerName } = this.deps;
     const processedAt = clock.now();
+    const providerOccurredAt = input.verified.occurredAt;
+    const serializedOccurredAt = providerOccurredAt?.toISOString() ?? null;
     const tenantId = input.tenantId ?? null;
     await storage.transaction(async (repos) => {
       await repos.auditLogs.create({
@@ -29,7 +31,10 @@ export class ProcessTreasuryWebhookPipeline {
         resourceId: input.webhookEventId,
         before: null,
         after: input.verified.data,
-        metadata: { normalizedType: input.verified.normalizedType },
+        metadata: {
+          normalizedType: input.verified.normalizedType,
+          occurredAt: serializedOccurredAt,
+        },
         ipAddress: null,
         userAgent: null,
       });
@@ -39,7 +44,11 @@ export class ProcessTreasuryWebhookPipeline {
           correlationId: input.correlationId,
           eventType: `${input.verified.normalizedType}.v1`,
           eventVersion: 1,
-          payload: { providerEventId: input.verified.providerEventId, data: input.verified.data },
+          payload: {
+            providerEventId: input.verified.providerEventId,
+            occurredAt: serializedOccurredAt,
+            data: input.verified.data,
+          },
           dedupeKey: `treasury-webhook:${input.webhookEventId}:${input.verified.normalizedType}`,
         });
       }
@@ -65,7 +74,7 @@ export class ProcessTreasuryWebhookPipeline {
             provider: providerName,
             providerEventId: input.verified.providerEventId,
           },
-          { correlationId: input.correlationId, occurredAt: processedAt },
+          { correlationId: input.correlationId, occurredAt: providerOccurredAt ?? processedAt },
         ),
       )
       .catch(() => {});

@@ -69,6 +69,7 @@ export function registerSystemContract(ctx: ContractContext): void {
 
   it('deduplicates and claims webhook events', async () => {
     const { storage, clock } = ctx.harness();
+    const occurredAt = new Date('2026-07-14T10:00:00.000Z');
     const created = await storage.webhookEvents.create({
       tenantId: null,
       provider: 'stripe',
@@ -81,12 +82,14 @@ export function registerSystemContract(ctx: ContractContext): void {
       headers: { 'x-test': '1' },
       status: 'pending',
       correlationId: 'corr-1',
+      occurredAt,
       receivedAt: clock.now(),
     });
 
     const found = await storage.webhookEvents.findByProviderEvent('stripe', 'evt_1');
     expect(found?.id).toBe(created.id);
     expect(found?.data).toEqual({ object: 'payment_intent' });
+    expect(found?.occurredAt).toEqual(occurredAt);
 
     const token = await storage.webhookEvents.claim(created.id);
     expect(token).not.toBeNull();

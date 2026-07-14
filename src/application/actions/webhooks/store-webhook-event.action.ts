@@ -8,6 +8,7 @@ export interface VerifiedProviderWebhook {
   providerEventId: string;
   type: string;
   normalizedType: string | null;
+  occurredAt?: Date | null;
   data: Record<string, unknown>;
 }
 
@@ -65,6 +66,7 @@ export class StoreWebhookEventAction {
         headers: redactHeaders(input.headers ?? {}),
         status: 'pending',
         correlationId,
+        occurredAt: input.verified.occurredAt ?? null,
         receivedAt: clock.now(),
       });
       return { id: created.id, correlationId, duplicate: false, status: 'pending' };

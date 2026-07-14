@@ -14,6 +14,7 @@ export interface WebhookEvent extends TenantScoped {
   readonly headers: Record<string, string>;
   readonly status: WebhookEventStatus;
   readonly correlationId: string;
+  readonly occurredAt?: Date | null;
   readonly receivedAt: Date;
   readonly processedAt: Date | null;
 }
