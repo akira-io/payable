@@ -65,9 +65,12 @@ export interface AccountingLabelCapable {
   deleteAccountingLabel(providerLabelId: string, ctx: OperationContext): Promise<void>;
 }
 
-export interface AccountingExpenseCapable {
+export interface AccountingExpenseReadCapable {
   listAccountingExpenses(input?: ListAccountingExpensesInput): Promise<AccountingExpenseDTO[]>;
   retrieveAccountingExpense(providerExpenseId: string): Promise<AccountingExpenseDTO>;
+}
+
+export interface AccountingExpenseCapable extends AccountingExpenseReadCapable {
   updateAccountingExpense(
     input: UpdateAccountingExpenseInput,
     ctx: OperationContext,
@@ -120,13 +123,22 @@ export function isAccountingLabelCapable(
   );
 }
 
+export function isAccountingExpenseReadCapable(
+  provider: AccountingProvider,
+): provider is AccountingProvider & AccountingExpenseReadCapable {
+  const candidate = provider as Partial<AccountingExpenseReadCapable>;
+  return (
+    typeof candidate.listAccountingExpenses === 'function' &&
+    typeof candidate.retrieveAccountingExpense === 'function'
+  );
+}
+
 export function isAccountingExpenseCapable(
   provider: AccountingProvider,
 ): provider is AccountingProvider & AccountingExpenseCapable {
   const candidate = provider as Partial<AccountingExpenseCapable>;
   return (
-    typeof candidate.listAccountingExpenses === 'function' &&
-    typeof candidate.retrieveAccountingExpense === 'function' &&
+    isAccountingExpenseReadCapable(provider) &&
     typeof candidate.updateAccountingExpense === 'function'
   );
 }

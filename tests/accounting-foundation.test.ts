@@ -55,9 +55,27 @@ describe('accounting provider foundation', () => {
   });
 
   it('allows provider-specific capability strings', () => {
-    const capabilities: AccountingCapabilities = new Set(['categories', 'x-example-sync']);
+    const capabilities: AccountingCapabilities = new Set([
+      'categories',
+      'expenseReads',
+      'x-example-sync',
+    ]);
 
     expect(capabilities.has('x-example-sync')).toBe(true);
+  });
+
+  it('distinguishes read-only expense providers from full expense providers', () => {
+    const readGuard = Reflect.get(PayableApi, 'isAccountingExpenseReadCapable') as (
+      provider: object,
+    ) => boolean;
+    const reader = {
+      ...accountingProvider,
+      listAccountingExpenses: async () => [],
+      retrieveAccountingExpense: async () => undefined,
+    };
+
+    expect(readGuard(reader)).toBe(true);
+    expect(PayableApi.isAccountingExpenseCapable(reader)).toBe(false);
   });
 
   it.each([

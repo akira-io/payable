@@ -315,7 +315,13 @@ Register it like any built-in provider through the engine config (`{ providers: 
 
 Accounting integrations use the independent `accountingProviders` config and
 `payable.accountingProviders()` registry. Their tax-rate metadata is for bookkeeping only and remains
-separate from tax calculation providers.
+separate from tax calculation providers. Categories, tax rates, labels, expense reads, full expense
+management, and ledger access are advertised independently.
+
+`AccountingExpenseReadCapable` is the normalized list and retrieve surface and uses the `expenseReads`
+capability. `AccountingExpenseCapable` extends it with updates and requires `expenses`. A provider that
+can only read expenses must not advertise the full capability. Applications should narrow with
+`isAccountingExpenseReadCapable` when they do not need mutation.
 
 Identity integrations use the independent `identityProviders` config and
 `payable.identityProviders()` registry. Applications remain responsible for consent, retention,
