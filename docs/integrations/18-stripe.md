@@ -9,6 +9,9 @@ calculation and transaction contracts without adding Stripe-specific methods to 
 Stripe Issuing is exposed through `StripeIssuingProvider`, with a separate registry and no card data
 or operations added to the payment provider.
 
+Stripe Identity is exposed through `StripeIdentityProvider`. Verification sessions remain separate
+from payment customers and Connect onboarding, and normalized results exclude verified personal data.
+
 `StripeProvider` (`src/infrastructure/providers/stripe/stripe-provider.ts`) is the reference
 implementation of `PaymentProvider`. It implements the base contract and optional capabilities for
 charges, subscriptions, invoices, saved payment methods, payment-method setup, disputes, payouts,
@@ -68,6 +71,20 @@ const issuing = new StripeIssuingProvider({
 
 `StripeIssuingProvider` has the registry name `stripe-issuing` and declares `cardholders`, `cards`,
 `authorizations`, and `transactions`. It uses the same dynamic optional Stripe SDK boundary.
+
+### Stripe Identity provider
+
+```ts
+import { StripeIdentityProvider } from '@akira-io/payable';
+
+const identity = new StripeIdentityProvider({
+  secretKey: process.env.STRIPE_SECRET_KEY!,
+});
+```
+
+`StripeIdentityProvider` has the registry name `stripe-identity` and declares only
+`verificationSessions`. It lazily loads the optional Stripe SDK and does not add identity methods or
+results to `StripeProvider`.
 
 ## Declared capabilities
 
@@ -323,6 +340,44 @@ Reader action and then the PaymentIntent to normalize amount, failure code, and 
 does not cancel the underlying PaymentIntent because Stripe's Reader cancellation endpoint and
 PaymentIntent cancellation are separate operations. If handoff fails after PaymentIntent creation,
 retrying with the same idempotency key reuses the same Stripe write results.
+
+## Identity verification
+
+`createIdentityVerification` creates a Stripe Identity VerificationSession and forwards the opaque
+application reference as both `client_reference_id` and `metadata.reference`. The reference must not
+contain a name, email address, phone number, national identifier, or other PII. `returnUrl` maps to
+Stripe's `return_url`, and every create, cancel, and redact request forwards `ctx.idempotencyKey`.
+
+Supported check combinations are:
+
+| Generic checks | Stripe configuration |
+| --- | --- |
+| `document` | `type: document` |
+| `document`, `selfie` | document with `require_matching_selfie` |
+| `document`, `id_number` | document with `require_id_number` |
+| `document`, `selfie`, `id_number` | document with both options |
+| `id_number` | `type: id_number` |
+
+`selfie` without `document`, empty check lists, `address`, and `phone` fail before an SDK request with
+`PROVIDER_OPERATION_UNSUPPORTED`. Stripe exposes address and phone checks through restricted flows,
+not through the generic session configuration implemented here.
+
+Stripe `requires_input`, `processing`, `verified`, and `canceled` states map directly to the generic
+lifecycle. Redaction `processing` and `validated` remain `processing`; only Stripe redaction state
+`redacted` maps to `redacted`. Stripe does not expose a verification-completion timestamp on the
+session, so `verifiedAt` is `null`.
+
+The returned DTO contains only the session ID, opaque reference, requested checks, normalized status,
+short-lived client secret and verification URL, and creation time. It never returns or expands
+`verified_outputs`, `last_verification_report`, `last_error`, `provided_details`, document images,
+selfies, biometric data, national identifiers, or VerificationReports. Applications must not log or
+persist the client secret or verification URL and remain responsible for consent, retention, access
+control, and regulatory compliance.
+
+Cancellation is irreversible and Stripe permits it only while a session requires input. Redaction is
+also irreversible, can take several days, erases metadata, and eventually emits Stripe's redacted
+event. Poll `retrieveIdentityVerification` until the normalized status is `redacted` when completion
+matters to the application.
 
 ## Provider webhook management
 
