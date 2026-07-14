@@ -251,6 +251,45 @@ deprecated in favor of responding directly to real-time authorization webhooks, 
 should treat this method as a compatibility path until a generic synchronous webhook-response
 contract is approved.
 
+## Connect marketplace
+
+`StripeMarketplaceProvider` is an independent marketplace provider named `stripe-connect`. It
+implements seller accounts, hosted onboarding, platform-to-seller transfers, and connected-account
+payouts without adding Stripe Connect fields to payment DTOs or coupling marketplace operations to
+`StripeProvider`.
+
+```ts
+import { StripeMarketplaceProvider } from '@akira-io/payable';
+
+const marketplace = new StripeMarketplaceProvider({
+  secretKey: process.env.STRIPE_SECRET_KEY!,
+});
+```
+
+Connected accounts use Stripe's current `controller` configuration instead of the deprecated account
+`type` parameter. The provider creates accounts with Stripe-managed requirement collection, Express
+Dashboard access, application-paid Stripe fees, and application liability for payment losses.
+`individual` and `business` map to Stripe's `individual` and `company` business types; the generic
+contract does not expose Stripe account-type vocabulary.
+
+Account status is derived from `charges_enabled`, `payouts_enabled`, submitted details, and
+`requirements.currently_due`. Disabled accounts map from `requirements.disabled_reason`. Account
+listing uses bounded auto-pagination and applies the generic status filter after normalization.
+
+Onboarding links use `account_onboarding` and forward `ctx.idempotencyKey`. Transfers move funds from
+the platform balance to the destination connected account and also forward idempotency. Stripe does
+not expose a transfer lifecycle status, so unreversed transfers normalize to `completed` and fully
+reversed transfers normalize to `reversed`.
+
+Payout create, list, and retrieve requests pass the seller account ID only through Stripe's
+`stripeAccount` request option. This makes payouts operate on the connected account balance while
+account, onboarding, and transfer calls remain platform requests. `pending` and `in_transit` Stripe
+payouts normalize to `pending`; `paid`, `failed`, and `canceled` retain their meaning.
+
+Marketplace transfers do not create customer payments and are not automatically reversed when an
+unrelated payment fails. The application remains responsible for choosing the payment flow, waiting
+for asynchronous funds when required, and reconciling transfer reversals.
+
 ## Provider webhook management
 
 `StripeProvider` implements remote webhook endpoint create, list, retrieve, update, and delete through

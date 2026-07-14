@@ -22,6 +22,7 @@ describe('public API surface', () => {
     expect(typeof payable.IdempotencyKey).toBe('function');
     expect(typeof payable.StripeProvider).toBe('function');
     expect(typeof payable.StripeIssuingProvider).toBe('function');
+    expect(typeof payable.StripeMarketplaceProvider).toBe('function');
     expect(typeof payable.StripeTaxProvider).toBe('function');
     expect(typeof payable.PaddleProvider).toBe('function');
     expect(typeof payable.RevolutProvider).toBe('function');
