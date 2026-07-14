@@ -186,6 +186,10 @@ export {
 } from './infrastructure/providers/revolut/revolut-provider';
 export { StripeEventNormalizer } from './infrastructure/providers/stripe/stripe-event-normalizer';
 export {
+  StripeIssuingProvider,
+  type StripeIssuingProviderOptions,
+} from './infrastructure/providers/stripe/stripe-issuing-provider';
+export {
   StripeProvider,
   type StripeProviderOptions,
 } from './infrastructure/providers/stripe/stripe-provider';

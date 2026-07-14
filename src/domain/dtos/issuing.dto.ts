@@ -14,10 +14,27 @@ export type IssuingAuthorizationStatus =
   | 'unknown';
 export type IssuingTransactionType = 'capture' | 'refund' | 'reversal' | 'unknown';
 
+export interface IssuingAddressDTO {
+  line1: string;
+  line2?: string;
+  city: string;
+  region?: string;
+  postalCode: string;
+  country: string;
+}
+
+export interface IssuingShippingDTO {
+  name: string;
+  phone?: string;
+  address: IssuingAddressDTO;
+}
+
 export interface CreateIssuingCardholderInput {
   type: 'individual' | 'business';
   name: string;
   email?: string;
+  phone?: string;
+  billingAddress?: IssuingAddressDTO;
   reference?: string;
 }
 
@@ -35,6 +52,8 @@ export interface CreateIssuingCardInput {
   holderReference?: string;
   form: 'virtual' | 'physical';
   label?: string;
+  currency?: string;
+  shipping?: IssuingShippingDTO;
   spendingLimit?: Money;
 }
 
