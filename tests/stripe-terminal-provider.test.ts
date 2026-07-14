@@ -74,12 +74,12 @@ describe('Stripe Terminal provider', () => {
         payment_method_types: ['card_present'],
         metadata: { reference: 'sale-1' },
       },
-      { idempotencyKey: 'terminal-idem-1' },
+      { idempotencyKey: 'terminal-idem-1:stripe-terminal:payment-intent' },
     );
     expect(calls.readersProcessPaymentIntent).toHaveBeenCalledWith(
       'tmr_1',
       { payment_intent: 'pi_terminal_1' },
-      { idempotencyKey: 'terminal-idem-1' },
+      { idempotencyKey: 'terminal-idem-1:stripe-terminal:reader-process' },
     );
     expect(payment).toMatchObject({
       providerTerminalPaymentId: 'v1:tmr_1:pi_terminal_1',
@@ -109,6 +109,31 @@ describe('Stripe Terminal provider', () => {
     expect(second.providerTerminalPaymentId).toBe('v1:tmr_1:pi_terminal_2');
   });
 
+  it('derives stable bounded keys for each Stripe write operation', async () => {
+    const { client, calls } = fakeStripeTerminal();
+    const longContext = { correlationId: 'corr-long', idempotencyKey: 'k'.repeat(512) };
+    const instance = provider(client);
+
+    await instance.createTerminalPayment(
+      { providerDeviceId: 'tmr_1', amount: Money.of(2_500, 'EUR') },
+      longContext,
+    );
+    await instance.createTerminalPayment(
+      { providerDeviceId: 'tmr_1', amount: Money.of(2_500, 'EUR') },
+      longContext,
+    );
+
+    const createKeys = calls.paymentIntentsCreate.mock.calls.map((call) => call[1]?.idempotencyKey);
+    const processKeys = calls.readersProcessPaymentIntent.mock.calls.map(
+      (call) => call[2]?.idempotencyKey,
+    );
+    expect(createKeys[0]).toBe(createKeys[1]);
+    expect(processKeys[0]).toBe(processKeys[1]);
+    expect(createKeys[0]).not.toBe(processKeys[0]);
+    expect(createKeys[0]?.length).toBeLessThanOrEqual(255);
+    expect(processKeys[0]?.length).toBeLessThanOrEqual(255);
+  });
+
   it('forwards manual capture to the PaymentIntent', async () => {
     const { client, calls } = fakeStripeTerminal();
 
@@ -123,7 +148,7 @@ describe('Stripe Terminal provider', () => {
 
     expect(calls.paymentIntentsCreate).toHaveBeenCalledWith(
       expect.objectContaining({ capture_method: 'manual' }),
-      { idempotencyKey: 'terminal-idem-1' },
+      { idempotencyKey: 'terminal-idem-1:stripe-terminal:payment-intent' },
     );
   });
 

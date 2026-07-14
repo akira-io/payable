@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type Stripe from 'stripe';
 import type {
   TerminalDeviceCapable,
@@ -26,6 +27,9 @@ import {
 
 const DEFAULT_LIST_LIMIT = 100;
 const STRIPE_PAGE_LIMIT = 100;
+const STRIPE_IDEMPOTENCY_KEY_LIMIT = 255;
+
+type StripeTerminalWriteOperation = 'payment-intent' | 'reader-process';
 
 export interface StripeTerminalProviderOptions {
   secretKey: string;
@@ -80,7 +84,7 @@ export class StripeTerminalProvider
             payment_method_types: ['card_present'],
             metadata: input.reference ? { reference: input.reference } : undefined,
           },
-          this.idempotency(ctx),
+          this.terminalWriteIdempotency(ctx, 'payment-intent'),
         ),
       this.name,
     );
@@ -89,7 +93,7 @@ export class StripeTerminalProvider
         stripe.terminal.readers.processPaymentIntent(
           input.providerDeviceId,
           { payment_intent: paymentIntent.id },
-          this.idempotency(ctx),
+          this.terminalWriteIdempotency(ctx, 'reader-process'),
         ),
       this.name,
     );
@@ -158,6 +162,19 @@ export class StripeTerminalProvider
 
   private idempotency(ctx: OperationContext): Stripe.RequestOptions {
     return { idempotencyKey: ctx.idempotencyKey };
+  }
+
+  private terminalWriteIdempotency(
+    ctx: OperationContext,
+    operation: StripeTerminalWriteOperation,
+  ): Stripe.RequestOptions {
+    const suffix = `:stripe-terminal:${operation}`;
+    const readableKey = `${ctx.idempotencyKey}${suffix}`;
+    if (readableKey.length <= STRIPE_IDEMPOTENCY_KEY_LIMIT) {
+      return { idempotencyKey: readableKey };
+    }
+    const digest = createHash('sha256').update(`${ctx.idempotencyKey}${suffix}`).digest('hex');
+    return { idempotencyKey: `payable:stripe-terminal:${operation}:${digest}` };
   }
 
   private async stripe(): Promise<Stripe> {
