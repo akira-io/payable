@@ -22,7 +22,7 @@ function isStripeError(error: unknown): error is StripeLikeError {
   return typeof type === 'string' && type.startsWith('Stripe');
 }
 
-export async function withStripeErrors<T>(fn: () => Promise<T>): Promise<T> {
+export async function withStripeErrors<T>(fn: () => Promise<T>, provider = 'stripe'): Promise<T> {
   try {
     return await fn();
   } catch (error) {
@@ -31,7 +31,7 @@ export async function withStripeErrors<T>(fn: () => Promise<T>): Promise<T> {
     }
     throw new PayableError(error.message ?? 'Stripe request failed', {
       code: CODE_BY_TYPE[error.type ?? ''] ?? 'PROVIDER_ERROR',
-      context: { provider: 'stripe', stripeType: error.type, stripeCode: error.code },
+      context: { provider, stripeType: error.type, stripeCode: error.code },
       cause: error,
     });
   }
