@@ -4,7 +4,7 @@ export type RevolutBusinessEnvironment = RevolutEnvironment;
 export type RevolutBusinessFetch = RevolutFetch;
 
 export interface RevolutBusinessRequestOptions {
-  method: 'GET' | 'POST';
+  method: 'DELETE' | 'GET' | 'POST';
   body?: unknown;
 }
 
@@ -47,7 +47,29 @@ export interface RevolutBusinessTransaction {
   created_at?: string;
   updated_at?: string;
   completed_at?: string;
+  card?: {
+    id?: string;
+    card_id?: string;
+  };
   legs: RevolutBusinessTransactionLeg[];
+}
+
+export interface RevolutBusinessCard {
+  id: string;
+  holder_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  virtual: boolean;
+  last_digits: string;
+  expiry: string;
+  label?: string;
+  state: string;
+  product?: {
+    brand?: string;
+    name?: string;
+    scheme?: string;
+  };
+  accounts?: string[];
 }
 
 export interface RevolutBusinessCounterparty {

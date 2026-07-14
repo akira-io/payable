@@ -6,6 +6,10 @@ setup orders, direct subscriptions, customers, refunds, signed webhooks, and rec
 Business API Treasury features and webhooks use the separate `RevolutBusinessTreasuryProvider`; see
 [Revolut Business Treasury](21d-revolut-business-treasury.md).
 
+Business API card issuing uses the independent `RevolutBusinessIssuingProvider`. It implements the
+generic Issuing card and transaction contracts without adding Business operations to
+`RevolutProvider` or `PaymentProvider`.
+
 ## Construction and options
 
 - `secretKey` - Merchant API secret key sent as `Authorization: Bearer <key>`.
@@ -34,6 +38,23 @@ const payable = createPayable({
 ```
 
 No SDK or peer dependency is required.
+
+### Revolut Business Issuing
+
+```ts
+import { RevolutBusinessIssuingProvider } from '@akira-io/payable';
+
+const issuing = new RevolutBusinessIssuingProvider({
+  tokenProvider: {
+    getAccessToken: () => accessTokenStore.current(),
+  },
+});
+```
+
+The provider name is `revolut-business-issuing`. It resolves a fresh Business access token for every
+request and uses the same production Business API base URL as the Treasury provider. Revolut does not
+make its Cards API available in Sandbox; use injected HTTP tests or an approved production test
+account for card integration testing.
 
 Provider-specific details are documented in [Disputes](21a-revolut-disputes.md),
 [Payouts](21b-revolut-payouts.md), and [Webhook Management](21c-revolut-webhook-management.md).
@@ -285,6 +306,38 @@ Unmapped events normalize to `null` and are still stored.
 
 `currentPeriodEnd` and `trialEndsAt` are `null` for webhook-only reconciliation because the payload
 does not contain the full subscription object.
+
+## Business card issuing
+
+`RevolutBusinessIssuingProvider` declares only `cards` and `transactions`. Revolut Business does not
+provide equivalent generic cardholder creation or authorization-response operations, so those
+capabilities are not advertised.
+
+Card creation supports virtual cards only. `ctx.idempotencyKey` is forwarded as Revolut
+`request_id`; `holderReference` maps to `holder_id`, the label is forwarded, and a generic
+`spendingLimit` maps to Revolut's single-transaction limit in major currency units. Physical card
+creation fails before an HTTP request because Revolut requires physical cards to be created in its
+Business application.
+
+Card state operations map as follows:
+
+| Generic state | Revolut operation or state |
+| --- | --- |
+| `active` from `frozen` | `POST /cards/{id}/unfreeze` |
+| `active` from `locked` | `POST /cards/{id}/unlock` |
+| `inactive` | `POST /cards/{id}/freeze` |
+| `blocked` | `POST /cards/{id}/lock` |
+| `canceled` | `DELETE /cards/{id}` |
+
+Card lists paginate with `created_before` and a maximum page size of 100. Returned DTOs contain only
+the card ID, holder ID, virtual or physical form, normalized state, product scheme, last four digits,
+expiry, and creation time. The provider never calls `/cards/{id}/sensitive-details`, never requests
+the `READ_SENSITIVE_CARD_DATA` scope, and never returns PAN, CVV, or PIN.
+
+Issuing transaction reads reuse Business `GET /transactions` and `GET /transaction/{id}`. Results
+are restricted to records containing a card ID, can be filtered by `providerCardId`, and map card
+payments, refunds, and reverted transactions to `capture`, `refund`, and `reversal` respectively.
+The Business API has no issuing authorization identifier, so that optional generic filter is rejected.
 
 ## Error handling
 
