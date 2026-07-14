@@ -22,6 +22,7 @@ const revolutMerchant = new RevolutProvider({
 
 const revolutBusiness = new RevolutBusinessTreasuryProvider({
   environment: 'sandbox',
+  webhookSecret: process.env.REVOLUT_BUSINESS_WEBHOOK_SECRET!,
   tokenProvider: {
     async getAccessToken() {
       return businessTokenCache.getValidAccessToken();
@@ -41,6 +42,9 @@ The options are:
 - `environment` - `production` by default; use `sandbox` for the Revolut Business sandbox.
 - `baseUrl` - optional endpoint override for tests or controlled proxies.
 - `fetch` - optional injected HTTP client. Production uses Node 20's global `fetch`.
+- `webhookSecret` - optional at construction for compatibility, but required to verify Business
+  webhook deliveries.
+- `webhookToleranceMs` - defaults to five minutes for replay protection.
 
 The production base URL is `https://b2b.revolut.com/api/1.0`. The sandbox base URL is
 `https://sandbox-b2b.revolut.com/api/1.0`.
@@ -74,8 +78,9 @@ token's scopes.
 | `transfers` | Move funds between owned accounts or pay an existing counterparty. |
 | `counterparties` | List and retrieve existing counterparties. |
 | `exchange` | Quote and execute currency exchange. |
+| `webhooks` | Verify and normalize Business API v2 events. |
 
-All five capability guards return `true` for this provider.
+All six capability guards return `true` for this provider.
 
 ## Money units
 
@@ -180,6 +185,20 @@ const quote = await provider.quoteTreasuryExchange({
 known target amount. Payable sends the amount on the matching `from` or `to` leg and rejects a
 currency mismatch before the request.
 
+## Webhooks
+
+`verifyTreasuryWebhook` verifies the exact raw payload using the Business webhook signing secret,
+`Revolut-Request-Timestamp`, and one or more `Revolut-Signature` values. The signed value is
+`v1.{timestamp}.{rawPayload}` and the default timestamp tolerance is five minutes.
+
+`TransactionCreated` and `TransactionStateChanged` normalize to Treasury transaction events.
+`PayoutLinkCreated` and `PayoutLinkStateChanged` normalize to payout-link events. Unknown verified
+events remain available with `normalizedType: null`.
+
+Business payloads do not include a delivery event ID. Payable derives a stable ID by prefixing the
+SHA-256 hash of the exact raw payload with `revolut-business:`. Exact retries therefore deduplicate,
+and state-change events are valid even when their creation event has not arrived yet.
+
 ## Error handling
 
 Business API errors become `PayableError` with provider context
@@ -203,7 +222,7 @@ Error context never contains the bearer token.
 - Counterparties are read-only through the common contract.
 - The common transfer contract does not expose transfer cancellation, scheduled payments, transfer
   reason codes, or charge-bearer selection.
-- Business webhooks are not registered or verified by this provider.
+- Webhook endpoint registration and failed-event retrieval remain outside this provider.
 - Revolut Business cards, team management, expenses, accounting, payout links, and draft payments are
   outside the Treasury contract.
 

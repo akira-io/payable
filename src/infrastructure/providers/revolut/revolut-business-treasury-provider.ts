@@ -5,6 +5,7 @@ import type {
   TreasuryProvider,
   TreasuryTransactionCapable,
   TreasuryTransferCapable,
+  TreasuryWebhookCapable,
 } from '../../../domain/contracts/treasury-provider.contract';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type {
@@ -23,6 +24,8 @@ import type {
   TreasuryTransactionDTO,
   TreasuryTransferDTO,
 } from '../../../domain/dtos/treasury.dto';
+import type { VerifiedTreasuryWebhook } from '../../../domain/dtos/treasury-webhook.dto';
+import type { WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { RevolutBusinessAccounts } from './revolut-business-accounts';
 import {
   RevolutBusinessClient,
@@ -34,6 +37,7 @@ import { RevolutBusinessExchange } from './revolut-business-exchange';
 import { RevolutBusinessTransactions } from './revolut-business-transactions';
 import { RevolutBusinessTransfers } from './revolut-business-transfers';
 import type { RevolutBusinessEnvironment, RevolutBusinessFetch } from './revolut-business-types';
+import { RevolutBusinessWebhooks } from './revolut-business-webhooks';
 
 export type { RevolutBusinessTokenProvider } from './revolut-business-client';
 
@@ -42,6 +46,8 @@ export interface RevolutBusinessTreasuryProviderOptions {
   environment?: RevolutBusinessEnvironment;
   baseUrl?: string;
   fetch?: RevolutBusinessFetch;
+  webhookSecret?: string;
+  webhookToleranceMs?: number;
 }
 
 export class RevolutBusinessTreasuryProvider
@@ -51,7 +57,8 @@ export class RevolutBusinessTreasuryProvider
     TreasuryTransactionCapable,
     TreasuryTransferCapable,
     TreasuryCounterpartyCapable,
-    TreasuryExchangeCapable
+    TreasuryExchangeCapable,
+    TreasuryWebhookCapable
 {
   readonly name = 'revolut-business-treasury';
   private readonly accounts: RevolutBusinessAccounts;
@@ -59,6 +66,7 @@ export class RevolutBusinessTreasuryProvider
   private readonly transfers: RevolutBusinessTransfers;
   private readonly counterparties: RevolutBusinessCounterparties;
   private readonly exchange: RevolutBusinessExchange;
+  private readonly webhooks: RevolutBusinessWebhooks;
 
   constructor(options: RevolutBusinessTreasuryProviderOptions) {
     const client = new RevolutBusinessClient(options satisfies RevolutBusinessClientOptions);
@@ -68,6 +76,7 @@ export class RevolutBusinessTreasuryProvider
     this.transfers = new RevolutBusinessTransfers(request);
     this.counterparties = new RevolutBusinessCounterparties(request);
     this.exchange = new RevolutBusinessExchange(request);
+    this.webhooks = new RevolutBusinessWebhooks(options.webhookSecret, options.webhookToleranceMs);
   }
 
   toJSON(): { name: string } {
@@ -79,7 +88,14 @@ export class RevolutBusinessTreasuryProvider
   }
 
   capabilities(): TreasuryCapabilities {
-    return new Set(['accounts', 'transactions', 'transfers', 'counterparties', 'exchange']);
+    return new Set([
+      'accounts',
+      'transactions',
+      'transfers',
+      'counterparties',
+      'exchange',
+      'webhooks',
+    ]);
   }
 
   listTreasuryAccounts(input?: ListTreasuryAccountsInput): Promise<TreasuryAccountDTO[]> {
@@ -134,5 +150,9 @@ export class RevolutBusinessTreasuryProvider
     context: OperationContext,
   ): Promise<TreasuryExchangeDTO> {
     return this.exchange.create(input, context);
+  }
+
+  async verifyTreasuryWebhook(input: WebhookVerificationInput): Promise<VerifiedTreasuryWebhook> {
+    return this.webhooks.verify(input);
   }
 }

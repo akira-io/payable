@@ -3,7 +3,7 @@
 `RevolutProvider` (`src/infrastructure/providers/revolut/revolut-provider.ts`) implements the Merchant
 API flow that fits Payable's current `PaymentProvider` contract: amount checkout orders, subscription
 setup orders, direct subscriptions, customers, refunds, signed webhooks, and reconciliation.
-Business API Treasury features use the separate `RevolutBusinessTreasuryProvider`; see
+Business API Treasury features and webhooks use the separate `RevolutBusinessTreasuryProvider`; see
 [Revolut Business Treasury](21d-revolut-business-treasury.md).
 
 ## Construction and options

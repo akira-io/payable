@@ -92,6 +92,7 @@ describe('treasury provider foundation', () => {
 
     expect(stripe.capabilities().has('webhooks')).toBe(true);
     expect(PayableApi.isTreasuryWebhookCapable(stripe)).toBe(true);
-    expect(revolut.capabilities().has('webhooks')).toBe(false);
+    expect(revolut.capabilities().has('webhooks')).toBe(true);
+    expect(PayableApi.isTreasuryWebhookCapable(revolut)).toBe(true);
   });
 });
