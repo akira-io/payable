@@ -183,6 +183,7 @@ export { SyncQueueDriver } from './infrastructure/queue/sync/sync-queue-driver';
 export { KnexStorageDriver } from './infrastructure/storage/knex/knex-storage-driver';
 export { migrate } from './infrastructure/storage/knex/migrations/migrate';
 export { KnexIdempotencyRepository } from './infrastructure/storage/knex/repositories/knex-idempotency.repository';
+export { IssuingProviderRegistry } from './issuing-provider-registry';
 export { type DeliverWebhooksOptions, Payable, type RefundRequest } from './payable';
 export { ProviderRegistry } from './provider-registry';
 export { FakeClock } from './support/clock/fake-clock';

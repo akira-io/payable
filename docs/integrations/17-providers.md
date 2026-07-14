@@ -176,6 +176,15 @@ when omitted and throws `TaxProviderNotFoundError` for unknown names.
 `TaxTransactionCapable` commits and reverses tax transactions. Tax providers are not payment
 providers, and no tax adapter is registered automatically.
 
+## Issuing providers
+
+Card issuing uses the independent `IssuingProvider` family and `issuingProviders` configuration.
+Capabilities cover cardholders, cards, authorizations, and issuing transactions independently. Every
+operation requires its matching structural guard, and no built-in adapter is registered by default.
+
+Normalized card DTOs expose only non-sensitive display metadata. Full card numbers, CVV, PIN, track
+data, and provider secrets are excluded from the contracts.
+
 - Purpose: fail fast and explicitly before reaching the provider API for an unsupported operation.
 - Edge case: a provider may also throw `ProviderCapabilityNotSupportedError` from inside a method for a
   partial limitation. Paddle does this for partial refunds (see the Paddle integration page).
