@@ -6,11 +6,12 @@ import { StripeTreasuryProvider } from '../src/infrastructure/providers/stripe/s
 
 const payload = JSON.stringify({ id: 'evt_treasury_1' });
 
-function stripeEvent(type: string): Stripe.Event {
+function stripeEvent(type: string, account: string | null = 'acct_1'): Stripe.Event {
   return {
     id: 'evt_treasury_1',
     type,
     created: 1_725_000_000,
+    ...(account ? { account } : {}),
     data: { object: { id: 'resource_1', object: 'treasury.resource' } },
   } as unknown as Stripe.Event;
 }
@@ -63,6 +64,29 @@ describe('Stripe Treasury webhooks', () => {
     await expect(
       provider.verifyTreasuryWebhook({ payload, signature: 'bad-signature' }),
     ).rejects.toBeInstanceOf(InvalidWebhookSignatureError);
+  });
+
+  it('rejects Connect events from a different connected account', async () => {
+    const { provider } = subject(stripeEvent('treasury.transaction.created', 'acct_other'));
+
+    await expect(
+      provider.verifyTreasuryWebhook({ payload, signature: 'stripe-signature' }),
+    ).rejects.toMatchObject({
+      code: 'PROVIDER_WEBHOOK_ACCOUNT_MISMATCH',
+      context: {
+        provider: 'stripe-treasury',
+        expectedAccountId: 'acct_1',
+        actualAccountId: 'acct_other',
+      },
+    });
+  });
+
+  it('accepts accountless events delivered directly to the connected account endpoint', async () => {
+    const { provider } = subject(stripeEvent('treasury.transaction.created', null));
+
+    await expect(
+      provider.verifyTreasuryWebhook({ payload, signature: 'stripe-signature' }),
+    ).resolves.toMatchObject({ providerEventId: 'evt_treasury_1' });
   });
 
   it('reports missing webhook configuration without calling Stripe', async () => {

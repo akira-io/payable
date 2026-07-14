@@ -23,6 +23,7 @@ export class StripeTreasuryWebhooks {
   constructor(
     private readonly client: () => Promise<Stripe>,
     private readonly secret: () => string | undefined,
+    private readonly connectedAccountId: () => string,
   ) {}
 
   async verify(input: WebhookVerificationInput): Promise<VerifiedTreasuryWebhook> {
@@ -39,6 +40,17 @@ export class StripeTreasuryWebhooks {
       event = await stripe.webhooks.constructEventAsync(input.payload, input.signature, secret);
     } catch (error) {
       throw new InvalidWebhookSignatureError('stripe-treasury', { cause: error });
+    }
+    const expectedAccountId = this.connectedAccountId();
+    if (event.account && event.account !== expectedAccountId) {
+      throw new PayableError('Stripe Treasury webhook account does not match configuration', {
+        code: 'PROVIDER_WEBHOOK_ACCOUNT_MISMATCH',
+        context: {
+          provider: 'stripe-treasury',
+          expectedAccountId,
+          actualAccountId: event.account,
+        },
+      });
     }
     return {
       providerEventId: event.id,

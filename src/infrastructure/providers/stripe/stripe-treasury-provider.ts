@@ -56,6 +56,7 @@ export class StripeTreasuryProvider
   private readonly webhooks = new StripeTreasuryWebhooks(
     () => this.stripe(),
     () => this.options.webhookSecret,
+    () => this.options.connectedAccountId,
   );
 
   constructor(
