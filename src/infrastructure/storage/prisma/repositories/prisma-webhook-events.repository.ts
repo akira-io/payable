@@ -45,6 +45,7 @@ export class PrismaWebhookEventRepository implements WebhookEventRepository {
         headers: await this.seal(JSON.stringify(data.headers)),
         status: data.status,
         correlationId: data.correlationId,
+        occurredAt: data.occurredAt ?? null,
         receivedAt: data.receivedAt,
         processedAt: null,
       },

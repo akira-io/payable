@@ -41,6 +41,7 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
       headers: await this.seal(JSON.stringify(data.headers)),
       status: data.status,
       correlation_id: data.correlationId,
+      occurred_at: data.occurredAt?.toISOString() ?? null,
       received_at: data.receivedAt.toISOString(),
       processed_at: null,
     });
@@ -166,6 +167,7 @@ export class KnexWebhookEventRepository implements WebhookEventRepository {
       headers: toJson<Record<string, string>>(row.headers) ?? {},
       status: row.status as WebhookEventStatus,
       correlationId: row.correlation_id as string,
+      occurredAt: toNullableDate(row.occurred_at),
       receivedAt: toDate(row.received_at),
       processedAt: toNullableDate(row.processed_at),
     };

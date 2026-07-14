@@ -206,10 +206,12 @@ describe('forward migrations (C5)', () => {
 
     expect(await db.schema.hasColumn('payable_webhook_events', 'normalized_type')).toBe(false);
     expect(await db.schema.hasColumn('payable_webhook_events', 'data')).toBe(false);
+    expect(await db.schema.hasColumn('payable_webhook_events', 'occurred_at')).toBe(false);
 
     await migrate(db);
 
     expect(await db.schema.hasColumn('payable_webhook_events', 'normalized_type')).toBe(true);
     expect(await db.schema.hasColumn('payable_webhook_events', 'data')).toBe(true);
+    expect(await db.schema.hasColumn('payable_webhook_events', 'occurred_at')).toBe(true);
   });
 });

@@ -19,6 +19,7 @@ export function webhookEventToEntity(row: PrismaWebhookEventRow): WebhookEvent {
     headers: parseJson<Record<string, string>>(row.headers) ?? {},
     status: row.status as WebhookEventStatus,
     correlationId: row.correlationId,
+    occurredAt: row.occurredAt ?? null,
     receivedAt: row.receivedAt,
     processedAt: row.processedAt ?? null,
   };

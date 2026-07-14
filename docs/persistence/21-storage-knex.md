@@ -98,7 +98,7 @@ idempotency, audit, and the outbox.
 
 | Table | Key columns | Notable constraints |
 | --- | --- | --- |
-| `payable_webhook_events` | `tenant_id` (default `''`), `provider`, `provider_event_id`, `type`, `normalized_type`, `payload`, `signature` (nullable), `data`, `headers`, `status`, `correlation_id`, `received_at`, `processed_at`, `claimed_until` (nullable), `claim_token` (nullable) | unique `(tenant_id, provider, provider_event_id)` (dedup key) |
+| `payable_webhook_events` | `tenant_id` (default `''`), `provider`, `provider_event_id`, `type`, `normalized_type`, `payload`, `signature` (nullable), `data`, `headers`, `status`, `correlation_id`, `occurred_at` (nullable), `received_at`, `processed_at`, `claimed_until` (nullable), `claim_token` (nullable) | unique `(tenant_id, provider, provider_event_id)` (dedup key) |
 | `payable_idempotency_keys` | `tenant_id` (default `''`), `key`, `scope`, `operation`, `resource_type` (nullable), `resource_id` (nullable), `request_hash`, `response`, `status`, `locked_until`, `lock_token` (nullable), `expires_at` | unique `(tenant_id, key)` |
 | `payable_audit_logs` | `correlation_id`, `actor_type`, `actor_id`, `action`, `resource_type`, `resource_id`, `before`, `after`, `metadata`, `ip_address`, `user_agent`, `previous_hash` (nullable), `hash` (notNullable), `sequence` (integer, notNullable) | index `(resource_type, resource_id)`; index `correlation_id`; unique `(tenant_id, sequence)`; append-only (`created_at` only) |
 | `payable_outbox_events` | `tenant_id` (nullable), `correlation_id`, `event_type`, `event_version`, `payload`, `status`, `attempts`, `next_retry_at`, `locked_by`, `locked_until`, `dedupe_key` (nullable) | index `(status, next_retry_at, created_at)` (added by `ensureIndexes`) |

@@ -77,6 +77,9 @@ the adapter and return `VerifiedTreasuryWebhook`.
 The normalized event vocabulary covers account, transaction, transfer, exchange, and payout-link
 lifecycle changes. Unknown provider events remain valid verified deliveries with
 `normalizedType: null`; consumers can store or ignore them without treating them as signature errors.
+When supplied by the provider, `occurredAt` is persisted and retained through queue retries. The same
+timestamp is exposed on `treasury.webhook.processed` and serialized into normalized Treasury outbox
+payloads; absent provider timestamps remain `null` in storage and outbox payloads.
 
 Payment and Treasury webhook contracts remain separate. Implementing `WebhookCapable` does not make a
 provider `TreasuryWebhookCapable`, and Treasury events do not enter payment reconciliation pipelines.
