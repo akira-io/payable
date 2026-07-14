@@ -188,6 +188,10 @@ export {
   RevolutProvider,
   type RevolutProviderOptions,
 } from './infrastructure/providers/revolut/revolut-provider';
+export {
+  RevolutTerminalProvider,
+  type RevolutTerminalProviderOptions,
+} from './infrastructure/providers/revolut/revolut-terminal-provider';
 export { StripeEventNormalizer } from './infrastructure/providers/stripe/stripe-event-normalizer';
 export {
   StripeIssuingProvider,

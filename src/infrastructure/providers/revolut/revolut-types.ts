@@ -138,3 +138,55 @@ export interface RevolutWebhookPayload {
   external_reference?: string;
   [key: string]: unknown;
 }
+
+export interface RevolutTerminal {
+  id: string;
+  name: string;
+  type: string;
+  serial_number: string;
+  battery_level: number;
+  online: boolean;
+  last_online_at: string;
+}
+
+export interface RevolutTerminals {
+  terminals: RevolutTerminal[];
+}
+
+export interface RevolutTerminalOrderCreationPayload {
+  amount: number;
+  currency: string;
+  channel: 'pos';
+  location_id: string;
+  fulfilment_type: 'eat_in' | 'take_away';
+  capture_mode: 'manual';
+  merchant_order_data?: { reference: string };
+  metadata: { pos_partner_name: string };
+}
+
+export interface RevolutTerminalPaymentIntentCreationPayload {
+  amount: number;
+  terminal_id: string;
+}
+
+export interface RevolutTerminalPaymentIntent {
+  id: string;
+  state: string;
+  terminal_id: string;
+  order_id: string;
+  payment_id?: string;
+  amount: number;
+  currency: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RevolutTerminalPayment {
+  id: string;
+  state: string;
+  amount: number;
+  currency: string;
+  created_at?: string;
+  updated_at?: string;
+  failure_reason?: string;
+}
