@@ -191,8 +191,9 @@ describe('provider capability guard', () => {
     expect(new SispProvider(sispOptions).capabilities().has('webhooks')).toBe(false);
   });
 
-  it('does not advertise payment method setup before provider adapters implement it', () => {
-    expect(stripe().capabilities().has('paymentMethodSetup')).toBe(false);
+  it('advertises payment method setup only for providers with a complete adapter', () => {
+    expect(stripe().capabilities().has('paymentMethodSetup')).toBe(true);
+    expect(isPaymentMethodSetupCapable(stripe())).toBe(true);
     expect(paddle().capabilities().has('paymentMethodSetup')).toBe(false);
     expect(
       new RevolutProvider({ secretKey: 'sk_test', webhookSecret: 'wh_test' })
