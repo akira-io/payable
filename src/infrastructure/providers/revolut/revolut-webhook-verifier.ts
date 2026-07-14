@@ -1,48 +1,18 @@
-import { createHmac } from 'node:crypto';
 import type { WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
-import { InvalidWebhookSignatureError } from '../../../domain/errors/invalid-webhook-signature.error';
 import { PayableError } from '../../../domain/errors/payable-error';
-import { timingSafeEqual } from '../../../support/hash/timing-safe-equal';
 import type { RevolutWebhookPayload } from './revolut-types';
-
-const VERSION = 'v1';
-const DEFAULT_TOLERANCE_MS = 300_000;
+import { RevolutWebhookSignatureVerifier } from './revolut-webhook-signature';
 
 export class RevolutWebhookVerifier {
-  constructor(
-    private readonly secret: string,
-    private readonly toleranceMs = DEFAULT_TOLERANCE_MS,
-  ) {}
+  private readonly signature: RevolutWebhookSignatureVerifier;
+
+  constructor(secret: string, toleranceMs?: number) {
+    this.signature = new RevolutWebhookSignatureVerifier('revolut', secret, toleranceMs);
+  }
 
   verify(input: WebhookVerificationInput): RevolutWebhookPayload {
-    const timestamp = header(input.headers, 'revolut-request-timestamp');
-    const signature = input.signature || header(input.headers, 'revolut-signature');
-    if (!timestamp || !signature) {
-      throw new InvalidWebhookSignatureError('revolut');
-    }
-    this.assertTimestamp(timestamp);
-    const expected = this.signature(input.payload, timestamp);
-    const signatures = signature.split(',').map((value) => value.trim());
-    if (!signatures.some((candidate) => timingSafeEqual(candidate, expected))) {
-      throw new InvalidWebhookSignatureError('revolut');
-    }
+    this.signature.verify(input);
     return parsePayload(input.payload);
-  }
-
-  private signature(payload: string, timestamp: string): string {
-    const hmac = createHmac('sha256', this.secret)
-      .update(`${VERSION}.${timestamp}.${payload}`)
-      .digest('hex');
-    return `${VERSION}=${hmac}`;
-  }
-
-  private assertTimestamp(timestamp: string): void {
-    const value = Number(timestamp);
-    if (!Number.isFinite(value) || Math.abs(Date.now() - value) > this.toleranceMs) {
-      throw new InvalidWebhookSignatureError('revolut', {
-        context: { reason: 'timestamp_outside_tolerance' },
-      });
-    }
   }
 }
 
@@ -64,13 +34,4 @@ function parsePayload(payload: string): RevolutWebhookPayload {
       cause: error,
     });
   }
-}
-
-function header(headers: Record<string, string> | undefined, name: string): string | undefined {
-  if (!headers) {
-    return undefined;
-  }
-  const lower = name.toLowerCase();
-  const entry = Object.entries(headers).find(([key]) => key.toLowerCase() === lower);
-  return entry?.[1];
 }

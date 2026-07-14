@@ -11,6 +11,7 @@ import {
   isTreasuryExchangeCapable,
   isTreasuryTransactionCapable,
   isTreasuryTransferCapable,
+  isTreasuryWebhookCapable,
 } from '../src/domain/contracts/treasury-provider.contract';
 import * as PayableApi from '../src/index';
 import {
@@ -46,13 +47,14 @@ describe('Revolut Business Treasury provider', () => {
     const instance = provider(fetch);
 
     expect(instance.capabilities()).toEqual(
-      new Set(['accounts', 'transactions', 'transfers', 'counterparties', 'exchange']),
+      new Set(['accounts', 'transactions', 'transfers', 'counterparties', 'exchange', 'webhooks']),
     );
     expect(isTreasuryAccountCapable(instance)).toBe(true);
     expect(isTreasuryTransactionCapable(instance)).toBe(true);
     expect(isTreasuryTransferCapable(instance)).toBe(true);
     expect(isTreasuryCounterpartyCapable(instance)).toBe(true);
     expect(isTreasuryExchangeCapable(instance)).toBe(true);
+    expect(isTreasuryWebhookCapable(instance)).toBe(true);
   });
 
   it('does not expose the token provider when serialized or inspected', () => {

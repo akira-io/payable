@@ -88,3 +88,9 @@ export interface RevolutBusinessExchangeResponse {
   created_at?: string;
   completed_at?: string;
 }
+
+export interface RevolutBusinessWebhookPayload {
+  event: string;
+  timestamp?: string;
+  data: Record<string, unknown>;
+}
