@@ -80,8 +80,9 @@ lifecycle changes. Unknown provider events remain valid verified deliveries with
 
 Payment and Treasury webhook contracts remain separate. Implementing `WebhookCapable` does not make a
 provider `TreasuryWebhookCapable`, and Treasury events do not enter payment reconciliation pipelines.
-Stripe Treasury and Revolut Business do not advertise `webhooks` until their dedicated adapters are
-implemented.
+Stripe Treasury advertises `webhooks` after verifying signatures with the Stripe SDK and normalizing
+account, transaction, Outbound Payment, and Outbound Transfer events. Revolut Business does not
+advertise the capability until its dedicated adapter is configured.
 
 ---
 

@@ -1,7 +1,7 @@
 # Stripe Provider
 
-Stripe Treasury is implemented by the separate `StripeTreasuryProvider`; see
-[Stripe Treasury](18a-stripe-treasury.md).
+Stripe Treasury, including its independent webhook verifier, is implemented by the separate
+`StripeTreasuryProvider`; see [Stripe Treasury](18a-stripe-treasury.md).
 
 `StripeProvider` (`src/infrastructure/providers/stripe/stripe-provider.ts`) is the reference
 implementation of `PaymentProvider`. It implements the base contract and optional capabilities for
