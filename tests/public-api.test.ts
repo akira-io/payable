@@ -37,6 +37,12 @@ describe('public API surface', () => {
     expect(typeof payable.isTaxTransactionCapable).toBe('function');
     expect(typeof payable.TaxProviderRegistry).toBe('function');
     expect(typeof payable.TaxProviderNotFoundError).toBe('function');
+    expect(typeof payable.isIssuingCardholderCapable).toBe('function');
+    expect(typeof payable.isIssuingCardCapable).toBe('function');
+    expect(typeof payable.isIssuingAuthorizationCapable).toBe('function');
+    expect(typeof payable.isIssuingTransactionCapable).toBe('function');
+    expect(typeof payable.IssuingProviderRegistry).toBe('function');
+    expect(typeof payable.IssuingProviderNotFoundError).toBe('function');
     expect(typeof payable.SubscriptionStateMachine).toBe('function');
   });
 

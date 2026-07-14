@@ -16,6 +16,25 @@ export type { CreateCustomerInput, CustomerDTO, UpdateCustomerInput } from './cu
 export type { DisputeDTO, DisputeStatus, ListDisputesInput } from './dispute.dto';
 export type { InvoiceDTO, InvoicePdfDTO, ListInvoicesInput } from './invoice.dto';
 export type {
+  CreateIssuingCardholderInput,
+  CreateIssuingCardInput,
+  IssuingAuthorizationDTO,
+  IssuingAuthorizationStatus,
+  IssuingCapabilities,
+  IssuingCapability,
+  IssuingCapabilityValue,
+  IssuingCardDTO,
+  IssuingCardholderDTO,
+  IssuingCardholderStatus,
+  IssuingCardStatus,
+  IssuingTransactionDTO,
+  IssuingTransactionType,
+  ListIssuingAuthorizationsInput,
+  ListIssuingCardsInput,
+  ListIssuingTransactionsInput,
+  RespondIssuingAuthorizationInput,
+} from './issuing.dto';
+export type {
   DeletePaymentMethodInput,
   ListPaymentMethodsInput,
   PaymentMethodDTO,

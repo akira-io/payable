@@ -4,6 +4,7 @@ import type { Clock } from '../../domain/contracts/clock.contract';
 import type { Encryption } from '../../domain/contracts/encryption.contract';
 import type { EventBus } from '../../domain/contracts/event-bus.contract';
 import type { IdempotencyStore } from '../../domain/contracts/idempotency-store.contract';
+import type { IssuingProvider } from '../../domain/contracts/issuing-provider.contract';
 import type { LockDriver } from '../../domain/contracts/lock-driver.contract';
 import type { Logger } from '../../domain/contracts/logger.contract';
 import type { PaymentProvider } from '../../domain/contracts/payment-provider.contract';
@@ -38,6 +39,7 @@ export interface PayableConfig {
   tenant?: TenantConfig;
   authorization?: AuthorizationConfig;
   providers: Record<string, PaymentProvider>;
+  issuingProviders?: Record<string, IssuingProvider>;
   taxProviders?: Record<string, TaxProvider>;
   treasuryProviders?: Record<string, TreasuryProvider>;
   storage?: StorageDriver;
@@ -62,6 +64,7 @@ export interface ResolvedConfig {
   tenantResolver?: TenantResolver;
   authorizationEnabled: boolean;
   providers: Map<string, PaymentProvider>;
+  issuingProviders: Map<string, IssuingProvider>;
   taxProviders: Map<string, TaxProvider>;
   treasuryProviders: Map<string, TreasuryProvider>;
   storage?: StorageDriver;
@@ -112,6 +115,7 @@ export function resolveConfig(config: PayableConfig): ResolvedConfig {
     tenantResolver: config.tenant?.resolver,
     authorizationEnabled: config.authorization?.enabled ?? false,
     providers: new Map(entries),
+    issuingProviders: new Map(Object.entries(config.issuingProviders ?? {})),
     taxProviders: new Map(Object.entries(config.taxProviders ?? {})),
     treasuryProviders: new Map(Object.entries(config.treasuryProviders ?? {})),
     storage: config.storage,

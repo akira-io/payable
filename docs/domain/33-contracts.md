@@ -137,6 +137,12 @@ and Treasury providers. The base contract exposes only `name` and `capabilities(
 Tax DTOs use `Money` for every amount and do not expose vendor SDK types. Applications select an
 adapter through `payable.taxProviders()` and narrow it with the matching guard.
 
+### IssuingProvider
+
+Issuing providers have an independent registry and optional contracts for cardholders, cards,
+authorizations, and issuing transactions. Card DTOs expose only last four, expiry, brand, status, and
+provider identifiers. PAN, CVV, PIN, and track data are outside the domain contract.
+
 ### EventBus
 
 `src/domain/contracts/event-bus.contract.ts`. The publish/subscribe seam for [domain events](34-domain-events.md).
