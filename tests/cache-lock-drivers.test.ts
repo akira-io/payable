@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { createPayable } from '../src/create-payable';
 import { MemoryCacheDriver } from '../src/infrastructure/cache/memory/memory-cache-driver';
 import { RedisCacheDriver } from '../src/infrastructure/cache/redis/redis-cache-driver';
 import { MemoryLockDriver } from '../src/infrastructure/locks/memory-lock-driver';
 import { RedisLockDriver } from '../src/infrastructure/locks/redis-lock-driver';
+import { FakeProvider } from './support/fake-provider';
 
 describe('MemoryCacheDriver', () => {
   it('stores, reads, and deletes values', async () => {
@@ -89,5 +91,25 @@ describe('Redis drivers fail fast', () => {
   it('throw at construction instead of deferring to first use', () => {
     expect(() => new RedisCacheDriver({})).toThrow(/NOT_IMPLEMENTED|Phase 7/);
     expect(() => new RedisLockDriver({})).toThrow(/NOT_IMPLEMENTED|Phase 7/);
+  });
+});
+
+describe('unwired driver config rejection', () => {
+  it('rejects a configured cache driver until it has a runtime responsibility', () => {
+    expect(() =>
+      createPayable({
+        providers: { stripe: new FakeProvider() },
+        cache: new MemoryCacheDriver(),
+      } as unknown as Parameters<typeof createPayable>[0]),
+    ).toThrow(expect.objectContaining({ code: 'CONFIG_OPTION_UNSUPPORTED' }));
+  });
+
+  it('rejects a configured lock driver until it has a runtime responsibility', () => {
+    expect(() =>
+      createPayable({
+        providers: { stripe: new FakeProvider() },
+        locks: new MemoryLockDriver(),
+      } as unknown as Parameters<typeof createPayable>[0]),
+    ).toThrow(expect.objectContaining({ code: 'CONFIG_OPTION_UNSUPPORTED' }));
   });
 });
