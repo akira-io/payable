@@ -8,6 +8,7 @@ import type {
 import { PayableError } from '../../../domain/errors/payable-error';
 import { revolutBusinessAmount } from './revolut-business-amounts';
 import { toRevolutBusinessIssuingCardDTO } from './revolut-business-card-mappers';
+import { revolutBusinessRequestId } from './revolut-business-request-id';
 import type { RevolutBusinessCard, RevolutBusinessRequest } from './revolut-business-types';
 
 const DEFAULT_LIMIT = 100;
@@ -24,7 +25,7 @@ export class RevolutBusinessCards {
     const card = await this.request<RevolutBusinessCard>('/cards', {
       method: 'POST',
       body: {
-        request_id: ctx.idempotencyKey,
+        request_id: revolutBusinessRequestId(ctx),
         holder_id: holderId,
         virtual: true,
         label: input.label,

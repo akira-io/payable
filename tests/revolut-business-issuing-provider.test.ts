@@ -96,6 +96,39 @@ describe('Revolut Business Issuing provider', () => {
     });
   });
 
+  it('derives the card request id from the correlation id when no idempotency key is set', async () => {
+    const { fetch, calls } = fakeRevolutBusinessFetch({ body: card });
+
+    await provider(fetch).createIssuingCard(
+      { holderReference: 'member-1', form: 'virtual' },
+      { correlationId: 'corr-only-1' },
+    );
+
+    expect(calls[0]?.body).toMatchObject({ request_id: 'corr-only-1' });
+  });
+
+  it('keeps the card request id stable and bounded across retries of one logical request', async () => {
+    const { fetch, calls } = fakeRevolutBusinessFetch({ body: card }, { body: card });
+    const instance = provider(fetch);
+    const longKey = `card-${'x'.repeat(80)}`;
+    const retryContext = { correlationId: 'corr-1', idempotencyKey: longKey };
+
+    await instance.createIssuingCard(
+      { holderReference: 'member-1', form: 'virtual' },
+      retryContext,
+    );
+    await instance.createIssuingCard(
+      { holderReference: 'member-1', form: 'virtual' },
+      retryContext,
+    );
+
+    const first = (calls[0]?.body as { request_id: string }).request_id;
+    const second = (calls[1]?.body as { request_id: string }).request_id;
+    expect(first).toBe(second);
+    expect(first.length).toBeLessThanOrEqual(40);
+    expect(first).not.toBe(longKey);
+  });
+
   it('rejects physical cards before making an HTTP request', async () => {
     const { fetch, calls } = fakeRevolutBusinessFetch();
 
