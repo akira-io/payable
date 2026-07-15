@@ -70,6 +70,14 @@ export class RedirectCheckoutBuilder {
     if (!storage) {
       return;
     }
+    const existing = await storage.payments.findByProviderId(
+      this.deps.providerName,
+      providerPaymentId,
+      this.deps.tenantId ?? null,
+    );
+    if (existing) {
+      return;
+    }
     await storage.payments.create({
       tenantId: this.deps.tenantId ?? null,
       customerId: customer.id,

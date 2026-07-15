@@ -14,9 +14,23 @@ export class CreateCheckoutSessionAction {
   constructor(private readonly deps: BillingDependencies) {}
 
   async handle(request: CreateCheckoutSessionRequest): Promise<CheckoutSessionDTO> {
-    return this.deps.provider.createCheckoutSession(request.input, {
-      correlationId: CorrelationId.generate().toString(),
-      idempotencyKey: request.idempotencyKey,
+    const run = (): Promise<CheckoutSessionDTO> =>
+      this.deps.provider.createCheckoutSession(request.input, {
+        correlationId: CorrelationId.generate().toString(),
+        idempotencyKey: request.idempotencyKey,
+      });
+    if (!this.deps.idempotency) {
+      return run();
+    }
+    return this.deps.idempotency.execute({
+      key: request.idempotencyKey,
+      scope: 'checkout',
+      operation: 'checkout.session',
+      request: request.input,
+      resourceType: 'checkout_session',
+      tenantId: this.deps.tenantId,
+      retryFailed: true,
+      run,
     });
   }
 }
