@@ -3,6 +3,7 @@ import type Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
 import {
   isTerminalDeviceCapable,
+  isTerminalPaymentCancellationCapable,
   isTerminalPaymentCapable,
 } from '../src/domain/contracts/terminal-provider.contract';
 import { Money } from '../src/domain/value-objects/money';
@@ -221,31 +222,13 @@ describe('Stripe Terminal provider', () => {
     });
   });
 
-  it('rejects cancellation before Stripe can affect a newer reader action', async () => {
-    const { client, calls } = fakeStripeTerminal();
-    calls.readersRetrieve.mockResolvedValue(
-      stripeTerminalReader({
-        action: {
-          api_error: null,
-          failure_code: null,
-          failure_message: null,
-          process_payment_intent: { payment_intent: 'pi_terminal_2' },
-          status: 'in_progress',
-          type: 'process_payment_intent',
-        },
-      }),
-    );
+  it('does not expose cancellation while Stripe Terminal cannot support it', () => {
+    const { client } = fakeStripeTerminal();
+    const instance = provider(client);
 
-    await expect(
-      provider(client).cancelTerminalPayment('v1:tmr_1:pi_terminal_1', context),
-    ).rejects.toMatchObject({
-      code: 'PROVIDER_OPERATION_UNSUPPORTED',
-      context: expect.objectContaining({ provider: 'stripe-terminal' }),
-    });
-    expect(calls.readersRetrieve).not.toHaveBeenCalled();
-    expect(calls.paymentIntentsRetrieve).not.toHaveBeenCalled();
-    expect(calls.paymentIntentsCancel).not.toHaveBeenCalled();
-    expect(calls.readersCancelAction).not.toHaveBeenCalled();
+    expect(isTerminalPaymentCancellationCapable(instance)).toBe(false);
+    expect(instance.capabilities().has('paymentCancellation')).toBe(false);
+    expect('cancelTerminalPayment' in instance).toBe(false);
   });
 
   it('rejects legacy reader-only payment identities', async () => {

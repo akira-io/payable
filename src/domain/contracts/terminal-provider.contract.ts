@@ -23,6 +23,9 @@ export interface TerminalPaymentCapable {
     ctx: OperationContext,
   ): Promise<TerminalPaymentDTO>;
   retrieveTerminalPayment(providerTerminalPaymentId: string): Promise<TerminalPaymentDTO>;
+}
+
+export interface TerminalPaymentCancellationCapable {
   cancelTerminalPayment(
     providerTerminalPaymentId: string,
     ctx: OperationContext,
@@ -45,7 +48,13 @@ export function isTerminalPaymentCapable(
   const candidate = provider as Partial<TerminalPaymentCapable>;
   return (
     typeof candidate.createTerminalPayment === 'function' &&
-    typeof candidate.retrieveTerminalPayment === 'function' &&
-    typeof candidate.cancelTerminalPayment === 'function'
+    typeof candidate.retrieveTerminalPayment === 'function'
   );
+}
+
+export function isTerminalPaymentCancellationCapable(
+  provider: TerminalProvider,
+): provider is TerminalProvider & TerminalPaymentCancellationCapable {
+  const candidate = provider as Partial<TerminalPaymentCancellationCapable>;
+  return typeof candidate.cancelTerminalPayment === 'function';
 }

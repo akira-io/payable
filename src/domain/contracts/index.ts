@@ -139,11 +139,13 @@ export type {
 } from './tenant-resolver.contract';
 export type {
   TerminalDeviceCapable,
+  TerminalPaymentCancellationCapable,
   TerminalPaymentCapable,
   TerminalProvider,
 } from './terminal-provider.contract';
 export {
   isTerminalDeviceCapable,
+  isTerminalPaymentCancellationCapable,
   isTerminalPaymentCapable,
 } from './terminal-provider.contract';
 export type {
