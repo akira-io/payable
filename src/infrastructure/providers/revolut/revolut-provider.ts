@@ -84,6 +84,7 @@ export interface RevolutProviderOptions {
   webhookToleranceMs?: number;
   logger?: Logger;
   fetch?: RevolutFetch;
+  timeoutMs?: number;
 }
 
 export class RevolutProvider

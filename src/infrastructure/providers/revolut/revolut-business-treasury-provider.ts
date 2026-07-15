@@ -46,6 +46,7 @@ export interface RevolutBusinessTreasuryProviderOptions {
   environment?: RevolutBusinessEnvironment;
   baseUrl?: string;
   fetch?: RevolutBusinessFetch;
+  timeoutMs?: number;
   webhookSecret?: string;
   webhookToleranceMs?: number;
 }
