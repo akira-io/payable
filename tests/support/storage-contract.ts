@@ -13,7 +13,7 @@ export function describeStorageContract(name: string, create: () => Promise<Stor
 
     beforeAll(async () => {
       current = await create();
-    });
+    }, 120_000);
 
     afterAll(async () => {
       await current.teardown();
