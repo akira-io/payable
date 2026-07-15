@@ -118,9 +118,9 @@ export class StripeProvider
 
   constructor(
     private readonly options: StripeProviderOptions,
-    client?: Stripe,
+    client?: unknown,
   ) {
-    this.client = client;
+    this.client = client as Stripe | undefined;
     this.webhooks = new StripeWebhooks(() => this.stripe(), options.webhookSecret, options.logger);
   }
 

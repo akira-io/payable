@@ -61,9 +61,9 @@ export class StripeTreasuryProvider
 
   constructor(
     private readonly options: StripeTreasuryProviderOptions,
-    client?: Stripe,
+    client?: unknown,
   ) {
-    this.client = client;
+    this.client = client as Stripe | undefined;
   }
 
   capabilities(): TreasuryCapabilities {
