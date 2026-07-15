@@ -6,6 +6,8 @@ export interface ChargeInput {
   amount: Money;
   reference?: string;
   description?: string;
+  paymentMethodId?: string;
+  offSession?: boolean;
 }
 
 export interface ChargeResultDTO {
