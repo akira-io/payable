@@ -1,13 +1,11 @@
 import { z } from 'zod';
 import type { AccountingProvider } from '../../domain/contracts/accounting-provider.contract';
-import type { CacheDriver } from '../../domain/contracts/cache-driver.contract';
 import type { Clock } from '../../domain/contracts/clock.contract';
 import type { Encryption } from '../../domain/contracts/encryption.contract';
 import type { EventBus } from '../../domain/contracts/event-bus.contract';
 import type { IdempotencyStore } from '../../domain/contracts/idempotency-store.contract';
 import type { IdentityProvider } from '../../domain/contracts/identity-provider.contract';
 import type { IssuingProvider } from '../../domain/contracts/issuing-provider.contract';
-import type { LockDriver } from '../../domain/contracts/lock-driver.contract';
 import type { Logger } from '../../domain/contracts/logger.contract';
 import type { MarketplaceProvider } from '../../domain/contracts/marketplace-provider.contract';
 import type { PaymentProvider } from '../../domain/contracts/payment-provider.contract';
@@ -17,6 +15,7 @@ import type { TaxProvider } from '../../domain/contracts/tax-provider.contract';
 import type { TenantResolver } from '../../domain/contracts/tenant-resolver.contract';
 import type { TerminalProvider } from '../../domain/contracts/terminal-provider.contract';
 import type { TreasuryProvider } from '../../domain/contracts/treasury-provider.contract';
+import { PayableError } from '../../domain/errors/payable-error';
 import { InMemoryEventBus } from '../../infrastructure/event-bus/in-memory-event-bus';
 import { SyncQueueDriver } from '../../infrastructure/queue/sync/sync-queue-driver';
 import { SystemClock } from '../clock/system-clock';
@@ -52,8 +51,6 @@ export interface PayableConfig {
   treasuryProviders?: Record<string, TreasuryProvider>;
   storage?: StorageDriver;
   queue?: QueueDriver;
-  cache?: CacheDriver;
-  locks?: LockDriver;
   clock?: Clock;
   logger?: Logger;
   events?: EventBus;
@@ -80,14 +77,24 @@ export interface ResolvedConfig {
   terminalProviders: Map<string, TerminalProvider>;
   treasuryProviders: Map<string, TreasuryProvider>;
   storage?: StorageDriver;
-  cache?: CacheDriver;
-  locks?: LockDriver;
   queue: QueueDriver;
   clock: Clock;
   logger: Logger;
   events: EventBus;
   encryption?: Encryption;
   idempotency: ResolvedIdempotency;
+}
+
+function rejectUnwiredDrivers(config: PayableConfig): void {
+  const unwired = ['cache', 'locks'].filter(
+    (option) => (config as unknown as Record<string, unknown>)[option] !== undefined,
+  );
+  if (unwired.length > 0) {
+    throw new PayableError(
+      `No runtime behavior consumes ${unwired.join(' and ')}; remove the option${unwired.length > 1 ? 's' : ''} until Payable wires ${unwired.length > 1 ? 'them' : 'it'} to a documented responsibility`,
+      { code: 'CONFIG_OPTION_UNSUPPORTED', context: { options: unwired } },
+    );
+  }
 }
 
 const schema = z.object({
@@ -102,6 +109,7 @@ const schema = z.object({
 });
 
 export function resolveConfig(config: PayableConfig): ResolvedConfig {
+  rejectUnwiredDrivers(config);
   schema.parse({
     tenant: config.tenant,
     authorization: config.authorization,
@@ -135,8 +143,6 @@ export function resolveConfig(config: PayableConfig): ResolvedConfig {
     terminalProviders: new Map(Object.entries(config.terminalProviders ?? {})),
     treasuryProviders: new Map(Object.entries(config.treasuryProviders ?? {})),
     storage: config.storage,
-    cache: config.cache,
-    locks: config.locks,
     queue: config.queue ?? new SyncQueueDriver(),
     clock: config.clock ?? new SystemClock(),
     logger,
