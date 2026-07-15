@@ -24,6 +24,7 @@ import type {
 import { stripeAmount } from './stripe-amounts';
 import { STRIPE_API_VERSION } from './stripe-api-version';
 import { withStripeErrors } from './stripe-errors';
+import { collectFilteredStripeItems } from './stripe-filtered-list';
 import {
   mapStripeMarketplaceAccount,
   mapStripeMarketplacePayout,
@@ -88,16 +89,15 @@ export class StripeMarketplaceProvider
     const limit = input.limit ?? DEFAULT_LIST_LIMIT;
     const accounts = await withStripeErrors(
       () =>
-        stripe.accounts
-          .list({ limit: Math.min(limit, STRIPE_PAGE_LIMIT) })
-          .autoPagingToArray({ limit }),
+        collectFilteredStripeItems(
+          stripe.accounts.list({ limit: Math.min(limit, STRIPE_PAGE_LIMIT) }),
+          (account) =>
+            !input.status || mapStripeMarketplaceAccount(account).status === input.status,
+          limit,
+        ),
       this.name,
     );
-    const mapped = accounts.map(mapStripeMarketplaceAccount);
-    if (!input.status) {
-      return mapped;
-    }
-    return mapped.filter((account) => account.status === input.status);
+    return accounts.map(mapStripeMarketplaceAccount);
   }
 
   async createMarketplaceOnboardingLink(

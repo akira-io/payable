@@ -113,7 +113,11 @@ export {
   isSubscriptionManagementCapable,
   isWebhookCapable,
 } from './payment-provider.contract';
-export type { NewPayment, PaymentRepository } from './payment-repository.contract';
+export type {
+  NewPayment,
+  PaymentRepository,
+  RefundedAmountPatch,
+} from './payment-repository.contract';
 export type { NewPrice, PriceRepository } from './price-repository.contract';
 export type { NewProduct, ProductRepository } from './product-repository.contract';
 export type { JobHandler, QueueDriver, QueueJob } from './queue-driver.contract';
@@ -139,11 +143,13 @@ export type {
 } from './tenant-resolver.contract';
 export type {
   TerminalDeviceCapable,
+  TerminalPaymentCancellationCapable,
   TerminalPaymentCapable,
   TerminalProvider,
 } from './terminal-provider.contract';
 export {
   isTerminalDeviceCapable,
+  isTerminalPaymentCancellationCapable,
   isTerminalPaymentCapable,
 } from './terminal-provider.contract';
 export type {

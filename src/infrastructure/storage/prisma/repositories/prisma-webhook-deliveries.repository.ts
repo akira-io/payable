@@ -1,4 +1,5 @@
 import type { Clock } from '../../../../domain/contracts/clock.contract';
+import type { Encryption } from '../../../../domain/contracts/encryption.contract';
 import type {
   NewWebhookDelivery,
   WebhookDeliveryRepository,
@@ -18,6 +19,7 @@ export class PrismaWebhookDeliveryRepository implements WebhookDeliveryRepositor
   constructor(
     client: PrismaClient,
     private readonly clock: Clock,
+    private readonly encryption?: Encryption,
   ) {
     this.delegate = client.payableWebhookDelivery;
   }
@@ -39,10 +41,11 @@ export class PrismaWebhookDeliveryRepository implements WebhookDeliveryRepositor
         data: {
           id,
           tenantId: data.tenantId,
+          tenantKey: data.tenantId ?? '',
           endpointId: data.endpointId,
           eventId: data.eventId,
           eventType: data.eventType,
-          payload: JSON.stringify(data.payload),
+          payload: await this.seal(JSON.stringify(data.payload)),
           status: data.status,
           attempts: data.attempts,
           responseCode: data.responseCode,
@@ -52,7 +55,7 @@ export class PrismaWebhookDeliveryRepository implements WebhookDeliveryRepositor
           updatedAt: now,
         },
       });
-      return webhookDeliveryToEntity(row);
+      return this.hydrate(row);
     } catch (error) {
       if (!isPrismaUniqueViolation(error)) {
         throw error;
@@ -77,7 +80,7 @@ export class PrismaWebhookDeliveryRepository implements WebhookDeliveryRepositor
         attempts: data.attempts,
         responseCode: data.responseCode,
         responseBody: data.responseBody,
-        payload: JSON.stringify(data.payload),
+        payload: await this.seal(JSON.stringify(data.payload)),
         updatedAt: now,
       },
     });
@@ -90,7 +93,7 @@ export class PrismaWebhookDeliveryRepository implements WebhookDeliveryRepositor
       where,
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
-    return rows.map((row) => webhookDeliveryToEntity(row));
+    return Promise.all(rows.map((row) => this.hydrate(row)));
   }
 
   private async findByIdOrFail(id: string): Promise<WebhookDelivery> {
@@ -98,6 +101,18 @@ export class PrismaWebhookDeliveryRepository implements WebhookDeliveryRepositor
     if (!row) {
       throw new Error(`payable_webhook_deliveries: row ${id} missing after write`);
     }
-    return webhookDeliveryToEntity(row);
+    return this.hydrate(row);
+  }
+
+  private async hydrate(row: PrismaWebhookDeliveryRow): Promise<WebhookDelivery> {
+    return webhookDeliveryToEntity({ ...row, payload: await this.open(row.payload) });
+  }
+
+  private seal(value: string): Promise<string> | string {
+    return this.encryption ? this.encryption.encrypt(value) : value;
+  }
+
+  private open(value: string): Promise<string> | string {
+    return this.encryption ? this.encryption.decrypt(value) : value;
   }
 }

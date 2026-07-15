@@ -9,6 +9,8 @@ const REVOLUT_BASE_URL: Record<RevolutEnvironment, string> = {
   sandbox: 'https://sandbox-merchant.revolut.com',
 };
 
+export const DEFAULT_REVOLUT_TIMEOUT_MS = 30_000;
+
 export interface RevolutClientOptions {
   secretKey: string;
   providerName?: string;
@@ -16,6 +18,7 @@ export interface RevolutClientOptions {
   baseUrl?: string;
   apiVersion?: string;
   fetch?: RevolutFetch;
+  timeoutMs?: number;
 }
 
 export class RevolutClient {
@@ -32,6 +35,7 @@ export class RevolutClient {
       method: options.method,
       headers: this.headers(options),
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: AbortSignal.timeout(this.options.timeoutMs ?? DEFAULT_REVOLUT_TIMEOUT_MS),
     }).catch((error: unknown) => {
       throw revolutNetworkError(error, this.providerName);
     });

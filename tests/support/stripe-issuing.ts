@@ -71,7 +71,12 @@ export function stripeIssuingTransaction(
 }
 
 function paging<T>(records: T[]) {
-  return { autoPagingToArray: vi.fn().mockResolvedValue(records) };
+  return {
+    autoPagingToArray: vi.fn().mockResolvedValue(records),
+    async *[Symbol.asyncIterator]() {
+      yield* records;
+    },
+  };
 }
 
 export function fakeStripeIssuing() {

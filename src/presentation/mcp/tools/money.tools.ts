@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { Payable } from '../../../payable';
-import { authorizationFrom, providerFrom, respond, tenantFrom } from '../context';
+import { authorizeTool, providerFrom, respond, tenantFrom } from '../context';
 import type { McpPayableOptions } from '../options';
 import type { ToolGate } from '../policy';
 import { billableObject, moneyObject, providerShape, tenantShape, toMoney } from '../schemas';
@@ -34,7 +34,7 @@ export function registerMoneyTools(
               amount: toMoney(args.amount),
               reference: args.reference,
               description: args.description,
-              authorization: authorizationFrom('charge', args, options),
+              authorization: authorizeTool('charge', args, options),
             }),
         ),
     );
@@ -59,7 +59,7 @@ export function registerMoneyTools(
               paymentId: args.paymentId,
               amount: args.amount ? toMoney(args.amount) : undefined,
               reason: args.reason,
-              authorization: authorizationFrom('refund', args, options),
+              authorization: authorizeTool('refund', args, options),
             },
             tenantFrom(args, options),
           ),

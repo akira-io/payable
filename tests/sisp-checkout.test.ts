@@ -93,4 +93,33 @@ describe('payable redirect checkout (SISP)', () => {
     expect(settled[0]?.status).toBe('succeeded');
     await db.destroy();
   });
+
+  it('rejects refunds end-to-end and leaves the settled payment untouched', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const seen: { body?: Record<string, unknown> } = {};
+    const payable = createPayable({
+      providers: { sisp: new SispProvider(OPTIONS, fakeSispClient(seen)) },
+      storage: new KnexStorageDriver(db, new FakeClock()),
+    });
+
+    const session = await payable
+      .customer(billable)
+      .redirectCheckout(Money.of(150000, 'CVE'))
+      .create({ reference: 'order-refund' });
+    await payable.receiveRedirectCallback({
+      provider: 'sisp',
+      payload: { merchantRef: session.id },
+    });
+    const [payment] = await payable.customer(billable).payments();
+
+    await expect(payable.refund({ paymentId: payment?.id ?? '' })).rejects.toMatchObject({
+      code: 'PROVIDER_CAPABILITY_NOT_SUPPORTED',
+    });
+
+    const [after] = await payable.customer(billable).payments();
+    expect(after?.status).toBe('succeeded');
+    expect(after?.refundedAmount).toBe(0);
+    await db.destroy();
+  });
 });

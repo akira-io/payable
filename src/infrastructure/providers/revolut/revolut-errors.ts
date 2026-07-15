@@ -43,6 +43,13 @@ export function revolutNetworkError(error: unknown, provider = 'revolut'): Payab
   if (error instanceof PayableError) {
     return error;
   }
+  if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+    return new PayableError('Revolut request timed out', {
+      code: 'PROVIDER_REQUEST_TIMEOUT',
+      context: { provider },
+      cause: error,
+    });
+  }
   return new PayableError('Revolut request failed', {
     code: 'PROVIDER_ERROR',
     context: { provider },

@@ -30,7 +30,11 @@ export class ProcessTreasuryWebhookPipeline {
         resourceType: 'webhook_event',
         resourceId: input.webhookEventId,
         before: null,
-        after: input.verified.data,
+        after: {
+          providerEventId: input.verified.providerEventId,
+          type: input.verified.type,
+          normalizedType: input.verified.normalizedType,
+        },
         metadata: {
           normalizedType: input.verified.normalizedType,
           occurredAt: serializedOccurredAt,

@@ -165,10 +165,8 @@ describe('StripeProvider payments', () => {
     expect(invoices[0]?.total.amount()).toBe(9900);
 
     const original = globalThis.fetch;
-    globalThis.fetch = (async () => ({
-      ok: true,
-      arrayBuffer: async () => new Uint8Array([4, 5, 6]).buffer,
-    })) as unknown as typeof fetch;
+    globalThis.fetch = (async () =>
+      new Response(new Uint8Array([4, 5, 6]), { status: 200 })) as unknown as typeof fetch;
     try {
       const pdf = await provider.downloadInvoicePdf('in_1');
       expect(pdf.filename).toBe('in_1.pdf');

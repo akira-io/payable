@@ -116,7 +116,11 @@ describe('webhook replay', () => {
     expect(provider.lastVerifyInput?.payload).toBe('{"signed":true}');
     expect(provider.lastVerifyInput?.signature).toBe('sig-1');
     const audits = await storage.auditLogs.list({ resourceType: 'webhook_event' });
-    expect(audits[0]?.after).toEqual({ id: 'authoritative' });
+    expect(audits[0]?.after).toEqual({
+      providerEventId: 'evt_1',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+    });
   });
 
   it('does not re-verify replay when the provider no longer declares webhooks', async () => {
@@ -145,7 +149,11 @@ describe('webhook replay', () => {
     expect(provider.lastVerifyInput).toBeUndefined();
     expect((await storage.webhookEvents.findById(event.id))?.status).toBe('processed');
     const audits = await storage.auditLogs.list({ resourceType: 'webhook_event' });
-    expect(audits[0]?.after).toEqual({ id: 'stored' });
+    expect(audits[0]?.after).toEqual({
+      providerEventId: 'evt_stored_only',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+    });
   });
 
   it('fails replay when the stored signature no longer verifies', async () => {

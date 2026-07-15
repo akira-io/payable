@@ -18,6 +18,8 @@ export interface ChargeActionInput {
   amount: Money;
   reference?: string;
   description?: string;
+  paymentMethodId?: string;
+  offSession?: boolean;
   authorization?: AuthorizationContext;
 }
 
@@ -82,6 +84,8 @@ export class ChargeAction {
           amount: input.amount,
           reference: input.reference,
           description: input.description,
+          paymentMethodId: input.paymentMethodId,
+          offSession: input.offSession,
         },
         { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
       );

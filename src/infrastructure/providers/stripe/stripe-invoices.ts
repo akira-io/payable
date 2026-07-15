@@ -42,20 +42,18 @@ export class StripeInvoices {
     const response = await downloadInvoicePdfResponse(providerInvoiceId, invoice.invoice_pdf);
     const declaredLength = Number(response.headers?.get('content-length'));
     if (Number.isFinite(declaredLength) && declaredLength > INVOICE_PDF_MAX_BYTES) {
-      throw new PayableError(`Invoice ${providerInvoiceId} PDF exceeds the size limit`, {
-        code: 'INVOICE_PDF_TOO_LARGE',
-        context: { bytes: declaredLength },
-      });
+      throw invoicePdfTooLarge(providerInvoiceId, declaredLength);
     }
-    const buffer = await readInvoicePdfBuffer(providerInvoiceId, response);
-    if (buffer.byteLength > INVOICE_PDF_MAX_BYTES) {
-      throw new PayableError(`Invoice ${providerInvoiceId} PDF exceeds the size limit`, {
-        code: 'INVOICE_PDF_TOO_LARGE',
-        context: { bytes: buffer.byteLength },
-      });
-    }
-    return { filename: `${providerInvoiceId}.pdf`, content: new Uint8Array(buffer) };
+    const content = await readInvoicePdfBounded(providerInvoiceId, response);
+    return { filename: `${providerInvoiceId}.pdf`, content };
   }
+}
+
+function invoicePdfTooLarge(providerInvoiceId: string, bytes: number): PayableError {
+  return new PayableError(`Invoice ${providerInvoiceId} PDF exceeds the size limit`, {
+    code: 'INVOICE_PDF_TOO_LARGE',
+    context: { bytes },
+  });
 }
 
 async function downloadInvoicePdfResponse(
@@ -84,17 +82,45 @@ async function downloadInvoicePdfResponse(
   return response;
 }
 
-async function readInvoicePdfBuffer(
+async function readInvoicePdfBounded(
   providerInvoiceId: string,
   response: Response,
-): Promise<ArrayBuffer> {
+): Promise<Uint8Array> {
+  const body = response.body;
+  if (!body) {
+    return new Uint8Array(0);
+  }
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
   try {
-    return await response.arrayBuffer();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      total += value.byteLength;
+      if (total > INVOICE_PDF_MAX_BYTES) {
+        await reader.cancel().catch(() => {});
+        throw invoicePdfTooLarge(providerInvoiceId, total);
+      }
+      chunks.push(value);
+    }
   } catch (error) {
+    if (error instanceof PayableError) {
+      throw error;
+    }
     throw new PayableError(`Failed to read invoice ${providerInvoiceId} PDF`, {
       code: 'INVOICE_PDF_DOWNLOAD_FAILED',
       context: { reason: 'transport' },
       cause: error,
     });
   }
+  const content = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    content.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return content;
 }

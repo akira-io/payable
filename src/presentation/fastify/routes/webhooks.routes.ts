@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { PayableError } from '../../../domain/errors/payable-error';
 import type { Payable } from '../../../payable';
+import { resolveWebhookSignatureHeader } from '../../shared/webhook-signature-header';
 import { type FastifyPayableOptions, flattenHeaders } from '../helpers';
 import { WEBHOOK_BODY_LIMIT } from '../limits';
 
@@ -9,7 +10,6 @@ export async function registerWebhookRoutes(
   payable: Payable,
   options: FastifyPayableOptions,
 ): Promise<void> {
-  const header = (options.webhookSignatureHeader ?? 'stripe-signature').toLowerCase();
   scope.removeAllContentTypeParsers();
   scope.addContentTypeParser(
     '*',
@@ -28,9 +28,15 @@ export async function registerWebhookRoutes(
       );
     }
     const params = request.params as { provider?: string };
+    const provider = typeof params.provider === 'string' ? params.provider : undefined;
+    const header = resolveWebhookSignatureHeader(
+      provider,
+      request.headers,
+      options.webhookSignatureHeader,
+    );
     const signature = request.headers[header];
     return payable.receiveWebhook({
-      provider: typeof params.provider === 'string' ? params.provider : undefined,
+      provider,
       payload: body.toString('utf8'),
       signature: typeof signature === 'string' ? signature : '',
       headers: flattenHeaders(request.headers),

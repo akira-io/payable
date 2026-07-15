@@ -62,6 +62,7 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.timestamp('ends_at', { useTz: true }).nullable();
     table.timestamp('current_period_start', { useTz: true }).nullable();
     table.timestamp('current_period_end', { useTz: true }).nullable();
+    table.timestamp('provider_synced_at', { useTz: true }).nullable();
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.timestamp('updated_at', { useTz: true }).notNullable();
     table.unique(['provider', 'provider_subscription_id']);

@@ -230,10 +230,12 @@ export class PaddleProvider implements PaymentProvider {
   async verifyWebhook(input: WebhookVerificationInput): Promise<VerifiedWebhook> {
     const paddle = await this.paddle();
     const event = await this.verifier.verify(paddle, input.payload, input.signature);
+    const occurredAt = event.occurredAt ? new Date(event.occurredAt) : null;
     return {
       providerEventId: event.eventId,
       type: event.eventType,
       normalizedType: this.normalizer.normalize(event.eventType),
+      occurredAt: occurredAt && !Number.isNaN(occurredAt.getTime()) ? occurredAt : null,
       data: event.data,
     };
   }

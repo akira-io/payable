@@ -96,6 +96,39 @@ describe('Revolut Business Issuing provider', () => {
     });
   });
 
+  it('derives the card request id from the correlation id when no idempotency key is set', async () => {
+    const { fetch, calls } = fakeRevolutBusinessFetch({ body: card });
+
+    await provider(fetch).createIssuingCard(
+      { holderReference: 'member-1', form: 'virtual' },
+      { correlationId: 'corr-only-1' },
+    );
+
+    expect(calls[0]?.body).toMatchObject({ request_id: 'corr-only-1' });
+  });
+
+  it('keeps the card request id stable and bounded across retries of one logical request', async () => {
+    const { fetch, calls } = fakeRevolutBusinessFetch({ body: card }, { body: card });
+    const instance = provider(fetch);
+    const longKey = `card-${'x'.repeat(80)}`;
+    const retryContext = { correlationId: 'corr-1', idempotencyKey: longKey };
+
+    await instance.createIssuingCard(
+      { holderReference: 'member-1', form: 'virtual' },
+      retryContext,
+    );
+    await instance.createIssuingCard(
+      { holderReference: 'member-1', form: 'virtual' },
+      retryContext,
+    );
+
+    const first = (calls[0]?.body as { request_id: string }).request_id;
+    const second = (calls[1]?.body as { request_id: string }).request_id;
+    expect(first).toBe(second);
+    expect(first.length).toBeLessThanOrEqual(40);
+    expect(first).not.toBe(longKey);
+  });
+
   it('rejects physical cards before making an HTTP request', async () => {
     const { fetch, calls } = fakeRevolutBusinessFetch();
 
@@ -161,6 +194,53 @@ describe('Revolut Business Issuing provider', () => {
     expect(calls.map((call) => call.method)).toEqual(['GET', 'DELETE']);
     expect(calls[1]?.url).toBe('https://b2b.revolut.com/api/1.0/cards/card-1');
     expect(terminated.status).toBe('canceled');
+  });
+
+  it('keeps paging past pages with no matching card transactions', async () => {
+    const firstPage = Array.from({ length: 20 }, (_, index) => ({
+      ...cardTransaction,
+      id: `other-${index}`,
+      card: { id: 'other-card' },
+      created_at: new Date(Date.UTC(2026, 6, 2, 0, 0, 40 - index)).toISOString(),
+    }));
+    const match = {
+      ...cardTransaction,
+      id: 'transaction-late',
+      created_at: '2026-07-01T00:00:00.000Z',
+    };
+    const { fetch, calls } = fakeRevolutBusinessFetch({ body: firstPage }, { body: [match] });
+
+    const transactions = await provider(fetch).listIssuingTransactions({
+      providerCardId: 'card-1',
+      limit: 20,
+    });
+
+    expect(transactions).toHaveLength(1);
+    expect(transactions[0]?.providerTransactionId).toBe('transaction-late');
+    const secondUrl = new URL(calls[1]?.url ?? '');
+    expect(secondUrl.searchParams.get('to')).toBe(firstPage[19]?.created_at);
+  });
+
+  it('stops paging when the cursor repeats instead of looping forever', async () => {
+    const stuckPage = Array.from({ length: 20 }, (_, index) => ({
+      ...cardTransaction,
+      id: `stuck-${index}`,
+      card: { id: 'other-card' },
+      created_at: '2026-07-01T00:00:00.000Z',
+    }));
+    const { fetch, calls } = fakeRevolutBusinessFetch(
+      { body: stuckPage },
+      { body: stuckPage },
+      { body: stuckPage },
+    );
+
+    const transactions = await provider(fetch).listIssuingTransactions({
+      providerCardId: 'card-1',
+      limit: 20,
+    });
+
+    expect(transactions).toHaveLength(0);
+    expect(calls.length).toBeLessThanOrEqual(2);
   });
 
   it('reads and filters normalized card transactions', async () => {

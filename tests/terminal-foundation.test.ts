@@ -55,10 +55,8 @@ describe('terminal provider foundation', () => {
 
   it.each([
     ['isTerminalDeviceCapable', ['listTerminalDevices', 'retrieveTerminalDevice']],
-    [
-      'isTerminalPaymentCapable',
-      ['createTerminalPayment', 'retrieveTerminalPayment', 'cancelTerminalPayment'],
-    ],
+    ['isTerminalPaymentCapable', ['createTerminalPayment', 'retrieveTerminalPayment']],
+    ['isTerminalPaymentCancellationCapable', ['cancelTerminalPayment']],
   ])('requires every method for %s', (exportName, methods) => {
     const guard = Reflect.get(PayableApi, exportName) as (provider: object) => boolean;
     const complete = Object.fromEntries(methods.map((method) => [method, async () => undefined]));

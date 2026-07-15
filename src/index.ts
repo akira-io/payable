@@ -105,6 +105,7 @@ export {
   type IdempotentExecution,
 } from './application/services/idempotency/idempotency-service';
 export {
+  type PinnedFetchInit,
   type WebhookDeliveryOptions,
   WebhookDeliveryService,
 } from './application/services/webhook-delivery/webhook-delivery-service';

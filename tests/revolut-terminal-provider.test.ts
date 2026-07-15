@@ -2,6 +2,7 @@ import { inspect } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import {
   isTerminalDeviceCapable,
+  isTerminalPaymentCancellationCapable,
   isTerminalPaymentCapable,
 } from '../src/domain/contracts/terminal-provider.contract';
 import { Money } from '../src/domain/value-objects/money';
@@ -24,9 +25,13 @@ describe('Revolut Terminal provider', () => {
     const { fetch } = fakeRevolutTerminalFetch();
     const instance = provider(fetch);
 
-    expect(instance.capabilities()).toEqual(new Set(['devices', 'payments']));
+    expect(instance.capabilities()).toEqual(
+      new Set(['devices', 'payments', 'paymentCancellation']),
+    );
     expect(isTerminalDeviceCapable(instance)).toBe(true);
     expect(isTerminalPaymentCapable(instance)).toBe(true);
+    expect(isTerminalPaymentCancellationCapable(instance)).toBe(true);
+    expect(instance.capabilities().has('paymentCancellation')).toBe(true);
     expect(JSON.stringify(instance)).not.toContain('merchant-secret');
     expect(inspect(instance)).not.toContain('merchant-secret');
   });

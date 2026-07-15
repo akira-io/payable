@@ -16,12 +16,15 @@ export interface RevolutBusinessTokenProvider {
   getAccessToken(): string | Promise<string>;
 }
 
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 export interface RevolutBusinessClientOptions {
   tokenProvider: RevolutBusinessTokenProvider;
   providerName?: string;
   environment?: RevolutBusinessEnvironment;
   baseUrl?: string;
   fetch?: RevolutBusinessFetch;
+  timeoutMs?: number;
 }
 
 export class RevolutBusinessClient {
@@ -43,6 +46,7 @@ export class RevolutBusinessClient {
         ...(options.body === undefined ? {} : { 'content-type': 'application/json' }),
       },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      signal: AbortSignal.timeout(this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
     }).catch((error: unknown) => {
       throw revolutNetworkError(error, this.providerName);
     });

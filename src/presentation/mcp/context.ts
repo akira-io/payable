@@ -1,5 +1,8 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import type { AuthorizationContext } from '../../application/policies/authorization-context';
+import {
+  type AuthorizationContext,
+  isAuthorized,
+} from '../../application/policies/authorization-context';
 import { PayableError } from '../../domain/errors/payable-error';
 import type { McpPayableOptions, ToolArgs } from './options';
 
@@ -14,12 +17,23 @@ export function tenantFrom(args: ToolArgs, options: McpPayableOptions): string |
   return options.defaultTenantId;
 }
 
-export function authorizationFrom(
+export function authorizeTool(
   toolName: string,
   args: ToolArgs,
   options: McpPayableOptions,
 ): AuthorizationContext | undefined {
-  return options.policy?.authorization?.(toolName, args);
+  const authorization = options.policy?.authorization;
+  if (!authorization) {
+    return undefined;
+  }
+  const context = authorization(toolName, args);
+  if (!isAuthorized(context)) {
+    throw new PayableError(`Not authorized to run ${toolName}`, {
+      code: 'AUTHORIZATION_DENIED',
+      context: { action: toolName },
+    });
+  }
+  return context;
 }
 
 export function jsonResult(data: unknown): CallToolResult {

@@ -1,6 +1,7 @@
 import { type Router, raw } from 'express';
 import { PayableError } from '../../../domain/errors/payable-error';
 import type { Payable } from '../../../payable';
+import { resolveWebhookSignatureHeader } from '../../shared/webhook-signature-header';
 import { asyncHandler, type ExpressPayableOptions, flattenHeaders } from '../helpers';
 
 const WEBHOOK_BODY_LIMIT = '1mb';
@@ -10,7 +11,6 @@ export function registerWebhookRoutes(
   payable: Payable,
   options: ExpressPayableOptions,
 ): void {
-  const header = options.webhookSignatureHeader ?? 'stripe-signature';
   const handler = asyncHandler(async (req, res) => {
     if (!Buffer.isBuffer(req.body)) {
       throw new PayableError(
@@ -19,6 +19,11 @@ export function registerWebhookRoutes(
       );
     }
     const provider = typeof req.params.provider === 'string' ? req.params.provider : undefined;
+    const header = resolveWebhookSignatureHeader(
+      provider,
+      req.headers,
+      options.webhookSignatureHeader,
+    );
     const result = await payable.receiveWebhook({
       provider,
       payload: req.body.toString('utf8'),

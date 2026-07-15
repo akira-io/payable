@@ -287,6 +287,62 @@ describe('StripeProvider', () => {
     expect(dto?.currentPeriodEnd?.toISOString()).toBe(new Date(1_893_456_000 * 1000).toISOString());
   });
 
+  it('confirms the charge server-side and returns the collected payment', async () => {
+    const { client, calls } = fakeStripe();
+    const dto = await provider(client).charge(
+      { amount: Money.of(9900, 'USD'), providerCustomerId: 'cus_1', paymentMethodId: 'pm_1' },
+      ctx,
+    );
+
+    expect(calls.get('paymentIntents.create')?.params).toMatchObject({
+      amount: 9900,
+      currency: 'usd',
+      customer: 'cus_1',
+      payment_method: 'pm_1',
+      confirm: true,
+      off_session: true,
+      automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
+    });
+    expect(dto.status).toBe('succeeded');
+  });
+
+  it('honors an explicit on-session charge', async () => {
+    const { client, calls } = fakeStripe();
+    await provider(client).charge({ amount: Money.of(9900, 'USD'), offSession: false }, ctx);
+    expect(calls.get('paymentIntents.create')?.params).toMatchObject({ off_session: false });
+  });
+
+  const uncollected = ['requires_action', 'requires_payment_method', 'requires_confirmation'];
+  for (const status of uncollected) {
+    it(`rejects a charge left in ${status} with the continuation secret`, async () => {
+      const stripe = {
+        paymentIntents: {
+          create: async () => ({
+            id: 'pi_incomplete',
+            status,
+            amount: 9900,
+            currency: 'usd',
+            client_secret: 'pi_incomplete_secret',
+          }),
+        },
+      } as unknown as Stripe;
+
+      await expect(
+        new StripeProvider({ secretKey: 'sk', webhookSecret: 'wh' }, stripe).charge(
+          { amount: Money.of(9900, 'USD') },
+          ctx,
+        ),
+      ).rejects.toMatchObject({
+        code: 'PAYMENT_NOT_COMPLETED',
+        context: {
+          providerPaymentId: 'pi_incomplete',
+          providerStatus: status,
+          clientSecret: 'pi_incomplete_secret',
+        },
+      });
+    });
+  }
+
   it('translates a Stripe card error into a typed PayableError', async () => {
     const stripe = {
       paymentIntents: {

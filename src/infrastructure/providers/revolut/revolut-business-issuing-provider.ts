@@ -27,6 +27,7 @@ export interface RevolutBusinessIssuingProviderOptions {
   environment?: RevolutBusinessEnvironment;
   baseUrl?: string;
   fetch?: RevolutBusinessFetch;
+  timeoutMs?: number;
 }
 
 export class RevolutBusinessIssuingProvider
