@@ -40,7 +40,11 @@ export class ProcessWebhookPipeline {
         resourceType: 'webhook_event',
         resourceId: input.webhookEventId,
         before: null,
-        after: input.verified.data,
+        after: {
+          providerEventId: input.verified.providerEventId,
+          type: input.verified.type,
+          normalizedType: input.verified.normalizedType,
+        },
         metadata: { normalizedType: input.verified.normalizedType },
         ipAddress: null,
         userAgent: null,

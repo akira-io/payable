@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 import type { Clock } from '../../../../domain/contracts/clock.contract';
+import type { Encryption } from '../../../../domain/contracts/encryption.contract';
 import type {
   NewWebhookDelivery,
   WebhookDeliveryRepository,
@@ -17,6 +18,7 @@ export class KnexWebhookDeliveryRepository implements WebhookDeliveryRepository 
   constructor(
     private readonly knex: Knex,
     private readonly clock: Clock,
+    private readonly encryption?: Encryption,
   ) {}
 
   async record(data: NewWebhookDelivery): Promise<WebhookDelivery> {
@@ -38,7 +40,7 @@ export class KnexWebhookDeliveryRepository implements WebhookDeliveryRepository 
         endpoint_id: data.endpointId,
         event_id: data.eventId,
         event_type: data.eventType,
-        payload: JSON.stringify(data.payload),
+        payload: await this.seal(JSON.stringify(data.payload)),
         status: data.status,
         attempts: data.attempts,
         response_code: data.responseCode,
@@ -72,7 +74,7 @@ export class KnexWebhookDeliveryRepository implements WebhookDeliveryRepository 
         attempts: data.attempts,
         response_code: data.responseCode,
         response_body: data.responseBody,
-        payload: JSON.stringify(data.payload),
+        payload: await this.seal(JSON.stringify(data.payload)),
         updated_at: timestamp,
       });
     return this.findByIdOrFail(id);
@@ -84,7 +86,7 @@ export class KnexWebhookDeliveryRepository implements WebhookDeliveryRepository 
       .where({ event_id: eventId, ...clause })
       .orderBy('created_at', 'asc')
       .orderBy('id', 'asc')) as Record<string, unknown>[];
-    return rows.map((row) => this.toEntity(row));
+    return Promise.all(rows.map((row) => this.hydrate(row)));
   }
 
   private async findByIdOrFail(id: string): Promise<WebhookDelivery> {
@@ -92,7 +94,19 @@ export class KnexWebhookDeliveryRepository implements WebhookDeliveryRepository 
     if (!row) {
       throw new Error(`${this.table}: row ${id} missing after write`);
     }
-    return this.toEntity(row as Record<string, unknown>);
+    return this.hydrate(row as Record<string, unknown>);
+  }
+
+  private async hydrate(row: Record<string, unknown>): Promise<WebhookDelivery> {
+    return this.toEntity({ ...row, payload: await this.open(row.payload as string) });
+  }
+
+  private seal(value: string): Promise<string> | string {
+    return this.encryption ? this.encryption.encrypt(value) : value;
+  }
+
+  private open(value: string): Promise<string> | string {
+    return this.encryption ? this.encryption.decrypt(value) : value;
   }
 
   private toEntity(row: Record<string, unknown>): WebhookDelivery {

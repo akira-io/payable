@@ -17,6 +17,7 @@ import type { TaxProvider } from '../../domain/contracts/tax-provider.contract';
 import type { TenantResolver } from '../../domain/contracts/tenant-resolver.contract';
 import type { TerminalProvider } from '../../domain/contracts/terminal-provider.contract';
 import type { TreasuryProvider } from '../../domain/contracts/treasury-provider.contract';
+import { PayableError } from '../../domain/errors/payable-error';
 import { InMemoryEventBus } from '../../infrastructure/event-bus/in-memory-event-bus';
 import { SyncQueueDriver } from '../../infrastructure/queue/sync/sync-queue-driver';
 import { SystemClock } from '../clock/system-clock';
@@ -121,6 +122,20 @@ export function resolveConfig(config: PayableConfig): ResolvedConfig {
     logger.warn(
       'Idempotency is enabled but no idempotency store is configured; charges and other operations will run without idempotency protection',
     );
+  }
+  if (config.encryption) {
+    if (!config.storage) {
+      throw new PayableError('Encryption at rest requires a storage driver', {
+        code: 'ENCRYPTION_REQUIRES_STORAGE',
+      });
+    }
+    if (typeof config.storage.attachEncryption !== 'function') {
+      throw new PayableError(
+        'The configured storage driver does not support attaching encryption; pass the encryption to the driver constructor instead',
+        { code: 'ENCRYPTION_UNSUPPORTED' },
+      );
+    }
+    config.storage.attachEncryption(config.encryption);
   }
   return {
     tenantEnabled: config.tenant?.enabled ?? false,

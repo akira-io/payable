@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 import type { Clock } from '../../../../domain/contracts/clock.contract';
+import type { Encryption } from '../../../../domain/contracts/encryption.contract';
 import type {
   NewOutboxEvent,
   OutboxEvent,
@@ -19,6 +20,7 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
   constructor(
     private readonly knex: Knex,
     private readonly clock: Clock,
+    private readonly encryption?: Encryption,
   ) {}
 
   async create(data: NewOutboxEvent): Promise<OutboxEvent> {
@@ -32,7 +34,7 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
       correlation_id: data.correlationId,
       event_type: data.eventType,
       event_version: data.eventVersion,
-      payload: JSON.stringify(data.payload),
+      payload: await this.seal(JSON.stringify(data.payload)),
       status: 'pending',
       attempts: 0,
       next_retry_at: null,
@@ -49,7 +51,7 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
     const match = { dedupe_key: dedupeKey, tenant_id: tenantId };
     const existing = await this.knex(this.table).where(match).first();
     if (existing) {
-      return this.toEntity(existing as Record<string, unknown>);
+      return this.hydrate(existing as Record<string, unknown>);
     }
     try {
       await this.knex(this.table).insert(row);
@@ -61,14 +63,14 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
       if (!raced) {
         throw error;
       }
-      return this.toEntity(raced as Record<string, unknown>);
+      return this.hydrate(raced as Record<string, unknown>);
     }
     return this.loadById(id);
   }
 
   private async loadById(id: string): Promise<OutboxEvent> {
     const row = await this.knex(this.table).where({ id }).first();
-    return this.toEntity(row as Record<string, unknown>);
+    return this.hydrate(row as Record<string, unknown>);
   }
 
   async claimPending(limit: number): Promise<OutboxEvent[]> {
@@ -105,10 +107,10 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
         .whereIn('id', ids)
         .where({ locked_by: token, status: 'processing' })) as Record<string, unknown>[];
       const byId = new Map(rows.map((row) => [row.id as string, row]));
-      return ids
+      const claimed = ids
         .map((id) => byId.get(id))
-        .filter((row): row is Record<string, unknown> => row !== undefined)
-        .map((row) => this.toEntity(row));
+        .filter((row): row is Record<string, unknown> => row !== undefined);
+      return Promise.all(claimed.map((row) => this.hydrate(row)));
     });
   }
 
@@ -191,6 +193,18 @@ export class KnexOutboxEventRepository implements OutboxEventRepository {
       .orWhere((stale) =>
         stale.where({ status: 'processing' }).andWhere('locked_until', '<=', nowIso),
       );
+  }
+
+  private async hydrate(row: Record<string, unknown>): Promise<OutboxEvent> {
+    return this.toEntity({ ...row, payload: await this.open(row.payload as string) });
+  }
+
+  private seal(value: string): Promise<string> | string {
+    return this.encryption ? this.encryption.encrypt(value) : value;
+  }
+
+  private open(value: string): Promise<string> | string {
+    return this.encryption ? this.encryption.decrypt(value) : value;
   }
 
   private toEntity(row: Record<string, unknown>): OutboxEvent {

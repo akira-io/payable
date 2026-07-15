@@ -1,4 +1,5 @@
 import type { Clock } from '../../../../domain/contracts/clock.contract';
+import type { Encryption } from '../../../../domain/contracts/encryption.contract';
 import type {
   NewOutboxEvent,
   OutboxEvent,
@@ -19,6 +20,7 @@ export class PrismaOutboxEventRepository implements OutboxEventRepository {
   constructor(
     private readonly client: PrismaClient,
     private readonly clock: Clock,
+    private readonly encryption?: Encryption,
   ) {
     this.delegate = client.payableOutboxEvent;
   }
@@ -34,7 +36,7 @@ export class PrismaOutboxEventRepository implements OutboxEventRepository {
       correlationId: data.correlationId,
       eventType: data.eventType,
       eventVersion: data.eventVersion,
-      payload: JSON.stringify(data.payload),
+      payload: await this.seal(JSON.stringify(data.payload)),
       status: 'pending',
       attempts: 0,
       nextRetryAt: null,
@@ -46,15 +48,15 @@ export class PrismaOutboxEventRepository implements OutboxEventRepository {
     };
     if (dedupeKey === null) {
       const created = await this.delegate.create({ data: row });
-      return outboxToEntity(created);
+      return this.hydrate(created);
     }
     const existing = await this.delegate.findFirst({ where: { dedupeKey, tenantId } });
     if (existing) {
-      return outboxToEntity(existing);
+      return this.hydrate(existing);
     }
     try {
       const created = await this.delegate.create({ data: row });
-      return outboxToEntity(created);
+      return this.hydrate(created);
     } catch (error) {
       if (!isPrismaUniqueViolation(error)) {
         throw error;
@@ -63,7 +65,7 @@ export class PrismaOutboxEventRepository implements OutboxEventRepository {
       if (!raced) {
         throw error;
       }
-      return outboxToEntity(raced);
+      return this.hydrate(raced);
     }
   }
 
@@ -91,10 +93,10 @@ export class PrismaOutboxEventRepository implements OutboxEventRepository {
         where: { id: { in: ids }, lockedBy: token, status: 'processing' },
       });
       const byId = new Map(rows.map((row) => [row.id, row]));
-      return ids
+      const claimed = ids
         .map((id) => byId.get(id))
-        .filter((row): row is PrismaOutboxEventRow => row !== undefined)
-        .map((row) => outboxToEntity(row));
+        .filter((row): row is PrismaOutboxEventRow => row !== undefined);
+      return Promise.all(claimed.map((row) => this.hydrate(row)));
     });
   }
 
@@ -170,5 +172,17 @@ export class PrismaOutboxEventRepository implements OutboxEventRepository {
       }
     }
     return ordered;
+  }
+
+  private async hydrate(row: PrismaOutboxEventRow): Promise<OutboxEvent> {
+    return outboxToEntity({ ...row, payload: await this.open(row.payload) });
+  }
+
+  private seal(value: string): Promise<string> | string {
+    return this.encryption ? this.encryption.encrypt(value) : value;
+  }
+
+  private open(value: string): Promise<string> | string {
+    return this.encryption ? this.encryption.decrypt(value) : value;
   }
 }

@@ -1,5 +1,6 @@
 import type { AuditLogRepository } from './audit-log-repository.contract';
 import type { CustomerRepository } from './customer-repository.contract';
+import type { Encryption } from './encryption.contract';
 import type { InvoiceRepository } from './invoice-repository.contract';
 import type { OutboxEventRepository } from './outbox-event-repository.contract';
 import type { PaymentRepository } from './payment-repository.contract';
@@ -30,4 +31,5 @@ export interface Repositories {
 
 export interface StorageDriver extends Repositories {
   transaction<T>(work: (repos: Repositories) => Promise<T>): Promise<T>;
+  attachEncryption?(encryption: Encryption): void;
 }

@@ -52,34 +52,53 @@ function buildRepositories(
     refunds: new PrismaRefundRepository(client, clock),
     webhookEvents: new PrismaWebhookEventRepository(client, clock, encryption),
     webhookEndpoints: new PrismaWebhookEndpointRepository(client, clock, encryption),
-    webhookDeliveries: new PrismaWebhookDeliveryRepository(client, clock),
+    webhookDeliveries: new PrismaWebhookDeliveryRepository(client, clock, encryption),
     auditLogs: new PrismaAuditLogRepository(client, clock, auditKey),
-    outboxEvents: new PrismaOutboxEventRepository(client, clock),
+    outboxEvents: new PrismaOutboxEventRepository(client, clock, encryption),
   };
 }
 
 export class PrismaStorageDriver implements StorageDriver {
-  readonly customers: CustomerRepository;
-  readonly products: ProductRepository;
-  readonly prices: PriceRepository;
-  readonly subscriptions: SubscriptionRepository;
-  readonly subscriptionItems: SubscriptionItemRepository;
-  readonly invoices: InvoiceRepository;
-  readonly payments: PaymentRepository;
-  readonly refunds: RefundRepository;
-  readonly webhookEvents: WebhookEventRepository;
-  readonly webhookEndpoints: WebhookEndpointRepository;
-  readonly webhookDeliveries: WebhookDeliveryRepository;
-  readonly auditLogs: AuditLogRepository;
-  readonly outboxEvents: OutboxEventRepository;
+  customers!: CustomerRepository;
+  products!: ProductRepository;
+  prices!: PriceRepository;
+  subscriptions!: SubscriptionRepository;
+  subscriptionItems!: SubscriptionItemRepository;
+  invoices!: InvoiceRepository;
+  payments!: PaymentRepository;
+  refunds!: RefundRepository;
+  webhookEvents!: WebhookEventRepository;
+  webhookEndpoints!: WebhookEndpointRepository;
+  webhookDeliveries!: WebhookDeliveryRepository;
+  auditLogs!: AuditLogRepository;
+  outboxEvents!: OutboxEventRepository;
 
   constructor(
     private readonly prisma: PrismaClientLike,
     private readonly clock: Clock = new SystemClock(),
-    private readonly encryption?: Encryption,
+    private encryption?: Encryption,
     private readonly auditKey?: string,
   ) {
-    const repositories = buildRepositories(prisma, clock, encryption, auditKey);
+    this.assignRepositories(buildRepositories(prisma, clock, encryption, auditKey));
+  }
+
+  attachEncryption(encryption: Encryption): void {
+    if (this.encryption) {
+      return;
+    }
+    this.encryption = encryption;
+    this.assignRepositories(
+      buildRepositories(this.prisma, this.clock, this.encryption, this.auditKey),
+    );
+  }
+
+  async transaction<T>(work: (repositories: Repositories) => Promise<T>): Promise<T> {
+    return this.prisma.$transaction((tx) =>
+      work(buildRepositories(tx, this.clock, this.encryption, this.auditKey)),
+    );
+  }
+
+  private assignRepositories(repositories: Repositories): void {
     this.customers = repositories.customers;
     this.products = repositories.products;
     this.prices = repositories.prices;
@@ -93,11 +112,5 @@ export class PrismaStorageDriver implements StorageDriver {
     this.webhookDeliveries = repositories.webhookDeliveries;
     this.auditLogs = repositories.auditLogs;
     this.outboxEvents = repositories.outboxEvents;
-  }
-
-  async transaction<T>(work: (repositories: Repositories) => Promise<T>): Promise<T> {
-    return this.prisma.$transaction((tx) =>
-      work(buildRepositories(tx, this.clock, this.encryption, this.auditKey)),
-    );
   }
 }
