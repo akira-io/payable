@@ -102,6 +102,46 @@ describe('express adapter', () => {
     expect(res.body.error).toBe('TENANT_REQUIRED');
   });
 
+  it('resolves the signature header per provider on mixed routes', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const stripe = new FakeProvider();
+    stripe.verifyResult = {
+      providerEventId: 'evt_stripe',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      data: {},
+    };
+    const paddle = new FakeProvider();
+    paddle.verifyResult = {
+      providerEventId: 'evt_paddle',
+      type: 'subscription.canceled',
+      normalizedType: 'subscription.cancelled',
+      data: {},
+    };
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const app = makeApp(createPayable({ providers: { stripe, paddle }, storage }));
+
+    const viaStripe = await request(app)
+      .post('/payable/webhooks/stripe')
+      .set('stripe-signature', 'stripe-sig')
+      .set('paddle-signature', 'wrong')
+      .set('Content-Type', 'application/json')
+      .send('{"id":"evt_stripe"}');
+    expect(viaStripe.status).toBe(200);
+    expect(stripe.lastVerifyInput?.signature).toBe('stripe-sig');
+
+    const viaPaddle = await request(app)
+      .post('/payable/webhooks/paddle')
+      .set('paddle-signature', 'paddle-sig')
+      .set('stripe-signature', 'wrong')
+      .set('Content-Type', 'application/json')
+      .send('{"id":"evt_paddle"}');
+    expect(viaPaddle.status).toBe(200);
+    expect(paddle.lastVerifyInput?.signature).toBe('paddle-sig');
+    await db.destroy();
+  });
+
   it('processes a webhook from the raw body', async () => {
     const db = createTestDb();
     await migrate(db);
