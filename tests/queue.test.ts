@@ -148,7 +148,7 @@ describe('BullMQQueueDriver', () => {
     class FakeQueue {
       constructor(public readonly queueName: string) {}
       add(): Promise<void> {
-        if (this.queueName.endsWith(':dead')) {
+        if (this.queueName.endsWith('.dead')) {
           deadLetterAdds += 1;
           return Promise.reject(new Error('dlq down'));
         }
@@ -209,7 +209,7 @@ describe('BullMQQueueDriver', () => {
     class FakeQueue {
       constructor(public readonly queueName: string) {}
       add(_name: string, _data: unknown, options: Record<string, unknown>): Promise<void> {
-        if (this.queueName.endsWith(':dead')) {
+        if (this.queueName.endsWith('.dead')) {
           addOptions.push(options);
         }
         return Promise.resolve();
@@ -252,7 +252,7 @@ describe('BullMQQueueDriver', () => {
     await driver.settle();
 
     expect(addOptions).toHaveLength(1);
-    expect(addOptions[0]?.jobId).toBe('job_1:dead');
+    expect(addOptions[0]?.jobId).toBe('job_1.dead');
   });
 
   it('starts a single worker when process is called concurrently for the same job', async () => {
