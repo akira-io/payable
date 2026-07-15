@@ -33,9 +33,9 @@ export class StripeTaxProvider
 
   constructor(
     private readonly options: StripeTaxProviderOptions,
-    client?: Stripe,
+    client?: unknown,
   ) {
-    this.client = client;
+    this.client = client as Stripe | undefined;
   }
 
   capabilities(): TaxCapabilities {
