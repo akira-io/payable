@@ -14,4 +14,5 @@ export interface Subscription extends TenantScoped, Timestamps {
   readonly endsAt: Date | null;
   readonly currentPeriodStart: Date | null;
   readonly currentPeriodEnd: Date | null;
+  readonly providerSyncedAt?: Date | null;
 }

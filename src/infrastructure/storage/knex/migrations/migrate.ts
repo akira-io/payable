@@ -3,6 +3,7 @@ import { PayableError } from '../../../../domain/errors/payable-error';
 import { alterExistingTables } from './alter-existing-tables';
 import { createBillingTables } from './billing-schema';
 import { runStep } from './migration-ledger';
+import { addSubscriptionProviderSyncedAt } from './subscription-provider-synced-at';
 import { createSystemTables } from './system-schema';
 import { addWebhookOccurredAt } from './webhook-occurred-at';
 import { widenEndpointSecret } from './widen-endpoint-secret';
@@ -61,5 +62,8 @@ export async function migrate(knex: Knex): Promise<void> {
     await runStep(knex, '003-alter-existing-tables', () => alterExistingTables(knex));
     await runStep(knex, '004-widen-endpoint-secret', () => widenEndpointSecret(knex));
     await runStep(knex, '005-webhook-occurred-at', () => addWebhookOccurredAt(knex));
+    await runStep(knex, '006-subscription-provider-synced-at', () =>
+      addSubscriptionProviderSyncedAt(knex),
+    );
   });
 }

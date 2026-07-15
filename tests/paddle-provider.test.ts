@@ -84,6 +84,7 @@ function fakePaddle(unmarshal?: () => Promise<PaddleWebhookEvent | null>) {
           Promise.resolve({
             eventId: 'evt_1',
             eventType: 'subscription.canceled',
+            occurredAt: '2026-06-22T10:00:00.000Z',
             data: { id: 'sub_1' },
           })),
     },
@@ -234,6 +235,7 @@ describe('PaddleProvider', () => {
       providerEventId: 'evt_1',
       type: 'subscription.canceled',
       normalizedType: 'subscription.cancelled',
+      occurredAt: new Date('2026-06-22T10:00:00.000Z'),
       data: { id: 'sub_1' },
     });
   });
