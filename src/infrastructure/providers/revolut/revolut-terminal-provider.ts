@@ -43,7 +43,7 @@ export class RevolutTerminalProvider
   }
 
   capabilities(): TerminalCapabilities {
-    return new Set(['devices', 'payments']);
+    return new Set(['devices', 'payments', 'paymentCancellation']);
   }
 
   async listTerminalDevices(input: ListTerminalDevicesInput = {}): Promise<TerminalDeviceDTO[]> {

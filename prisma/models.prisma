@@ -68,6 +68,7 @@ model PayableSubscription {
   endsAt                 DateTime?                 @map("ends_at")
   currentPeriodStart     DateTime?                 @map("current_period_start")
   currentPeriodEnd       DateTime?                 @map("current_period_end")
+  providerSyncedAt       DateTime?                 @map("provider_synced_at")
   createdAt              DateTime                  @map("created_at")
   updatedAt              DateTime                  @map("updated_at")
   items                  PayableSubscriptionItem[]
@@ -238,10 +239,11 @@ model PayableOutboxEvent {
   lockedBy      String?   @map("locked_by")
   lockedUntil   DateTime? @map("locked_until")
   dedupeKey     String?   @map("dedupe_key")
+  tenantKey     String    @default("") @map("tenant_key")
   createdAt     DateTime  @map("created_at")
   updatedAt     DateTime  @map("updated_at")
 
-  @@unique([tenantId, dedupeKey])
+  @@unique([tenantKey, dedupeKey])
   @@index([status, nextRetryAt, createdAt, id])
   @@index([status, lockedUntil, createdAt, id])
   @@map("payable_outbox_events")
@@ -283,10 +285,11 @@ model PayableWebhookDelivery {
   responseCode Int?      @map("response_code")
   responseBody String?   @map("response_body")
   nextRetryAt  DateTime? @map("next_retry_at")
+  tenantKey    String    @default("") @map("tenant_key")
   createdAt    DateTime  @map("created_at")
   updatedAt    DateTime  @map("updated_at")
 
-  @@unique([tenantId, endpointId, eventId])
+  @@unique([tenantKey, endpointId, eventId])
   @@index([endpointId])
   @@index([endpointId, eventId])
   @@map("payable_webhook_deliveries")

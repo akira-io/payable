@@ -41,6 +41,7 @@ export class ProcessWebhookAction {
       providerEventId: event.providerEventId,
       type: event.type,
       normalizedType: event.normalizedType as NormalizedEventName | null,
+      occurredAt: event.occurredAt ?? null,
       data: event.data,
     };
     try {

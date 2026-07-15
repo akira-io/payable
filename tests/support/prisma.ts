@@ -44,7 +44,7 @@ async function truncate(client: PrismaClientLike): Promise<void> {
   }
 }
 
-export async function createPrismaHarness(): Promise<StorageHarness> {
+export async function createPrismaTestClient(): Promise<PrismaClientLike> {
   const dir = mkdtempSync(join(tmpdir(), 'payable-prisma-'));
   process.env.PAYABLE_PRISMA_TEST_URL = `file:${join(dir, 'test.db')}`;
   execFileSync('npx', ['prisma', 'generate', '--schema', SCHEMA], { stdio: 'ignore' });
@@ -56,7 +56,15 @@ export async function createPrismaHarness(): Promise<StorageHarness> {
   const mod = (await import('@prisma/client')) as unknown as {
     PrismaClient: new () => PrismaClientLike;
   };
-  const prisma = new mod.PrismaClient();
+  return new mod.PrismaClient();
+}
+
+export async function disconnectPrisma(prisma: PrismaClientLike): Promise<void> {
+  await (prisma as unknown as { $disconnect(): Promise<void> }).$disconnect();
+}
+
+export async function createPrismaHarness(): Promise<StorageHarness> {
+  const prisma = await createPrismaTestClient();
   const clock = new FakeClock(CONTRACT_BASE_TIME);
 
   const harness: StorageHarness = {
@@ -69,7 +77,7 @@ export async function createPrismaHarness(): Promise<StorageHarness> {
       harness.clock = clock;
     },
     async teardown() {
-      await (prisma as unknown as { $disconnect(): Promise<void> }).$disconnect();
+      await disconnectPrisma(prisma);
     },
   };
   return harness;

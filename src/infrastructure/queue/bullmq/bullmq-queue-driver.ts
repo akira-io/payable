@@ -4,6 +4,7 @@ import type {
   QueueDriver,
   QueueJob,
 } from '../../../domain/contracts/queue-driver.contract';
+import { PayableError } from '../../../domain/errors/payable-error';
 
 export interface BullMQQueueOptions {
   connection: ConnectionOptions;
@@ -20,6 +21,7 @@ export interface BullMQQueueOptions {
 
 const DEFAULT_REMOVE_ON_COMPLETE_AGE_SEC = 86_400;
 const DEFAULT_DEAD_LETTER_ATTEMPTS = 3;
+const DEFAULT_DEAD_LETTER_SUFFIX = '.dead';
 const MAX_SETTLE_ROUNDS = 1000;
 
 function asError(error: unknown): Error {
@@ -45,8 +47,18 @@ export class BullMQQueueDriver implements QueueDriver {
   private readonly queues = new Map<string, Promise<Queue>>();
   private readonly workers = new Map<string, Promise<Worker>>();
   private readonly background = new Set<Promise<unknown>>();
+  private readonly deadLetterSuffix: string;
 
-  constructor(private readonly options: BullMQQueueOptions) {}
+  constructor(private readonly options: BullMQQueueOptions) {
+    const suffix = options.deadLetterSuffix ?? DEFAULT_DEAD_LETTER_SUFFIX;
+    if (suffix.length === 0 || suffix.includes(':')) {
+      throw new PayableError('BullMQ dead-letter suffix must be non-empty and cannot contain ":"', {
+        code: 'QUEUE_DEAD_LETTER_SUFFIX_INVALID',
+        context: { suffix },
+      });
+    }
+    this.deadLetterSuffix = suffix;
+  }
 
   async settle(): Promise<void> {
     for (let round = 0; round < MAX_SETTLE_ROUNDS; round += 1) {
@@ -185,7 +197,7 @@ export class BullMQQueueDriver implements QueueDriver {
   }
 
   private async writeDeadLetter(name: string, job: Job, error: Error): Promise<void> {
-    const queue = await this.queueFor(`${name}${this.options.deadLetterSuffix ?? ':dead'}`);
+    const queue = await this.queueFor(`${name}${this.deadLetterSuffix}`);
     const data = job.data as { payload: unknown; correlationId: string };
     await queue.add(
       job.name,
@@ -196,7 +208,7 @@ export class BullMQQueueDriver implements QueueDriver {
         failedReason: error.message,
       },
       {
-        jobId: job.id ? `${job.id}:dead` : undefined,
+        jobId: job.id ? `${job.id}${this.deadLetterSuffix}` : undefined,
         removeOnComplete: false,
         removeOnFail: false,
       },

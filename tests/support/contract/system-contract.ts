@@ -237,4 +237,64 @@ export function registerSystemContract(ctx: ContractContext): void {
     const other = claimed.find((candidate) => candidate.id === deduped.id);
     expect(await storage.outboxEvents.markFailed(deduped.id, retryAt, other?.lockToken)).toBe(1);
   });
+
+  it('deduplicates concurrent tenantless outbox events', async () => {
+    const { storage } = ctx.harness();
+    const input = {
+      tenantId: null,
+      correlationId: 'corr-race',
+      eventType: 'invoice.paid.v1',
+      eventVersion: 1,
+      payload: { invoiceId: 'in_race' },
+      dedupeKey: 'tenantless-race-1',
+    };
+
+    const results = await Promise.all([
+      storage.outboxEvents.create(input),
+      storage.outboxEvents.create(input),
+    ]);
+    expect(results[0]?.id).toBe(results[1]?.id);
+    const claimed = await storage.outboxEvents.claimPending(100);
+    expect(claimed.filter((event) => event.dedupeKey === 'tenantless-race-1')).toHaveLength(1);
+  });
+
+  it('keeps tenant-scoped outbox deduplication independent per tenant', async () => {
+    const { storage } = ctx.harness();
+    const base = {
+      correlationId: 'corr-tenants',
+      eventType: 'invoice.paid.v1',
+      eventVersion: 1,
+      payload: {},
+      dedupeKey: 'shared-key',
+    };
+
+    const first = await storage.outboxEvents.create({ ...base, tenantId: 'tenant-a' });
+    const second = await storage.outboxEvents.create({ ...base, tenantId: 'tenant-b' });
+    const repeat = await storage.outboxEvents.create({ ...base, tenantId: 'tenant-a' });
+    expect(first.id).not.toBe(second.id);
+    expect(repeat.id).toBe(first.id);
+  });
+
+  it('deduplicates concurrent tenantless webhook deliveries', async () => {
+    const { storage } = ctx.harness();
+    const delivery = {
+      tenantId: null,
+      endpointId: 'ep_race',
+      eventId: 'evt_race',
+      eventType: 'invoice.paid',
+      payload: { a: 1 },
+      status: 'failed' as const,
+      attempts: 1,
+      responseCode: null,
+      responseBody: null,
+    };
+
+    const [first, second] = await Promise.all([
+      storage.webhookDeliveries.record(delivery),
+      storage.webhookDeliveries.record({ ...delivery, status: 'delivered' as const, attempts: 2 }),
+    ]);
+
+    expect(first.id).toBe(second.id);
+    expect(await storage.webhookDeliveries.listForEvent('evt_race')).toHaveLength(1);
+  });
 }

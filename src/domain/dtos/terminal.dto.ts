@@ -1,6 +1,6 @@
 import type { Money } from '../value-objects/money';
 
-export type TerminalCapability = 'devices' | 'payments';
+export type TerminalCapability = 'devices' | 'payments' | 'paymentCancellation';
 export type TerminalCapabilityValue = TerminalCapability | (string & {});
 export type TerminalCapabilities = ReadonlySet<TerminalCapabilityValue>;
 export type TerminalDeviceStatus = 'online' | 'offline' | 'busy' | 'unknown';

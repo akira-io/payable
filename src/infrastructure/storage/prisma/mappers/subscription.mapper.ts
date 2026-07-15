@@ -18,6 +18,7 @@ export function subscriptionToEntity(row: PrismaSubscriptionRow): Subscription {
     endsAt: row.endsAt ?? null,
     currentPeriodStart: row.currentPeriodStart ?? null,
     currentPeriodEnd: row.currentPeriodEnd ?? null,
+    providerSyncedAt: row.providerSyncedAt ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -37,5 +38,6 @@ export function subscriptionToRow(data: Partial<NewSubscription>): Record<string
     endsAt: data.endsAt,
     currentPeriodStart: data.currentPeriodStart,
     currentPeriodEnd: data.currentPeriodEnd,
+    providerSyncedAt: data.providerSyncedAt,
   };
 }

@@ -34,6 +34,40 @@ describe('Stripe Marketplace provider', () => {
     expect(inspect(configured)).not.toContain('sk_live_private');
   });
 
+  it('keeps scanning later pages until a filtered account match appears', async () => {
+    const { client, calls } = fakeStripeMarketplace();
+    const filler = Array.from({ length: 149 }, (_, index) => ({
+      id: `acct_filler_${index}`,
+      type: 'express',
+      business_type: 'company',
+      charges_enabled: true,
+      payouts_enabled: true,
+      requirements: { currently_due: [], past_due: [], pending_verification: [] },
+    }));
+    const lateMatch = {
+      id: 'acct_late',
+      type: 'express',
+      business_type: 'company',
+      charges_enabled: false,
+      payouts_enabled: false,
+      details_submitted: true,
+      requirements: { currently_due: ['tos'], past_due: [], pending_verification: [] },
+    };
+    calls.accountsList.mockReturnValue({
+      async *[Symbol.asyncIterator]() {
+        yield* [...filler, lateMatch];
+      },
+    });
+
+    const accounts = await provider(client).listMarketplaceAccounts({
+      status: 'restricted',
+      limit: 1,
+    });
+
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0]?.providerAccountId).toBe('acct_late');
+  });
+
   it('creates modern connected accounts and maps requirements', async () => {
     const { client, calls } = fakeStripeMarketplace();
     const instance = provider(client);
@@ -83,7 +117,6 @@ describe('Stripe Marketplace provider', () => {
     });
 
     expect(calls.accountsList).toHaveBeenCalledWith({ limit: 100 });
-    expect(calls.accountsPage.autoPagingToArray).toHaveBeenCalledWith({ limit: 250 });
     expect(accounts).toHaveLength(1);
     expect(accounts[0]).toMatchObject({
       providerAccountId: 'acct_2',

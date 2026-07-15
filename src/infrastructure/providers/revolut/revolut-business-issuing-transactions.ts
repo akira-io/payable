@@ -23,18 +23,41 @@ export class RevolutBusinessIssuingTransactions {
       });
     }
     const limit = input.limit ?? DEFAULT_LIMIT;
-    const query = new URLSearchParams({ count: String(Math.min(limit, MAX_LIMIT)) });
-    const transactions = await this.request<RevolutBusinessTransaction[]>(
-      `/transactions?${query.toString()}`,
-      { method: 'GET' },
-    );
-    return transactions
-      .filter((transaction) => {
+    const pageSize = Math.min(Math.max(limit, 1), MAX_LIMIT);
+    const seen = new Set<string>();
+    const matches: IssuingTransactionDTO[] = [];
+    let to: string | undefined;
+    for (;;) {
+      const query = new URLSearchParams({ count: String(pageSize) });
+      if (to) {
+        query.set('to', to);
+      }
+      const page = await this.request<RevolutBusinessTransaction[]>(
+        `/transactions?${query.toString()}`,
+        { method: 'GET' },
+      );
+      for (const transaction of page) {
+        if (seen.has(transaction.id)) {
+          continue;
+        }
+        seen.add(transaction.id);
         const cardId = revolutBusinessTransactionCardId(transaction);
-        return Boolean(cardId && (!input.providerCardId || cardId === input.providerCardId));
-      })
-      .slice(0, limit)
-      .map(toRevolutBusinessIssuingTransactionDTO);
+        if (cardId && (!input.providerCardId || cardId === input.providerCardId)) {
+          matches.push(toRevolutBusinessIssuingTransactionDTO(transaction));
+          if (matches.length >= limit) {
+            return matches;
+          }
+        }
+      }
+      if (page.length < pageSize) {
+        return matches;
+      }
+      const cursor = page.at(-1)?.created_at;
+      if (!cursor || cursor === to) {
+        return matches;
+      }
+      to = cursor;
+    }
   }
 
   async retrieve(providerTransactionId: string): Promise<IssuingTransactionDTO> {

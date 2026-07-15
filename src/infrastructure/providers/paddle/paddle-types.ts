@@ -51,6 +51,7 @@ export interface PaddlePortalSession {
 export interface PaddleWebhookEvent {
   eventId: string;
   eventType: string;
+  occurredAt?: string;
   data: Record<string, unknown>;
 }
 

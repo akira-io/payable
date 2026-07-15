@@ -52,34 +52,53 @@ function buildRepositories(
     refunds: new KnexRefundRepository(qb, clock),
     webhookEvents: new KnexWebhookEventRepository(qb, clock, encryption),
     webhookEndpoints: new KnexWebhookEndpointRepository(qb, clock, encryption),
-    webhookDeliveries: new KnexWebhookDeliveryRepository(qb, clock),
+    webhookDeliveries: new KnexWebhookDeliveryRepository(qb, clock, encryption),
     auditLogs: new KnexAuditLogRepository(qb, clock, auditKey),
-    outboxEvents: new KnexOutboxEventRepository(qb, clock),
+    outboxEvents: new KnexOutboxEventRepository(qb, clock, encryption),
   };
 }
 
 export class KnexStorageDriver implements StorageDriver {
-  readonly customers: CustomerRepository;
-  readonly products: ProductRepository;
-  readonly prices: PriceRepository;
-  readonly subscriptions: SubscriptionRepository;
-  readonly subscriptionItems: SubscriptionItemRepository;
-  readonly invoices: InvoiceRepository;
-  readonly payments: PaymentRepository;
-  readonly refunds: RefundRepository;
-  readonly webhookEvents: WebhookEventRepository;
-  readonly webhookEndpoints: WebhookEndpointRepository;
-  readonly webhookDeliveries: WebhookDeliveryRepository;
-  readonly auditLogs: AuditLogRepository;
-  readonly outboxEvents: OutboxEventRepository;
+  customers!: CustomerRepository;
+  products!: ProductRepository;
+  prices!: PriceRepository;
+  subscriptions!: SubscriptionRepository;
+  subscriptionItems!: SubscriptionItemRepository;
+  invoices!: InvoiceRepository;
+  payments!: PaymentRepository;
+  refunds!: RefundRepository;
+  webhookEvents!: WebhookEventRepository;
+  webhookEndpoints!: WebhookEndpointRepository;
+  webhookDeliveries!: WebhookDeliveryRepository;
+  auditLogs!: AuditLogRepository;
+  outboxEvents!: OutboxEventRepository;
 
   constructor(
     private readonly knex: Knex,
     private readonly clock: Clock = new SystemClock(),
-    private readonly encryption?: Encryption,
+    private encryption?: Encryption,
     private readonly auditKey?: string,
   ) {
-    const repositories = buildRepositories(knex, clock, encryption, auditKey);
+    this.assignRepositories(buildRepositories(knex, clock, encryption, auditKey));
+  }
+
+  attachEncryption(encryption: Encryption): void {
+    if (this.encryption) {
+      return;
+    }
+    this.encryption = encryption;
+    this.assignRepositories(
+      buildRepositories(this.knex, this.clock, this.encryption, this.auditKey),
+    );
+  }
+
+  async transaction<T>(work: (repositories: Repositories) => Promise<T>): Promise<T> {
+    return this.knex.transaction((trx) =>
+      work(buildRepositories(trx, this.clock, this.encryption, this.auditKey)),
+    );
+  }
+
+  private assignRepositories(repositories: Repositories): void {
     this.customers = repositories.customers;
     this.products = repositories.products;
     this.prices = repositories.prices;
@@ -93,11 +112,5 @@ export class KnexStorageDriver implements StorageDriver {
     this.webhookDeliveries = repositories.webhookDeliveries;
     this.auditLogs = repositories.auditLogs;
     this.outboxEvents = repositories.outboxEvents;
-  }
-
-  async transaction<T>(work: (repositories: Repositories) => Promise<T>): Promise<T> {
-    return this.knex.transaction((trx) =>
-      work(buildRepositories(trx, this.clock, this.encryption, this.auditKey)),
-    );
   }
 }

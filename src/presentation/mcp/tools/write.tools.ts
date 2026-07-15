@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { Payable } from '../../../payable';
-import { authorizationFrom, providerFrom, respond, tenantFrom } from '../context';
+import { authorizeTool, providerFrom, respond, tenantFrom } from '../context';
 import type { McpPayableOptions } from '../options';
 import type { ToolGate } from '../policy';
 import {
@@ -36,14 +36,15 @@ export function registerCatalogTools(
         },
       },
       (args) =>
-        respond(() =>
-          payable.products(providerFrom(args, options), tenantFrom(args, options)).create({
+        respond(() => {
+          authorizeTool('product_create', args, options);
+          return payable.products(providerFrom(args, options), tenantFrom(args, options)).create({
             name: args.name,
             description: args.description,
             active: args.active,
             metadata: args.metadata,
-          }),
-        ),
+          });
+        }),
     );
   }
 
@@ -62,14 +63,15 @@ export function registerCatalogTools(
         },
       },
       (args) =>
-        respond(() =>
-          payable.products(providerFrom(args, options), tenantFrom(args, options)).update({
+        respond(() => {
+          authorizeTool('product_update', args, options);
+          return payable.products(providerFrom(args, options), tenantFrom(args, options)).update({
             providerProductId: args.providerProductId,
             name: args.name,
             description: args.description,
             active: args.active,
-          }),
-        ),
+          });
+        }),
     );
   }
 
@@ -89,15 +91,16 @@ export function registerCatalogTools(
         },
       },
       (args) =>
-        respond(() =>
-          payable.prices(providerFrom(args, options), tenantFrom(args, options)).create({
+        respond(() => {
+          authorizeTool('price_create', args, options);
+          return payable.prices(providerFrom(args, options), tenantFrom(args, options)).create({
             providerProductId: args.providerProductId,
             unitAmount: toMoney(args.unitAmount),
             interval: args.interval,
             intervalCount: args.intervalCount,
             description: args.description,
-          }),
-        ),
+          });
+        }),
     );
   }
 }
@@ -139,7 +142,7 @@ export function registerSubscriptionTools(
           if (args.coupon) {
             builder.coupon(args.coupon);
           }
-          return builder.create(authorizationFrom('subscription_create', args, options));
+          return builder.create(authorizeTool('subscription_create', args, options));
         }),
     );
   }
@@ -164,7 +167,7 @@ export function registerSubscriptionTools(
           payable
             .customer(args.billable, providerFrom(args, options), tenantFrom(args, options))
             .subscription(args.name)
-            [action](authorizationFrom(name, args, options)),
+            [action](authorizeTool(name, args, options)),
         ),
     );
   };
@@ -191,7 +194,7 @@ export function registerSubscriptionTools(
           payable
             .customer(args.billable, providerFrom(args, options), tenantFrom(args, options))
             .subscription(args.name)
-            .swap(args.priceId, authorizationFrom('subscription_swap', args, options)),
+            .swap(args.priceId, authorizeTool('subscription_swap', args, options)),
         ),
     );
   }
@@ -216,7 +219,7 @@ export function registerSubscriptionTools(
             .subscription(args.name)
             .updateQuantity(
               args.quantity,
-              authorizationFrom('subscription_update_quantity', args, options),
+              authorizeTool('subscription_update_quantity', args, options),
             ),
         ),
     );
@@ -255,7 +258,7 @@ export function registerLinkTools(
               successUrl: args.successUrl,
               cancelUrl: args.cancelUrl,
               reference: args.reference,
-              authorization: authorizationFrom('checkout_create', args, options),
+              authorization: authorizeTool('checkout_create', args, options),
             }),
         ),
     );
@@ -274,11 +277,12 @@ export function registerLinkTools(
         },
       },
       (args) =>
-        respond(() =>
-          payable
+        respond(() => {
+          authorizeTool('billing_portal', args, options);
+          return payable
             .customer(args.billable, providerFrom(args, options), tenantFrom(args, options))
-            .billingPortal(args.returnUrl),
-        ),
+            .billingPortal(args.returnUrl);
+        }),
     );
   }
 }

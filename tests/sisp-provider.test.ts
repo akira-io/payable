@@ -89,11 +89,11 @@ function fakeSisp() {
 }
 
 describe('SispProvider', () => {
-  it('advertises only checkout and refunds capabilities', () => {
+  it('advertises only the checkout capability', () => {
     const { client } = fakeSisp();
     const capabilities = new SispProvider(OPTIONS, client).capabilities();
     expect(capabilities.has('checkout')).toBe(true);
-    expect(capabilities.has('refunds')).toBe(true);
+    expect(capabilities.has('refunds')).toBe(false);
     expect(capabilities.has('subscriptions')).toBe(false);
     expect(capabilities.has('customers')).toBe(false);
     expect(capabilities.has('catalog')).toBe(false);
@@ -156,32 +156,12 @@ describe('SispProvider', () => {
     ).rejects.toMatchObject({ code: 'CHECKOUT_AMOUNT_REQUIRED' });
   });
 
-  it('refunds the full amount by looking up the SISP transaction', async () => {
+  it('rejects refunds and never touches the gateway or the local transaction', async () => {
     const { client, calls } = fakeSisp();
-    const dto = await new SispProvider(OPTIONS, client).refund({ providerPaymentId: 'R-abc' }, ctx);
-    expect(calls.refund).toEqual({ amount: null, full: true });
-    expect(dto.providerRefundId).toBe('TID-1');
-    expect(dto.status).toBe('succeeded');
-    expect(dto.amount.amount()).toBe(150000);
-    expect(dto.amount.currency()).toBe('CVE');
-  });
-
-  it('refunds a partial amount in SISP major units', async () => {
-    const { client, calls } = fakeSisp();
-    const dto = await new SispProvider(OPTIONS, client).refund(
-      { providerPaymentId: 'R-abc', amount: Money.of(50000, 'CVE'), reason: 'partial' },
-      ctx,
-    );
-    expect(calls.refund).toEqual({ amount: 500, full: false, reason: 'partial' });
-    expect(dto.amount.amount()).toBe(50000);
-    expect(dto.amount.currency()).toBe('CVE');
-  });
-
-  it('throws when the transaction to refund is missing', async () => {
-    const { client } = fakeSisp();
     await expect(
-      new SispProvider(OPTIONS, client).refund({ providerPaymentId: 'missing' }, ctx),
-    ).rejects.toMatchObject({ code: 'PROVIDER_SISP_TRANSACTION_NOT_FOUND' });
+      new SispProvider(OPTIONS, client).refund({ providerPaymentId: 'R-abc' }, ctx),
+    ).rejects.toMatchObject({ code: 'PROVIDER_CAPABILITY_NOT_SUPPORTED' });
+    expect(calls.refund).toBeUndefined();
   });
 
   it('verifies callbacks and normalizes the processed transaction', async () => {

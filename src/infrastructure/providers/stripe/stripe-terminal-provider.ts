@@ -119,16 +119,6 @@ export class StripeTerminalProvider
     return mapStripeTerminalPayment(reader, paymentIntent);
   }
 
-  async cancelTerminalPayment(
-    _providerTerminalPaymentId: string,
-    _ctx: OperationContext,
-  ): Promise<TerminalPaymentDTO> {
-    throw new PayableError('Stripe Terminal payment cancellation is not supported', {
-      code: 'PROVIDER_OPERATION_UNSUPPORTED',
-      context: { provider: this.name, operation: 'cancelTerminalPayment' },
-    });
-  }
-
   toJSON(): { name: string } {
     return { name: this.name };
   }

@@ -53,6 +53,65 @@ describe('webhook payment reconciliation (C1)', () => {
     expect(reloaded?.status).toBe('succeeded');
   });
 
+  it('recovers a failed payment when a verified retry later succeeds', async () => {
+    const session = await payable
+      .customer(billable)
+      .redirectCheckout(Money.of(9900, 'USD'))
+      .create({ reference: 'order-retry' });
+    provider.verifyResult = {
+      providerEventId: 'evt_failed',
+      type: 'ORDER_FAILED',
+      normalizedType: 'payment.failed',
+      occurredAt: new Date('2026-06-22T10:00:00.000Z'),
+      data: {},
+    };
+    provider.paymentReconcileResult = { providerPaymentId: session.id, status: 'failed' };
+    await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
+    expect((await storage.payments.findByProviderId('stripe', session.id))?.status).toBe('failed');
+
+    provider.verifyResult = {
+      providerEventId: 'evt_recovered',
+      type: 'ORDER_COMPLETED',
+      normalizedType: 'payment.succeeded',
+      occurredAt: new Date('2026-06-22T11:00:00.000Z'),
+      data: {},
+    };
+    provider.paymentReconcileResult = { providerPaymentId: session.id, status: 'succeeded' };
+    await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
+
+    const reloaded = await storage.payments.findByProviderId('stripe', session.id);
+    expect(reloaded?.status).toBe('succeeded');
+  });
+
+  it('keeps a succeeded payment when a stale failure event arrives afterwards', async () => {
+    const session = await payable
+      .customer(billable)
+      .redirectCheckout(Money.of(9900, 'USD'))
+      .create({ reference: 'order-reverse' });
+    provider.verifyResult = {
+      providerEventId: 'evt_success_first',
+      type: 'ORDER_COMPLETED',
+      normalizedType: 'payment.succeeded',
+      occurredAt: new Date('2026-06-22T11:00:00.000Z'),
+      data: {},
+    };
+    provider.paymentReconcileResult = { providerPaymentId: session.id, status: 'succeeded' };
+    await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
+
+    provider.verifyResult = {
+      providerEventId: 'evt_failed_late',
+      type: 'ORDER_FAILED',
+      normalizedType: 'payment.failed',
+      occurredAt: new Date('2026-06-22T10:00:00.000Z'),
+      data: {},
+    };
+    provider.paymentReconcileResult = { providerPaymentId: session.id, status: 'failed' };
+    await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
+
+    const reloaded = await storage.payments.findByProviderId('stripe', session.id);
+    expect(reloaded?.status).toBe('succeeded');
+  });
+
   it('ignores a stale payment webhook that cannot transition the local status', async () => {
     const payment = await payable
       .customer(billable)
