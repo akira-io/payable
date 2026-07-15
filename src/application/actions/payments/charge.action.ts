@@ -34,6 +34,12 @@ export class ChargeAction {
       input.authorization,
       'charge',
     );
+    if (input.amount.amount() <= 0) {
+      throw new PayableError(`Charge amount must be positive, got ${input.amount.amount()}`, {
+        code: 'PAYMENT_AMOUNT_INVALID',
+        context: { amount: input.amount.amount(), currency: input.amount.currency() },
+      });
+    }
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'charges', isChargeCapable);
     const storage = this.deps.storage;
