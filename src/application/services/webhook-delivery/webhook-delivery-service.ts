@@ -18,6 +18,10 @@ const VERSION_SUFFIX = /\.v\d+$/;
 
 export type HostResolver = (hostname: string) => Promise<string[]>;
 
+export interface PinnedFetchInit extends RequestInit {
+  pinnedAddresses: string[];
+}
+
 export interface WebhookDeliveryOptions {
   fetch?: typeof globalThis.fetch;
   timeoutMs?: number;
@@ -62,6 +66,12 @@ export class WebhookDeliveryService {
     private readonly clock: Clock,
     options: WebhookDeliveryOptions = {},
   ) {
+    if (options.fetch && !options.resolveHost) {
+      throw new PayableError(
+        'A custom webhook fetch requires a custom resolveHost so deliveries stay pinned to the validated addresses',
+        { code: 'WEBHOOK_TRANSPORT_UNPINNABLE' },
+      );
+    }
     this.customFetch = options.fetch;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.maxAttempts = options.maxAttempts ?? DEFAULT_WEBHOOK_DELIVERY_ATTEMPTS;
@@ -157,7 +167,7 @@ export class WebhookDeliveryService {
     };
     try {
       const outcome = this.customFetch
-        ? await this.fetchDeliver(endpoint.url, headers, body)
+        ? await this.fetchDeliver(endpoint.url, headers, body, target.addresses)
         : await this.secureDeliver(endpoint.url, headers, body, target.addresses);
       if (!outcome.ok && outcome.responseBody === 'redirect not followed') {
         this.logger?.warn('Webhook delivery blocked: endpoint returned a redirect', {
@@ -199,15 +209,18 @@ export class WebhookDeliveryService {
     url: string,
     headers: Record<string, string>,
     body: string,
+    addresses: string[],
   ): Promise<DeliveryOutcome> {
     const fetchImpl = this.customFetch as typeof globalThis.fetch;
-    const response = await fetchImpl(url, {
+    const init: PinnedFetchInit = {
       method: 'POST',
       headers,
       body,
       redirect: 'manual',
       signal: AbortSignal.timeout(this.timeoutMs),
-    });
+      pinnedAddresses: addresses,
+    };
+    const response = await fetchImpl(url, init);
     if (response.status >= 300 && response.status < 400) {
       return { ok: false, responseCode: response.status, responseBody: 'redirect not followed' };
     }
