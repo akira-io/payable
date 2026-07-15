@@ -128,12 +128,14 @@ error **and** a `null` result as a signature failure, throwing `InvalidWebhookSi
 | Partial refund requested | `ProviderCapabilityNotSupportedError('paddle', 'partial refund')` thrown by `refund` when `input.amount` is set | Issue a full refund (omit `amount`). Paddle adjustments are created with `type: 'full'`. |
 | Invalid webhook signature | `InvalidWebhookSignatureError` (`provider: 'paddle'`) on a thrown error or a `null` unmarshal result | Verify `webhookSecret` matches the Paddle notification setting and the raw body is forwarded unmodified. |
 | Non-integer amount from Paddle | `PayableError` `PROVIDER_AMOUNT_INVALID` from `toMinorUnits` | Indicates an unexpected amount format; inspect the offending entity. |
-| Paddle API error | The SDK error propagates from the called method | Calls are idempotent via `ctx.idempotencyKey`; safe to retry the same operation with the same key. |
+| Paddle API error | The SDK error propagates from the called method | Paddle has no client-supplied idempotency keys; before retrying a create, reconcile by listing or fetching the entity (or waiting for its webhook) to confirm whether the first attempt reached Paddle. |
 
-Every Paddle provider method (e.g. `createCustomer`, `refund`) receives an `OperationContext` and
-forwards `ctx.idempotencyKey` to the Paddle API: the private `paddle(ctx.idempotencyKey)` helper scopes
-the SDK client through `withIdempotencyKey`, so retries with the same key are safe. Idempotency at the
-engine boundary is additionally handled by the idempotency store.
+Paddle does not support client-supplied idempotency keys, so the provider sends none and a blind retry
+of a create after an ambiguous failure (for example a network error after the request reached Paddle)
+can duplicate the resource. The engine-level idempotency store still deduplicates Payable operations by
+`ctx.idempotencyKey` before they reach the provider; that guarantee is Payable's, not Paddle's. When an
+ambiguous failure escapes the store, reconcile against Paddle (list the entity or process its webhook)
+before issuing the create again.
 
 ## Configuration example
 
