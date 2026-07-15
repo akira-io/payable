@@ -4,6 +4,7 @@ import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { KnexAuditLogRepository } from '../src/infrastructure/storage/knex/repositories/knex-audit-log.repository';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { createTestDb } from './support/knex';
+import { createLegacyLedgerDatabase } from './support/legacy-ledger-schema';
 
 const auditEntry = {
   tenantId: null,
@@ -190,6 +191,58 @@ describe('forward migrations (C5)', () => {
         ...base,
       }),
     ).rejects.toThrow();
+  });
+
+  it('upgrades a database recorded through 003 to match a fresh installation', async () => {
+    const payableTables = async (knex: Knex): Promise<string[]> =>
+      (
+        (await knex
+          .from('sqlite_master')
+          .where({ type: 'table' })
+          .andWhereLike('name', 'payable_%')
+          .orderBy('name')
+          .pluck('name')) as string[]
+      ).filter((name) => !name.includes('sqlite'));
+
+    const legacy = createTestDb();
+    await createLegacyLedgerDatabase(legacy);
+    expect(await legacy.schema.hasTable('payable_webhook_endpoint_events')).toBe(false);
+    expect(await legacy.schema.hasColumn('payable_outbox_events', 'dedupe_key')).toBe(false);
+    expect(await legacy.schema.hasColumn('payable_webhook_events', 'claim_token')).toBe(false);
+    expect(await legacy.schema.hasColumn('payable_webhook_deliveries', 'event_id')).toBe(false);
+
+    await migrate(legacy);
+
+    const fresh = createTestDb();
+    await migrate(fresh);
+
+    const tables = await payableTables(fresh);
+    expect(await payableTables(legacy)).toEqual(tables);
+    for (const table of tables) {
+      const upgraded = Object.keys(await legacy(table).columnInfo()).sort();
+      const pristine = Object.keys(await fresh(table).columnInfo()).sort();
+      expect(upgraded, table).toEqual(pristine);
+    }
+
+    const indexes = (await legacy
+      .from('sqlite_master')
+      .where({ type: 'index' })
+      .pluck('name')) as string[];
+    expect(indexes).toContain('payable_audit_logs_tenant_sequence_unique');
+    expect(indexes).toContain('payable_outbox_events_tenant_dedupe_unique');
+    expect(indexes).toContain('payable_webhook_deliveries_tenant_endpoint_event_unique');
+    expect(indexes).toContain('payable_outbox_events_pending_claim_index');
+    expect(await legacy.schema.hasTable('payable_webhook_endpoint_events')).toBe(true);
+
+    await legacy.destroy();
+    await fresh.destroy();
+  });
+
+  it('reruns nothing for a fresh installation when the convergence step is recorded', async () => {
+    await migrate(db);
+    const before = await db.from('payable_migrations').orderBy('name').pluck('name');
+    expect(before).toContain('007-post-ledger-schema-convergence');
+    await expect(migrate(db)).resolves.toBeUndefined();
   });
 
   it('back-fills columns added after a table was first created', async () => {

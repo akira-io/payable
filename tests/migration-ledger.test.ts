@@ -18,6 +18,7 @@ describe('migration ledger', () => {
       '003-alter-existing-tables',
       '004-widen-endpoint-secret',
       '005-webhook-occurred-at',
+      '007-post-ledger-schema-convergence',
     ]);
     await db.destroy();
   });
