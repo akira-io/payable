@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import type { ArgumentsHost, CanActivate, ExecutionContext } from '@nestjs/common';
-import type { ModuleRef } from '@nestjs/core';
+import type { HttpAdapterHost, ModuleRef } from '@nestjs/core';
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
 import { InvalidWebhookSignatureError } from '../src/domain/errors/invalid-webhook-signature.error';
@@ -205,6 +205,84 @@ describe('nest adapter', () => {
     };
 
     new PayableExceptionFilter().catch(httpException, host);
+
+    expect(captured.status).toBe(401);
+    expect(captured.body).toEqual({ statusCode: 401, message: 'Unauthorized' });
+  });
+
+  it('replies through the Express-style HTTP adapter when one is available', () => {
+    const captured: { status?: number; body?: { error?: string } } = {};
+    const response = {
+      status: (code: number) => ({
+        json: (body: { error?: string }) => {
+          captured.status = code;
+          captured.body = body;
+        },
+      }),
+    };
+    const host = {
+      switchToHttp: () => ({ getResponse: () => response }),
+    } as unknown as ArgumentsHost;
+    const adapterHost = {
+      httpAdapter: {
+        reply: (res: typeof response, body: { error?: string }, status: number) => {
+          res.status(status).json(body);
+        },
+      },
+    } as unknown as HttpAdapterHost;
+
+    new PayableExceptionFilter(adapterHost).catch(new InvalidWebhookSignatureError('stripe'), host);
+
+    expect(captured.status).toBe(400);
+    expect(captured.body?.error).toBe('INVALID_WEBHOOK_SIGNATURE');
+  });
+
+  it('replies through a Fastify-style HTTP adapter without Express methods', () => {
+    const captured: { status?: number; body?: { error?: string } } = {};
+    const fastifyReply = {
+      code: (status: number) => ({
+        send: (body: { error?: string }) => {
+          captured.status = status;
+          captured.body = body;
+        },
+      }),
+    };
+    const host = {
+      switchToHttp: () => ({ getResponse: () => fastifyReply }),
+    } as unknown as ArgumentsHost;
+    const adapterHost = {
+      httpAdapter: {
+        reply: (reply: typeof fastifyReply, body: { error?: string }, status: number) => {
+          reply.code(status).send(body);
+        },
+      },
+    } as unknown as HttpAdapterHost;
+
+    new PayableExceptionFilter(adapterHost).catch(new InvalidWebhookSignatureError('stripe'), host);
+
+    expect(captured.status).toBe(400);
+    expect(captured.body?.error).toBe('INVALID_WEBHOOK_SIGNATURE');
+  });
+
+  it('preserves framework HttpException mapping through the adapter', () => {
+    const captured: { status?: number; body?: unknown } = {};
+    const host = {
+      switchToHttp: () => ({ getResponse: () => ({}) }),
+    } as unknown as ArgumentsHost;
+    const adapterHost = {
+      httpAdapter: {
+        reply: (_res: unknown, body: unknown, status: number) => {
+          captured.status = status;
+          captured.body = body;
+        },
+      },
+    } as unknown as HttpAdapterHost;
+    const httpException = {
+      getStatus: () => 401,
+      getResponse: () => ({ statusCode: 401, message: 'Unauthorized' }),
+    };
+
+    new PayableExceptionFilter(adapterHost).catch(httpException, host);
 
     expect(captured.status).toBe(401);
     expect(captured.body).toEqual({ statusCode: 401, message: 'Unauthorized' });

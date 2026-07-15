@@ -1,8 +1,9 @@
-import { type ArgumentsHost, Catch, type ExceptionFilter } from '@nestjs/common';
+import { type ArgumentsHost, Catch, type ExceptionFilter, Optional } from '@nestjs/common';
+import type { HttpAdapterHost } from '@nestjs/core';
 import { PayableError } from '../../domain/errors/payable-error';
 import { payableErrorBody, payableErrorStatus } from '../shared/payable-http';
 
-interface HttpResponse {
+interface ExpressLikeResponse {
   status(code: number): { json(body: unknown): unknown };
 }
 
@@ -28,13 +29,18 @@ function httpExceptionBody(error: unknown): unknown {
 
 @Catch()
 export class PayableExceptionFilter implements ExceptionFilter {
+  constructor(@Optional() private readonly adapterHost?: HttpAdapterHost) {}
+
   catch(error: unknown, host: ArgumentsHost): void {
-    const response = host.switchToHttp().getResponse<HttpResponse>();
+    const response = host.switchToHttp().getResponse();
     const frameworkStatus = httpExceptionStatus(error);
-    if (frameworkStatus !== undefined) {
-      response.status(frameworkStatus).json(httpExceptionBody(error));
+    const status = frameworkStatus ?? payableErrorStatus(error);
+    const body = frameworkStatus === undefined ? payableErrorBody(error) : httpExceptionBody(error);
+    const httpAdapter = this.adapterHost?.httpAdapter;
+    if (httpAdapter) {
+      httpAdapter.reply(response, body, status);
       return;
     }
-    response.status(payableErrorStatus(error)).json(payableErrorBody(error));
+    (response as ExpressLikeResponse).status(status).json(body);
   }
 }
