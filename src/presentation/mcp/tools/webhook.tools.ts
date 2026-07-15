@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { Payable } from '../../../payable';
-import { authorizationFrom, providerFrom, respond, tenantFrom } from '../context';
+import { authorizeTool, providerFrom, respond, tenantFrom } from '../context';
 import type { McpPayableOptions } from '../options';
 import type { ToolGate } from '../policy';
 import { providerShape, tenantShape } from '../schemas';
@@ -24,7 +24,7 @@ export function registerWebhookTools(
           const tenantId = tenantFrom(args, options);
           await payable.replayWebhook(
             args.id,
-            { ...authorizationFrom('webhook_replay', args, options), tenantId: tenantId ?? null },
+            { ...authorizeTool('webhook_replay', args, options), tenantId: tenantId ?? null },
             providerFrom(args, options),
           );
           return { replayed: args.id };
