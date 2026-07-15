@@ -3,6 +3,7 @@ import { PayableError } from '../../../../domain/errors/payable-error';
 import { alterExistingTables } from './alter-existing-tables';
 import { createBillingTables } from './billing-schema';
 import { runStep } from './migration-ledger';
+import { convergePostLedgerSchema } from './post-ledger-convergence';
 import { addSubscriptionProviderSyncedAt } from './subscription-provider-synced-at';
 import { createSystemTables } from './system-schema';
 import { addWebhookOccurredAt } from './webhook-occurred-at';
@@ -89,5 +90,6 @@ export async function migrate(knex: Knex): Promise<void> {
     await runStep(knex, '006-subscription-provider-synced-at', () =>
       addSubscriptionProviderSyncedAt(knex),
     );
+    await runStep(knex, '007-post-ledger-schema-convergence', () => convergePostLedgerSchema(knex));
   });
 }
