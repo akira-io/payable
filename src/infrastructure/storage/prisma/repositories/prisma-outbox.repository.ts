@@ -33,6 +33,7 @@ export class PrismaOutboxEventRepository implements OutboxEventRepository {
     const row = {
       id,
       tenantId,
+      tenantKey: tenantId ?? '',
       correlationId: data.correlationId,
       eventType: data.eventType,
       eventVersion: data.eventVersion,
@@ -50,7 +51,9 @@ export class PrismaOutboxEventRepository implements OutboxEventRepository {
       const created = await this.delegate.create({ data: row });
       return this.hydrate(created);
     }
-    const existing = await this.delegate.findFirst({ where: { dedupeKey, tenantId } });
+    const existing = await this.delegate.findFirst({
+      where: { dedupeKey, tenantKey: tenantId ?? '' },
+    });
     if (existing) {
       return this.hydrate(existing);
     }
@@ -61,7 +64,9 @@ export class PrismaOutboxEventRepository implements OutboxEventRepository {
       if (!isPrismaUniqueViolation(error)) {
         throw error;
       }
-      const raced = await this.delegate.findFirst({ where: { dedupeKey, tenantId } });
+      const raced = await this.delegate.findFirst({
+        where: { dedupeKey, tenantKey: tenantId ?? '' },
+      });
       if (!raced) {
         throw error;
       }
