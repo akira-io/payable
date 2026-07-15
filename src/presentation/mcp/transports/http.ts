@@ -38,7 +38,7 @@ export async function serveHttp(
     allowedOrigins: options.allowedOrigins,
   };
   const http = createServer((req, res) => {
-    void handle(
+    handle(
       req,
       res,
       createMcpServer,
@@ -46,7 +46,13 @@ export async function serveHttp(
       maxBodyBytes,
       transportOptions,
       options.authenticate,
-    );
+    ).catch(() => {
+      if (!res.headersSent) {
+        res.writeHead(500).end();
+        return;
+      }
+      res.destroy();
+    });
   });
   await new Promise<void>((resolve) => {
     http.listen(options.port ?? 3333, options.host ?? '127.0.0.1', resolve);
@@ -77,6 +83,20 @@ async function handle(
     res.writeHead(401).end();
     return;
   }
+  let parsedBody: unknown;
+  if (req.method === 'POST') {
+    const body = await readBodyWithin(req, maxBodyBytes);
+    if (!body.ok) {
+      res.writeHead(413).end();
+      return;
+    }
+    try {
+      parsedBody = JSON.parse(body.text || 'null');
+    } catch {
+      res.writeHead(400).end();
+      return;
+    }
+  }
   const server = createMcpServer();
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
@@ -91,20 +111,43 @@ async function handle(
   });
   await server.connect(transport);
 
-  let received = 0;
-  req.on('data', (chunk: Buffer) => {
-    received += chunk.length;
-    if (received > maxBodyBytes && !res.headersSent) {
-      res.writeHead(413).end();
-      req.destroy();
-    }
-  });
-
   try {
-    await transport.handleRequest(req, res);
+    await transport.handleRequest(req, res, parsedBody);
   } catch (error) {
     if (!req.destroyed) {
       throw error;
     }
   }
+}
+
+type BodyReadResult = { ok: true; text: string } | { ok: false };
+
+function readBodyWithin(req: IncomingMessage, maxBodyBytes: number): Promise<BodyReadResult> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let received = 0;
+    let settled = false;
+    const settle = (result: BodyReadResult) => {
+      if (!settled) {
+        settled = true;
+        resolve(result);
+      }
+    };
+    req.on('data', (chunk: Buffer) => {
+      received += chunk.length;
+      if (received > maxBodyBytes) {
+        req.pause();
+        settle({ ok: false });
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => settle({ ok: true, text: Buffer.concat(chunks).toString('utf8') }));
+    req.on('error', (error) => {
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    });
+  });
 }

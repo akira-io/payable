@@ -118,12 +118,54 @@ describe('mcp http transport', () => {
           resolve(response.statusCode ?? 0);
         },
       );
-      request.on('error', () => resolve(413));
+      request.on('error', () => resolve(0));
       request.write('x'.repeat(64));
       request.end();
     });
 
     expect(status).toBe(413);
+    await new Promise<void>((resolve) => http.close(() => resolve()));
+  });
+
+  it('returns exactly one 413 and keeps serving after an oversized chunked body', async () => {
+    const payable = createPayable({ providers: { stripe: new FakeProvider() } });
+    const http = await serveHttp(() => createPayableMcpServer(payable), {
+      port: 0,
+      maxBodyBytes: 64,
+    });
+    const { port } = http.address() as AddressInfo;
+    const errors: Error[] = [];
+    http.on('clientError', (error: Error) => errors.push(error));
+
+    const post = (body: string) =>
+      new Promise<number>((resolve) => {
+        const request = nodeRequest(
+          {
+            host: '127.0.0.1',
+            port,
+            path: '/mcp',
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              accept: 'application/json, text/event-stream',
+            },
+          },
+          (response) => {
+            response.resume();
+            resolve(response.statusCode ?? 0);
+          },
+        );
+        request.on('error', () => resolve(0));
+        request.end(body);
+      });
+
+    expect(await post('x'.repeat(1024))).toBe(413);
+    expect(await post('not json')).toBe(400);
+    const followUp = await post(
+      JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping', params: {} }),
+    );
+    expect(followUp).toBe(200);
+    expect(errors).toEqual([]);
     await new Promise<void>((resolve) => http.close(() => resolve()));
   });
 });
