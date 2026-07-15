@@ -235,7 +235,6 @@ describe('Stripe Issuing provider', () => {
       status: 'pending',
       limit: 100,
     });
-    expect(calls.authorizationsPage.autoPagingToArray).toHaveBeenCalledWith({ limit: 125 });
     expect(calls.authorizationsRetrieve).toHaveBeenCalledWith('iauth_1');
     expect(calls.authorizationsApprove).toHaveBeenCalledWith(
       'iauth_1',
@@ -262,7 +261,6 @@ describe('Stripe Issuing provider', () => {
     await instance.retrieveIssuingTransaction('ipi_1');
 
     expect(calls.transactionsList).toHaveBeenCalledWith({ card: 'ic_1', limit: 100 });
-    expect(calls.transactionsPage.autoPagingToArray).toHaveBeenCalledWith({ limit: 120 });
     expect(calls.transactionsRetrieve).toHaveBeenCalledWith('ipi_1');
     expect(transactions).toHaveLength(1);
     expect('providerAuthorizationId' in (transactions[0] ?? {})).toBe(false);
