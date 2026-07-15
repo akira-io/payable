@@ -104,6 +104,9 @@ export function fakeStripeMarketplace() {
   const payout = stripeMarketplacePayout();
   const accountsPage = {
     autoPagingToArray: vi.fn().mockResolvedValue([account, restrictedAccount]),
+    async *[Symbol.asyncIterator]() {
+      yield* [account, restrictedAccount];
+    },
   };
   const transfersPage = { autoPagingToArray: vi.fn().mockResolvedValue([transfer]) };
   const payoutsPage = { autoPagingToArray: vi.fn().mockResolvedValue([payout]) };

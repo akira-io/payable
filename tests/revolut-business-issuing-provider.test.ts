@@ -163,6 +163,53 @@ describe('Revolut Business Issuing provider', () => {
     expect(terminated.status).toBe('canceled');
   });
 
+  it('keeps paging past pages with no matching card transactions', async () => {
+    const firstPage = Array.from({ length: 20 }, (_, index) => ({
+      ...cardTransaction,
+      id: `other-${index}`,
+      card: { id: 'other-card' },
+      created_at: new Date(Date.UTC(2026, 6, 2, 0, 0, 40 - index)).toISOString(),
+    }));
+    const match = {
+      ...cardTransaction,
+      id: 'transaction-late',
+      created_at: '2026-07-01T00:00:00.000Z',
+    };
+    const { fetch, calls } = fakeRevolutBusinessFetch({ body: firstPage }, { body: [match] });
+
+    const transactions = await provider(fetch).listIssuingTransactions({
+      providerCardId: 'card-1',
+      limit: 20,
+    });
+
+    expect(transactions).toHaveLength(1);
+    expect(transactions[0]?.providerTransactionId).toBe('transaction-late');
+    const secondUrl = new URL(calls[1]?.url ?? '');
+    expect(secondUrl.searchParams.get('to')).toBe(firstPage[19]?.created_at);
+  });
+
+  it('stops paging when the cursor repeats instead of looping forever', async () => {
+    const stuckPage = Array.from({ length: 20 }, (_, index) => ({
+      ...cardTransaction,
+      id: `stuck-${index}`,
+      card: { id: 'other-card' },
+      created_at: '2026-07-01T00:00:00.000Z',
+    }));
+    const { fetch, calls } = fakeRevolutBusinessFetch(
+      { body: stuckPage },
+      { body: stuckPage },
+      { body: stuckPage },
+    );
+
+    const transactions = await provider(fetch).listIssuingTransactions({
+      providerCardId: 'card-1',
+      limit: 20,
+    });
+
+    expect(transactions).toHaveLength(0);
+    expect(calls.length).toBeLessThanOrEqual(2);
+  });
+
   it('reads and filters normalized card transactions', async () => {
     const refund = {
       ...cardTransaction,

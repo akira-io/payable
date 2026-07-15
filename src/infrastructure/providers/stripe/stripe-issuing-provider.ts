@@ -24,6 +24,7 @@ import type {
 import { PayableError } from '../../../domain/errors/payable-error';
 import { STRIPE_API_VERSION } from './stripe-api-version';
 import { withStripeErrors } from './stripe-errors';
+import { collectFilteredStripeItems } from './stripe-filtered-list';
 import {
   mapStripeIssuingAuthorization,
   mapStripeIssuingCard,
@@ -152,20 +153,19 @@ export class StripeIssuingProvider
     const limit = input.limit ?? DEFAULT_LIST_LIMIT;
     const authorizations = await withStripeErrors(
       () =>
-        stripe.issuing.authorizations
-          .list({
+        collectFilteredStripeItems(
+          stripe.issuing.authorizations.list({
             card: input.providerCardId,
             status: stripeIssuingListAuthorizationStatus(input.status),
             limit: Math.min(limit, STRIPE_PAGE_LIMIT),
-          })
-          .autoPagingToArray({ limit }),
+          }),
+          (authorization) =>
+            !input.status || mapStripeIssuingAuthorization(authorization).status === input.status,
+          limit,
+        ),
       this.name,
     );
-    const mapped = authorizations.map(mapStripeIssuingAuthorization);
-    if (!input.status) {
-      return mapped;
-    }
-    return mapped.filter((authorization) => authorization.status === input.status);
+    return authorizations.map(mapStripeIssuingAuthorization);
   }
 
   async retrieveIssuingAuthorization(
@@ -204,18 +204,19 @@ export class StripeIssuingProvider
     const limit = input.limit ?? DEFAULT_LIST_LIMIT;
     const transactions = await withStripeErrors(
       () =>
-        stripe.issuing.transactions
-          .list({ card: input.providerCardId, limit: Math.min(limit, STRIPE_PAGE_LIMIT) })
-          .autoPagingToArray({ limit }),
+        collectFilteredStripeItems(
+          stripe.issuing.transactions.list({
+            card: input.providerCardId,
+            limit: Math.min(limit, STRIPE_PAGE_LIMIT),
+          }),
+          (transaction) =>
+            !input.providerAuthorizationId ||
+            stripeExpandableId(transaction.authorization) === input.providerAuthorizationId,
+          limit,
+        ),
       this.name,
     );
-    return transactions
-      .filter(
-        (transaction) =>
-          !input.providerAuthorizationId ||
-          stripeExpandableId(transaction.authorization) === input.providerAuthorizationId,
-      )
-      .map(mapStripeIssuingTransaction);
+    return transactions.map(mapStripeIssuingTransaction);
   }
 
   async retrieveIssuingTransaction(providerTransactionId: string): Promise<IssuingTransactionDTO> {
