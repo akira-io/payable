@@ -478,7 +478,7 @@ const payable = createPayable({
 // Charge a customer (ChargeCapable):
 await payable
   .customer({ billableType: 'User', billableId: '1', email: 'jane@example.com' })
-  .charge(Money.of(1500, 'USD'));
+  .charge({ amount: Money.of(1500, 'USD'), reference: 'order-1' });
 ```
 
 ---
