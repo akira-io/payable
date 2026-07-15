@@ -89,10 +89,6 @@ function fakePaddle(unmarshal?: () => Promise<PaddleWebhookEvent | null>) {
     },
   };
   const typed = client as unknown as PaddleClient;
-  typed.withIdempotencyKey = (idempotencyKey: string) => {
-    calls.set('idempotencyKey', idempotencyKey);
-    return typed;
-  };
   return { client: typed, calls };
 }
 
@@ -124,7 +120,6 @@ describe('PaddleProvider', () => {
     );
     expect(dto).toEqual({ providerCustomerId: 'ctm_1', email: 'user@example.com', name: 'User' });
     expect(calls.get('customers.create')).toMatchObject({ email: 'user@example.com' });
-    expect(calls.get('idempotencyKey')).toBe('idem-1');
   });
 
   it('converts Money to a Paddle string amount at the price boundary', async () => {
@@ -157,8 +152,33 @@ describe('PaddleProvider', () => {
     expect(calls.get('prices.create')).toMatchObject({ description: 'Pro monthly' });
   });
 
-  it('opens a checkout via a transaction and forwards the idempotency key', async () => {
-    const { client, calls } = fakePaddle();
+  it('reaches Paddle again when a create is retried after a post-side-effect network failure', async () => {
+    let attempts = 0;
+    const { client } = fakePaddle();
+    (client.customers as { create: unknown }).create = (body: { email: string }) => {
+      attempts += 1;
+      if (attempts === 1) {
+        return Promise.reject(new Error('socket hang up'));
+      }
+      return Promise.resolve({ id: `ctm_${attempts}`, email: body.email, name: null });
+    };
+    const instance = provider(client);
+    const input = {
+      email: 'user@example.com',
+      name: 'User',
+      billableType: 'User',
+      billableId: '1',
+    };
+
+    await expect(instance.createCustomer(input, ctx)).rejects.toThrow('socket hang up');
+    const second = await instance.createCustomer(input, ctx);
+
+    expect(attempts).toBe(2);
+    expect(second.providerCustomerId).toBe('ctm_2');
+  });
+
+  it('opens a checkout via a transaction', async () => {
+    const { client } = fakePaddle();
     const dto = await provider(client).createCheckoutSession(
       {
         providerCustomerId: 'ctm_1',
@@ -170,7 +190,6 @@ describe('PaddleProvider', () => {
       ctx,
     );
     expect(dto).toEqual({ id: 'txn_1', url: 'https://pay.paddle.test/txn_1' });
-    expect(calls.get('idempotencyKey')).toBe('idem-1');
   });
 
   it('sends a quantity-only update as an items array carrying the price id', async () => {
@@ -207,7 +226,6 @@ describe('PaddleProvider', () => {
     expect(dto.providerRefundId).toBe('adj_1');
     expect(dto.status).toBe('succeeded');
     expect(dto.amount.amount()).toBe(9900);
-    expect(calls.get('idempotencyKey')).toBe('idem-1');
   });
 
   it('rejects a partial refund instead of silently refunding in full', async () => {
