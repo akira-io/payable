@@ -39,6 +39,7 @@ import {
   refundBodySchema,
   swapSubscriptionBodySchema,
 } from '../shared/schemas';
+import { resolveWebhookSignatureHeader } from '../shared/webhook-signature-header';
 import {
   flattenHeaders,
   type NestPayableOptions,
@@ -211,7 +212,11 @@ export class PayableController {
   }
 
   private receive(request: PayableHttpRequest, provider: string | undefined) {
-    const header = (this.options.webhookSignatureHeader ?? 'stripe-signature').toLowerCase();
+    const header = resolveWebhookSignatureHeader(
+      provider,
+      request.headers,
+      this.options.webhookSignatureHeader,
+    );
     const signature = request.headers[header];
     return this.payable.receiveWebhook({
       provider,

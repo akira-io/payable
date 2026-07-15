@@ -76,6 +76,46 @@ describe('nest adapter', () => {
     });
   });
 
+  it('resolves the signature header per provider on mixed routes', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const stripe = new FakeProvider();
+    stripe.verifyResult = {
+      providerEventId: 'evt_stripe',
+      type: 'invoice.paid',
+      normalizedType: 'invoice.paid',
+      data: {},
+    };
+    const paddle = new FakeProvider();
+    paddle.verifyResult = {
+      providerEventId: 'evt_paddle',
+      type: 'subscription.canceled',
+      normalizedType: 'subscription.cancelled',
+      data: {},
+    };
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const controller = controllerFor(createPayable({ providers: { stripe, paddle }, storage }));
+
+    await controller.webhookForProvider(
+      {
+        headers: { 'stripe-signature': 'stripe-sig', 'paddle-signature': 'wrong' },
+        rawBody: Buffer.from('{"id":"evt_stripe"}'),
+      },
+      'stripe',
+    );
+    expect(stripe.lastVerifyInput?.signature).toBe('stripe-sig');
+
+    await controller.webhookForProvider(
+      {
+        headers: { 'paddle-signature': 'paddle-sig', 'stripe-signature': 'wrong' },
+        rawBody: Buffer.from('{"id":"evt_paddle"}'),
+      },
+      'paddle',
+    );
+    expect(paddle.lastVerifyInput?.signature).toBe('paddle-sig');
+    await db.destroy();
+  });
+
   it('processes a webhook from the raw body', async () => {
     const db = createTestDb();
     await migrate(db);
