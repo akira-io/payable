@@ -44,6 +44,12 @@ export class RefundPaymentAction {
       input.authorization,
       'refund payment',
     );
+    if (input.amount && input.amount.amount() <= 0) {
+      throw new PayableError(`Refund amount must be positive, got ${input.amount.amount()}`, {
+        code: 'REFUND_AMOUNT_INVALID',
+        context: { amount: input.amount.amount(), currency: input.amount.currency() },
+      });
+    }
     const storage = this.deps.storage;
     if (!storage) {
       throw new PayableError('Refunding requires a storage driver', {
