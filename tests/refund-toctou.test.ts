@@ -42,6 +42,26 @@ describe('refund TOCTOU guard', () => {
     await db.destroy();
   });
 
+  it('retries conflicting partial reservations without repeating provider refunds', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const provider = new FakeProvider();
+    const payable = createPayable({ providers: { stripe: provider }, storage });
+    const payment = await seedPayment(storage);
+
+    const partial = (amount: number) =>
+      payable.refund({ paymentId: payment.id, amount: Money.of(amount, 'USD') });
+    const results = await Promise.allSettled([partial(3000), partial(4000)]);
+
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(2);
+    expect(provider.refundCalls).toBe(2);
+    const fresh = await storage.payments.findById(payment.id);
+    expect(fresh?.refundedAmount).toBe(7000);
+    expect(fresh?.status).toBe('partially_refunded');
+    await db.destroy();
+  });
+
   it('releases the reservation when the provider refund fails', async () => {
     class FailingRefundProvider extends FakeProvider {
       override refund(): Promise<never> {

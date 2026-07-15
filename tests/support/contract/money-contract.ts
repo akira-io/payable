@@ -68,6 +68,97 @@ export function registerMoneyContract(ctx: ContractContext): void {
     expect(await storage.refunds.listByPayment(payment.id)).toHaveLength(1);
   });
 
+  it('reserves refund capacity only when the refunded amount is unchanged', async () => {
+    const { storage } = ctx.harness();
+    const payment = await storage.payments.create({
+      tenantId: null,
+      customerId: 'cust_cas',
+      provider: 'stripe',
+      providerPaymentId: 'pi_cas',
+      status: 'succeeded',
+      currency: 'usd',
+      amount: 1000,
+      refundedAmount: 0,
+      reference: null,
+      description: null,
+    });
+
+    const reserved = await storage.payments.updateRefundedAmountIfUnchanged(payment.id, 0, {
+      refundedAmount: 600,
+      status: 'partially_refunded',
+    });
+    expect(reserved).toBe(true);
+
+    const stale = await storage.payments.updateRefundedAmountIfUnchanged(payment.id, 0, {
+      refundedAmount: 1000,
+      status: 'refunded',
+    });
+    expect(stale).toBe(false);
+
+    const fresh = await storage.payments.findById(payment.id);
+    expect(fresh?.refundedAmount).toBe(600);
+    expect(fresh?.status).toBe('partially_refunded');
+  });
+
+  it('lets exactly one concurrent refund reservation win', async () => {
+    const { storage } = ctx.harness();
+    const payment = await storage.payments.create({
+      tenantId: null,
+      customerId: 'cust_race',
+      provider: 'stripe',
+      providerPaymentId: 'pi_race',
+      status: 'succeeded',
+      currency: 'usd',
+      amount: 1000,
+      refundedAmount: 0,
+      reference: null,
+      description: null,
+    });
+
+    const attempt = () =>
+      storage.payments.updateRefundedAmountIfUnchanged(payment.id, 0, {
+        refundedAmount: 1000,
+        status: 'refunded',
+      });
+    const results = await Promise.all([attempt(), attempt()]);
+
+    expect(results.filter(Boolean)).toHaveLength(1);
+    const fresh = await storage.payments.findById(payment.id);
+    expect(fresh?.refundedAmount).toBe(1000);
+  });
+
+  it('scopes refund reservations to the owning tenant', async () => {
+    const { storage } = ctx.harness();
+    const payment = await storage.payments.create({
+      tenantId: 'tenant-a',
+      customerId: null,
+      provider: 'stripe',
+      providerPaymentId: 'pi_scoped_cas',
+      status: 'succeeded',
+      currency: 'usd',
+      amount: 500,
+      refundedAmount: 0,
+      reference: null,
+      description: null,
+    });
+
+    const crossTenant = await storage.payments.updateRefundedAmountIfUnchanged(
+      payment.id,
+      0,
+      { refundedAmount: 500, status: 'refunded' },
+      'tenant-b',
+    );
+    expect(crossTenant).toBe(false);
+
+    const owner = await storage.payments.updateRefundedAmountIfUnchanged(
+      payment.id,
+      0,
+      { refundedAmount: 500, status: 'refunded' },
+      'tenant-a',
+    );
+    expect(owner).toBe(true);
+  });
+
   it('persists invoices for a customer', async () => {
     const { storage } = ctx.harness();
     const invoice = await storage.invoices.create({

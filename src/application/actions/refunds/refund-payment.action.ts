@@ -29,6 +29,8 @@ interface RefundReservation {
   afterStatus: PaymentStatus;
 }
 
+const MAX_RESERVATION_ATTEMPTS = 3;
+
 export class RefundPaymentAction {
   constructor(
     private readonly deps: BillingDependencies,
@@ -166,11 +168,28 @@ export class RefundPaymentAction {
     });
   }
 
-  private reserve(
+  private async reserve(
     storage: NonNullable<BillingDependencies['storage']>,
     payment: { id: string; providerPaymentId: string; currency: string; amount: number },
     input: RefundPaymentActionInput,
   ): Promise<RefundReservation> {
+    for (let attempt = 0; attempt < MAX_RESERVATION_ATTEMPTS; attempt += 1) {
+      const reservation = await this.tryReserve(storage, payment, input);
+      if (reservation) {
+        return reservation;
+      }
+    }
+    throw new PayableError(`Refund reservation conflicted for payment ${payment.id}`, {
+      code: 'REFUND_RESERVATION_CONFLICT',
+      context: { paymentId: payment.id },
+    });
+  }
+
+  private tryReserve(
+    storage: NonNullable<BillingDependencies['storage']>,
+    payment: { id: string; providerPaymentId: string; currency: string; amount: number },
+    input: RefundPaymentActionInput,
+  ): Promise<RefundReservation | null> {
     return storage.transaction(async (repos) => {
       const fresh = await repos.payments.findByIdForUpdate(payment.id, this.deps.tenantId);
       if (!fresh) {
@@ -186,6 +205,18 @@ export class RefundPaymentAction {
           context: { paymentId: fresh.id, requested, remaining },
         });
       }
+      const refundedAmount = fresh.refundedAmount + requested;
+      const machine = new PaymentStateMachine(fresh.status);
+      const updated = refundedAmount >= fresh.amount ? machine.refund() : machine.partiallyRefund();
+      const reserved = await repos.payments.updateRefundedAmountIfUnchanged(
+        fresh.id,
+        fresh.refundedAmount,
+        { refundedAmount, status: updated.current() },
+        this.deps.tenantId,
+      );
+      if (!reserved) {
+        return null;
+      }
       const refund = await repos.refunds.create({
         tenantId: this.deps.tenantId ?? null,
         paymentId: fresh.id,
@@ -196,14 +227,6 @@ export class RefundPaymentAction {
         amount: requested,
         reason: input.reason ?? null,
       });
-      const refundedAmount = fresh.refundedAmount + requested;
-      const machine = new PaymentStateMachine(fresh.status);
-      const updated = refundedAmount >= fresh.amount ? machine.refund() : machine.partiallyRefund();
-      await repos.payments.update(
-        fresh.id,
-        { refundedAmount, status: updated.current() },
-        this.deps.tenantId,
-      );
       return {
         refundId: refund.id,
         requested,
@@ -220,13 +243,31 @@ export class RefundPaymentAction {
     paymentId: string,
     reservation: RefundReservation,
   ): Promise<void> {
-    await storage.transaction(async (repos) => {
-      const fresh = await repos.payments.findByIdForUpdate(paymentId, this.deps.tenantId);
-      if (fresh) {
+    for (let attempt = 0; attempt < MAX_RESERVATION_ATTEMPTS; attempt += 1) {
+      const released = await storage.transaction(async (repos) => {
+        const fresh = await repos.payments.findByIdForUpdate(paymentId, this.deps.tenantId);
+        if (!fresh) {
+          await repos.refunds.update(reservation.refundId, { status: 'failed' });
+          return true;
+        }
         const refundedAmount = Math.max(0, fresh.refundedAmount - reservation.requested);
         const status: PaymentStatus = refundedAmount <= 0 ? 'succeeded' : 'partially_refunded';
-        await repos.payments.update(fresh.id, { refundedAmount, status }, this.deps.tenantId);
+        const reverted = await repos.payments.updateRefundedAmountIfUnchanged(
+          fresh.id,
+          fresh.refundedAmount,
+          { refundedAmount, status },
+          this.deps.tenantId,
+        );
+        if (reverted) {
+          await repos.refunds.update(reservation.refundId, { status: 'failed' });
+        }
+        return reverted;
+      });
+      if (released) {
+        return;
       }
+    }
+    await storage.transaction(async (repos) => {
       await repos.refunds.update(reservation.refundId, { status: 'failed' });
     });
   }

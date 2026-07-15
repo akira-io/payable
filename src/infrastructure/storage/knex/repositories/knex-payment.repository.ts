@@ -2,6 +2,7 @@ import type { ListOptions } from '../../../../domain/contracts/list-options.cont
 import type {
   NewPayment,
   PaymentRepository,
+  RefundedAmountPatch,
 } from '../../../../domain/contracts/payment-repository.contract';
 import type { Payment } from '../../../../domain/entities/payment.entity';
 import { CurrencyManager } from '../../../../domain/value-objects/currency';
@@ -37,6 +38,23 @@ export class KnexPaymentRepository
 
   list(tenantId?: string | null, options?: ListOptions): Promise<Payment[]> {
     return this.manyWhere(this.tenantClause(tenantId), options);
+  }
+
+  async updateRefundedAmountIfUnchanged(
+    id: string,
+    expectedRefundedAmount: number,
+    patch: RefundedAmountPatch,
+    tenantId?: string | null,
+  ): Promise<boolean> {
+    const count = await this.knex(this.table)
+      .where(this.scopedWhere(id, tenantId))
+      .where({ refunded_amount: expectedRefundedAmount })
+      .update({
+        refunded_amount: patch.refundedAmount,
+        status: patch.status,
+        updated_at: this.clock.now().toISOString(),
+      });
+    return count > 0;
   }
 
   protected toEntity(row: Record<string, unknown>): Payment {
