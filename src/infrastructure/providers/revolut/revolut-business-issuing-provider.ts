@@ -13,6 +13,7 @@ import type {
   ListIssuingCardsInput,
   ListIssuingTransactionsInput,
 } from '../../../domain/dtos/issuing.dto';
+import { PayableError } from '../../../domain/errors/payable-error';
 import { RevolutBusinessCards } from './revolut-business-cards';
 import {
   RevolutBusinessClient,
@@ -36,6 +37,7 @@ export class RevolutBusinessIssuingProvider
   readonly name = 'revolut-business-issuing';
   private readonly cards: RevolutBusinessCards;
   private readonly transactions: RevolutBusinessIssuingTransactions;
+  private readonly sandbox: boolean;
 
   constructor(options: RevolutBusinessIssuingProviderOptions) {
     const client = new RevolutBusinessClient({
@@ -43,32 +45,49 @@ export class RevolutBusinessIssuingProvider
       providerName: this.name,
     } satisfies RevolutBusinessClientOptions);
     const request = client.request.bind(client);
+    this.sandbox = options.environment === 'sandbox';
     this.cards = new RevolutBusinessCards(request);
     this.transactions = new RevolutBusinessIssuingTransactions(request);
   }
 
   capabilities(): IssuingCapabilities {
-    return new Set(['cards', 'transactions']);
+    return this.sandbox ? new Set(['transactions']) : new Set(['cards', 'transactions']);
   }
 
-  createIssuingCard(input: CreateIssuingCardInput, ctx: OperationContext): Promise<IssuingCardDTO> {
+  async createIssuingCard(
+    input: CreateIssuingCardInput,
+    ctx: OperationContext,
+  ): Promise<IssuingCardDTO> {
+    this.assertCardsAvailable('createIssuingCard');
     return this.cards.create(input, ctx);
   }
 
-  listIssuingCards(input?: ListIssuingCardsInput): Promise<IssuingCardDTO[]> {
+  async listIssuingCards(input?: ListIssuingCardsInput): Promise<IssuingCardDTO[]> {
+    this.assertCardsAvailable('listIssuingCards');
     return this.cards.list(input);
   }
 
-  retrieveIssuingCard(providerCardId: string): Promise<IssuingCardDTO> {
+  async retrieveIssuingCard(providerCardId: string): Promise<IssuingCardDTO> {
+    this.assertCardsAvailable('retrieveIssuingCard');
     return this.cards.retrieve(providerCardId);
   }
 
-  updateIssuingCardStatus(
+  async updateIssuingCardStatus(
     providerCardId: string,
     status: IssuingCardStatus,
     _ctx: OperationContext,
   ): Promise<IssuingCardDTO> {
+    this.assertCardsAvailable('updateIssuingCardStatus');
     return this.cards.update(providerCardId, status);
+  }
+
+  private assertCardsAvailable(operation: string): void {
+    if (this.sandbox) {
+      throw new PayableError('The Revolut Business Cards API is unavailable in sandbox', {
+        code: 'PROVIDER_OPERATION_UNSUPPORTED',
+        context: { provider: this.name, operation, environment: 'sandbox' },
+      });
+    }
   }
 
   listIssuingTransactions(input?: ListIssuingTransactionsInput): Promise<IssuingTransactionDTO[]> {

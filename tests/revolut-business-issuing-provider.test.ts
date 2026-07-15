@@ -61,6 +61,41 @@ describe('Revolut Business Issuing provider', () => {
     expect(inspect(configured)).not.toContain('access-token-secret');
   });
 
+  it('drops the cards capability and rejects card operations in sandbox', async () => {
+    const { fetch, calls } = fakeRevolutBusinessFetch();
+    const instance = new RevolutBusinessIssuingProvider({
+      tokenProvider: { getAccessToken: () => 'token-1' },
+      environment: 'sandbox',
+      fetch,
+    });
+
+    expect(instance.capabilities()).toEqual(new Set(['transactions']));
+    await expect(
+      instance.createIssuingCard({ holderReference: 'member-1', form: 'virtual' }, context),
+    ).rejects.toMatchObject({
+      code: 'PROVIDER_OPERATION_UNSUPPORTED',
+      context: expect.objectContaining({ environment: 'sandbox' }),
+    });
+    await expect(instance.listIssuingCards()).rejects.toMatchObject({
+      code: 'PROVIDER_OPERATION_UNSUPPORTED',
+    });
+    expect(calls).toHaveLength(0);
+  });
+
+  it('keeps sandbox transaction reads available', async () => {
+    const { fetch, calls } = fakeRevolutBusinessFetch({ body: [cardTransaction] });
+    const instance = new RevolutBusinessIssuingProvider({
+      tokenProvider: { getAccessToken: () => 'token-1' },
+      environment: 'sandbox',
+      fetch,
+    });
+
+    const transactions = await instance.listIssuingTransactions({ providerCardId: 'card-1' });
+
+    expect(transactions).toHaveLength(1);
+    expect(calls[0]?.url).toContain('sandbox-b2b.revolut.com');
+  });
+
   it('creates only virtual cards with request id and generic controls', async () => {
     const { fetch, calls } = fakeRevolutBusinessFetch({ body: card });
     const instance = provider(fetch);
