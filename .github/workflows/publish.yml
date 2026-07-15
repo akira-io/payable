@@ -65,4 +65,18 @@ jobs:
 
       - name: Publish to npm
         if: steps.version_check.outputs.skip != 'true'
-        run: npx -y npm@11 publish --access public --provenance
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          if [ "${VER#*-}" != "${VER}" ]; then
+            CURRENT_LATEST=$(npm view "$NAME@latest" version 2>/dev/null || echo "")
+            if [ -z "$CURRENT_LATEST" ] || [ "${CURRENT_LATEST#*-}" != "${CURRENT_LATEST}" ]; then
+              TAG=latest
+            else
+              TAG=beta
+            fi
+          else
+            TAG=latest
+          fi
+          echo "Publishing $NAME@$VER with dist-tag $TAG"
+          npx -y npm@11 publish --access public --provenance --tag "$TAG"
