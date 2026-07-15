@@ -22,33 +22,57 @@ export function readMysqlLockResult(result: unknown): number | null {
   return typeof value === 'number' ? value : null;
 }
 
+interface LockConnectionClient {
+  acquireConnection(): Promise<unknown>;
+  releaseConnection(connection: unknown): Promise<void>;
+}
+
+async function withLockConnection(
+  knex: Knex,
+  work: (
+    raw: (sql: string, bindings: readonly Knex.RawBinding[]) => Promise<unknown>,
+  ) => Promise<void>,
+): Promise<void> {
+  const client = knex.client as unknown as LockConnectionClient;
+  const connection = await client.acquireConnection();
+  try {
+    await work((sql, bindings) => knex.raw(sql, [...bindings]).connection(connection));
+  } finally {
+    await client.releaseConnection(connection);
+  }
+}
+
 export async function withMigrationLock(knex: Knex, run: () => Promise<void>): Promise<void> {
   const dialect = dialectOf(knex);
   if (dialect === 'postgresql') {
-    await knex.raw('SELECT pg_advisory_lock(?)', [PG_ADVISORY_LOCK_KEY]);
-    try {
-      await run();
-    } finally {
-      await knex.raw('SELECT pg_advisory_unlock(?)', [PG_ADVISORY_LOCK_KEY]);
-    }
+    await withLockConnection(knex, async (raw) => {
+      await raw('SELECT pg_advisory_lock(?)', [PG_ADVISORY_LOCK_KEY]);
+      try {
+        await run();
+      } finally {
+        await raw('SELECT pg_advisory_unlock(?)', [PG_ADVISORY_LOCK_KEY]);
+      }
+    });
     return;
   }
   if (dialect === 'mysql' || dialect === 'mariadb') {
-    const result = await knex.raw('SELECT GET_LOCK(?, ?) AS acquired', [
-      MYSQL_ADVISORY_LOCK_NAME,
-      MYSQL_ADVISORY_LOCK_TIMEOUT_SECONDS,
-    ]);
-    if (readMysqlLockResult(result) !== 1) {
-      throw new PayableError('Could not acquire the MySQL migration advisory lock', {
-        code: 'MIGRATION_LOCK_UNAVAILABLE',
-        context: { lock: MYSQL_ADVISORY_LOCK_NAME },
-      });
-    }
-    try {
-      await run();
-    } finally {
-      await knex.raw('SELECT RELEASE_LOCK(?)', [MYSQL_ADVISORY_LOCK_NAME]);
-    }
+    await withLockConnection(knex, async (raw) => {
+      const result = await raw('SELECT GET_LOCK(?, ?) AS acquired', [
+        MYSQL_ADVISORY_LOCK_NAME,
+        MYSQL_ADVISORY_LOCK_TIMEOUT_SECONDS,
+      ]);
+      if (readMysqlLockResult(result) !== 1) {
+        throw new PayableError('Could not acquire the MySQL migration advisory lock', {
+          code: 'MIGRATION_LOCK_UNAVAILABLE',
+          context: { lock: MYSQL_ADVISORY_LOCK_NAME },
+        });
+      }
+      try {
+        await run();
+      } finally {
+        await raw('SELECT RELEASE_LOCK(?)', [MYSQL_ADVISORY_LOCK_NAME]);
+      }
+    });
     return;
   }
   await run();
