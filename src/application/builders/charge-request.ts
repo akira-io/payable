@@ -5,5 +5,7 @@ export interface ChargeRequest {
   amount: Money;
   reference?: string;
   description?: string;
+  paymentMethodId?: string;
+  offSession?: boolean;
   authorization?: AuthorizationContext;
 }
