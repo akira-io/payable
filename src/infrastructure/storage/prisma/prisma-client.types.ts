@@ -54,6 +54,7 @@ export interface PrismaSubscriptionRow {
   endsAt: Date | null;
   currentPeriodStart: Date | null;
   currentPeriodEnd: Date | null;
+  providerSyncedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

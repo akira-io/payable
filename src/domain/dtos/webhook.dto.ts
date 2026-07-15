@@ -11,5 +11,6 @@ export interface VerifiedWebhook {
   providerEventId: string;
   type: string;
   normalizedType: NormalizedEventName | null;
+  occurredAt?: Date | null;
   data: Record<string, unknown>;
 }

@@ -29,6 +29,7 @@ export class StripeWebhooks {
       providerEventId: event.id,
       type: event.type,
       normalizedType: this.normalizer.normalize(event.type),
+      occurredAt: typeof event.created === 'number' ? new Date(event.created * 1000) : null,
       data: (event.data.object ?? {}) as unknown as Record<string, unknown>,
     };
   }

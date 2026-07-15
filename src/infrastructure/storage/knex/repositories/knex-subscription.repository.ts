@@ -59,6 +59,7 @@ export class KnexSubscriptionRepository
       endsAt: toNullableDate(row.ends_at),
       currentPeriodStart: toNullableDate(row.current_period_start),
       currentPeriodEnd: toNullableDate(row.current_period_end),
+      providerSyncedAt: toNullableDate(row.provider_synced_at),
       createdAt: toDate(row.created_at),
       updatedAt: toDate(row.updated_at),
     };
@@ -78,6 +79,7 @@ export class KnexSubscriptionRepository
       ends_at: fromDate(data.endsAt),
       current_period_start: fromDate(data.currentPeriodStart),
       current_period_end: fromDate(data.currentPeriodEnd),
+      provider_synced_at: fromDate(data.providerSyncedAt),
     };
   }
 }

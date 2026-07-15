@@ -162,6 +162,81 @@ describe('webhook subscription reconciliation (C1)', () => {
     );
   });
 
+  it('rejects a stale subscription event that arrives after a newer one', async () => {
+    await seedSubscription();
+    provider.verifyResult = {
+      providerEventId: 'evt_newer',
+      type: 'customer.subscription.updated',
+      normalizedType: 'subscription.updated',
+      occurredAt: new Date('2026-06-22T10:00:00.000Z'),
+      data: {},
+    };
+    provider.reconcileResult = {
+      providerSubscriptionId: 'sub_fake',
+      status: 'past_due',
+      currentPeriodEnd: new Date('2026-07-22T00:00:00.000Z'),
+      trialEndsAt: null,
+    };
+    await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
+
+    provider.verifyResult = {
+      providerEventId: 'evt_older',
+      type: 'customer.subscription.updated',
+      normalizedType: 'subscription.updated',
+      occurredAt: new Date('2026-06-22T09:00:00.000Z'),
+      data: {},
+    };
+    provider.reconcileResult = {
+      providerSubscriptionId: 'sub_fake',
+      status: 'active',
+      currentPeriodEnd: new Date('2026-06-22T00:00:00.000Z'),
+      trialEndsAt: null,
+    };
+    await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
+
+    const reloaded = await storage.subscriptions.findByProviderId('stripe', 'sub_fake');
+    expect(reloaded?.status).toBe('past_due');
+    expect(reloaded?.providerSyncedAt?.toISOString()).toBe('2026-06-22T10:00:00.000Z');
+    expect(reloaded?.currentPeriodEnd?.toISOString()).toBe('2026-07-22T00:00:00.000Z');
+  });
+
+  it('applies a newer subscription event and advances the provider sync time', async () => {
+    await seedSubscription();
+    provider.verifyResult = {
+      providerEventId: 'evt_first',
+      type: 'customer.subscription.updated',
+      normalizedType: 'subscription.updated',
+      occurredAt: new Date('2026-06-22T10:00:00.000Z'),
+      data: {},
+    };
+    provider.reconcileResult = {
+      providerSubscriptionId: 'sub_fake',
+      status: 'past_due',
+      currentPeriodEnd: null,
+      trialEndsAt: null,
+    };
+    await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
+
+    provider.verifyResult = {
+      providerEventId: 'evt_second',
+      type: 'customer.subscription.updated',
+      normalizedType: 'subscription.updated',
+      occurredAt: new Date('2026-06-22T11:00:00.000Z'),
+      data: {},
+    };
+    provider.reconcileResult = {
+      providerSubscriptionId: 'sub_fake',
+      status: 'active',
+      currentPeriodEnd: null,
+      trialEndsAt: null,
+    };
+    await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
+
+    const reloaded = await storage.subscriptions.findByProviderId('stripe', 'sub_fake');
+    expect(reloaded?.status).toBe('active');
+    expect(reloaded?.providerSyncedAt?.toISOString()).toBe('2026-06-22T11:00:00.000Z');
+  });
+
   it('does not reconcile a subscription owned by a different tenant', async () => {
     const tenantPayable = createPayable({
       providers: { stripe: provider },

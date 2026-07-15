@@ -25,7 +25,8 @@ export class ProcessWebhookPipeline {
 
   async handle(input: ProcessWebhookInput): Promise<void> {
     const { storage, events, clock, providerName } = this.deps;
-    const occurredAt = clock.now();
+    const processedAt = clock.now();
+    const occurredAt = input.verified.occurredAt ?? processedAt;
     const tenantId = input.tenantId ?? null;
 
     await storage.transaction(async (repos) => {
@@ -60,7 +61,7 @@ export class ProcessWebhookPipeline {
       const marked = await repos.webhookEvents.markStatus(
         input.webhookEventId,
         'processed',
-        occurredAt,
+        processedAt,
         tenantId,
         input.claimToken,
       );
@@ -149,6 +150,14 @@ export class ProcessWebhookPipeline {
     if (!local) {
       return;
     }
+    const providerOccurredAt = verified.occurredAt ?? null;
+    if (
+      providerOccurredAt &&
+      local.providerSyncedAt &&
+      providerOccurredAt.getTime() <= local.providerSyncedAt.getTime()
+    ) {
+      return;
+    }
     const reconciliation = reconcileSubscriptionStatus(local.status, dto.status);
     if (!reconciliation.applied) {
       return;
@@ -158,6 +167,7 @@ export class ProcessWebhookPipeline {
       status,
       currentPeriodEnd: dto.currentPeriodEnd,
       trialEndsAt: dto.trialEndsAt,
+      ...(providerOccurredAt ? { providerSyncedAt: providerOccurredAt } : {}),
       ...(status === 'canceled' ? { endsAt: dto.currentPeriodEnd ?? occurredAt } : {}),
     };
     await repos.subscriptions.update(local.id, patch, tenantId);

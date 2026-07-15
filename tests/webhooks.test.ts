@@ -80,6 +80,7 @@ describe('StripeProvider.verifyWebhook', () => {
       stripeWith({
         id: 'evt_1',
         type: 'checkout.session.completed',
+        created: 1_700_000_000,
         data: { object: { id: 'cs_1' } },
       }),
     );
@@ -88,6 +89,7 @@ describe('StripeProvider.verifyWebhook', () => {
       providerEventId: 'evt_1',
       type: 'checkout.session.completed',
       normalizedType: 'checkout.completed',
+      occurredAt: new Date(1_700_000_000 * 1000),
       data: { id: 'cs_1' },
     });
   });
