@@ -85,6 +85,14 @@ export class ChargeAction {
           { code: 'PAYMENT_CURRENCY_MISMATCH', context: { reference: input.reference ?? null } },
         );
       }
+      const recovered = await storage.payments.findByProviderId(
+        this.deps.providerName,
+        dto.providerPaymentId,
+        this.deps.tenantId ?? null,
+      );
+      if (recovered) {
+        return recovered;
+      }
       return storage.payments.create({
         tenantId: this.deps.tenantId ?? null,
         customerId: customer.id,
@@ -114,8 +122,15 @@ export class ChargeAction {
       },
       resourceType: 'payment',
       tenantId: this.deps.tenantId,
-      retryFailed: false,
+      retryFailed: true,
       run,
+      revive: async (response) => {
+        const fresh = await storage.payments.findById(
+          (response as { id: string }).id,
+          this.deps.tenantId ?? null,
+        );
+        return fresh ?? (response as Payment);
+      },
     });
   }
 }
