@@ -44,10 +44,20 @@ async function truncate(client: PrismaClientLike): Promise<void> {
   }
 }
 
+let clientGenerated = false;
+
+function ensurePrismaClientGenerated(): void {
+  if (clientGenerated) {
+    return;
+  }
+  execFileSync('npx', ['prisma', 'generate', '--schema', SCHEMA], { stdio: 'ignore' });
+  clientGenerated = true;
+}
+
 export async function createPrismaTestClient(): Promise<PrismaClientLike> {
   const dir = mkdtempSync(join(tmpdir(), 'payable-prisma-'));
   process.env.PAYABLE_PRISMA_TEST_URL = `file:${join(dir, 'test.db')}`;
-  execFileSync('npx', ['prisma', 'generate', '--schema', SCHEMA], { stdio: 'ignore' });
+  ensurePrismaClientGenerated();
   execFileSync('npx', ['prisma', 'db', 'push', '--schema', SCHEMA, '--skip-generate'], {
     stdio: 'ignore',
     env: process.env,
