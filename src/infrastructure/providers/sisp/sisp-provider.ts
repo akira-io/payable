@@ -12,9 +12,10 @@ import type {
 import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
-import { sispAmount, sispDecimal, sispMoney } from './sisp-amounts';
+import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
+import { sispDecimal } from './sisp-amounts';
 import { withSispErrors } from './sisp-errors';
-import { toCheckoutSessionDTO, toPaymentStatus, toRefundResultDTO } from './sisp-mappers';
+import { toCheckoutSessionDTO, toPaymentStatus } from './sisp-mappers';
 import { sispMerchantReference } from './sisp-merchant-reference';
 import type { SispCallbackPayload, SispClient, SispHttpRequestInfo } from './sisp-types';
 
@@ -40,7 +41,7 @@ export class SispProvider implements PaymentProvider, RedirectCallbackCapable {
   }
 
   capabilities(): ProviderCapabilities {
-    return new Set(['checkout', 'refunds']);
+    return new Set(['checkout']);
   }
 
   async createCheckoutSession(
@@ -79,29 +80,8 @@ export class SispProvider implements PaymentProvider, RedirectCallbackCapable {
     return toCheckoutSessionDTO(merchantRef, client.driver().paymentEndpoint(), result.html);
   }
 
-  async refund(input: RefundInput, _ctx: OperationContext): Promise<RefundResultDTO> {
-    const client = await this.sisp();
-    const transaction = await withSispErrors(() =>
-      client.models.transactions.findByRef(input.providerPaymentId),
-    );
-    if (!transaction) {
-      throw new PayableError(`SISP transaction not found: ${input.providerPaymentId}`, {
-        code: 'PROVIDER_SISP_TRANSACTION_NOT_FOUND',
-        context: { provider: this.name, merchantRef: input.providerPaymentId },
-      });
-    }
-    const builder = client.refund(transaction);
-    if (input.amount) {
-      builder.amount(sispAmount(input.amount));
-    } else {
-      builder.full();
-    }
-    if (input.reason) {
-      builder.reason(input.reason);
-    }
-    const refunded = await withSispErrors(() => builder.process());
-    const amount = input.amount ?? sispMoney(transaction.amount, transaction.currency);
-    return toRefundResultDTO(refunded, amount);
+  async refund(_input: RefundInput, _ctx: OperationContext): Promise<RefundResultDTO> {
+    throw new ProviderCapabilityNotSupportedError(this.name, 'refunds');
   }
 
   async verifyCallback(payload: SispCallbackPayload): Promise<boolean> {

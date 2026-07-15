@@ -86,7 +86,7 @@ const payable = createPayable({
 
 ```ts
 capabilities(): ProviderCapabilities {
-  return new Set(['checkout', 'refunds']);
+  return new Set(['checkout']);
 }
 ```
 
@@ -195,15 +195,12 @@ sequenceDiagram
 
 ## Refunds
 
-`payable.customer(billable).refund(...)` (or the refund resource) routes to `SispProvider.refund`, which
-looks the node-sisp transaction up by `providerPaymentId` (= `merchantRef`) and runs node-sisp's refund
-builder. A missing transaction throws `PROVIDER_SISP_TRANSACTION_NOT_FOUND`.
-
-Unlike Paddle, SISP **does support partial refunds**. When `input.amount` is set, the builder uses
-`builder.amount(sispAmount(input.amount))`; otherwise it calls `builder.full()`. The returned DTO amount
-is `input.amount` for a partial refund, or `sispMoney(transaction.amount, transaction.currency)` for a
-full refund - so a full refund reconstructs the precise stored transaction amount rather than echoing the
-request.
+SISP does **not** declare the `refunds` capability. The vinti4 integration has no server-to-server
+reversal API: node-sisp's refund builder only updates the local transaction record, so a "refund"
+through it would report success while the customer never receives funds. `payable.refund(...)` on a
+SISP payment therefore throws `PROVIDER_CAPABILITY_NOT_SUPPORTED` and leaves the payment untouched.
+Reversals must be performed through SISP's own back office until the gateway exposes a real refund
+endpoint.
 
 ## Amounts
 
