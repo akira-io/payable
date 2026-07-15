@@ -156,6 +156,7 @@ export interface PrismaWebhookEndpointEventRow {
 export interface PrismaWebhookDeliveryRow {
   id: string;
   tenantId: string | null;
+  tenantKey?: string;
   endpointId: string;
   eventId: string | null;
   eventType: string;
@@ -192,6 +193,7 @@ export interface PrismaAuditLogRow {
 export interface PrismaOutboxEventRow {
   id: string;
   tenantId: string | null;
+  tenantKey?: string;
   correlationId: string;
   eventType: string;
   eventVersion: number;

@@ -39,6 +39,7 @@ export class PrismaWebhookDeliveryRepository implements WebhookDeliveryRepositor
         data: {
           id,
           tenantId: data.tenantId,
+          tenantKey: data.tenantId ?? '',
           endpointId: data.endpointId,
           eventId: data.eventId,
           eventType: data.eventType,
