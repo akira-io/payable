@@ -67,6 +67,19 @@ tree.
 31. [31-troubleshooting.md](31-troubleshooting.md) - Common errors and their causes.
 32. [32-faq.md](32-faq.md) - Frequently asked questions.
 
+## Examples
+
+35. [examples/35-stripe-checkout.md](examples/35-stripe-checkout.md) - Stripe-hosted subscription checkout from provider configuration to redirect.
+36. [examples/36-multi-provider.md](examples/36-multi-provider.md) - Explicit provider selection with Stripe and Paddle in one Payable instance.
+37. [examples/37-subscriptions.md](examples/37-subscriptions.md) - Direct subscription creation and the stored subscription lifecycle.
+38. [examples/38-charges-refunds.md](examples/38-charges-refunds.md) - One-off charges, partial refunds, and full refunds.
+39. [examples/39-webhooks-reconciliation.md](examples/39-webhooks-reconciliation.md) - Signed webhook receipt, deduplication, and local reconciliation.
+40. [examples/40-fastify-knex.md](examples/40-fastify-knex.md) - Fastify routes backed by Knex storage.
+41. [examples/41-nestjs-prisma.md](examples/41-nestjs-prisma.md) - NestJS module registration backed by Prisma storage.
+42. [examples/42-sisp-redirect-checkout.md](examples/42-sisp-redirect-checkout.md) - vinti4 redirect checkout and callback reconciliation.
+43. [examples/43-revolut-merchant-checkout.md](examples/43-revolut-merchant-checkout.md) - Revolut Merchant amount checkout and hosted payment redirect.
+44. [examples/44-mcp-server.md](examples/44-mcp-server.md) - A policy-restricted Payable MCP server for AI clients.
+
 ---
 
 [Next: Overview](01-overview.md)
