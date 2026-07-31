@@ -18,6 +18,11 @@ export class PrismaProductRepository
     super(client.payableProduct, clock);
   }
 
+  override async create(data: NewProduct): Promise<Product> {
+    assertCatalogTenantId(data.tenantId);
+    return super.create(data);
+  }
+
   override async findById(id: string, tenantId: string | null): Promise<Product | null> {
     assertCatalogTenantId(tenantId);
     return super.findById(id, tenantId);
@@ -47,6 +52,16 @@ export class PrismaProductRepository
 
   protected toEntity(row: PrismaProductRow): Product {
     return productToEntity(row);
+  }
+
+  protected override scopedWhere(id: string, tenantId?: string | null): Record<string, unknown> {
+    assertCatalogTenantId(tenantId);
+    return { id, tenantId };
+  }
+
+  protected override tenantClause(tenantId?: string | null): Record<string, unknown> {
+    assertCatalogTenantId(tenantId);
+    return { tenantId };
   }
 
   protected toRow(data: Partial<NewProduct>): Record<string, unknown> {

@@ -14,6 +14,11 @@ export class KnexProductRepository
 {
   protected readonly table = 'payable_products';
 
+  override async create(data: NewProduct): Promise<Product> {
+    assertCatalogTenantId(data.tenantId);
+    return super.create(data);
+  }
+
   override async findById(id: string, tenantId: string | null): Promise<Product | null> {
     assertCatalogTenantId(tenantId);
     return super.findById(id, tenantId);
@@ -58,6 +63,16 @@ export class KnexProductRepository
 
   protected override createLookupTenantId(data: NewProduct): string | null {
     return data.tenantId;
+  }
+
+  protected override scopedWhere(id: string, tenantId?: string | null): Record<string, unknown> {
+    assertCatalogTenantId(tenantId);
+    return { id, tenant_id: tenantId };
+  }
+
+  protected override tenantClause(tenantId?: string | null): Record<string, unknown> {
+    assertCatalogTenantId(tenantId);
+    return { tenant_id: tenantId };
   }
 
   protected toRow(data: Partial<NewProduct>): Record<string, unknown> {

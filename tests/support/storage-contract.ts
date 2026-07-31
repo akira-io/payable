@@ -3,6 +3,7 @@ import { registerBillingContract } from './contract/billing-contract';
 import { registerCatalogContract } from './contract/catalog-contract';
 import type { ContractContext, StorageHarness } from './contract/harness';
 import { registerMoneyContract } from './contract/money-contract';
+import { registerRepositoryCompatibilityContract } from './contract/repository-compatibility-contract';
 import { registerSystemContract } from './contract/system-contract';
 
 export type { StorageHarness } from './contract/harness';
@@ -28,6 +29,7 @@ export function describeStorageContract(name: string, create: () => Promise<Stor
     registerBillingContract(ctx);
     registerCatalogContract(ctx);
     registerMoneyContract(ctx);
+    registerRepositoryCompatibilityContract(ctx);
     registerSystemContract(ctx);
   });
 }

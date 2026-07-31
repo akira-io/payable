@@ -55,17 +55,21 @@ export interface CustomerProviderBindingRepository {
 ### Catalog repositories
 
 Products and prices are partitioned by tenant. Pass a tenant id for a tenant-owned catalog, or
-`null` for the tenantless partition. A catalog update cannot move a record between partitions because
-`ProductPatch` and `PricePatch` exclude `tenantId`.
+`null` for the tenantless partition. Catalog creates require `tenantId` in their input and reject an
+omitted value at runtime. An update cannot move a record between partitions because `ProductPatch`
+and `PricePatch` exclude `tenantId` and the storage adapters discard tenant fields from runtime
+patches.
 
 ```ts
 export interface ProductRepository {
+  create(data: NewProduct): Promise<Product>;
   update(id: string, patch: ProductPatch, tenantId: string | null): Promise<Product>;
   findById(id: string, tenantId: string | null): Promise<Product | null>;
   findByProviderId(provider: string, providerProductId: string, tenantId: string | null): Promise<Product | null>;
 }
 
 export interface PriceRepository {
+  create(data: NewPrice): Promise<Price>;
   update(id: string, patch: PricePatch, tenantId: string | null): Promise<Price>;
   findById(id: string, tenantId: string | null): Promise<Price | null>;
   findByProviderId(provider: string, providerPriceId: string, tenantId: string | null): Promise<Price | null>;

@@ -74,11 +74,11 @@ export abstract class KnexRepository<Entity, New> {
   }
 
   protected scopedWhere(id: string, tenantId?: string | null): Record<string, unknown> {
-    return tenantId === undefined ? { id } : { id, tenant_id: tenantId };
+    return tenantId === undefined || tenantId === null ? { id } : { id, tenant_id: tenantId };
   }
 
   protected tenantClause(tenantId?: string | null): Record<string, unknown> {
-    return tenantId === undefined ? {} : { tenant_id: tenantId };
+    return tenantId === undefined || tenantId === null ? {} : { tenant_id: tenantId };
   }
 
   protected async firstWhere(where: Record<string, unknown>): Promise<Entity | null> {
