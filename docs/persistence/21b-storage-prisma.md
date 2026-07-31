@@ -104,21 +104,39 @@ Prisma on top of an existing Payable install).
 Apply this change as an expand, backfill, verify, contract migration. It is datasource-neutral: use
 the SQL syntax required by the database provider in the generated Prisma migration.
 
-1. Expand both catalog tables with a non-null `tenant_key` column that defaults to `''`. Update the
-   Prisma product and price models to map `tenantKey` to `tenant_key` and to use the tenant-key unique
-   compounds.
-2. Backfill products and prices in bounded batches, ordered by a stable key. Each batch uses the
-   following query shape:
+1. Expand both catalog tables with a non-null `tenant_key` column that defaults to `''`. The Prisma
+   schema's `@@unique([tenantKey, provider, providerProductId])` and
+   `@@unique([tenantKey, provider, providerPriceId])` declarations describe the final state. The
+   generated migration must defer both tenant-key unique constraints until the contract stage, after
+   all four checks return no rows.
+2. Backfill products and prices in bounded batches. Select ids after the previous stable cursor, update
+   only those ids, and store the last selected id as the next cursor. The parameter names show values
+   supplied by the migration runner:
 
 ```sql
+SELECT id
+FROM payable_products
+WHERE id > :lastProductId
+ORDER BY id
+LIMIT :batchSize;
+
 UPDATE payable_products
-SET tenant_key = COALESCE(tenant_id, '');
+SET tenant_key = COALESCE(tenant_id, '')
+WHERE id IN (:productIds);
+
+SELECT id
+FROM payable_prices
+WHERE id > :lastPriceId
+ORDER BY id
+LIMIT :batchSize;
 
 UPDATE payable_prices
-SET tenant_key = COALESCE(tenant_id, '');
+SET tenant_key = COALESCE(tenant_id, '')
+WHERE id IN (:priceIds);
 ```
 
-3. Verify the backfill before changing constraints:
+3. Repeat each select and update pair until it selects no ids. Verify the backfill before changing
+   constraints:
 
 ```sql
 SELECT id

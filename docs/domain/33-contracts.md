@@ -61,15 +61,15 @@ Products and prices are partitioned by tenant. Pass a tenant id for a tenant-own
 ```ts
 export interface ProductRepository {
   update(id: string, patch: ProductPatch, tenantId: string | null): Promise<Product>;
-  findById(id, tenantId): Promise<Product | null>;
+  findById(id: string, tenantId: string | null): Promise<Product | null>;
   findByProviderId(provider: string, providerProductId: string, tenantId: string | null): Promise<Product | null>;
 }
 
 export interface PriceRepository {
   update(id: string, patch: PricePatch, tenantId: string | null): Promise<Price>;
-  findById(id, tenantId): Promise<Price | null>;
+  findById(id: string, tenantId: string | null): Promise<Price | null>;
   findByProviderId(provider: string, providerPriceId: string, tenantId: string | null): Promise<Price | null>;
-  listByProduct(productId, tenantId): Promise<Price[]>;
+  listByProduct(productId: string, tenantId: string | null): Promise<Price[]>;
 }
 ```
 
