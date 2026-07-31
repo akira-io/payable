@@ -122,8 +122,8 @@ export type {
   PaymentRepository,
   RefundedAmountPatch,
 } from './payment-repository.contract';
-export type { NewPrice, PriceRepository } from './price-repository.contract';
-export type { NewProduct, ProductRepository } from './product-repository.contract';
+export type { NewPrice, PricePatch, PriceRepository } from './price-repository.contract';
+export type { NewProduct, ProductPatch, ProductRepository } from './product-repository.contract';
 export type { JobHandler, QueueDriver, QueueJob } from './queue-driver.contract';
 export type { NewRefund, RefundRepository } from './refund-repository.contract';
 export type { Repositories, StorageDriver } from './storage-driver.contract';

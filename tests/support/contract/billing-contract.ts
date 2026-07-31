@@ -83,8 +83,38 @@ export function registerBillingContract(ctx: ContractContext): void {
 
     expect(price.currency).toBe('USD');
     expect(price.unitAmount).toBe(1999);
-    expect(await storage.prices.listByProduct(product.id)).toHaveLength(1);
-    expect(await storage.products.findByProviderId('stripe', 'prod_1')).not.toBeNull();
+    expect(await storage.prices.listByProduct(product.id, null)).toHaveLength(1);
+    expect(await storage.products.findByProviderId('stripe', 'prod_1', null)).not.toBeNull();
+  });
+
+  it('keeps catalog local identities inside their tenant partition', async () => {
+    const { storage } = ctx.harness();
+    const productA = await storage.products.create({
+      tenantId: 'tenant-a',
+      provider: 'stripe',
+      providerProductId: 'prod_tenant_a',
+      name: 'Tenant A product',
+      description: null,
+      active: true,
+      metadata: null,
+    });
+    const priceA = await storage.prices.create({
+      tenantId: 'tenant-a',
+      provider: 'stripe',
+      providerPriceId: 'price_tenant_a',
+      productId: productA.id,
+      currency: 'usd',
+      unitAmount: 1999,
+      interval: 'month',
+      intervalCount: 1,
+      active: true,
+    });
+
+    expect(await storage.products.findById(productA.id, 'tenant-b')).toBeNull();
+    expect(await storage.prices.findById(priceA.id, 'tenant-b')).toBeNull();
+    expect(await storage.products.findById(productA.id, null)).toBeNull();
+    expect(await storage.prices.findById(priceA.id, null)).toBeNull();
+    expect(await storage.prices.listByProduct(productA.id, 'tenant-b')).toEqual([]);
   });
 
   it('persists subscriptions and their items', async () => {

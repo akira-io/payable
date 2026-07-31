@@ -1,6 +1,7 @@
 import type { Clock } from '../../../../domain/contracts/clock.contract';
 import type {
   NewProduct,
+  ProductPatch,
   ProductRepository,
 } from '../../../../domain/contracts/product-repository.contract';
 import type { Product } from '../../../../domain/entities/product.entity';
@@ -16,10 +17,18 @@ export class PrismaProductRepository
     super(client.payableProduct, clock);
   }
 
+  override findById(id: string, tenantId: string | null): Promise<Product | null> {
+    return super.findById(id, tenantId);
+  }
+
+  override update(id: string, patch: ProductPatch, tenantId: string | null): Promise<Product> {
+    return super.update(id, patch, tenantId);
+  }
+
   findByProviderId(
     provider: string,
     providerProductId: string,
-    tenantId?: string | null,
+    tenantId: string | null,
   ): Promise<Product | null> {
     return this.firstWhere({
       provider,

@@ -1,5 +1,6 @@
 import type {
   NewPrice,
+  PricePatch,
   PriceRepository,
 } from '../../../../domain/contracts/price-repository.contract';
 import type { RecurringInterval } from '../../../../domain/entities/common';
@@ -14,10 +15,18 @@ export class KnexPriceRepository
 {
   protected readonly table = 'payable_prices';
 
+  override findById(id: string, tenantId: string | null): Promise<Price | null> {
+    return super.findById(id, tenantId);
+  }
+
+  override update(id: string, patch: PricePatch, tenantId: string | null): Promise<Price> {
+    return super.update(id, patch, tenantId);
+  }
+
   findByProviderId(
     provider: string,
     providerPriceId: string,
-    tenantId?: string | null,
+    tenantId: string | null,
   ): Promise<Price | null> {
     return this.firstWhere({
       provider,
@@ -26,7 +35,7 @@ export class KnexPriceRepository
     });
   }
 
-  listByProduct(productId: string, tenantId?: string | null): Promise<Price[]> {
+  listByProduct(productId: string, tenantId: string | null): Promise<Price[]> {
     return this.manyWhere({ product_id: productId, ...this.tenantClause(tenantId) });
   }
 
@@ -50,6 +59,7 @@ export class KnexPriceRepository
   protected toRow(data: Partial<NewPrice>): Record<string, unknown> {
     return {
       tenant_id: data.tenantId,
+      tenant_key: data.tenantId === undefined ? undefined : (data.tenantId ?? ''),
       provider: data.provider,
       provider_price_id: data.providerPriceId,
       product_id: data.productId,

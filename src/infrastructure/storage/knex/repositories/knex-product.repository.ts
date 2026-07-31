@@ -1,5 +1,6 @@
 import type {
   NewProduct,
+  ProductPatch,
   ProductRepository,
 } from '../../../../domain/contracts/product-repository.contract';
 import type { Product } from '../../../../domain/entities/product.entity';
@@ -12,10 +13,18 @@ export class KnexProductRepository
 {
   protected readonly table = 'payable_products';
 
+  override findById(id: string, tenantId: string | null): Promise<Product | null> {
+    return super.findById(id, tenantId);
+  }
+
+  override update(id: string, patch: ProductPatch, tenantId: string | null): Promise<Product> {
+    return super.update(id, patch, tenantId);
+  }
+
   findByProviderId(
     provider: string,
     providerProductId: string,
-    tenantId?: string | null,
+    tenantId: string | null,
   ): Promise<Product | null> {
     return this.firstWhere({
       provider,
@@ -42,6 +51,7 @@ export class KnexProductRepository
   protected toRow(data: Partial<NewProduct>): Record<string, unknown> {
     return {
       tenant_id: data.tenantId,
+      tenant_key: data.tenantId === undefined ? undefined : (data.tenantId ?? ''),
       provider: data.provider,
       provider_product_id: data.providerProductId,
       name: data.name,

@@ -93,7 +93,7 @@ describe('findByProviderId tenant scoping', () => {
       active: true,
       metadata: null,
     });
-    await storage.prices.create({
+    const price = await storage.prices.create({
       tenantId: 'acme',
       provider: 'stripe',
       providerPriceId: 'price_1',
@@ -105,12 +105,24 @@ describe('findByProviderId tenant scoping', () => {
       active: true,
     });
 
+    expect(await storage.products.findById(product.id, 'globex')).toBeNull();
+    expect(await storage.prices.findById(price.id, 'globex')).toBeNull();
+    expect(await storage.products.findById(product.id, null)).toBeNull();
+    expect(await storage.prices.findById(price.id, null)).toBeNull();
     expect(await storage.products.findByProviderId('stripe', 'prod_1', 'globex')).toBeNull();
     expect(
       (await storage.products.findByProviderId('stripe', 'prod_1', 'acme'))?.providerProductId,
     ).toBe('prod_1');
     expect(await storage.prices.findByProviderId('stripe', 'price_1', 'globex')).toBeNull();
-    expect(await storage.prices.listByProduct(product.id, 'globex')).toHaveLength(0);
+    expect(await storage.prices.listByProduct(product.id, 'globex')).toEqual([]);
+    await expect(storage.products.update(product.id, { name: 'Leaked' }, null)).rejects.toThrow(
+      /missing after write/,
+    );
+    await expect(storage.prices.update(price.id, { active: false }, null)).rejects.toThrow(
+      /missing after write/,
+    );
+    expect((await storage.products.findById(product.id, 'acme'))?.name).toBe('Plan');
+    expect((await storage.prices.findById(price.id, 'acme'))?.active).toBe(true);
     expect(await storage.prices.listByProduct(product.id, 'acme')).toHaveLength(1);
   });
 });

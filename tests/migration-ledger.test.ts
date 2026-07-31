@@ -21,6 +21,7 @@ describe('migration ledger', () => {
       '006-subscription-provider-synced-at',
       '007-post-ledger-schema-convergence',
       '008-customer-provider-bindings',
+      '009-catalog-tenant-keys',
     ]);
     await db.destroy();
   });

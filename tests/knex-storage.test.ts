@@ -98,7 +98,7 @@ describe('KnexStorageDriver catalog', () => {
       intervalCount: 1,
       active: true,
     });
-    expect(await storage.prices.listByProduct(product.id)).toHaveLength(1);
+    expect(await storage.prices.listByProduct(product.id, null)).toHaveLength(1);
 
     const customer = await storage.customers.create(makeCustomer());
     const subscription = await storage.subscriptions.create({

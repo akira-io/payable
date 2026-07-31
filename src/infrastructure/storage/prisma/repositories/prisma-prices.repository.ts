@@ -1,6 +1,7 @@
 import type { Clock } from '../../../../domain/contracts/clock.contract';
 import type {
   NewPrice,
+  PricePatch,
   PriceRepository,
 } from '../../../../domain/contracts/price-repository.contract';
 import type { Price } from '../../../../domain/entities/price.entity';
@@ -16,10 +17,18 @@ export class PrismaPriceRepository
     super(client.payablePrice, clock);
   }
 
+  override findById(id: string, tenantId: string | null): Promise<Price | null> {
+    return super.findById(id, tenantId);
+  }
+
+  override update(id: string, patch: PricePatch, tenantId: string | null): Promise<Price> {
+    return super.update(id, patch, tenantId);
+  }
+
   findByProviderId(
     provider: string,
     providerPriceId: string,
-    tenantId?: string | null,
+    tenantId: string | null,
   ): Promise<Price | null> {
     return this.firstWhere({
       provider,
@@ -28,7 +37,7 @@ export class PrismaPriceRepository
     });
   }
 
-  listByProduct(productId: string, tenantId?: string | null): Promise<Price[]> {
+  listByProduct(productId: string, tenantId: string | null): Promise<Price[]> {
     return this.manyWhere({ productId, ...this.tenantClause(tenantId) });
   }
 
