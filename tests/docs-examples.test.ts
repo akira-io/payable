@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
 import { Money } from '../src/domain/value-objects/money';
 import { StripeProvider } from '../src/infrastructure/providers/stripe/stripe-provider';
+import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
+import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
+import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
+import { createTestDb } from './support/knex';
 
 function stripeChargeExampleFromDocs() {
   const stripe = new StripeProvider({
@@ -46,5 +50,33 @@ describe('documentation examples stay executable', () => {
       { priceId: 'pri_paddle_pro', quantity: 1 },
     ]);
     expect(stripe.lastCheckout).toBeUndefined();
+  });
+
+  it('executes the logical customer and provider binding example from docs/features/08-customers-billable.md', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const payable = createPayable({
+      providers: {
+        stripe: new FakeProvider('cus_stripe'),
+        paddle: new FakeProvider('ctm_paddle'),
+      },
+      storage: new KnexStorageDriver(db, new FakeClock()),
+    });
+    const billable = {
+      billableType: 'User',
+      billableId: '1',
+      email: 'jane@example.com',
+      name: 'Jane',
+    };
+
+    const customer = await payable.customers('stripe').create(billable);
+    await payable.customers('paddle').create(billable);
+    const stripeBinding = await payable.customers('stripe').binding(billable);
+    const paddleBinding = await payable.customers('paddle').binding(billable);
+
+    expect(customer.email).toBe('jane@example.com');
+    expect(stripeBinding?.providerCustomerId).toBe('cus_stripe');
+    expect(paddleBinding?.providerCustomerId).toBe('ctm_paddle');
+    await db.destroy();
   });
 });

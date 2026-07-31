@@ -5,8 +5,7 @@ export async function createBillingTables(knex: Knex): Promise<void> {
   await createIfMissing(knex, 'payable_customers', (table) => {
     table.uuid('id').primary();
     table.string('tenant_id').nullable();
-    table.string('provider').notNullable();
-    table.string('provider_customer_id').nullable();
+    table.string('tenant_key').notNullable().defaultTo('');
     table.string('billable_type').notNullable();
     table.string('billable_id').notNullable();
     table.string('email').notNullable();
@@ -14,8 +13,9 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.text('metadata').nullable();
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.timestamp('updated_at', { useTz: true }).notNullable();
-    table.unique(['provider', 'provider_customer_id']);
   });
+
+  await createCustomerProviderBindingsTable(knex);
 
   await createIfMissing(knex, 'payable_products', (table) => {
     table.uuid('id').primary();
@@ -143,5 +143,23 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.timestamp('updated_at', { useTz: true }).notNullable();
     table.unique(['provider', 'provider_refund_id']);
     table.index('payment_id');
+  });
+}
+
+export async function createCustomerProviderBindingsTable(knex: Knex): Promise<void> {
+  await createIfMissing(knex, 'payable_customer_provider_bindings', (table) => {
+    table.uuid('id').primary();
+    table
+      .uuid('customer_id')
+      .notNullable()
+      .references('id')
+      .inTable('payable_customers')
+      .onDelete('CASCADE');
+    table.string('provider').notNullable();
+    table.string('provider_customer_id').notNullable();
+    table.timestamp('created_at', { useTz: true }).notNullable();
+    table.timestamp('updated_at', { useTz: true }).notNullable();
+    table.unique(['customer_id', 'provider']);
+    table.unique(['provider', 'provider_customer_id']);
   });
 }

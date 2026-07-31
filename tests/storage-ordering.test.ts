@@ -118,15 +118,13 @@ describe('storage list ordering and batch insert (perf)', () => {
 
   it('rejects a duplicate customer for the same billable under a null tenant', async () => {
     await storage.customers.create(makeCustomer({ tenantId: null }));
-    await expect(
-      storage.customers.create(makeCustomer({ tenantId: null, providerCustomerId: 'cus_dup' })),
-    ).rejects.toThrow();
+    await expect(storage.customers.create(makeCustomer({ tenantId: null }))).rejects.toThrow();
   });
 
   it('still rejects a duplicate customer for the same tenant and billable', async () => {
     await storage.customers.create(makeCustomer({ tenantId: 'tenant-a' }));
     await expect(
-      storage.customers.create(makeCustomer({ tenantId: 'tenant-a', providerCustomerId: 'cus_2' })),
+      storage.customers.create(makeCustomer({ tenantId: 'tenant-a' })),
     ).rejects.toThrow();
   });
 

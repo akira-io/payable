@@ -25,6 +25,7 @@ erDiagram
   CUSTOMER ||--o{ SUBSCRIPTION : has
   CUSTOMER ||--o{ INVOICE : billed
   CUSTOMER ||--o{ PAYMENT : pays
+  CUSTOMER ||--o{ CUSTOMER_PROVIDER_BINDING : maps
   SUBSCRIPTION ||--o{ SUBSCRIPTION_ITEM : contains
   SUBSCRIPTION ||--o{ INVOICE : generates
   SUBSCRIPTION }o--|| PRICE : "priced by"
@@ -34,13 +35,17 @@ erDiagram
 
   CUSTOMER {
     string id PK
-    string provider
-    string providerCustomerId
     string billableType
     string billableId
     string email
     string name
     string tenantId
+  }
+  CUSTOMER_PROVIDER_BINDING {
+    string id PK
+    string customerId FK
+    string provider
+    string providerCustomerId
   }
   SUBSCRIPTION {
     string id PK
@@ -103,22 +108,39 @@ Relationships are expressed by foreign-key string fields (`customerId`, `subscri
 
 `src/domain/entities/customer.entity.ts`. Extends `TenantScoped`, `Timestamps`.
 
-Purpose: links a host-application billable record (the thing being charged, identified by `billableType` + `billableId`) to a billing provider customer.
+Purpose: represents one host-application billable independently from any provider account.
 
 | Field | Type | Notes |
 | --- | --- | --- |
 | `id` | `string` | Local identifier. |
-| `provider` | `string` | Billing provider (e.g. `stripe`, `paddle`). |
-| `providerCustomerId` | `string \| null` | Customer id on the provider; `null` before provisioning. |
 | `billableType` | `string` | Host-side type discriminator. |
 | `billableId` | `string` | Host-side record id. |
 | `email` | `string` | Customer email. |
 | `name` | `string \| null` | Optional display name. |
 | `metadata` | `Metadata \| null` | Optional string key/value bag. |
 
-Relationships: owns many `Subscription`, `Invoice`, and `Payment` records (each references `customerId`). On `Payment` the link is `customerId: string | null`, so a payment can exist without a customer.
+Relationships: owns many `CustomerProviderBinding`, `Subscription`, `Invoice`, and `Payment` records.
+On `Payment` the link is `customerId: string | null`, so a payment can exist without a customer.
 
-Invariants (enforced outside the entity): the `(billableType, billableId)` pair identifies the host billable; `providerCustomerId` is populated once the customer is provisioned with the provider.
+Invariant: `(tenantId, billableType, billableId)` identifies one logical customer.
+
+## Customer Provider Binding
+
+`src/domain/entities/customer-provider-binding.entity.ts`. Extends `Timestamps` and inherits tenant
+ownership through its customer.
+
+Purpose: maps one logical customer to one registered provider account.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | Local identifier. |
+| `customerId` | `string` | Owning logical customer. |
+| `provider` | `string` | Registered provider key, such as `stripe-eu`; not the adapter class name. |
+| `providerCustomerId` | `string` | Customer identifier returned by that provider account. |
+
+Invariants: `(customerId, provider)` is unique, and `(provider, providerCustomerId)` is unique. The
+same opaque provider id may appear under different registered provider keys. Deleting a customer
+cascades to its bindings.
 
 ## Subscription
 

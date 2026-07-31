@@ -1,5 +1,7 @@
 export { AccountingProviderNotFoundError } from './accounting-provider-not-found.error';
 export { CustomerNotFoundError } from './customer-not-found.error';
+export { CustomerProviderBindingConflictError } from './customer-provider-binding-conflict.error';
+export { CustomerProviderBindingPersistenceError } from './customer-provider-binding-persistence.error';
 export { IdempotencyConflictError } from './idempotency-conflict.error';
 export { IdempotencyInProgressError } from './idempotency-in-progress.error';
 export { IdentityProviderNotFoundError } from './identity-provider-not-found.error';

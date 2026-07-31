@@ -7,6 +7,7 @@ export type {
   Timestamps,
 } from './common';
 export type { Customer } from './customer.entity';
+export type { CustomerProviderBinding } from './customer-provider-binding.entity';
 export type { Invoice } from './invoice.entity';
 export type { Payment } from './payment.entity';
 export type { Price } from './price.entity';

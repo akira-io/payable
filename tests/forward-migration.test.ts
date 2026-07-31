@@ -92,8 +92,6 @@ describe('forward migrations (C5)', () => {
     const instant = '2026-06-22T08:30:00.000Z';
     await db('payable_customers').insert({
       id: 'cus_tz',
-      provider: 'stripe',
-      provider_customer_id: 'pc_tz',
       billable_type: 'User',
       billable_id: '1',
       email: 'tz@example.test',
@@ -178,16 +176,12 @@ describe('forward migrations (C5)', () => {
     };
     await db('payable_customers').insert({
       id: '11111111-1111-1111-1111-111111111111',
-      provider: 'stripe',
-      provider_customer_id: 'cus_a',
       ...base,
     });
 
     await expect(
       db('payable_customers').insert({
         id: '22222222-2222-2222-2222-222222222222',
-        provider: 'paddle',
-        provider_customer_id: 'cus_b',
         ...base,
       }),
     ).rejects.toThrow();
@@ -242,6 +236,7 @@ describe('forward migrations (C5)', () => {
     await migrate(db);
     const before = await db.from('payable_migrations').orderBy('name').pluck('name');
     expect(before).toContain('007-post-ledger-schema-convergence');
+    expect(before).toContain('008-customer-provider-bindings');
     await expect(migrate(db)).resolves.toBeUndefined();
   });
 

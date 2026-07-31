@@ -1,19 +1,84 @@
 # Customers and the Billable Concept
 
 Every billing operation in Payable starts from a `Billable` - the integrating application's own
-record (a user, a team, an organization) that should be billed. Payable never owns that record; it
-persists a local customer for it and, when the provider supports it, maps that local customer to a
-provider customer (a Stripe or Paddle customer) so the same provider customer is reused across
-operations.
+record (a user, a team, an organization) that should be billed. Payable never owns that record. It
+persists one provider-neutral `Customer` and maps that customer to zero or more provider accounts
+through `CustomerProviderBinding` records.
 
 Whether a provider customer is created depends on the provider's `customers` capability:
 
-- **Provider with `customers`** (Stripe, Paddle): `payable.customers().create(...)` syncs to the
-  provider and stores the returned `providerCustomerId`.
-- **Provider without `customers`** (SISP): no provider customer exists. Payable still persists a
-  **local-only** customer with `providerCustomerId: null` (via `CustomerResource.upsertLocalCustomer`),
-  so the billable is associated with its payments. `update(...)` edits the local record only - no
-  provider call. The `Customer` entity's `providerCustomerId` is nullable for exactly this reason.
+- **Provider with `customers`** (Stripe, Paddle): `payable.customers(providerName).create(...)`
+  ensures the logical customer, provisions the provider customer once, and stores the returned id in
+  a binding keyed by the registered provider name.
+- **Provider without `customers`** (SISP): Payable creates only the logical customer, so the billable
+  can still own payments. `binding(...)` returns `null`, and `update(...)` edits the local record.
+
+The registered provider name is the account boundary. For example, `stripe-eu` and `stripe-us` may
+use the same adapter type while retaining independent customer identities.
+
+```ts
+const customer = await payable.customers('stripe').create(billable);
+await payable.customers('paddle').create(billable);
+
+const stripeBinding = await payable.customers('stripe').binding(billable);
+const paddleBinding = await payable.customers('paddle').binding(billable);
+
+customer.id; // one stable local id
+stripeBinding?.providerCustomerId; // e.g. cus_...
+paddleBinding?.providerCustomerId; // e.g. ctm_...
+```
+
+## Migrating from beta3
+
+This changes the public `Customer` shape. Code that read `customer.provider` or
+`customer.providerCustomerId` must select the registered provider and read its binding:
+
+```ts
+const customer = await payable.customers('stripe').get(billable);
+const binding = await payable.customers('stripe').binding(billable);
+
+binding?.provider;
+binding?.providerCustomerId;
+```
+
+Run `migrate(knex)` before starting the updated application. Migration
+`008-customer-provider-bindings` backfills non-null beta3 provider ids into bindings and removes the
+legacy columns only after verifying the backfill.
+
+Prisma users must edit the generated migration instead of accepting a direct drop of `provider` and
+`provider_customer_id`. Use an expand/backfill/contract migration:
+
+1. Add `tenant_key` to `payable_customers` with `NOT NULL DEFAULT ''`, populate it with
+   `COALESCE(tenant_id, '')`, and add the unique index from `prisma/models.prisma`.
+2. Create `payable_customer_provider_bindings` using Prisma's generated DDL, but retain both legacy
+   customer columns.
+3. Backfill the beta3 identity before any drop. A beta3 customer has at most one provider identity,
+   so its customer id is also a collision-free binding id:
+
+```sql
+INSERT INTO payable_customer_provider_bindings
+  (id, customer_id, provider, provider_customer_id, created_at, updated_at)
+SELECT id, id, provider, provider_customer_id, created_at, updated_at
+FROM payable_customers
+WHERE provider_customer_id IS NOT NULL;
+```
+
+4. Verify that this query returns zero rows:
+
+```sql
+SELECT customer.id
+FROM payable_customers AS customer
+LEFT JOIN payable_customer_provider_bindings AS binding
+  ON binding.customer_id = customer.id
+ AND binding.provider = customer.provider
+ AND binding.provider_customer_id = customer.provider_customer_id
+WHERE customer.provider_customer_id IS NOT NULL
+  AND binding.id IS NULL;
+```
+
+5. Only after verification, drop the old unique constraint and the two legacy columns. If an
+   interrupted migration may be rerun, use `ON CONFLICT (customer_id, provider) DO NOTHING` on
+   PostgreSQL/SQLite or `INSERT IGNORE` on MySQL for the backfill statement.
 
 ## The `Billable` shape
 
@@ -94,7 +159,7 @@ export interface BillingDependencies {
 operations that need persistence (charge, subscription management, refund) fail explicitly when it is
 absent.
 
-## Mapping a local customer to a provider customer
+## Mapping a logical customer to provider accounts
 
 `SyncCustomerWithProviderAction` turns a `Billable` into a provider customer id. It is invoked
 internally by checkout, charge, subscription creation, and the billing portal - never called directly
@@ -102,18 +167,16 @@ by application code.
 
 Behavior:
 
-1. If the provider is **not** customer-capable (`isCustomerCapable`), it throws
-   `ProviderCapabilityNotSupportedError(provider.name, 'customers')` immediately. Local-only persistence
-   for catalog-less providers is **not** handled here - that path lives in
-   `CustomerResource.upsertLocalCustomer`, which writes a `providerCustomerId: null` row.
-2. If storage is present and a local customer row already exists with a `providerCustomerId`, that id
-   is returned immediately. No provider call is made. A second checkout for the same `Billable`
-   results in only one `createCustomer` call.
-3. Otherwise it calls `provider.createCustomer({ email, name, billableType, billableId }, ctx)` with a
-   deterministic idempotency key: `customer:${providerName}:${billableType}:${billableId}`.
-4. The returned `providerCustomerId` is persisted: if a local row exists it is updated, otherwise a
-   new customer row is created (with `tenantId`, `provider`, `email`, `name`, `metadata: null`).
-5. The `providerCustomerId` is returned to the caller.
+1. `EnsureCustomerAction` finds or creates the logical customer by
+   `(tenantId, billableType, billableId)`.
+2. `SyncCustomerWithProviderAction` requires the selected provider's `customers` capability.
+3. It looks for a binding by `(customerId, providerName)`. If one exists, its provider id is returned
+   without a provider call.
+4. Otherwise it calls `provider.createCustomer(...)` with a deterministic idempotency key containing
+   the registered provider name.
+5. It persists a `CustomerProviderBinding`. A concurrent insert that selected the same provider id is
+   treated as success; a different winning id raises `CUSTOMER_PROVIDER_BINDING_CONFLICT`. A provider
+   customer that cannot be bound raises `CUSTOMER_PROVIDER_BINDING_PERSISTENCE_FAILED`.
 
 ```mermaid
 sequenceDiagram
@@ -125,14 +188,15 @@ sequenceDiagram
     alt provider not customer-capable
         Sync-->>App: ProviderCapabilityNotSupportedError
     else customer-capable
-        Sync->>Storage: findByBillable(type, id, tenantId)
-        alt local row has providerCustomerId
-            Storage-->>Sync: existing customer
+        Sync->>Storage: ensure logical customer
+        Sync->>Storage: find binding(customerId, providerName, tenantId)
+        alt binding exists
+            Storage-->>Sync: existing binding
             Sync-->>App: providerCustomerId (no provider call)
-        else missing or unmapped
+        else binding missing
             Sync->>Provider: createCustomer(input, ctx)
             Provider-->>Sync: { providerCustomerId }
-            Sync->>Storage: create or update customer row
+            Sync->>Storage: create provider binding
             Sync-->>App: providerCustomerId
         end
     end
@@ -146,6 +210,8 @@ confirmed customer-capable it calls `provider.createCustomer` and returns the id
 | Concern | Input | Output |
 | --- | --- | --- |
 | Build a context | `Billable`, optional `providerName`, optional `tenantId` | `CustomerContext` |
+| Ensure/select a customer | `payable.customers(providerName).create(Billable)` | `Promise<Customer>` (provider-neutral) |
+| Read the selected binding | `payable.customers(providerName).binding(Billable)` | `Promise<CustomerProviderBinding \| null>` |
 | Sync to provider | `Billable` | `Promise<string>` (the `providerCustomerId`) |
 | Provider create payload | `CreateCustomerInput` (`{ email, name?, billableType, billableId, metadata? }`) | `CustomerDTO` (`{ providerCustomerId, email, name }`) |
 
@@ -158,8 +224,12 @@ confirmed customer-capable it calls `provider.createCustomer` and returns the id
   (`TENANT_REQUIRED`).
 - **No storage driver.** Sync still calls the provider on every invocation and persists nothing, so
   the same `Billable` produces a fresh provider call each time rather than reusing a stored id.
-- **Re-sync after a row exists but has no `providerCustomerId`.** The action creates the provider
-  customer and updates the existing row in place rather than inserting a duplicate.
+- **A new provider for an existing customer.** The logical customer is reused and only a new binding
+  is added.
+- **Two accounts of the same provider type.** Register them under distinct keys such as `stripe-eu`
+  and `stripe-us`; bindings use those keys, not `provider.name`.
+- **Provider without customer support.** `CustomerResource.create` stores the logical customer and
+  creates no binding.
 
 ---
 

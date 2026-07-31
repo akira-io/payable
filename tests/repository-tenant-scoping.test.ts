@@ -19,20 +19,26 @@ afterEach(async () => {
 });
 
 describe('findByProviderId tenant scoping', () => {
-  it('scopes customer findByProviderId to the owning tenant', async () => {
-    await storage.customers.create({
+  it('scopes customer provider bindings to the owning tenant', async () => {
+    const customer = await storage.customers.create({
       tenantId: 'acme',
-      provider: 'stripe',
-      providerCustomerId: 'cus_1',
       billableType: 'User',
       billableId: '1',
       email: 'a@example.com',
       name: null,
       metadata: null,
     });
-    expect(await storage.customers.findByProviderId('stripe', 'cus_1', 'globex')).toBeNull();
+    await storage.customerProviderBindings.create({
+      customerId: customer.id,
+      provider: 'stripe',
+      providerCustomerId: 'cus_1',
+    });
     expect(
-      (await storage.customers.findByProviderId('stripe', 'cus_1', 'acme'))?.providerCustomerId,
+      await storage.customerProviderBindings.findByProviderId('stripe', 'cus_1', 'globex'),
+    ).toBeNull();
+    expect(
+      (await storage.customerProviderBindings.findByProviderId('stripe', 'cus_1', 'acme'))
+        ?.providerCustomerId,
     ).toBe('cus_1');
   });
 
@@ -113,8 +119,6 @@ describe('subscription item tenant guard', () => {
   it('does not update or list items for a subscription owned by another tenant', async () => {
     const customer = await storage.customers.create({
       tenantId: 'acme',
-      provider: 'stripe',
-      providerCustomerId: 'cus_acme',
       billableType: 'User',
       billableId: '9',
       email: 'acme@example.com',

@@ -20,15 +20,21 @@ afterEach(async () => {
 
 describe('KnexStorageDriver customers', () => {
   it('creates and reads back a customer with json metadata', async () => {
-    const created = await storage.customers.create(
-      makeCustomer({ providerCustomerId: 'cus_1', metadata: { plan: 'pro' } }),
-    );
+    const created = await storage.customers.create(makeCustomer({ metadata: { plan: 'pro' } }));
     expect(created.id).toBeTruthy();
     expect(created.createdAt.toISOString()).toBe('2026-06-22T00:00:00.000Z');
 
     expect((await storage.customers.findById(created.id))?.metadata).toEqual({ plan: 'pro' });
     expect((await storage.customers.findByBillable('User', '1'))?.id).toBe(created.id);
-    expect((await storage.customers.findByProviderId('stripe', 'cus_1'))?.id).toBe(created.id);
+    expect((await db('payable_customers').where({ id: created.id }).first())?.tenant_key).toBe('');
+  });
+
+  it('keeps the physical tenant key aligned with a customer tenant', async () => {
+    const created = await storage.customers.create(makeCustomer({ tenantId: 'tenant-a' }));
+
+    expect((await db('payable_customers').where({ id: created.id }).first())?.tenant_key).toBe(
+      'tenant-a',
+    );
   });
 
   it('updates only the provided fields', async () => {
@@ -41,38 +47,27 @@ describe('KnexStorageDriver customers', () => {
   it('creates a customer in a single round-trip via RETURNING', async () => {
     const statements: string[] = [];
     db.on('query', (query: { sql: string }) => statements.push(query.sql));
-    await storage.customers.create(makeCustomer({ providerCustomerId: 'cus_rt' }));
+    await storage.customers.create(makeCustomer());
     expect(statements).toHaveLength(1);
     expect(statements[0]).toMatch(/insert/i);
   });
 
-  it('enforces the provider id unique constraint', async () => {
-    await storage.customers.create(makeCustomer({ providerCustomerId: 'cus_dup' }));
-    await expect(
-      storage.customers.create(makeCustomer({ providerCustomerId: 'cus_dup' })),
-    ).rejects.toThrow();
-  });
-
   it('enforces one customer per billable per tenant', async () => {
-    await storage.customers.create(
-      makeCustomer({ tenantId: 'tenant-a', providerCustomerId: 'cus_a1' }),
-    );
+    await storage.customers.create(makeCustomer({ tenantId: 'tenant-a' }));
     await expect(
-      storage.customers.create(
-        makeCustomer({ tenantId: 'tenant-a', providerCustomerId: 'cus_a2' }),
-      ),
+      storage.customers.create(makeCustomer({ tenantId: 'tenant-a' })),
     ).rejects.toThrow();
   });
 
   it('matches a billable lookup regardless of null versus empty-string tenant', async () => {
     const nullTenant = await storage.customers.create(
-      makeCustomer({ tenantId: null, billableId: 'n1', providerCustomerId: 'cus_n' }),
+      makeCustomer({ tenantId: null, billableId: 'n1' }),
     );
     expect((await storage.customers.findByBillable('User', 'n1', null))?.id).toBe(nullTenant.id);
     expect((await storage.customers.findByBillable('User', 'n1', ''))?.id).toBe(nullTenant.id);
 
     const emptyTenant = await storage.customers.create(
-      makeCustomer({ tenantId: '', billableId: 'e1', providerCustomerId: 'cus_e' }),
+      makeCustomer({ tenantId: '', billableId: 'e1' }),
     );
     expect((await storage.customers.findByBillable('User', 'e1', null))?.id).toBe(emptyTenant.id);
     expect((await storage.customers.findByBillable('User', 'e1', ''))?.id).toBe(emptyTenant.id);
@@ -105,9 +100,7 @@ describe('KnexStorageDriver catalog', () => {
     });
     expect(await storage.prices.listByProduct(product.id)).toHaveLength(1);
 
-    const customer = await storage.customers.create(
-      makeCustomer({ providerCustomerId: 'cus_sub' }),
-    );
+    const customer = await storage.customers.create(makeCustomer());
     const subscription = await storage.subscriptions.create({
       tenantId: null,
       customerId: customer.id,
@@ -185,18 +178,32 @@ describe('KnexStorageDriver catalog', () => {
 describe('KnexStorageDriver transactions', () => {
   it('commits work on success', async () => {
     await storage.transaction(async (repositories) => {
-      await repositories.customers.create(makeCustomer({ providerCustomerId: 'cus_commit' }));
+      const customer = await repositories.customers.create(makeCustomer());
+      await repositories.customerProviderBindings.create({
+        customerId: customer.id,
+        provider: 'stripe',
+        providerCustomerId: 'cus_commit',
+      });
     });
-    expect(await storage.customers.findByProviderId('stripe', 'cus_commit')).not.toBeNull();
+    expect(
+      await storage.customerProviderBindings.findByProviderId('stripe', 'cus_commit', null),
+    ).not.toBeNull();
   });
 
   it('rolls back work on failure', async () => {
     await expect(
       storage.transaction(async (repositories) => {
-        await repositories.customers.create(makeCustomer({ providerCustomerId: 'cus_rollback' }));
+        const customer = await repositories.customers.create(makeCustomer());
+        await repositories.customerProviderBindings.create({
+          customerId: customer.id,
+          provider: 'stripe',
+          providerCustomerId: 'cus_rollback',
+        });
         throw new Error('boom');
       }),
     ).rejects.toThrow('boom');
-    expect(await storage.customers.findByProviderId('stripe', 'cus_rollback')).toBeNull();
+    expect(
+      await storage.customerProviderBindings.findByProviderId('stripe', 'cus_rollback', null),
+    ).toBeNull();
   });
 });

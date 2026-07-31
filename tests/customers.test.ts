@@ -24,8 +24,12 @@ describe('payable.customers', () => {
     const customer = await payable.customers().create(billable);
 
     expect(provider.createCustomerCalls).toBe(1);
-    expect(customer.providerCustomerId).toBe('cus_fake');
     expect(customer.email).toBe('user@example.com');
+    expect(await payable.customers().binding(billable)).toMatchObject({
+      customerId: customer.id,
+      provider: 'stripe',
+      providerCustomerId: 'cus_fake',
+    });
     await db.destroy();
   });
 
@@ -98,8 +102,9 @@ describe('payable.customers', () => {
     });
 
     expect(await payable.customers().get(billable)).toBeNull();
-    await payable.customers().create(billable);
-    expect((await payable.customers().get(billable))?.providerCustomerId).toBe('cus_fake');
+    const created = await payable.customers().create(billable);
+    expect(await payable.customers().get(billable)).toEqual(created);
+    expect((await payable.customers().binding(billable))?.providerCustomerId).toBe('cus_fake');
     await db.destroy();
   });
 
@@ -171,12 +176,12 @@ describe('payable.customers', () => {
     });
 
     const customer = await payable.customers().create(billable);
-    expect(customer.providerCustomerId).toBeNull();
     expect(customer.email).toBe('user@example.com');
+    expect(await payable.customers().binding(billable)).toBeNull();
 
     const updated = await payable.customers().update(billable, { name: 'Renamed' });
     expect(updated.name).toBe('Renamed');
-    expect(updated.providerCustomerId).toBeNull();
+    expect(await payable.customers().binding(billable)).toBeNull();
     await db.destroy();
   });
 });

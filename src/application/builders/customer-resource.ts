@@ -1,10 +1,11 @@
 import { isCustomerCapable } from '../../domain/contracts/payment-provider.contract';
 import type { Customer } from '../../domain/entities/customer.entity';
+import type { CustomerProviderBinding } from '../../domain/entities/customer-provider-binding.entity';
 import { CustomerNotFoundError } from '../../domain/errors/customer-not-found.error';
 import { PayableError } from '../../domain/errors/payable-error';
 import { CorrelationId } from '../../domain/value-objects/correlation-id';
-import { Email } from '../../domain/value-objects/email';
 import { IdempotencyKey } from '../../domain/value-objects/idempotency-key';
+import { EnsureCustomerAction } from '../actions/customers/ensure-customer.action';
 import { SyncCustomerWithProviderAction } from '../actions/customers/sync-customer-with-provider.action';
 import { assertCapableProvider } from '../services/provider-capabilities/assert-provider-capability';
 import type { Billable } from './billable';
@@ -19,19 +20,9 @@ export class CustomerResource {
   constructor(private readonly deps: BillingDependencies) {}
 
   async create(billable: Billable): Promise<Customer> {
-    const storage = this.requireStorage();
+    const customer = await new EnsureCustomerAction(this.deps).handle(billable);
     if (this.deps.provider.capabilities().has('customers')) {
       await new SyncCustomerWithProviderAction(this.deps).handle(billable);
-    } else {
-      await this.upsertLocalCustomer(billable);
-    }
-    const customer = await storage.customers.findByBillable(
-      billable.billableType,
-      billable.billableId,
-      this.deps.tenantId ?? null,
-    );
-    if (!customer) {
-      throw new CustomerNotFoundError(billable.billableId);
     }
     return customer;
   }
@@ -41,6 +32,24 @@ export class CustomerResource {
       billable.billableType,
       billable.billableId,
       this.deps.tenantId ?? null,
+    );
+  }
+
+  async binding(billable: Billable): Promise<CustomerProviderBinding | null> {
+    const storage = this.requireStorage();
+    const tenantId = this.deps.tenantId ?? null;
+    const customer = await storage.customers.findByBillable(
+      billable.billableType,
+      billable.billableId,
+      tenantId,
+    );
+    if (!customer) {
+      return null;
+    }
+    return storage.customerProviderBindings.findByCustomerAndProvider(
+      customer.id,
+      this.deps.providerName,
+      tenantId,
     );
   }
 
@@ -56,7 +65,12 @@ export class CustomerResource {
       throw new CustomerNotFoundError(billable.billableId);
     }
     const provider = this.deps.provider;
-    if (provider.capabilities().has('customers') && existing.providerCustomerId) {
+    const binding = await storage.customerProviderBindings.findByCustomerAndProvider(
+      existing.id,
+      this.deps.providerName,
+      tenantId,
+    );
+    if (provider.capabilities().has('customers') && binding) {
       assertCapableProvider(provider, 'customers', isCustomerCapable);
       const key = IdempotencyKey.forCustomer({
         tenantId,
@@ -66,7 +80,7 @@ export class CustomerResource {
       });
       const dto = await provider.updateCustomer(
         {
-          providerCustomerId: existing.providerCustomerId,
+          providerCustomerId: binding.providerCustomerId,
           email: changes.email,
           name: changes.name,
         },
@@ -89,40 +103,6 @@ export class CustomerResource {
       },
       tenantId,
     );
-  }
-
-  private async upsertLocalCustomer(billable: Billable): Promise<void> {
-    const storage = this.requireStorage();
-    const tenantId = this.deps.tenantId ?? null;
-    const existing = await storage.customers.findByBillable(
-      billable.billableType,
-      billable.billableId,
-      tenantId,
-    );
-    if (existing) {
-      return;
-    }
-    await storage.customers.create({
-      tenantId,
-      provider: this.deps.providerName,
-      providerCustomerId: null,
-      billableType: billable.billableType,
-      billableId: billable.billableId,
-      email: this.normalizeEmail(billable.email),
-      name: billable.name ?? null,
-      metadata: null,
-    });
-  }
-
-  private normalizeEmail(value: string | undefined): string {
-    try {
-      return Email.of(value ?? '').toString();
-    } catch {
-      throw new PayableError(`Invalid customer email: ${value}`, {
-        code: 'CUSTOMER_EMAIL_INVALID',
-        context: { billableEmail: value },
-      });
-    }
   }
 
   private requireStorage(): NonNullable<BillingDependencies['storage']> {

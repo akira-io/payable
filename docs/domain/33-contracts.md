@@ -10,7 +10,8 @@ Repositories persist and read the [entities](05-domain-model.md). Each defines a
 
 | Contract | Key methods | Notes |
 | --- | --- | --- |
-| `CustomerRepository` | `create`, `update`, `findById`, `findByBillable`, `findByProviderId` | Look up by `(billableType, billableId)` or by `(provider, providerCustomerId)`. |
+| `CustomerRepository` | `create`, `update`, `findById`, `findByBillable` | Persists provider-neutral customers and looks them up by billable identity. |
+| `CustomerProviderBindingRepository` | `create`, `findByCustomerAndProvider`, `findByProviderId` | Maps a logical customer to each registered provider account; provider lookups are tenant-scoped through the owning customer. |
 | `SubscriptionRepository` | `create`, `update`, `findById`, `findByName`, `findByProviderId`, `listByCustomer`, `list` | List methods accept `ListOptions` (cursor pagination). |
 | `SubscriptionItemRepository` | `create`, `createMany`, `updatePrimary`, `listBySubscription` | `updatePrimary` patches the primary line via `SubscriptionItemPatch`. |
 | `PaymentRepository` | `create`, `update`, `findById`, `findByIdForUpdate`, `findByProviderId`, `listByCustomer`, `list` | `findByIdForUpdate` takes a row lock for safe concurrent refund accounting. |
@@ -34,11 +35,20 @@ export interface CustomerRepository {
     billableId: string,
     tenantId?: string | null,
   ): Promise<Customer | null>;
+}
+
+export interface CustomerProviderBindingRepository {
+  create(data: NewCustomerProviderBinding): Promise<CustomerProviderBinding>;
+  findByCustomerAndProvider(
+    customerId: string,
+    provider: string,
+    tenantId: string | null,
+  ): Promise<CustomerProviderBinding | null>;
   findByProviderId(
     provider: string,
     providerCustomerId: string,
-    tenantId?: string | null,
-  ): Promise<Customer | null>;
+    tenantId: string | null,
+  ): Promise<CustomerProviderBinding | null>;
 }
 ```
 

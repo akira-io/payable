@@ -51,6 +51,7 @@ export class FakeProvider implements PaymentProvider {
   lastCustomerCtx?: OperationContext;
   lastUpdateCustomer?: UpdateCustomerInput;
   lastCheckout?: { input: CreateCheckoutSessionInput; ctx: OperationContext };
+  lastListInvoices?: ListInvoicesInput;
   verifyResult?: VerifiedWebhook;
   verifyError?: Error;
   reconcileResult?: SubscriptionDTO | null;
@@ -82,6 +83,8 @@ export class FakeProvider implements PaymentProvider {
     'catalog',
   ]);
 
+  constructor(private readonly createdCustomerId = 'cus_fake') {}
+
   capabilities(): ProviderCapabilities {
     return new Set(this.supportedCapabilities);
   }
@@ -89,7 +92,11 @@ export class FakeProvider implements PaymentProvider {
   async createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
     this.createCustomerCalls += 1;
     this.lastCustomerCtx = ctx;
-    return { providerCustomerId: 'cus_fake', email: input.email, name: input.name ?? null };
+    return {
+      providerCustomerId: this.createdCustomerId,
+      email: input.email,
+      name: input.name ?? null,
+    };
   }
 
   async createCheckoutSession(
@@ -220,7 +227,8 @@ export class FakeProvider implements PaymentProvider {
     return { url: `https://portal.fake/${input.providerCustomerId}` };
   }
 
-  async listInvoices(_input: ListInvoicesInput): Promise<InvoiceDTO[]> {
+  async listInvoices(input: ListInvoicesInput): Promise<InvoiceDTO[]> {
+    this.lastListInvoices = input;
     return [
       {
         providerInvoiceId: 'in_fake',

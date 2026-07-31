@@ -20,8 +20,9 @@ const invoices = await new ListInvoicesAction(deps).handle(billable, 50);
    `listInvoices` and `downloadInvoicePdf`); otherwise throws `ProviderCapabilityNotSupportedError`
    (reported as the `invoicePdf` capability).
 3. If there is no storage driver, returns `[]`.
-4. Loads the local customer row; if it is missing or has no `providerCustomerId`, returns `[]`.
-5. Calls `provider.listInvoices({ providerCustomerId, limit })`.
+4. Loads the logical customer and its binding for the selected registered provider; if either is
+   missing, returns `[]`.
+5. Calls `provider.listInvoices({ providerCustomerId: binding.providerCustomerId, limit })`.
 
 Output: `InvoiceDTO[]`:
 
@@ -147,7 +148,7 @@ see [17-providers.md](../integrations/17-providers.md).
 - **Provider lacks the billing-portal capability.** `billingPortal()` throws via
   `assertProviderCapability` before any sync or provider call.
 - **No storage driver (invoices).** `ListInvoicesAction` returns `[]` instead of throwing.
-- **No local customer / unmapped customer (invoices).** Returns `[]`.
+- **No logical customer / no binding for the selected provider (invoices).** Returns `[]`.
 - **Billing portal without storage.** The portal still syncs the customer via the provider, which
   requires no storage to obtain a `providerCustomerId`, but nothing is persisted - see
   [08-customers-billable.md](08-customers-billable.md).
