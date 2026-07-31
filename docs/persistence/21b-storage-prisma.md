@@ -99,6 +99,59 @@ Because the physical schema matches the Knex migrations, an existing Payable dat
 Knex `migrate()` is compatible with the Prisma models (introspect with `prisma db pull` if you adopt
 Prisma on top of an existing Payable install).
 
+### Catalog tenant-key migration
+
+Apply this change as an expand, backfill, verify, contract migration. It is datasource-neutral: use
+the SQL syntax required by the database provider in the generated Prisma migration.
+
+1. Expand both catalog tables with a non-null `tenant_key` column that defaults to `''`. Update the
+   Prisma product and price models to map `tenantKey` to `tenant_key` and to use the tenant-key unique
+   compounds.
+2. Backfill products and prices in bounded batches, ordered by a stable key. Each batch uses the
+   following query shape:
+
+```sql
+UPDATE payable_products
+SET tenant_key = COALESCE(tenant_id, '');
+
+UPDATE payable_prices
+SET tenant_key = COALESCE(tenant_id, '');
+```
+
+3. Verify the backfill before changing constraints:
+
+```sql
+SELECT id
+FROM payable_products
+WHERE tenant_key <> COALESCE(tenant_id, '');
+
+SELECT id
+FROM payable_prices
+WHERE tenant_key <> COALESCE(tenant_id, '');
+```
+
+4. Check for duplicate normalized identities. Ignore rows whose provider identifier is null because
+   the unique constraint permits multiple null values on supported databases.
+
+```sql
+SELECT tenant_key, provider, provider_product_id
+FROM payable_products
+WHERE provider_product_id IS NOT NULL
+GROUP BY tenant_key, provider, provider_product_id
+HAVING COUNT(*) > 1;
+
+SELECT tenant_key, provider, provider_price_id
+FROM payable_prices
+WHERE provider_price_id IS NOT NULL
+GROUP BY tenant_key, provider, provider_price_id
+HAVING COUNT(*) > 1;
+```
+
+5. Continue only when both verification queries and both duplicate queries return no rows. Create
+   the tenant-key unique constraints, then remove the legacy global product and price constraints.
+   A failed verification or duplicate query stops the migration. Correct the rows and resume from the
+   verification stage; do not remove a legacy constraint first.
+
 ## Usage
 
 ```ts
