@@ -40,7 +40,7 @@ export abstract class PrismaRepository<Entity, New, Row> {
   async update(id: string, patch: Partial<New>, tenantId?: string | null): Promise<Entity> {
     await this.delegate.updateMany({
       where: this.scopedWhere(id, tenantId),
-      data: stripUndefined({ ...this.toRow(patch), updatedAt: this.clock.now() }),
+      data: stripUndefined({ ...this.toUpdateRow(patch), updatedAt: this.clock.now() }),
     });
     return this.findByIdOrFail(id, tenantId);
   }
@@ -104,5 +104,10 @@ export abstract class PrismaRepository<Entity, New, Row> {
   }
 
   protected abstract toEntity(row: Row): Entity;
+
+  protected toUpdateRow(data: Partial<New>): Record<string, unknown> {
+    return this.toRow(data);
+  }
+
   protected abstract toRow(data: Partial<New>): Record<string, unknown>;
 }

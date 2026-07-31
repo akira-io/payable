@@ -6,6 +6,7 @@ import type {
 import type { RecurringInterval } from '../../../../domain/entities/common';
 import type { Price } from '../../../../domain/entities/price.entity';
 import { CurrencyManager } from '../../../../domain/value-objects/currency';
+import { assertCatalogTenantId } from '../../catalog-tenant';
 import { KnexRepository } from '../knex-repository';
 import { toBool, toDate, toMinor } from '../mappers';
 
@@ -15,19 +16,22 @@ export class KnexPriceRepository
 {
   protected readonly table = 'payable_prices';
 
-  override findById(id: string, tenantId: string | null): Promise<Price | null> {
+  override async findById(id: string, tenantId: string | null): Promise<Price | null> {
+    assertCatalogTenantId(tenantId);
     return super.findById(id, tenantId);
   }
 
-  override update(id: string, patch: PricePatch, tenantId: string | null): Promise<Price> {
+  override async update(id: string, patch: PricePatch, tenantId: string | null): Promise<Price> {
+    assertCatalogTenantId(tenantId);
     return super.update(id, patch, tenantId);
   }
 
-  findByProviderId(
+  async findByProviderId(
     provider: string,
     providerPriceId: string,
     tenantId: string | null,
   ): Promise<Price | null> {
+    assertCatalogTenantId(tenantId);
     return this.firstWhere({
       provider,
       provider_price_id: providerPriceId,
@@ -35,7 +39,8 @@ export class KnexPriceRepository
     });
   }
 
-  listByProduct(productId: string, tenantId: string | null): Promise<Price[]> {
+  async listByProduct(productId: string, tenantId: string | null): Promise<Price[]> {
+    assertCatalogTenantId(tenantId);
     return this.manyWhere({ product_id: productId, ...this.tenantClause(tenantId) });
   }
 
@@ -60,6 +65,19 @@ export class KnexPriceRepository
     return {
       tenant_id: data.tenantId,
       tenant_key: data.tenantId === undefined ? undefined : (data.tenantId ?? ''),
+      provider: data.provider,
+      provider_price_id: data.providerPriceId,
+      product_id: data.productId,
+      currency: data.currency,
+      unit_amount: data.unitAmount,
+      interval: data.interval,
+      interval_count: data.intervalCount,
+      active: data.active,
+    };
+  }
+
+  protected override toUpdateRow(data: Partial<NewPrice>): Record<string, unknown> {
+    return {
       provider: data.provider,
       provider_price_id: data.providerPriceId,
       product_id: data.productId,

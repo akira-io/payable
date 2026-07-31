@@ -44,7 +44,9 @@ export abstract class KnexRepository<Entity, New> {
   async update(id: string, patch: Partial<New>, tenantId?: string | null): Promise<Entity> {
     const [updated] = await this.knex(this.table)
       .where(this.scopedWhere(id, tenantId))
-      .update(stripUndefined({ ...this.toRow(patch), updated_at: this.clock.now().toISOString() }))
+      .update(
+        stripUndefined({ ...this.toUpdateRow(patch), updated_at: this.clock.now().toISOString() }),
+      )
       .returning('*');
     return updated
       ? this.toEntity(updated as Record<string, unknown>)
@@ -116,5 +118,10 @@ export abstract class KnexRepository<Entity, New> {
   }
 
   protected abstract toEntity(row: Record<string, unknown>): Entity;
+
+  protected toUpdateRow(data: Partial<New>): Record<string, unknown> {
+    return this.toRow(data);
+  }
+
   protected abstract toRow(data: Partial<New>): Record<string, unknown>;
 }

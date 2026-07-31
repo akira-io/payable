@@ -202,7 +202,7 @@ They share a base class `KnexRepository<Entity, New>` (`knex-repository.ts`) pro
   return the row.
 - `createMany(data)` - single batch insert (no-op on an empty array).
 - `update(id, patch)` - updates with a fresh `updated_at`.
-- `findById(id, tenantId)` and the protected `firstWhere` / `manyWhere` query helpers. Product and
+- `findById(id, tenantId)` and the protected `firstWhere` and `manyWhere` query helpers. Product and
   price repositories require `tenantId`; use `null` for the tenantless partition.
 
 Each concrete repository supplies the `table` name and the `toEntity` / `toRow` column mappers. Shared

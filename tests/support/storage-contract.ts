@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe } from 'vitest';
 import { registerBillingContract } from './contract/billing-contract';
+import { registerCatalogContract } from './contract/catalog-contract';
 import type { ContractContext, StorageHarness } from './contract/harness';
 import { registerMoneyContract } from './contract/money-contract';
 import { registerSystemContract } from './contract/system-contract';
@@ -25,6 +26,7 @@ export function describeStorageContract(name: string, create: () => Promise<Stor
 
     const ctx: ContractContext = { harness: () => current };
     registerBillingContract(ctx);
+    registerCatalogContract(ctx);
     registerMoneyContract(ctx);
     registerSystemContract(ctx);
   });

@@ -4,6 +4,7 @@ import type {
   ProductRepository,
 } from '../../../../domain/contracts/product-repository.contract';
 import type { Product } from '../../../../domain/entities/product.entity';
+import { assertCatalogTenantId } from '../../catalog-tenant';
 import { KnexRepository } from '../knex-repository';
 import { fromJson, toBool, toDate, toJson } from '../mappers';
 
@@ -13,19 +14,26 @@ export class KnexProductRepository
 {
   protected readonly table = 'payable_products';
 
-  override findById(id: string, tenantId: string | null): Promise<Product | null> {
+  override async findById(id: string, tenantId: string | null): Promise<Product | null> {
+    assertCatalogTenantId(tenantId);
     return super.findById(id, tenantId);
   }
 
-  override update(id: string, patch: ProductPatch, tenantId: string | null): Promise<Product> {
+  override async update(
+    id: string,
+    patch: ProductPatch,
+    tenantId: string | null,
+  ): Promise<Product> {
+    assertCatalogTenantId(tenantId);
     return super.update(id, patch, tenantId);
   }
 
-  findByProviderId(
+  async findByProviderId(
     provider: string,
     providerProductId: string,
     tenantId: string | null,
   ): Promise<Product | null> {
+    assertCatalogTenantId(tenantId);
     return this.firstWhere({
       provider,
       provider_product_id: providerProductId,
@@ -52,6 +60,17 @@ export class KnexProductRepository
     return {
       tenant_id: data.tenantId,
       tenant_key: data.tenantId === undefined ? undefined : (data.tenantId ?? ''),
+      provider: data.provider,
+      provider_product_id: data.providerProductId,
+      name: data.name,
+      description: data.description,
+      active: data.active,
+      metadata: data.metadata === undefined ? undefined : fromJson(data.metadata),
+    };
+  }
+
+  protected override toUpdateRow(data: Partial<NewProduct>): Record<string, unknown> {
+    return {
       provider: data.provider,
       provider_product_id: data.providerProductId,
       name: data.name,
