@@ -1,5 +1,6 @@
 import type {
   AuditLogRepository,
+  CustomerProviderBindingRepository,
   CustomerRepository,
   InvoiceRepository,
   OutboxEventRepository,
@@ -22,6 +23,7 @@ import type {
 import { SystemClock } from '../../../support/clock/system-clock';
 import type { PrismaClient, PrismaClientLike } from './prisma-client.types';
 import { PrismaAuditLogRepository } from './repositories/prisma-audit-logs.repository';
+import { PrismaCustomerProviderBindingRepository } from './repositories/prisma-customer-provider-bindings.repository';
 import { PrismaCustomerRepository } from './repositories/prisma-customers.repository';
 import { PrismaInvoiceRepository } from './repositories/prisma-invoices.repository';
 import { PrismaOutboxEventRepository } from './repositories/prisma-outbox.repository';
@@ -43,6 +45,7 @@ function buildRepositories(
 ): Repositories {
   return {
     customers: new PrismaCustomerRepository(client, clock),
+    customerProviderBindings: new PrismaCustomerProviderBindingRepository(client, clock),
     products: new PrismaProductRepository(client, clock),
     prices: new PrismaPriceRepository(client, clock),
     subscriptions: new PrismaSubscriptionRepository(client, clock),
@@ -60,6 +63,7 @@ function buildRepositories(
 
 export class PrismaStorageDriver implements StorageDriver {
   customers!: CustomerRepository;
+  customerProviderBindings!: CustomerProviderBindingRepository;
   products!: ProductRepository;
   prices!: PriceRepository;
   subscriptions!: SubscriptionRepository;
@@ -100,6 +104,7 @@ export class PrismaStorageDriver implements StorageDriver {
 
   private assignRepositories(repositories: Repositories): void {
     this.customers = repositories.customers;
+    this.customerProviderBindings = repositories.customerProviderBindings;
     this.products = repositories.products;
     this.prices = repositories.prices;
     this.subscriptions = repositories.subscriptions;

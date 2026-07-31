@@ -1,11 +1,13 @@
 import { isCustomerCapable } from '../../../domain/contracts/payment-provider.contract';
-import { PayableError } from '../../../domain/errors/payable-error';
+import { CustomerProviderBindingConflictError } from '../../../domain/errors/customer-provider-binding-conflict.error';
+import { CustomerProviderBindingPersistenceError } from '../../../domain/errors/customer-provider-binding-persistence.error';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
-import { Email } from '../../../domain/value-objects/email';
 import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
 import { assertCapableProvider } from '../../services/provider-capabilities/assert-provider-capability';
+import { EnsureCustomerAction } from './ensure-customer.action';
+import { normalizeCustomerEmail } from './normalize-customer-email';
 
 export class SyncCustomerWithProviderAction {
   constructor(private readonly deps: BillingDependencies) {}
@@ -14,14 +16,17 @@ export class SyncCustomerWithProviderAction {
     const { provider, providerName, storage, idempotency } = this.deps;
     assertCapableProvider(provider, 'customers', isCustomerCapable);
     const tenantId = this.deps.tenantId ?? null;
-    const email = this.normalizeEmail(billable.email);
+    const email = normalizeCustomerEmail(billable.email);
+    let customerId: string | undefined;
     if (storage) {
-      const existing = await storage.customers.findByBillable(
-        billable.billableType,
-        billable.billableId,
+      const customer = await new EnsureCustomerAction(this.deps).handle(billable);
+      customerId = customer.id;
+      const existing = await storage.customerProviderBindings.findByCustomerAndProvider(
+        customer.id,
+        providerName,
         tenantId,
       );
-      if (existing?.providerCustomerId) {
+      if (existing) {
         return existing.providerCustomerId;
       }
     }
@@ -44,7 +49,9 @@ export class SyncCustomerWithProviderAction {
           idempotencyKey: key.toString(),
         },
       );
-      await this.persist(billable, dto.providerCustomerId, email);
+      if (storage && customerId) {
+        await this.persist(customerId, dto.providerCustomerId);
+      }
       return dto.providerCustomerId;
     };
     if (!idempotency) {
@@ -61,57 +68,37 @@ export class SyncCustomerWithProviderAction {
     });
   }
 
-  private normalizeEmail(value: string | undefined): string {
-    try {
-      return Email.of(value ?? '').toString();
-    } catch {
-      throw new PayableError(`Invalid customer email: ${value}`, {
-        code: 'CUSTOMER_EMAIL_INVALID',
-        context: { billableEmail: value },
-      });
-    }
-  }
-
-  private async persist(
-    billable: Billable,
-    providerCustomerId: string,
-    email: string,
-  ): Promise<void> {
+  private async persist(customerId: string, providerCustomerId: string): Promise<void> {
     const { storage, providerName } = this.deps;
     if (!storage) {
       return;
     }
     const tenantId = this.deps.tenantId ?? null;
-    const existing = await storage.customers.findByBillable(
-      billable.billableType,
-      billable.billableId,
-      tenantId,
-    );
-    if (existing) {
-      await storage.customers.update(existing.id, { providerCustomerId }, tenantId);
-      return;
-    }
     try {
-      await storage.customers.create({
-        tenantId,
+      await storage.customerProviderBindings.create({
+        customerId,
         provider: providerName,
         providerCustomerId,
-        billableType: billable.billableType,
-        billableId: billable.billableId,
-        email,
-        name: billable.name ?? null,
-        metadata: null,
       });
     } catch (error) {
-      const raced = await storage.customers.findByBillable(
-        billable.billableType,
-        billable.billableId,
+      const raced = await storage.customerProviderBindings.findByCustomerAndProvider(
+        customerId,
+        providerName,
         tenantId,
       );
       if (!raced) {
-        throw error;
+        throw new CustomerProviderBindingPersistenceError(providerName, providerCustomerId, {
+          cause: error,
+        });
       }
-      await storage.customers.update(raced.id, { providerCustomerId }, tenantId);
+      if (raced.providerCustomerId !== providerCustomerId) {
+        throw new CustomerProviderBindingConflictError(
+          providerName,
+          providerCustomerId,
+          raced.providerCustomerId,
+          { cause: error },
+        );
+      }
     }
   }
 }

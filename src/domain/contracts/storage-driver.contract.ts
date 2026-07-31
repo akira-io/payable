@@ -1,4 +1,5 @@
 import type { AuditLogRepository } from './audit-log-repository.contract';
+import type { CustomerProviderBindingRepository } from './customer-provider-binding-repository.contract';
 import type { CustomerRepository } from './customer-repository.contract';
 import type { Encryption } from './encryption.contract';
 import type { InvoiceRepository } from './invoice-repository.contract';
@@ -15,6 +16,7 @@ import type { WebhookEventRepository } from './webhook-event-repository.contract
 
 export interface Repositories {
   readonly customers: CustomerRepository;
+  readonly customerProviderBindings: CustomerProviderBindingRepository;
   readonly products: ProductRepository;
   readonly prices: PriceRepository;
   readonly subscriptions: SubscriptionRepository;

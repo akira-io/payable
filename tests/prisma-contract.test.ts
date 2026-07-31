@@ -1,8 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createPayable } from '../src/create-payable';
 import { NodeEncryptionDriver } from '../src/infrastructure/encryption/node-encryption-driver';
 import type { PrismaClientLike } from '../src/infrastructure/storage/prisma';
 import { PrismaStorageDriver } from '../src/infrastructure/storage/prisma';
 import { FakeClock } from '../src/support/clock/fake-clock';
+import { FakeProvider } from './support/fake-provider';
 import { createPrismaHarness, createPrismaTestClient, disconnectPrisma } from './support/prisma';
 import { describeStorageContract } from './support/storage-contract';
 
@@ -22,6 +24,22 @@ afterAll(async () => {
 });
 
 describe('prisma encryption at rest', () => {
+  it('converges concurrent null-tenant creation on one logical customer', async () => {
+    const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
+    const billable = {
+      billableType: 'User',
+      billableId: 'prisma-concurrent-customer',
+      email: 'concurrent@example.com',
+    };
+
+    const customers = await Promise.all([
+      payable.customers().create(billable),
+      payable.customers().create(billable),
+    ]);
+
+    expect(customers[0]?.id).toBe(customers[1]?.id);
+  });
+
   it('stores outbox payloads as ciphertext and decrypts on read', async () => {
     const created = await storage.outboxEvents.create({
       tenantId: null,

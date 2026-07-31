@@ -8,8 +8,6 @@ export function customerToEntity(row: PrismaCustomerRow): Customer {
   return {
     id: row.id,
     tenantId: row.tenantId ?? null,
-    provider: row.provider,
-    providerCustomerId: row.providerCustomerId ?? null,
     billableType: row.billableType,
     billableId: row.billableId,
     email: row.email,
@@ -23,8 +21,7 @@ export function customerToEntity(row: PrismaCustomerRow): Customer {
 export function customerToRow(data: Partial<NewCustomer>): Record<string, unknown> {
   return {
     tenantId: data.tenantId,
-    provider: data.provider,
-    providerCustomerId: data.providerCustomerId,
+    tenantKey: data.tenantId === undefined ? undefined : (data.tenantId ?? ''),
     billableType: data.billableType,
     billableId: data.billableId,
     email: data.email,

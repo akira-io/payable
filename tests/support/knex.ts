@@ -29,8 +29,6 @@ export async function countDuePendingOutbox(db: Knex, clock: Clock): Promise<num
 export function makeCustomer(overrides: Partial<NewCustomer> = {}): NewCustomer {
   return {
     tenantId: null,
-    provider: 'stripe',
-    providerCustomerId: null,
     billableType: 'User',
     billableId: '1',
     email: 'user@example.com',

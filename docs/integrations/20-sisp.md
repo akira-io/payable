@@ -126,8 +126,8 @@ res.send(session.html);
 
 What `redirectCheckout(...).create()` does:
 
-1. Ensures a **local customer** for the billable (no provider-side customer - SISP has none, so
-   `providerCustomerId` is `null`). See [Customers](../features/08-customers-billable.md).
+1. Ensures a **logical customer** for the billable. SISP has no provider-side customer, so no
+   `CustomerProviderBinding` is created. See [Customers](../features/08-customers-billable.md).
 2. Derives the `merchantRef`. When an `idempotencyKey` is present, it is hashed with SHA-256 and the
    reference becomes `R` + the first 14 hex characters upper-cased (`sispMerchantReference`), so the same
    key always yields the same reference. With no idempotency key it falls back to the configured

@@ -25,11 +25,19 @@ export class ListInvoicesAction {
       billable.billableId,
       this.deps.tenantId ?? null,
     );
-    if (!customer?.providerCustomerId) {
+    if (!customer) {
+      return [];
+    }
+    const binding = await storage.customerProviderBindings.findByCustomerAndProvider(
+      customer.id,
+      this.deps.providerName,
+      this.deps.tenantId ?? null,
+    );
+    if (!binding) {
       return [];
     }
     return provider.listInvoices({
-      providerCustomerId: customer.providerCustomerId,
+      providerCustomerId: binding.providerCustomerId,
       limit,
     });
   }

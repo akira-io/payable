@@ -73,7 +73,8 @@ aggregates.
 
 | Table | Key columns | Notable constraints |
 | --- | --- | --- |
-| `payable_customers` | `tenant_id`, `provider`, `provider_customer_id`, `billable_type`, `billable_id`, `email` | unique `(provider, provider_customer_id)`; index `(tenant_id, billable_type, billable_id)` |
+| `payable_customers` | `tenant_id`, `billable_type`, `billable_id`, `email`, `name`, `metadata` | unique logical identity over normalized tenant, billable type, and billable id; MySQL stores the normalized value in generated `tenant_key` |
+| `payable_customer_provider_bindings` | `customer_id`, `provider`, `provider_customer_id` | foreign key to customer with cascade delete; unique `(customer_id, provider)` and `(provider, provider_customer_id)` |
 | `payable_products` | `provider`, `provider_product_id`, `name`, `active` | unique `(provider, provider_product_id)` |
 | `payable_prices` | `provider`, `provider_price_id`, `product_id`, `currency`, `unit_amount`, `interval`, `interval_count`, `active` (boolean, notNullable) | unique `(provider, provider_price_id)`; index `product_id` |
 | `payable_subscriptions` | `customer_id`, `name`, `provider`, `provider_subscription_id`, `status`, `price_id`, `quantity`, period/trial timestamps | unique `(provider, provider_subscription_id)`; unique `(customer_id, name)` |
@@ -117,6 +118,16 @@ export async function migrate(knex: Knex): Promise<void> {
     await runStep(knex, '002-system-tables', () => createSystemTables(knex));
     await runStep(knex, '003-alter-existing-tables', () => alterExistingTables(knex));
     await runStep(knex, '004-widen-endpoint-secret', () => widenEndpointSecret(knex));
+    await runStep(knex, '005-webhook-occurred-at', () => addWebhookOccurredAt(knex));
+    await runStep(knex, '006-subscription-provider-synced-at', () =>
+      addSubscriptionProviderSyncedAt(knex),
+    );
+    await runStep(knex, '007-post-ledger-schema-convergence', () =>
+      convergePostLedgerSchema(knex),
+    );
+    await runStep(knex, '008-customer-provider-bindings', () =>
+      addCustomerProviderBindings(knex),
+    );
   });
 }
 ```
@@ -129,7 +140,9 @@ All steps run inside `withMigrationLock`, which serializes concurrent migrators:
 - On any other dialect it runs the steps without a lock.
 
 Each step is recorded through a migration ledger via `runStep`, so a completed step is skipped on a
-re-run. There are four steps in order:
+re-run. The first four steps establish the original schema; steps `005` through `007` add webhook
+timestamps, subscription sync timestamps, and post-ledger convergence. The customer identity
+migration is step `008`:
 
 1. **Create billing tables** (`001-billing-tables`) - each via `createIfMissing`
    (`create-if-missing.ts`), which checks `knex.schema.hasTable(name)` and only creates the table
@@ -146,6 +159,10 @@ re-run. There are four steps in order:
 4. **Widen the endpoint secret** (`004-widen-endpoint-secret`) - `widenEndpointSecret`
    (`widen-endpoint-secret.ts`) alters `payable_webhook_endpoints.secret` to `text` so the column can
    hold encrypted (sealed) secret values, which are longer than a raw secret.
+- **Customer provider bindings** (`008-customer-provider-bindings`) - creates
+   `payable_customer_provider_bindings`, backfills every non-null legacy provider customer id, verifies
+   the backfill, and only then removes `provider` and `provider_customer_id` from
+   `payable_customers`.
 
 `migrate` is **idempotent and safe to re-run**: it creates nothing that exists and adds only missing
 columns/indexes. A second `migrate` resolves cleanly, and a table created before the additive columns

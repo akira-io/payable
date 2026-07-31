@@ -25,24 +25,10 @@ export class KnexCustomerRepository
     return row ? this.toEntity(row as Record<string, unknown>) : null;
   }
 
-  findByProviderId(
-    provider: string,
-    providerCustomerId: string,
-    tenantId?: string | null,
-  ): Promise<Customer | null> {
-    return this.firstWhere({
-      provider,
-      provider_customer_id: providerCustomerId,
-      ...this.tenantClause(tenantId),
-    });
-  }
-
   protected toEntity(row: Record<string, unknown>): Customer {
     return {
       id: row.id as string,
       tenantId: (row.tenant_id as string | null) ?? null,
-      provider: row.provider as string,
-      providerCustomerId: (row.provider_customer_id as string | null) ?? null,
       billableType: row.billable_type as string,
       billableId: row.billable_id as string,
       email: row.email as string,
@@ -56,8 +42,7 @@ export class KnexCustomerRepository
   protected toRow(data: Partial<NewCustomer>): Record<string, unknown> {
     return {
       tenant_id: data.tenantId,
-      provider: data.provider,
-      provider_customer_id: data.providerCustomerId,
+      tenant_key: data.tenantId === undefined ? undefined : (data.tenantId ?? ''),
       billable_type: data.billableType,
       billable_id: data.billableId,
       email: data.email,

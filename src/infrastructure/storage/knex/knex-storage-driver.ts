@@ -1,6 +1,7 @@
 import type { Knex } from 'knex';
 import type {
   AuditLogRepository,
+  CustomerProviderBindingRepository,
   CustomerRepository,
   InvoiceRepository,
   OutboxEventRepository,
@@ -23,6 +24,7 @@ import type {
 import { SystemClock } from '../../../support/clock/system-clock';
 import { KnexAuditLogRepository } from './repositories/knex-audit-log.repository';
 import { KnexCustomerRepository } from './repositories/knex-customer.repository';
+import { KnexCustomerProviderBindingRepository } from './repositories/knex-customer-provider-binding.repository';
 import { KnexInvoiceRepository } from './repositories/knex-invoice.repository';
 import { KnexOutboxEventRepository } from './repositories/knex-outbox-event.repository';
 import { KnexPaymentRepository } from './repositories/knex-payment.repository';
@@ -43,6 +45,7 @@ function buildRepositories(
 ): Repositories {
   return {
     customers: new KnexCustomerRepository(qb, clock),
+    customerProviderBindings: new KnexCustomerProviderBindingRepository(qb, clock),
     products: new KnexProductRepository(qb, clock),
     prices: new KnexPriceRepository(qb, clock),
     subscriptions: new KnexSubscriptionRepository(qb, clock),
@@ -60,6 +63,7 @@ function buildRepositories(
 
 export class KnexStorageDriver implements StorageDriver {
   customers!: CustomerRepository;
+  customerProviderBindings!: CustomerProviderBindingRepository;
   products!: ProductRepository;
   prices!: PriceRepository;
   subscriptions!: SubscriptionRepository;
@@ -100,6 +104,7 @@ export class KnexStorageDriver implements StorageDriver {
 
   private assignRepositories(repositories: Repositories): void {
     this.customers = repositories.customers;
+    this.customerProviderBindings = repositories.customerProviderBindings;
     this.products = repositories.products;
     this.prices = repositories.prices;
     this.subscriptions = repositories.subscriptions;

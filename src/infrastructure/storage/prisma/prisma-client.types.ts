@@ -1,13 +1,21 @@
 export interface PrismaCustomerRow {
   id: string;
   tenantId: string | null;
-  provider: string;
-  providerCustomerId: string | null;
+  tenantKey: string;
   billableType: string;
   billableId: string;
   email: string;
   name: string | null;
   metadata: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PrismaCustomerProviderBindingRow {
+  id: string;
+  customerId: string;
+  provider: string;
+  providerCustomerId: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -266,6 +274,7 @@ export interface PrismaDelegate<Row> {
 
 export interface PrismaModelDelegates {
   payableCustomer: PrismaDelegate<PrismaCustomerRow>;
+  payableCustomerProviderBinding: PrismaDelegate<PrismaCustomerProviderBindingRow>;
   payableProduct: PrismaDelegate<PrismaProductRow>;
   payablePrice: PrismaDelegate<PrismaPriceRow>;
   payableSubscription: PrismaDelegate<PrismaSubscriptionRow>;

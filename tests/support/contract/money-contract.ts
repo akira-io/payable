@@ -218,34 +218,44 @@ export function registerMoneyContract(ctx: ContractContext): void {
   it('commits and rolls back transactions atomically', async () => {
     const { storage } = ctx.harness();
     await storage.transaction(async (repos) => {
-      await repos.customers.create({
+      const customer = await repos.customers.create({
         tenantId: null,
-        provider: 'stripe',
-        providerCustomerId: 'cus_tx',
         billableType: 'User',
         billableId: 'tx',
         email: 'tx@example.com',
         name: null,
         metadata: null,
       });
+      await repos.customerProviderBindings.create({
+        customerId: customer.id,
+        provider: 'stripe',
+        providerCustomerId: 'cus_tx',
+      });
     });
-    expect(await storage.customers.findByProviderId('stripe', 'cus_tx')).not.toBeNull();
+    expect(
+      await storage.customerProviderBindings.findByProviderId('stripe', 'cus_tx', null),
+    ).not.toBeNull();
 
     await expect(
       storage.transaction(async (repos) => {
-        await repos.customers.create({
+        const customer = await repos.customers.create({
           tenantId: null,
-          provider: 'stripe',
-          providerCustomerId: 'cus_rollback',
           billableType: 'User',
           billableId: 'rollback',
           email: 'rollback@example.com',
           name: null,
           metadata: null,
         });
+        await repos.customerProviderBindings.create({
+          customerId: customer.id,
+          provider: 'stripe',
+          providerCustomerId: 'cus_rollback',
+        });
         throw new Error('boom');
       }),
     ).rejects.toThrow('boom');
-    expect(await storage.customers.findByProviderId('stripe', 'cus_rollback')).toBeNull();
+    expect(
+      await storage.customerProviderBindings.findByProviderId('stripe', 'cus_rollback', null),
+    ).toBeNull();
   });
 }

@@ -144,6 +144,7 @@ function parseEventList(value: unknown): string[] {
 }
 
 const CUSTOMER_BILLABLE_INDEX = 'payable_customers_tenant_billable_unique';
+const CUSTOMER_TENANT_KEY_INDEX = 'payable_customers_tenant_key_billable_unique';
 const CUSTOMER_TENANT_KEY = 'tenant_key';
 
 async function assertNoDuplicateBillables(knex: Knex): Promise<void> {
@@ -167,14 +168,32 @@ async function assertNoDuplicateBillables(knex: Knex): Promise<void> {
   );
 }
 
-async function ensureCustomerBillableUnique(knex: Knex): Promise<void> {
+export async function ensureCustomerBillableUnique(knex: Knex): Promise<void> {
   if (!(await knex.schema.hasTable('payable_customers'))) {
     return;
   }
   await assertNoDuplicateBillables(knex);
+  await ensureCustomerTenantKey(knex);
   const dialect = (knex.client as { dialect?: string }).dialect;
   if (dialect === 'mysql' || dialect === 'mariadb') {
-    await ensureMysqlCustomerBillableUnique(knex);
+    if (!(await mysqlIndexExists(knex, 'payable_customers', CUSTOMER_BILLABLE_INDEX))) {
+      await knex.raw('CREATE UNIQUE INDEX ?? ON ?? (??, ??, ??)', [
+        CUSTOMER_BILLABLE_INDEX,
+        'payable_customers',
+        CUSTOMER_TENANT_KEY,
+        'billable_type',
+        'billable_id',
+      ]);
+    }
+    if (!(await mysqlIndexExists(knex, 'payable_customers', CUSTOMER_TENANT_KEY_INDEX))) {
+      await knex.raw('CREATE UNIQUE INDEX ?? ON ?? (??, ??, ??)', [
+        CUSTOMER_TENANT_KEY_INDEX,
+        'payable_customers',
+        CUSTOMER_TENANT_KEY,
+        'billable_type',
+        'billable_id',
+      ]);
+    }
     return;
   }
   await knex.raw("CREATE UNIQUE INDEX IF NOT EXISTS ?? ON ?? (COALESCE(??, ''), ??, ??)", [
@@ -184,26 +203,35 @@ async function ensureCustomerBillableUnique(knex: Knex): Promise<void> {
     'billable_type',
     'billable_id',
   ]);
-}
-
-async function ensureMysqlCustomerBillableUnique(knex: Knex): Promise<void> {
-  if (!(await knex.schema.hasColumn('payable_customers', CUSTOMER_TENANT_KEY))) {
-    await knex.raw("ALTER TABLE ?? ADD COLUMN ?? VARCHAR(255) AS (COALESCE(??, '')) STORED", [
-      'payable_customers',
-      CUSTOMER_TENANT_KEY,
-      'tenant_id',
-    ]);
-  }
-  if (await mysqlIndexExists(knex, 'payable_customers', CUSTOMER_BILLABLE_INDEX)) {
-    return;
-  }
-  await knex.raw('CREATE UNIQUE INDEX ?? ON ?? (??, ??, ??)', [
-    CUSTOMER_BILLABLE_INDEX,
+  await knex.raw('CREATE UNIQUE INDEX IF NOT EXISTS ?? ON ?? (??, ??, ??)', [
+    CUSTOMER_TENANT_KEY_INDEX,
     'payable_customers',
     CUSTOMER_TENANT_KEY,
     'billable_type',
     'billable_id',
   ]);
+}
+
+async function ensureCustomerTenantKey(knex: Knex): Promise<void> {
+  if (!(await knex.schema.hasColumn('payable_customers', CUSTOMER_TENANT_KEY))) {
+    await knex.schema.alterTable('payable_customers', (table) => {
+      table.string(CUSTOMER_TENANT_KEY).notNullable().defaultTo('');
+    });
+  }
+  const dialect = (knex.client as { dialect?: string }).dialect;
+  if (
+    (dialect === 'mysql' || dialect === 'mariadb') &&
+    (await mysqlColumnIsGenerated(knex, 'payable_customers', CUSTOMER_TENANT_KEY))
+  ) {
+    await knex.raw('ALTER TABLE ?? MODIFY COLUMN ?? VARCHAR(255) NOT NULL DEFAULT ?', [
+      'payable_customers',
+      CUSTOMER_TENANT_KEY,
+      '',
+    ]);
+  }
+  await knex('payable_customers').update({
+    [CUSTOMER_TENANT_KEY]: knex.raw("COALESCE(??, '')", ['tenant_id']),
+  });
 }
 
 const TENANT_KEY = 'tenant_key';
@@ -280,4 +308,12 @@ async function mysqlIndexExists(knex: Knex, table: string, name: string): Promis
     [table, name],
   )) as [{ count: number }[], unknown];
   return Number(rows[0]?.count ?? 0) > 0;
+}
+
+async function mysqlColumnIsGenerated(knex: Knex, table: string, column: string): Promise<boolean> {
+  const [rows] = (await knex.raw(
+    'SELECT EXTRA AS extra FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?',
+    [table, column],
+  )) as [{ extra: string }[], unknown];
+  return rows.some((row) => row.extra.toUpperCase().includes('GENERATED'));
 }

@@ -23,6 +23,7 @@ const TRUNCATE_ORDER = [
   'payableInvoice',
   'payablePrice',
   'payableProduct',
+  'payableCustomerProviderBinding',
   'payableCustomer',
   'payableWebhookEvent',
   'payableIdempotencyKey',

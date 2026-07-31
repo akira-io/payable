@@ -4,8 +4,7 @@
 model PayableCustomer {
   id                 String   @id
   tenantId           String?  @map("tenant_id")
-  provider           String
-  providerCustomerId String?  @map("provider_customer_id")
+  tenantKey          String   @default("") @map("tenant_key")
   billableType       String   @map("billable_type")
   billableId         String   @map("billable_id")
   email              String
@@ -13,10 +12,24 @@ model PayableCustomer {
   metadata           String?
   createdAt          DateTime @map("created_at")
   updatedAt          DateTime @map("updated_at")
+  providerBindings   PayableCustomerProviderBinding[]
 
-  @@unique([provider, providerCustomerId])
-  @@unique([tenantId, billableType, billableId])
+  @@unique([tenantKey, billableType, billableId])
   @@map("payable_customers")
+}
+
+model PayableCustomerProviderBinding {
+  id                 String          @id
+  customerId         String          @map("customer_id")
+  provider           String
+  providerCustomerId String          @map("provider_customer_id")
+  createdAt          DateTime        @map("created_at")
+  updatedAt          DateTime        @map("updated_at")
+  customer           PayableCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, provider])
+  @@unique([provider, providerCustomerId])
+  @@map("payable_customer_provider_bindings")
 }
 
 model PayableProduct {

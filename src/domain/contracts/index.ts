@@ -22,6 +22,10 @@ export type {
 } from './audit-log-repository.contract';
 export type { CacheDriver } from './cache-driver.contract';
 export type { Clock } from './clock.contract';
+export type {
+  CustomerProviderBindingRepository,
+  NewCustomerProviderBinding,
+} from './customer-provider-binding-repository.contract';
 export type { CustomerRepository, NewCustomer } from './customer-repository.contract';
 export type { Encryption } from './encryption.contract';
 export type { EventBus, EventListener } from './event-bus.contract';

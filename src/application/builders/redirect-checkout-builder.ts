@@ -31,9 +31,9 @@ export class RedirectCheckoutBuilder {
       request.authorization,
       'create checkout',
     );
-    const customer = this.deps.storage
-      ? await new CustomerResource(this.deps).create(this.billable)
-      : null;
+    const customers = new CustomerResource(this.deps);
+    const customer = this.deps.storage ? await customers.create(this.billable) : null;
+    const binding = customer ? await customers.binding(this.billable) : null;
     const key = IdempotencyKey.forCheckout({
       tenantId: this.deps.tenantId ?? null,
       provider: this.deps.providerName,
@@ -45,7 +45,7 @@ export class RedirectCheckoutBuilder {
     });
     const session = await new CreateCheckoutSessionAction(this.deps).handle({
       input: {
-        providerCustomerId: customer?.providerCustomerId ?? '',
+        providerCustomerId: binding?.providerCustomerId ?? '',
         mode: 'payment',
         lineItems: [],
         successUrl: request.successUrl ?? '',

@@ -11,9 +11,4 @@ export interface CustomerRepository {
     billableId: string,
     tenantId?: string | null,
   ): Promise<Customer | null>;
-  findByProviderId(
-    provider: string,
-    providerCustomerId: string,
-    tenantId?: string | null,
-  ): Promise<Customer | null>;
 }

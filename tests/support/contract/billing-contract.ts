@@ -2,12 +2,10 @@ import { expect, it } from 'vitest';
 import { CONTRACT_BASE_TIME, type ContractContext } from './harness';
 
 export function registerBillingContract(ctx: ContractContext): void {
-  it('persists a customer with metadata and resolves it three ways', async () => {
+  it('persists a logical customer and resolves its provider binding', async () => {
     const { storage } = ctx.harness();
     const created = await storage.customers.create({
       tenantId: null,
-      provider: 'stripe',
-      providerCustomerId: 'cus_1',
       billableType: 'User',
       billableId: '1',
       email: 'user@example.com',
@@ -20,11 +18,27 @@ export function registerBillingContract(ctx: ContractContext): void {
 
     const byId = await storage.customers.findById(created.id);
     const byBillable = await storage.customers.findByBillable('User', '1');
-    const byProvider = await storage.customers.findByProviderId('stripe', 'cus_1');
+    const binding = await storage.customerProviderBindings.create({
+      customerId: created.id,
+      provider: 'stripe',
+      providerCustomerId: 'cus_1',
+    });
+    const byProvider = await storage.customerProviderBindings.findByProviderId(
+      'stripe',
+      'cus_1',
+      null,
+    );
+    const byCustomer = await storage.customerProviderBindings.findByCustomerAndProvider(
+      created.id,
+      'stripe',
+      null,
+    );
 
     expect(byId?.id).toBe(created.id);
     expect(byBillable?.id).toBe(created.id);
-    expect(byProvider?.id).toBe(created.id);
+    expect(byProvider?.id).toBe(binding.id);
+    expect(byCustomer?.id).toBe(binding.id);
+    expect(byProvider?.customerId).toBe(created.id);
     expect(byId?.createdAt).toBeInstanceOf(Date);
   });
 
@@ -32,8 +46,6 @@ export function registerBillingContract(ctx: ContractContext): void {
     const { storage } = ctx.harness();
     const created = await storage.customers.create({
       tenantId: null,
-      provider: 'stripe',
-      providerCustomerId: null,
       billableType: 'User',
       billableId: '2',
       email: 'old@example.com',
@@ -79,8 +91,6 @@ export function registerBillingContract(ctx: ContractContext): void {
     const { storage } = ctx.harness();
     const customer = await storage.customers.create({
       tenantId: null,
-      provider: 'stripe',
-      providerCustomerId: 'cus_sub',
       billableType: 'User',
       billableId: '9',
       email: 'sub@example.com',

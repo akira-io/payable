@@ -24,18 +24,6 @@ export class PrismaCustomerRepository
     return this.firstWhere({ billableType, billableId, tenantId: tenantId ?? null });
   }
 
-  findByProviderId(
-    provider: string,
-    providerCustomerId: string,
-    tenantId?: string | null,
-  ): Promise<Customer | null> {
-    return this.firstWhere({
-      provider,
-      providerCustomerId,
-      ...this.tenantClause(tenantId),
-    });
-  }
-
   protected toEntity(row: PrismaCustomerRow): Customer {
     return customerToEntity(row);
   }
