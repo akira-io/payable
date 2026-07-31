@@ -4,7 +4,7 @@ import type {
   ProductRepository,
 } from '../../../../domain/contracts/product-repository.contract';
 import type { Product } from '../../../../domain/entities/product.entity';
-import { assertCatalogTenantId } from '../../catalog-tenant';
+import { assertCatalogTenantId, assertCatalogTenantIds } from '../../catalog-tenant';
 import { KnexRepository } from '../knex-repository';
 import { fromJson, toBool, toDate, toJson } from '../mappers';
 
@@ -17,6 +17,11 @@ export class KnexProductRepository
   override async create(data: NewProduct): Promise<Product> {
     assertCatalogTenantId(data.tenantId);
     return super.create(data);
+  }
+
+  override async createMany(data: NewProduct[]): Promise<void> {
+    assertCatalogTenantIds(data);
+    return super.createMany(data);
   }
 
   override async findById(id: string, tenantId: string | null): Promise<Product | null> {

@@ -5,7 +5,7 @@ import type {
   ProductRepository,
 } from '../../../../domain/contracts/product-repository.contract';
 import type { Product } from '../../../../domain/entities/product.entity';
-import { assertCatalogTenantId } from '../../catalog-tenant';
+import { assertCatalogTenantId, assertCatalogTenantIds } from '../../catalog-tenant';
 import { productPatchToRow, productToEntity, productToRow } from '../mappers/product.mapper';
 import type { PrismaClient, PrismaProductRow } from '../prisma-client.types';
 import { PrismaRepository } from '../prisma-repository';
@@ -21,6 +21,11 @@ export class PrismaProductRepository
   override async create(data: NewProduct): Promise<Product> {
     assertCatalogTenantId(data.tenantId);
     return super.create(data);
+  }
+
+  override async createMany(data: NewProduct[]): Promise<void> {
+    assertCatalogTenantIds(data);
+    return super.createMany(data);
   }
 
   override async findById(id: string, tenantId: string | null): Promise<Product | null> {

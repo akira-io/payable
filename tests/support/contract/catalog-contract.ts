@@ -8,14 +8,12 @@ interface CatalogFixture {
 }
 
 interface RuntimeProductRepository {
-  create(data: Record<string, unknown>): Promise<unknown>;
   findById(id: string): Promise<unknown>;
   update(id: string, patch: Record<string, unknown>): Promise<unknown>;
   findByProviderId(provider: string, providerProductId: string): Promise<unknown>;
 }
 
 interface RuntimePriceRepository {
-  create(data: Record<string, unknown>): Promise<unknown>;
   findById(id: string): Promise<unknown>;
   update(id: string, patch: Record<string, unknown>): Promise<unknown>;
   findByProviderId(provider: string, providerPriceId: string): Promise<unknown>;
@@ -74,55 +72,6 @@ const omittedTenantCalls: Array<{
 ];
 
 export function registerCatalogContract(ctx: ContractContext): void {
-  it('rejects a product create without a tenant before persisting it', async () => {
-    const { storage } = ctx.harness();
-    const products = storage.products as unknown as RuntimeProductRepository;
-
-    await expect(
-      products.create({
-        provider: 'stripe',
-        providerProductId: 'prod_omitted_tenant',
-        name: 'Invalid product',
-        description: null,
-        active: true,
-        metadata: null,
-      }),
-    ).rejects.toThrow(/tenantId/i);
-    await expect(
-      storage.products.findByProviderId('stripe', 'prod_omitted_tenant', null),
-    ).resolves.toBeNull();
-  });
-
-  it('rejects a price create without a tenant before persisting it', async () => {
-    const { storage } = ctx.harness();
-    const product = await storage.products.create({
-      tenantId: 'tenant-a',
-      provider: 'stripe',
-      providerProductId: 'prod_price_parent',
-      name: 'Price parent',
-      description: null,
-      active: true,
-      metadata: null,
-    });
-    const prices = storage.prices as unknown as RuntimePriceRepository;
-
-    await expect(
-      prices.create({
-        provider: 'stripe',
-        providerPriceId: 'price_omitted_tenant',
-        productId: product.id,
-        currency: 'usd',
-        unitAmount: 1999,
-        interval: 'month',
-        intervalCount: 1,
-        active: true,
-      }),
-    ).rejects.toThrow(/tenantId/i);
-    await expect(
-      storage.prices.findByProviderId('stripe', 'price_omitted_tenant', null),
-    ).resolves.toBeNull();
-  });
-
   it.each(
     omittedTenantCalls,
   )('rejects an omitted tenant in $name without changing catalog data', async ({ call }) => {

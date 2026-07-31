@@ -6,7 +6,7 @@ import type {
 import type { RecurringInterval } from '../../../../domain/entities/common';
 import type { Price } from '../../../../domain/entities/price.entity';
 import { CurrencyManager } from '../../../../domain/value-objects/currency';
-import { assertCatalogTenantId } from '../../catalog-tenant';
+import { assertCatalogTenantId, assertCatalogTenantIds } from '../../catalog-tenant';
 import { KnexRepository } from '../knex-repository';
 import { toBool, toDate, toMinor } from '../mappers';
 
@@ -19,6 +19,11 @@ export class KnexPriceRepository
   override async create(data: NewPrice): Promise<Price> {
     assertCatalogTenantId(data.tenantId);
     return super.create(data);
+  }
+
+  override async createMany(data: NewPrice[]): Promise<void> {
+    assertCatalogTenantIds(data);
+    return super.createMany(data);
   }
 
   override async findById(id: string, tenantId: string | null): Promise<Price | null> {
