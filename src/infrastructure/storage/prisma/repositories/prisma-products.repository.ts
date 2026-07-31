@@ -5,7 +5,7 @@ import type {
   ProductRepository,
 } from '../../../../domain/contracts/product-repository.contract';
 import type { Product } from '../../../../domain/entities/product.entity';
-import { assertCatalogTenantId } from '../../catalog-tenant';
+import { assertCatalogTenantId, assertCatalogTenantIds } from '../../catalog-tenant';
 import { productPatchToRow, productToEntity, productToRow } from '../mappers/product.mapper';
 import type { PrismaClient, PrismaProductRow } from '../prisma-client.types';
 import { PrismaRepository } from '../prisma-repository';
@@ -16,6 +16,16 @@ export class PrismaProductRepository
 {
   constructor(client: PrismaClient, clock: Clock) {
     super(client.payableProduct, clock);
+  }
+
+  override async create(data: NewProduct): Promise<Product> {
+    assertCatalogTenantId(data.tenantId);
+    return super.create(data);
+  }
+
+  override async createMany(data: NewProduct[]): Promise<void> {
+    assertCatalogTenantIds(data);
+    return super.createMany(data);
   }
 
   override async findById(id: string, tenantId: string | null): Promise<Product | null> {
@@ -47,6 +57,16 @@ export class PrismaProductRepository
 
   protected toEntity(row: PrismaProductRow): Product {
     return productToEntity(row);
+  }
+
+  protected override scopedWhere(id: string, tenantId?: string | null): Record<string, unknown> {
+    assertCatalogTenantId(tenantId);
+    return { id, tenantId };
+  }
+
+  protected override tenantClause(tenantId?: string | null): Record<string, unknown> {
+    assertCatalogTenantId(tenantId);
+    return { tenantId };
   }
 
   protected toRow(data: Partial<NewProduct>): Record<string, unknown> {

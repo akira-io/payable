@@ -5,3 +5,11 @@ export function assertCatalogTenantId(
     throw new TypeError('tenantId is required for catalog repository operations');
   }
 }
+
+export function assertCatalogTenantIds(
+  catalogEntries: readonly { tenantId?: string | null }[],
+): void {
+  for (const catalogEntry of catalogEntries) {
+    assertCatalogTenantId(catalogEntry.tenantId);
+  }
+}

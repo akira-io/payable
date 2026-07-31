@@ -4,7 +4,7 @@ import type {
   ProductRepository,
 } from '../../../../domain/contracts/product-repository.contract';
 import type { Product } from '../../../../domain/entities/product.entity';
-import { assertCatalogTenantId } from '../../catalog-tenant';
+import { assertCatalogTenantId, assertCatalogTenantIds } from '../../catalog-tenant';
 import { KnexRepository } from '../knex-repository';
 import { fromJson, toBool, toDate, toJson } from '../mappers';
 
@@ -13,6 +13,16 @@ export class KnexProductRepository
   implements ProductRepository
 {
   protected readonly table = 'payable_products';
+
+  override async create(data: NewProduct): Promise<Product> {
+    assertCatalogTenantId(data.tenantId);
+    return super.create(data);
+  }
+
+  override async createMany(data: NewProduct[]): Promise<void> {
+    assertCatalogTenantIds(data);
+    return super.createMany(data);
+  }
 
   override async findById(id: string, tenantId: string | null): Promise<Product | null> {
     assertCatalogTenantId(tenantId);
@@ -58,6 +68,16 @@ export class KnexProductRepository
 
   protected override createLookupTenantId(data: NewProduct): string | null {
     return data.tenantId;
+  }
+
+  protected override scopedWhere(id: string, tenantId?: string | null): Record<string, unknown> {
+    assertCatalogTenantId(tenantId);
+    return { id, tenant_id: tenantId };
+  }
+
+  protected override tenantClause(tenantId?: string | null): Record<string, unknown> {
+    assertCatalogTenantId(tenantId);
+    return { tenant_id: tenantId };
   }
 
   protected toRow(data: Partial<NewProduct>): Record<string, unknown> {

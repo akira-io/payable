@@ -54,11 +54,11 @@ export abstract class PrismaRepository<Entity, New, Row> {
   }
 
   protected scopedWhere(id: string, tenantId?: string | null): Record<string, unknown> {
-    return tenantId === undefined ? { id } : { id, tenantId };
+    return tenantId === undefined || tenantId === null ? { id } : { id, tenantId };
   }
 
   protected tenantClause(tenantId?: string | null): Record<string, unknown> {
-    return tenantId === undefined ? {} : { tenantId };
+    return tenantId === undefined || tenantId === null ? {} : { tenantId };
   }
 
   protected async firstWhere(where: Record<string, unknown>): Promise<Entity | null> {

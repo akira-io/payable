@@ -6,7 +6,7 @@ import type {
 import type { RecurringInterval } from '../../../../domain/entities/common';
 import type { Price } from '../../../../domain/entities/price.entity';
 import { CurrencyManager } from '../../../../domain/value-objects/currency';
-import { assertCatalogTenantId } from '../../catalog-tenant';
+import { assertCatalogTenantId, assertCatalogTenantIds } from '../../catalog-tenant';
 import { KnexRepository } from '../knex-repository';
 import { toBool, toDate, toMinor } from '../mappers';
 
@@ -15,6 +15,16 @@ export class KnexPriceRepository
   implements PriceRepository
 {
   protected readonly table = 'payable_prices';
+
+  override async create(data: NewPrice): Promise<Price> {
+    assertCatalogTenantId(data.tenantId);
+    return super.create(data);
+  }
+
+  override async createMany(data: NewPrice[]): Promise<void> {
+    assertCatalogTenantIds(data);
+    return super.createMany(data);
+  }
 
   override async findById(id: string, tenantId: string | null): Promise<Price | null> {
     assertCatalogTenantId(tenantId);
@@ -63,6 +73,16 @@ export class KnexPriceRepository
 
   protected override createLookupTenantId(data: NewPrice): string | null {
     return data.tenantId;
+  }
+
+  protected override scopedWhere(id: string, tenantId?: string | null): Record<string, unknown> {
+    assertCatalogTenantId(tenantId);
+    return { id, tenant_id: tenantId };
+  }
+
+  protected override tenantClause(tenantId?: string | null): Record<string, unknown> {
+    assertCatalogTenantId(tenantId);
+    return { tenant_id: tenantId };
   }
 
   protected toRow(data: Partial<NewPrice>): Record<string, unknown> {

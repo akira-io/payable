@@ -32,6 +32,11 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.unique(['tenant_key', 'provider', 'provider_product_id'], {
       indexName: 'payable_products_tenant_provider_product_unique',
     });
+    table.check(
+      "tenant_key = COALESCE(tenant_id, '')",
+      {},
+      'payable_products_tenant_key_consistency_check',
+    );
   });
 
   await createIfMissing(knex, 'payable_prices', (table) => {
@@ -51,6 +56,11 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.unique(['tenant_key', 'provider', 'provider_price_id'], {
       indexName: 'payable_prices_tenant_provider_price_unique',
     });
+    table.check(
+      "tenant_key = COALESCE(tenant_id, '')",
+      {},
+      'payable_prices_tenant_key_consistency_check',
+    );
     table.index('product_id');
   });
 

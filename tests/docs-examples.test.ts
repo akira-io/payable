@@ -58,8 +58,6 @@ describe('documentation examples stay executable', () => {
     expect(knexStorage).toContain('payable_products_tenant_provider_product_unique');
     expect(knexStorage).toContain('payable_prices_tenant_provider_price_unique');
     expect(prismaStorage).toContain("WHERE tenant_key <> COALESCE(tenant_id, '');");
-    expect(prismaStorage).toContain('WHERE id > :lastProductId');
-    expect(prismaStorage).toContain('WHERE id > :lastPriceId');
     expect(prismaStorage).toContain('WHERE id IN (:productIds);');
     expect(prismaStorage).toContain('WHERE id IN (:priceIds);');
     expect(prismaStorage).toContain(

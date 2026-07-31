@@ -75,8 +75,8 @@ aggregates.
 | --- | --- | --- |
 | `payable_customers` | `tenant_id`, `billable_type`, `billable_id`, `email`, `name`, `metadata` | unique logical identity over normalized tenant, billable type, and billable id; MySQL stores the normalized value in generated `tenant_key` |
 | `payable_customer_provider_bindings` | `customer_id`, `provider`, `provider_customer_id` | foreign key to customer with cascade delete; unique `(customer_id, provider)` and `(provider, provider_customer_id)` |
-| `payable_products` | `tenant_id`, `tenant_key`, `provider`, `provider_product_id`, `name`, `active` | unique `(tenant_key, provider, provider_product_id)` through `payable_products_tenant_provider_product_unique` |
-| `payable_prices` | `tenant_id`, `tenant_key`, `provider`, `provider_price_id`, `product_id`, `currency`, `unit_amount`, `interval`, `interval_count`, `active` (boolean, notNullable) | unique `(tenant_key, provider, provider_price_id)` through `payable_prices_tenant_provider_price_unique`; index `product_id` |
+| `payable_products` | `tenant_id`, `tenant_key`, `provider`, `provider_product_id`, `name`, `active` | check `tenant_key = COALESCE(tenant_id, '')`; unique `(tenant_key, provider, provider_product_id)` through `payable_products_tenant_provider_product_unique` |
+| `payable_prices` | `tenant_id`, `tenant_key`, `provider`, `provider_price_id`, `product_id`, `currency`, `unit_amount`, `interval`, `interval_count`, `active` (boolean, notNullable) | check `tenant_key = COALESCE(tenant_id, '')`; unique `(tenant_key, provider, provider_price_id)` through `payable_prices_tenant_provider_price_unique`; index `product_id` |
 | `payable_subscriptions` | `customer_id`, `name`, `provider`, `provider_subscription_id`, `status`, `price_id`, `quantity`, period/trial timestamps | unique `(provider, provider_subscription_id)`; unique `(customer_id, name)` |
 | `payable_subscription_items` | `subscription_id`, `price_id`, `provider_item_id`, `quantity` | index `subscription_id` |
 | `payable_invoices` | `customer_id`, `subscription_id`, `provider`, `provider_invoice_id`, `status`, `currency`, `total`, `amount_paid`, `amount_due` | unique `(provider, provider_invoice_id)`; index `customer_id` |
@@ -165,16 +165,20 @@ migration is step `008`:
    the backfill, and only then removes `provider` and `provider_customer_id` from
    `payable_customers`.
 - **Catalog tenant keys** (`009-catalog-tenant-keys`) - migrates products and prices in this order:
-  add non-null `tenant_key` with default `''`; backfill in batches of 100 ordered by `id`; verify each
-  value equals `COALESCE(tenant_id, '')`; reject duplicate `(tenant_key, provider, provider id)` rows
-  with a non-null provider id; create the normalized unique index; then remove the legacy global index.
+  add non-null `tenant_key` with default `''`; repeatedly select up to 100 mismatched rows ordered by
+  `id` and backfill those ids until none remain; verify each value equals
+  `COALESCE(tenant_id, '')`; add an enforced consistency check; reject duplicate
+  `(tenant_key, provider, provider id)` rows with a non-null provider id; create the normalized unique
+  index; then remove the legacy global index.
   The product index is `payable_products_tenant_provider_product_unique`. The price index is
   `payable_prices_tenant_provider_price_unique`.
 
-Step `009-catalog-tenant-keys` is fail-closed. A tenant-key mismatch or duplicate normalized identity
-throws before the matching legacy index is removed. Its migration ledger entry is written only after
-both tables finish. Re-running resumes safely: existing columns and normalized indexes are retained,
-and each bounded backfill rewrites `tenant_key` from `tenant_id` before verification.
+Step `009-catalog-tenant-keys` is fail-closed. The mismatch-driven batches revisit rows inserted below
+an earlier batch boundary. The consistency check validates existing rows when it is added and rejects
+later writes that omit the correct tenant key, including writes from an older application instance.
+A mismatch, failed check, or duplicate normalized identity throws before the matching legacy index is
+removed. The migration ledger entry is written only after both tables finish. Re-running resumes
+safely because existing columns, checks, and normalized indexes are retained.
 
 `migrate` is **idempotent and safe to re-run**: it creates nothing that exists and adds only missing
 columns/indexes. A second `migrate` resolves cleanly, and a table created before the additive columns

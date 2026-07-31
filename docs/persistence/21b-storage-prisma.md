@@ -109,14 +109,14 @@ the SQL syntax required by the database provider in the generated Prisma migrati
    `@@unique([tenantKey, provider, providerPriceId])` declarations describe the final state. The
    generated migration must defer both tenant-key unique constraints until the contract stage, after
    all four checks return no rows.
-2. Backfill products and prices in bounded batches. Select ids after the previous stable cursor, update
-   only those ids, and store the last selected id as the next cursor. The parameter names show values
-   supplied by the migration runner:
+2. Backfill products and prices in bounded batches. Select only rows whose normalized key is stale,
+   update those ids, and repeat independently for each table. The parameter names show values supplied
+   by the migration runner:
 
 ```sql
 SELECT id
 FROM payable_products
-WHERE id > :lastProductId
+WHERE tenant_key <> COALESCE(tenant_id, '')
 ORDER BY id
 LIMIT :batchSize;
 
@@ -126,7 +126,7 @@ WHERE id IN (:productIds);
 
 SELECT id
 FROM payable_prices
-WHERE id > :lastPriceId
+WHERE tenant_key <> COALESCE(tenant_id, '')
 ORDER BY id
 LIMIT :batchSize;
 
@@ -135,8 +135,8 @@ SET tenant_key = COALESCE(tenant_id, '')
 WHERE id IN (:priceIds);
 ```
 
-3. Repeat each select and update pair until it selects no ids. Verify the backfill before changing
-   constraints:
+3. Repeat each select and update pair until it selects no ids. This mismatch-driven loop can revisit a
+   row inserted below an earlier batch boundary. Verify the backfill before changing constraints:
 
 ```sql
 SELECT id
@@ -148,7 +148,11 @@ FROM payable_prices
 WHERE tenant_key <> COALESCE(tenant_id, '');
 ```
 
-4. Check for duplicate normalized identities. Ignore rows whose provider identifier is null because
+4. Add and validate an enforced database check equivalent to
+   `tenant_key = COALESCE(tenant_id, '')` on both tables. Constraint creation must validate existing
+   rows, so a legacy write racing between verification and this step makes the migration fail. Once
+   installed, the check rejects later legacy writes that omit the correct tenant key.
+5. Check for duplicate normalized identities. Ignore rows whose provider identifier is null because
    the unique constraint permits multiple null values on supported databases.
 
 ```sql
@@ -165,7 +169,7 @@ GROUP BY tenant_key, provider, provider_price_id
 HAVING COUNT(*) > 1;
 ```
 
-5. Continue only when both verification queries and both duplicate queries return no rows. Create
+6. Continue only when both verification queries and both duplicate queries return no rows. Create
    the tenant-key unique constraints, then remove the legacy global product and price constraints.
    A failed verification or duplicate query stops the migration. Correct the rows and resume from the
    verification stage; do not remove a legacy constraint first.
