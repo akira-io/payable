@@ -76,6 +76,29 @@ describe('catalog tenant keys migration', () => {
     await expect(tenantKeyOf('payable_prices', 'price-204')).resolves.toBe('');
   });
 
+  it('repairs incomplete catalog tenant-key backfills independently of index state', async () => {
+    await createBeta3Catalog(db);
+    await recordPreCatalogSteps(db);
+    await db.schema.alterTable('payable_products', (table) => {
+      table.string('tenant_key').notNullable().defaultTo('');
+    });
+    await db('payable_products').insert([
+      legacyProduct('stale-product', 'tenant-a', 'prod_stale', now()),
+      legacyProduct('control-product', 'tenant-b', 'prod_control', now()),
+    ]);
+    await db('payable_products')
+      .where({ id: 'control-product' })
+      .update({ tenant_key: 'tenant-b' });
+
+    await migrate(db);
+
+    await expect(tenantKeyOf('payable_products', 'stale-product')).resolves.toBe('tenant-a');
+    await expect(tenantKeyOf('payable_products', 'control-product')).resolves.toBe('tenant-b');
+    expect(
+      await db('payable_migrations').where({ name: '009-catalog-tenant-keys' }).first(),
+    ).toBeDefined();
+  });
+
   it('replaces a legacy catalog index from a partial migration state', async () => {
     await createBeta3Catalog(db);
     await recordPreCatalogSteps(db);
