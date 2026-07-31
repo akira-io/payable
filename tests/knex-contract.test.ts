@@ -16,6 +16,18 @@ describeStorageContract('Knex', async () => {
     storage: new KnexStorageDriver(db, clock),
     idempotency: new KnexIdempotencyRepository(db, clock),
     clock,
+    async readCatalogRow(kind, id) {
+      const table = kind === 'product' ? 'payable_products' : 'payable_prices';
+      const row = await db(table).where({ id }).first();
+      return row
+        ? {
+            tenantId: row.tenant_id ?? null,
+            tenantKey: row.tenant_key,
+            name: row.name,
+            active: Boolean(row.active),
+          }
+        : null;
+    },
     async reset() {
       await db.destroy();
       db = createTestDb();

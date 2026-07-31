@@ -23,6 +23,7 @@ export interface PrismaCustomerProviderBindingRow {
 export interface PrismaProductRow {
   id: string;
   tenantId: string | null;
+  tenantKey: string;
   provider: string;
   providerProductId: string | null;
   name: string;
@@ -36,6 +37,7 @@ export interface PrismaProductRow {
 export interface PrismaPriceRow {
   id: string;
   tenantId: string | null;
+  tenantKey: string;
   provider: string;
   providerPriceId: string | null;
   productId: string;
@@ -292,9 +294,7 @@ export interface PrismaModelDelegates {
 }
 
 export type PrismaTransactionLike = PrismaModelDelegates;
-
 export interface PrismaClientLike extends PrismaModelDelegates {
   $transaction<T>(work: (tx: PrismaTransactionLike) => Promise<T>): Promise<T>;
 }
-
 export type PrismaClient = PrismaClientLike | PrismaTransactionLike;

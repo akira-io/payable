@@ -20,6 +20,7 @@ export async function createBillingTables(knex: Knex): Promise<void> {
   await createIfMissing(knex, 'payable_products', (table) => {
     table.uuid('id').primary();
     table.string('tenant_id').nullable();
+    table.string('tenant_key').notNullable().defaultTo('');
     table.string('provider').notNullable();
     table.string('provider_product_id').nullable();
     table.string('name').notNullable();
@@ -28,12 +29,15 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.text('metadata').nullable();
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.timestamp('updated_at', { useTz: true }).notNullable();
-    table.unique(['provider', 'provider_product_id']);
+    table.unique(['tenant_key', 'provider', 'provider_product_id'], {
+      indexName: 'payable_products_tenant_provider_product_unique',
+    });
   });
 
   await createIfMissing(knex, 'payable_prices', (table) => {
     table.uuid('id').primary();
     table.string('tenant_id').nullable();
+    table.string('tenant_key').notNullable().defaultTo('');
     table.string('provider').notNullable();
     table.string('provider_price_id').nullable();
     table.uuid('product_id').notNullable();
@@ -44,7 +48,9 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.boolean('active').notNullable();
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.timestamp('updated_at', { useTz: true }).notNullable();
-    table.unique(['provider', 'provider_price_id']);
+    table.unique(['tenant_key', 'provider', 'provider_price_id'], {
+      indexName: 'payable_prices_tenant_provider_price_unique',
+    });
     table.index('product_id');
   });
 

@@ -6,8 +6,16 @@ export interface StorageHarness {
   storage: StorageDriver;
   idempotency: IdempotencyStore;
   clock: FakeClock;
+  readCatalogRow(kind: 'product' | 'price', id: string): Promise<CatalogRowSnapshot | null>;
   reset(): Promise<void>;
   teardown(): Promise<void>;
+}
+
+export interface CatalogRowSnapshot {
+  tenantId: string | null;
+  tenantKey: string;
+  name?: string;
+  active: boolean;
 }
 
 export interface ContractContext {

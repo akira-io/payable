@@ -82,6 +82,18 @@ export async function createPrismaHarness(): Promise<StorageHarness> {
     storage: new PrismaStorageDriver(prisma, clock),
     idempotency: new PrismaIdempotencyRepository(prisma, clock),
     clock,
+    async readCatalogRow(kind, id) {
+      const delegate = kind === 'product' ? prisma.payableProduct : prisma.payablePrice;
+      const row = await delegate.findFirst({ where: { id } });
+      return row
+        ? {
+            tenantId: row.tenantId ?? null,
+            tenantKey: row.tenantKey,
+            name: 'name' in row ? row.name : undefined,
+            active: row.active,
+          }
+        : null;
+    },
     async reset() {
       await truncate(prisma);
       clock.set(CONTRACT_BASE_TIME);

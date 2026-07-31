@@ -1,10 +1,12 @@
 import type { Clock } from '../../../../domain/contracts/clock.contract';
 import type {
   NewPrice,
+  PricePatch,
   PriceRepository,
 } from '../../../../domain/contracts/price-repository.contract';
 import type { Price } from '../../../../domain/entities/price.entity';
-import { priceToEntity, priceToRow } from '../mappers/price.mapper';
+import { assertCatalogTenantId } from '../../catalog-tenant';
+import { pricePatchToRow, priceToEntity, priceToRow } from '../mappers/price.mapper';
 import type { PrismaClient, PrismaPriceRow } from '../prisma-client.types';
 import { PrismaRepository } from '../prisma-repository';
 
@@ -16,11 +18,22 @@ export class PrismaPriceRepository
     super(client.payablePrice, clock);
   }
 
-  findByProviderId(
+  override async findById(id: string, tenantId: string | null): Promise<Price | null> {
+    assertCatalogTenantId(tenantId);
+    return super.findById(id, tenantId);
+  }
+
+  override async update(id: string, patch: PricePatch, tenantId: string | null): Promise<Price> {
+    assertCatalogTenantId(tenantId);
+    return super.update(id, patch, tenantId);
+  }
+
+  async findByProviderId(
     provider: string,
     providerPriceId: string,
-    tenantId?: string | null,
+    tenantId: string | null,
   ): Promise<Price | null> {
+    assertCatalogTenantId(tenantId);
     return this.firstWhere({
       provider,
       providerPriceId,
@@ -28,7 +41,8 @@ export class PrismaPriceRepository
     });
   }
 
-  listByProduct(productId: string, tenantId?: string | null): Promise<Price[]> {
+  async listByProduct(productId: string, tenantId: string | null): Promise<Price[]> {
+    assertCatalogTenantId(tenantId);
     return this.manyWhere({ productId, ...this.tenantClause(tenantId) });
   }
 
@@ -38,5 +52,9 @@ export class PrismaPriceRepository
 
   protected toRow(data: Partial<NewPrice>): Record<string, unknown> {
     return priceToRow(data);
+  }
+
+  protected override toUpdateRow(data: Partial<NewPrice>): Record<string, unknown> {
+    return pricePatchToRow(data);
   }
 }

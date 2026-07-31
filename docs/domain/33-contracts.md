@@ -2,7 +2,7 @@
 
 Contracts live in `src/domain/contracts/` (re-exported from `index.ts`, plus the separately-exported `tenant-resolver.contract.ts`). They are the **dependency-inversion seams** of the engine: the domain layer defines these interfaces, and the infrastructure layer implements them. The dependency rule always points inward - infrastructure depends on the domain contracts, never the reverse - so storage, queue, cache, provider, and cross-cutting concerns are pluggable without the domain knowing the concrete type.
 
-Most repository methods are **tenant-scoped**: they take an optional trailing `tenantId?: string | null` (or, on write shapes, a `tenantId` field). `null` means "not bound to a tenant"; omitting it falls through to the driver's default scoping. See [Multi-tenancy](../features/16-multi-tenancy.md).
+Most repository methods are **tenant-scoped**: they take a trailing `tenantId` argument or a `tenantId` write field. `null` selects the tenantless partition. Catalog repository reads require an explicit tenant argument; omitting it is not accepted. See [Multi-tenancy](../features/16-multi-tenancy.md).
 
 ## Repositories
 
@@ -17,8 +17,8 @@ Repositories persist and read the [entities](05-domain-model.md). Each defines a
 | `PaymentRepository` | `create`, `update`, `findById`, `findByIdForUpdate`, `findByProviderId`, `listByCustomer`, `list` | `findByIdForUpdate` takes a row lock for safe concurrent refund accounting. |
 | `RefundRepository` | `create`, `update`, `findById`, `findByProviderId`, `listByPayment` | Scoped to a payment via `listByPayment`. |
 | `InvoiceRepository` | `create`, `update`, `findById`, `findByProviderId`, `listByCustomer` | |
-| `ProductRepository` | `create`, `update`, `findById`, `findByProviderId` | `findById` is not tenant-scoped. |
-| `PriceRepository` | `create`, `update`, `findById`, `findByProviderId`, `listByProduct` | `findById` is not tenant-scoped. |
+| `ProductRepository` | `create`, `update`, `findById`, `findByProviderId` | Reads and updates require an explicit tenant partition. |
+| `PriceRepository` | `create`, `update`, `findById`, `findByProviderId`, `listByProduct` | Reads and updates require an explicit tenant partition. |
 | `WebhookEventRepository` | `create`, `list`, `findById`, `findByProviderEvent`, `claim`, `markStatus` | `claim` returns a claim token for exactly-once processing; `findByProviderEvent` backs idempotent receipt. |
 | `WebhookEndpointRepository` | `create`, `findById`, `list`, `listEnabledForEvent`, `setStatus` | `listEnabledForEvent` resolves delivery targets for a normalized event type. |
 | `WebhookDeliveryRepository` | `record`, `listForEvent` | Append-only delivery log. |
@@ -50,6 +50,34 @@ export interface CustomerProviderBindingRepository {
     tenantId: string | null,
   ): Promise<CustomerProviderBinding | null>;
 }
+```
+
+### Catalog repositories
+
+Products and prices are partitioned by tenant. Pass a tenant id for a tenant-owned catalog, or
+`null` for the tenantless partition. A catalog update cannot move a record between partitions because
+`ProductPatch` and `PricePatch` exclude `tenantId`.
+
+```ts
+export interface ProductRepository {
+  update(id: string, patch: ProductPatch, tenantId: string | null): Promise<Product>;
+  findById(id: string, tenantId: string | null): Promise<Product | null>;
+  findByProviderId(provider: string, providerProductId: string, tenantId: string | null): Promise<Product | null>;
+}
+
+export interface PriceRepository {
+  update(id: string, patch: PricePatch, tenantId: string | null): Promise<Price>;
+  findById(id: string, tenantId: string | null): Promise<Price | null>;
+  findByProviderId(provider: string, providerPriceId: string, tenantId: string | null): Promise<Price | null>;
+  listByProduct(productId: string, tenantId: string | null): Promise<Price[]>;
+}
+```
+
+```ts
+const product = await storage.products.findById('product-id', 'tenant-a');
+const tenantlessProduct = await storage.products.findById('product-id', null);
+const prices = await storage.prices.listByProduct('product-id', 'tenant-a');
+await storage.products.update('product-id', { name: 'Pro' }, 'tenant-a');
 ```
 
 ### ListOptions

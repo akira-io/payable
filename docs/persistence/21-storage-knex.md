@@ -75,8 +75,8 @@ aggregates.
 | --- | --- | --- |
 | `payable_customers` | `tenant_id`, `billable_type`, `billable_id`, `email`, `name`, `metadata` | unique logical identity over normalized tenant, billable type, and billable id; MySQL stores the normalized value in generated `tenant_key` |
 | `payable_customer_provider_bindings` | `customer_id`, `provider`, `provider_customer_id` | foreign key to customer with cascade delete; unique `(customer_id, provider)` and `(provider, provider_customer_id)` |
-| `payable_products` | `provider`, `provider_product_id`, `name`, `active` | unique `(provider, provider_product_id)` |
-| `payable_prices` | `provider`, `provider_price_id`, `product_id`, `currency`, `unit_amount`, `interval`, `interval_count`, `active` (boolean, notNullable) | unique `(provider, provider_price_id)`; index `product_id` |
+| `payable_products` | `tenant_id`, `tenant_key`, `provider`, `provider_product_id`, `name`, `active` | unique `(tenant_key, provider, provider_product_id)` through `payable_products_tenant_provider_product_unique` |
+| `payable_prices` | `tenant_id`, `tenant_key`, `provider`, `provider_price_id`, `product_id`, `currency`, `unit_amount`, `interval`, `interval_count`, `active` (boolean, notNullable) | unique `(tenant_key, provider, provider_price_id)` through `payable_prices_tenant_provider_price_unique`; index `product_id` |
 | `payable_subscriptions` | `customer_id`, `name`, `provider`, `provider_subscription_id`, `status`, `price_id`, `quantity`, period/trial timestamps | unique `(provider, provider_subscription_id)`; unique `(customer_id, name)` |
 | `payable_subscription_items` | `subscription_id`, `price_id`, `provider_item_id`, `quantity` | index `subscription_id` |
 | `payable_invoices` | `customer_id`, `subscription_id`, `provider`, `provider_invoice_id`, `status`, `currency`, `total`, `amount_paid`, `amount_due` | unique `(provider, provider_invoice_id)`; index `customer_id` |
@@ -128,6 +128,7 @@ export async function migrate(knex: Knex): Promise<void> {
     await runStep(knex, '008-customer-provider-bindings', () =>
       addCustomerProviderBindings(knex),
     );
+    await runStep(knex, '009-catalog-tenant-keys', () => addCatalogTenantKeys(knex));
   });
 }
 ```
@@ -163,6 +164,17 @@ migration is step `008`:
    `payable_customer_provider_bindings`, backfills every non-null legacy provider customer id, verifies
    the backfill, and only then removes `provider` and `provider_customer_id` from
    `payable_customers`.
+- **Catalog tenant keys** (`009-catalog-tenant-keys`) - migrates products and prices in this order:
+  add non-null `tenant_key` with default `''`; backfill in batches of 100 ordered by `id`; verify each
+  value equals `COALESCE(tenant_id, '')`; reject duplicate `(tenant_key, provider, provider id)` rows
+  with a non-null provider id; create the normalized unique index; then remove the legacy global index.
+  The product index is `payable_products_tenant_provider_product_unique`. The price index is
+  `payable_prices_tenant_provider_price_unique`.
+
+Step `009-catalog-tenant-keys` is fail-closed. A tenant-key mismatch or duplicate normalized identity
+throws before the matching legacy index is removed. Its migration ledger entry is written only after
+both tables finish. Re-running resumes safely: existing columns and normalized indexes are retained,
+and each bounded backfill rewrites `tenant_key` from `tenant_id` before verification.
 
 `migrate` is **idempotent and safe to re-run**: it creates nothing that exists and adds only missing
 columns/indexes. A second `migrate` resolves cleanly, and a table created before the additive columns
@@ -190,7 +202,8 @@ They share a base class `KnexRepository<Entity, New>` (`knex-repository.ts`) pro
   return the row.
 - `createMany(data)` - single batch insert (no-op on an empty array).
 - `update(id, patch)` - updates with a fresh `updated_at`.
-- `findById(id)` and the protected `firstWhere` / `manyWhere` query helpers.
+- `findById(id, tenantId)` and the protected `firstWhere` and `manyWhere` query helpers. Product and
+  price repositories require `tenantId`; use `null` for the tenantless partition.
 
 Each concrete repository supplies the `table` name and the `toEntity` / `toRow` column mappers. Shared
 column converters live in `mappers.ts` (`toDate`, `toNullableDate`, `fromDate`, `toJson`, `fromJson`,

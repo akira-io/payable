@@ -1,10 +1,12 @@
 import type { Clock } from '../../../../domain/contracts/clock.contract';
 import type {
   NewProduct,
+  ProductPatch,
   ProductRepository,
 } from '../../../../domain/contracts/product-repository.contract';
 import type { Product } from '../../../../domain/entities/product.entity';
-import { productToEntity, productToRow } from '../mappers/product.mapper';
+import { assertCatalogTenantId } from '../../catalog-tenant';
+import { productPatchToRow, productToEntity, productToRow } from '../mappers/product.mapper';
 import type { PrismaClient, PrismaProductRow } from '../prisma-client.types';
 import { PrismaRepository } from '../prisma-repository';
 
@@ -16,11 +18,26 @@ export class PrismaProductRepository
     super(client.payableProduct, clock);
   }
 
-  findByProviderId(
+  override async findById(id: string, tenantId: string | null): Promise<Product | null> {
+    assertCatalogTenantId(tenantId);
+    return super.findById(id, tenantId);
+  }
+
+  override async update(
+    id: string,
+    patch: ProductPatch,
+    tenantId: string | null,
+  ): Promise<Product> {
+    assertCatalogTenantId(tenantId);
+    return super.update(id, patch, tenantId);
+  }
+
+  async findByProviderId(
     provider: string,
     providerProductId: string,
-    tenantId?: string | null,
+    tenantId: string | null,
   ): Promise<Product | null> {
+    assertCatalogTenantId(tenantId);
     return this.firstWhere({
       provider,
       providerProductId,
@@ -34,5 +51,9 @@ export class PrismaProductRepository
 
   protected toRow(data: Partial<NewProduct>): Record<string, unknown> {
     return productToRow(data);
+  }
+
+  protected override toUpdateRow(data: Partial<NewProduct>): Record<string, unknown> {
+    return productPatchToRow(data);
   }
 }

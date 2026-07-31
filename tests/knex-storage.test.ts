@@ -75,6 +75,64 @@ describe('KnexStorageDriver customers', () => {
 });
 
 describe('KnexStorageDriver catalog', () => {
+  it('returns a tenant-scoped product when insert RETURNING is unavailable', async () => {
+    const fallbackStorage = new KnexStorageDriver(
+      withoutInsertReturning(db),
+      new FakeClock(new Date('2026-06-22T00:00:00.000Z')),
+    );
+
+    const product = await fallbackStorage.products.create({
+      tenantId: 'tenant-a',
+      provider: 'stripe',
+      providerProductId: 'prod_no_returning',
+      name: 'No RETURNING product',
+      description: null,
+      active: true,
+      metadata: null,
+    });
+
+    expect(product).toMatchObject({
+      tenantId: 'tenant-a',
+      providerProductId: 'prod_no_returning',
+    });
+    expect(await fallbackStorage.products.findById(product.id, 'tenant-a')).toMatchObject({
+      id: product.id,
+    });
+  });
+
+  it('returns a tenant-scoped price when insert RETURNING is unavailable', async () => {
+    const product = await storage.products.create({
+      tenantId: 'tenant-a',
+      provider: 'stripe',
+      providerProductId: 'prod_price_no_returning',
+      name: 'No RETURNING price product',
+      description: null,
+      active: true,
+      metadata: null,
+    });
+    const fallbackStorage = new KnexStorageDriver(
+      withoutInsertReturning(db),
+      new FakeClock(new Date('2026-06-22T00:00:00.000Z')),
+    );
+
+    const price = await fallbackStorage.prices.create({
+      tenantId: 'tenant-a',
+      provider: 'stripe',
+      providerPriceId: 'price_no_returning',
+      productId: product.id,
+      currency: 'USD',
+      unitAmount: 9900,
+      interval: 'month',
+      intervalCount: 1,
+      active: true,
+    });
+
+    expect(price).toMatchObject({ tenantId: 'tenant-a', providerPriceId: 'price_no_returning' });
+    expect(await fallbackStorage.prices.findById(price.id, 'tenant-a')).toMatchObject({
+      id: price.id,
+    });
+  });
+
   it('links prices to products and subscriptions to customers', async () => {
     const product = await storage.products.create({
       tenantId: null,
@@ -98,7 +156,7 @@ describe('KnexStorageDriver catalog', () => {
       intervalCount: 1,
       active: true,
     });
-    expect(await storage.prices.listByProduct(product.id)).toHaveLength(1);
+    expect(await storage.prices.listByProduct(product.id, null)).toHaveLength(1);
 
     const customer = await storage.customers.create(makeCustomer());
     const subscription = await storage.subscriptions.create({
@@ -174,6 +232,22 @@ describe('KnexStorageDriver catalog', () => {
     expect((await storage.payments.findById(payment.id))?.amount).toBe(large);
   });
 });
+
+function withoutInsertReturning(knex: Knex): Knex {
+  return new Proxy(knex, {
+    apply(target, thisArgument, argumentsList) {
+      const query = Reflect.apply(target, thisArgument, argumentsList) as Knex.QueryBuilder;
+      const returningOverride = query as unknown as {
+        returning(): Promise<unknown[]>;
+      };
+      returningOverride.returning = async () => {
+        await query;
+        return [];
+      };
+      return query;
+    },
+  });
+}
 
 describe('KnexStorageDriver transactions', () => {
   it('commits work on success', async () => {

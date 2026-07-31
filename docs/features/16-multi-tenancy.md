@@ -95,6 +95,22 @@ every customer and payment. The isolation works as follows:
 - Payments are likewise scoped: `tenant-a` sees its 1000-cent charge, `tenant-b` its 2000-cent
   charge.
 
+### Catalog operations
+
+Product identity is `(tenant, provider, providerProductId)`. Price identity is `(tenant, provider,
+providerPriceId)`. `null` is the tenantless partition. Catalog repository methods require an explicit
+tenant argument, so `findById(id, tenantId)` and `listByProduct(productId, tenantId)` do not accept an
+omitted tenant. Pass `null` when the catalog is tenantless.
+
+```ts
+const product = await storage.products.findByProviderId('stripe', 'prod_pro', 'tenant-a');
+const prices = await storage.prices.listByProduct(product.id, 'tenant-a');
+const tenantlessProduct = await storage.products.findByProviderId('stripe', 'prod_pro', null);
+```
+
+Catalog updates remain in their existing partition. The update contracts exclude `tenantId`, so an
+update cannot move a product or price between tenants.
+
 ### Webhooks
 
 For webhooks the tenant is resolved per request in `ReceiveWebhookAction`

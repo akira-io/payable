@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
 import { Money } from '../src/domain/value-objects/money';
@@ -38,6 +39,34 @@ async function multiProviderCheckoutExampleFromDocs() {
 }
 
 describe('documentation examples stay executable', () => {
+  it('documents catalog tenant isolation and migration verification', () => {
+    const contracts = readFileSync('docs/domain/33-contracts.md', 'utf8');
+    const tenancy = readFileSync('docs/features/16-multi-tenancy.md', 'utf8');
+    const knexStorage = readFileSync('docs/persistence/21-storage-knex.md', 'utf8');
+    const prismaStorage = readFileSync('docs/persistence/21b-storage-prisma.md', 'utf8');
+
+    expect(contracts).toContain('findById(id: string, tenantId: string | null)');
+    expect(contracts).toContain('listByProduct(productId: string, tenantId: string | null)');
+    expect(contracts).toContain(
+      'findByProviderId(provider: string, providerProductId: string, tenantId: string | null)',
+    );
+    expect(contracts).toContain(
+      'findByProviderId(provider: string, providerPriceId: string, tenantId: string | null)',
+    );
+    expect(tenancy).toContain('Product identity is `(tenant, provider, providerProductId)`');
+    expect(knexStorage).toContain('009-catalog-tenant-keys');
+    expect(knexStorage).toContain('payable_products_tenant_provider_product_unique');
+    expect(knexStorage).toContain('payable_prices_tenant_provider_price_unique');
+    expect(prismaStorage).toContain("WHERE tenant_key <> COALESCE(tenant_id, '');");
+    expect(prismaStorage).toContain('WHERE id > :lastProductId');
+    expect(prismaStorage).toContain('WHERE id > :lastPriceId');
+    expect(prismaStorage).toContain('WHERE id IN (:productIds);');
+    expect(prismaStorage).toContain('WHERE id IN (:priceIds);');
+    expect(prismaStorage).toContain(
+      'must defer both tenant-key unique constraints until the contract stage',
+    );
+  });
+
   it('typechecks the Stripe charge example from docs/integrations/18-stripe.md', () => {
     expect(stripeChargeExampleFromDocs()).toBeTypeOf('function');
   });

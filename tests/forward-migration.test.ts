@@ -226,6 +226,10 @@ describe('forward migrations (C5)', () => {
     expect(indexes).toContain('payable_outbox_events_tenant_dedupe_unique');
     expect(indexes).toContain('payable_webhook_deliveries_tenant_endpoint_event_unique');
     expect(indexes).toContain('payable_outbox_events_pending_claim_index');
+    expect(indexes).toContain('payable_products_tenant_provider_product_unique');
+    expect(indexes).toContain('payable_prices_tenant_provider_price_unique');
+    expect(await legacy.schema.hasColumn('payable_products', 'tenant_key')).toBe(true);
+    expect(await legacy.schema.hasColumn('payable_prices', 'tenant_key')).toBe(true);
     expect(await legacy.schema.hasTable('payable_webhook_endpoint_events')).toBe(true);
 
     await legacy.destroy();

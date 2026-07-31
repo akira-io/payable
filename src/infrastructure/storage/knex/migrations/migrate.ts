@@ -2,6 +2,7 @@ import type { Knex } from 'knex';
 import { PayableError } from '../../../../domain/errors/payable-error';
 import { alterExistingTables } from './alter-existing-tables';
 import { createBillingTables } from './billing-schema';
+import { addCatalogTenantKeys } from './catalog-tenant-keys';
 import { addCustomerProviderBindings } from './customer-provider-bindings';
 import { runStep } from './migration-ledger';
 import { convergePostLedgerSchema } from './post-ledger-convergence';
@@ -93,5 +94,6 @@ export async function migrate(knex: Knex): Promise<void> {
     );
     await runStep(knex, '007-post-ledger-schema-convergence', () => convergePostLedgerSchema(knex));
     await runStep(knex, '008-customer-provider-bindings', () => addCustomerProviderBindings(knex));
+    await runStep(knex, '009-catalog-tenant-keys', () => addCatalogTenantKeys(knex));
   });
 }
