@@ -25,6 +25,7 @@ export function priceToEntity(row: PrismaPriceRow): Price {
 export function priceToRow(data: Partial<NewPrice>): Record<string, unknown> {
   return {
     tenantId: data.tenantId,
+    tenantKey: data.tenantId === undefined ? undefined : (data.tenantId ?? ''),
     provider: data.provider,
     providerPriceId: data.providerPriceId,
     productId: data.productId,

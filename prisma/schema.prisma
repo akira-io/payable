@@ -45,6 +45,7 @@ model PayableCustomerProviderBinding {
 model PayableProduct {
   id                String   @id
   tenantId          String?  @map("tenant_id")
+  tenantKey         String   @default("") @map("tenant_key")
   provider          String
   providerProductId String?  @map("provider_product_id")
   name              String
@@ -54,13 +55,14 @@ model PayableProduct {
   createdAt         DateTime @map("created_at")
   updatedAt         DateTime @map("updated_at")
 
-  @@unique([provider, providerProductId])
+  @@unique([tenantKey, provider, providerProductId])
   @@map("payable_products")
 }
 
 model PayablePrice {
   id              String   @id
   tenantId        String?  @map("tenant_id")
+  tenantKey       String   @default("") @map("tenant_key")
   provider        String
   providerPriceId String?  @map("provider_price_id")
   productId       String   @map("product_id")
@@ -72,7 +74,7 @@ model PayablePrice {
   createdAt       DateTime @map("created_at")
   updatedAt       DateTime @map("updated_at")
 
-  @@unique([provider, providerPriceId])
+  @@unique([tenantKey, provider, providerPriceId])
   @@index([productId])
   @@map("payable_prices")
 }

@@ -117,6 +117,136 @@ export function registerBillingContract(ctx: ContractContext): void {
     expect(await storage.prices.listByProduct(productA.id, 'tenant-b')).toEqual([]);
   });
 
+  it('scopes catalog provider identities to one tenant', async () => {
+    const { storage } = ctx.harness();
+    const tenantlessProduct = await storage.products.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerProductId: 'prod_shared',
+      name: 'Shared product',
+      description: null,
+      active: true,
+      metadata: null,
+    });
+    await storage.prices.create({
+      tenantId: null,
+      provider: 'stripe',
+      providerPriceId: 'price_shared',
+      productId: tenantlessProduct.id,
+      currency: 'usd',
+      unitAmount: 1999,
+      interval: 'month',
+      intervalCount: 1,
+      active: true,
+    });
+
+    await expect(
+      storage.products.create({
+        tenantId: null,
+        provider: 'stripe',
+        providerProductId: 'prod_shared',
+        name: 'Duplicate shared product',
+        description: null,
+        active: true,
+        metadata: null,
+      }),
+    ).rejects.toThrow();
+    await expect(
+      storage.prices.create({
+        tenantId: null,
+        provider: 'stripe',
+        providerPriceId: 'price_shared',
+        productId: tenantlessProduct.id,
+        currency: 'usd',
+        unitAmount: 1999,
+        interval: 'month',
+        intervalCount: 1,
+        active: true,
+      }),
+    ).rejects.toThrow();
+
+    const productA = await storage.products.create({
+      tenantId: 'tenant-a',
+      provider: 'stripe',
+      providerProductId: 'prod_reused',
+      name: 'Tenant A product',
+      description: null,
+      active: true,
+      metadata: null,
+    });
+    const productB = await storage.products.create({
+      tenantId: 'tenant-b',
+      provider: 'stripe',
+      providerProductId: 'prod_reused',
+      name: 'Tenant B product',
+      description: null,
+      active: true,
+      metadata: null,
+    });
+    const priceA = await storage.prices.create({
+      tenantId: 'tenant-a',
+      provider: 'stripe',
+      providerPriceId: 'price_reused',
+      productId: productA.id,
+      currency: 'usd',
+      unitAmount: 1999,
+      interval: 'month',
+      intervalCount: 1,
+      active: true,
+    });
+    const priceB = await storage.prices.create({
+      tenantId: 'tenant-b',
+      provider: 'stripe',
+      providerPriceId: 'price_reused',
+      productId: productB.id,
+      currency: 'usd',
+      unitAmount: 1999,
+      interval: 'month',
+      intervalCount: 1,
+      active: true,
+    });
+
+    await expect(
+      storage.products.create({
+        tenantId: 'tenant-a',
+        provider: 'stripe',
+        providerProductId: 'prod_reused',
+        name: 'Duplicate tenant product',
+        description: null,
+        active: true,
+        metadata: null,
+      }),
+    ).rejects.toThrow();
+    await expect(
+      storage.prices.create({
+        tenantId: 'tenant-a',
+        provider: 'stripe',
+        providerPriceId: 'price_reused',
+        productId: productA.id,
+        currency: 'usd',
+        unitAmount: 1999,
+        interval: 'month',
+        intervalCount: 1,
+        active: true,
+      }),
+    ).rejects.toThrow();
+
+    expect(
+      await storage.products.findByProviderId('stripe', 'prod_reused', 'tenant-a'),
+    ).toMatchObject({ id: productA.id });
+    expect(
+      await storage.products.findByProviderId('stripe', 'prod_reused', 'tenant-b'),
+    ).toMatchObject({ id: productB.id });
+    expect(
+      await storage.prices.findByProviderId('stripe', 'price_reused', 'tenant-a'),
+    ).toMatchObject({ id: priceA.id });
+    expect(
+      await storage.prices.findByProviderId('stripe', 'price_reused', 'tenant-b'),
+    ).toMatchObject({ id: priceB.id });
+    expect(await storage.products.findByProviderId('stripe', 'prod_reused', null)).toBeNull();
+    expect(await storage.prices.findByProviderId('stripe', 'price_reused', null)).toBeNull();
+  });
+
   it('persists subscriptions and their items', async () => {
     const { storage } = ctx.harness();
     const customer = await storage.customers.create({
