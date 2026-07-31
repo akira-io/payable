@@ -61,6 +61,10 @@ export class KnexPriceRepository
     };
   }
 
+  protected override createLookupTenantId(data: NewPrice): string | null {
+    return data.tenantId;
+  }
+
   protected toRow(data: Partial<NewPrice>): Record<string, unknown> {
     return {
       tenant_id: data.tenantId,

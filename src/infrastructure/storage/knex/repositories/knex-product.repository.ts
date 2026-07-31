@@ -56,6 +56,10 @@ export class KnexProductRepository
     };
   }
 
+  protected override createLookupTenantId(data: NewProduct): string | null {
+    return data.tenantId;
+  }
+
   protected toRow(data: Partial<NewProduct>): Record<string, unknown> {
     return {
       tenant_id: data.tenantId,

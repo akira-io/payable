@@ -22,7 +22,9 @@ export abstract class KnexRepository<Entity, New> {
         stripUndefined({ id, ...this.toRow(data), created_at: timestamp, updated_at: timestamp }),
       )
       .returning('*');
-    return inserted ? this.toEntity(inserted as Record<string, unknown>) : this.findByIdOrFail(id);
+    return inserted
+      ? this.toEntity(inserted as Record<string, unknown>)
+      : this.findByIdOrFail(id, this.createLookupTenantId(data));
   }
 
   async createMany(data: New[]): Promise<void> {
@@ -118,6 +120,10 @@ export abstract class KnexRepository<Entity, New> {
   }
 
   protected abstract toEntity(row: Record<string, unknown>): Entity;
+
+  protected createLookupTenantId(_data: New): string | null | undefined {
+    return undefined;
+  }
 
   protected toUpdateRow(data: Partial<New>): Record<string, unknown> {
     return this.toRow(data);
