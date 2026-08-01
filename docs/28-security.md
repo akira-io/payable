@@ -14,14 +14,16 @@ verification" below.
 
 ## Authorization: the policy layer
 
-`src/application/policies/` contains `can-*` policies:
+`src/application/policies/` contains these `can-*` policies:
 
-- `can-create-checkout.policy.ts`
-- `can-create-subscription.policy.ts`
-- `can-cancel-subscription.policy.ts`
-- `can-resume-subscription.policy.ts`
-- `can-refund-payment.policy.ts`
-- `can-replay-webhook.policy.ts`
+- `CanChargePolicy` in `can-charge.policy.ts`
+- `CanCreateCheckoutPolicy` in `can-create-checkout.policy.ts`
+- `CanCreateSubscriptionPolicy` in `can-create-subscription.policy.ts`
+- `CanCancelSubscriptionPolicy` in `can-cancel-subscription.policy.ts`
+- `CanResumeSubscriptionPolicy` in `can-resume-subscription.policy.ts`
+- `CanUpdateSubscriptionPolicy` in `can-update-subscription.policy.ts`
+- `CanRefundPaymentPolicy` in `can-refund-payment.policy.ts`
+- `CanReplayWebhookPolicy` in `can-replay-webhook.policy.ts`
 
 These enforce business rules, not HTTP request authentication. Each evaluates an
 `AuthorizationContext`:
@@ -44,9 +46,23 @@ export function isAuthorized(context: AuthorizationContext = {}): boolean {
 A policy passes only when the caller passes an explicit `allowed: true` plus a non-empty `actorId`.
 The policy does not derive identity from the request; it trusts the context you supply.
 
-Only `CanReplayWebhookPolicy` is wired into an action. `ReplayWebhookAction` calls
-`this.policy.authorize(context)` and throws `PayableError` with code `WEBHOOK_REPLAY_DENIED` (HTTP
-403) when it returns false. It additionally rejects a tenant mismatch with the same code:
+The active enforcement paths are:
+
+- `ChargeAction` uses `CanChargePolicy`.
+- `CheckoutBuilder`, `RedirectCheckoutBuilder`, and subscription checkout use
+  `CanCreateCheckoutPolicy`.
+- Subscription creation uses `CanCreateSubscriptionPolicy`.
+- Subscription cancellation, resumption, swaps, and quantity updates use
+  `CanCancelSubscriptionPolicy`, `CanResumeSubscriptionPolicy`, or `CanUpdateSubscriptionPolicy`.
+- `RefundPaymentAction` uses `CanRefundPaymentPolicy`.
+- `ReplayWebhookAction` uses `CanReplayWebhookPolicy` and also rejects tenant mismatches.
+- `ProductResource` and `PriceResource` call `assertCatalogMutationAuthorized` before catalog writes.
+
+Charge, checkout, subscription, and refund policies run through `assertAuthorized` when global
+authorization is enabled. Webhook replay authorization is always checked: `ReplayWebhookAction`
+calls `this.policy.authorize(context)` and throws `PayableError` with code
+`WEBHOOK_REPLAY_DENIED` (HTTP 403) when it returns false. It rejects a tenant mismatch with the same
+code:
 
 ```ts
 if (!this.policy.authorize(context)) {

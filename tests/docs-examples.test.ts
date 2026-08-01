@@ -176,6 +176,20 @@ describe('documentation examples stay executable', () => {
     expect(security).toContain('CatalogMutationOptions');
     expect(security).toContain('AUTHORIZATION_DENIED');
     expect(security).toContain('before capability validation or provider calls');
+    expect(security).not.toContain('Only `CanReplayWebhookPolicy` is wired into an action');
+    for (const activePolicy of [
+      'CanChargePolicy',
+      'CanCreateCheckoutPolicy',
+      'CanCreateSubscriptionPolicy',
+      'CanCancelSubscriptionPolicy',
+      'CanResumeSubscriptionPolicy',
+      'CanUpdateSubscriptionPolicy',
+      'CanRefundPaymentPolicy',
+      'CanReplayWebhookPolicy',
+    ]) {
+      expect(security).toContain(activePolicy);
+    }
+    expect(security).toContain('`assertCatalogMutationAuthorized`');
     expect(security).toMatch(
       /global authorization is enabled or an\s+explicit catalog authorization\s+context is supplied/,
     );
