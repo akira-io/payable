@@ -5,7 +5,19 @@ import type {
 } from '../../../domain/contracts/idempotency-store.contract';
 import { IdempotencyConflictError } from '../../../domain/errors/idempotency-conflict.error';
 import { IdempotencyInProgressError } from '../../../domain/errors/idempotency-in-progress.error';
+import { IdempotencyReconciliationRequiredError } from '../../../domain/errors/idempotency-reconciliation-required.error';
+import { IdempotencyResultPersistenceError } from '../../../domain/errors/idempotency-result-persistence.error';
 import { hashRequest } from '../../../support/hash/request-hash';
+
+type IdempotencyFailurePolicy = 'default' | 'reconciliation-required';
+
+interface ResolvedIdempotencyPolicy {
+  retryFailed: boolean;
+  reclaimStaleProcessing: boolean;
+  lockTtlMs: number;
+  failedTtlMs: number;
+  failurePolicy: IdempotencyFailurePolicy;
+}
 
 export interface IdempotentExecution<T> {
   key: string;
@@ -18,6 +30,8 @@ export interface IdempotentExecution<T> {
   retryFailed?: boolean;
   reclaimStaleProcessing?: boolean;
   lockTtlMs?: number;
+  failurePolicy?: IdempotencyFailurePolicy;
+  correlationId?: string;
   run: () => Promise<T>;
   revive?: (response: unknown) => Promise<T> | T;
 }
@@ -48,13 +62,32 @@ export class IdempotencyService {
 
   async execute<T>(execution: IdempotentExecution<T>): Promise<T> {
     const requestHash = await hashRequest(execution.request);
-    const retryFailed = execution.retryFailed ?? this.retryFailed;
+    const executionPolicy = this.resolvePolicy(execution);
     const existing = await this.store.find(this.scopedKey(execution), execution.tenantId);
-    const replay = this.replay<T>(existing, requestHash, execution.key, retryFailed);
+    const replay = this.replay<T>(existing, requestHash, execution.key, executionPolicy);
     if (replay.handled) {
       return execution.revive ? await execution.revive(replay.value) : (replay.value as T);
     }
-    return this.run(execution, requestHash, retryFailed);
+    return this.run(execution, requestHash, executionPolicy);
+  }
+
+  private resolvePolicy(execution: IdempotentExecution<unknown>): ResolvedIdempotencyPolicy {
+    if (execution.failurePolicy === 'reconciliation-required') {
+      return {
+        retryFailed: false,
+        reclaimStaleProcessing: true,
+        lockTtlMs: this.completedTtlMs,
+        failedTtlMs: this.completedTtlMs,
+        failurePolicy: execution.failurePolicy,
+      };
+    }
+    return {
+      retryFailed: execution.retryFailed ?? this.retryFailed,
+      reclaimStaleProcessing: execution.reclaimStaleProcessing ?? false,
+      lockTtlMs: execution.lockTtlMs ?? this.lockTtlMs,
+      failedTtlMs: this.failedTtlMs,
+      failurePolicy: 'default',
+    };
   }
 
   private scopedKey(execution: Pick<IdempotentExecution<unknown>, 'scope' | 'key'>): string {
@@ -65,7 +98,7 @@ export class IdempotencyService {
     existing: IdempotencyRecord | null,
     requestHash: string,
     key: string,
-    retryFailed: boolean,
+    policy: ResolvedIdempotencyPolicy,
   ): { handled: boolean; value?: T } {
     if (!existing) {
       return { handled: false };
@@ -82,7 +115,10 @@ export class IdempotencyService {
     if (existing.status === 'processing' && this.isLocked(existing)) {
       throw new IdempotencyInProgressError(key);
     }
-    if (existing.status === 'failed' && !retryFailed) {
+    if (existing.status === 'failed' && !policy.retryFailed) {
+      if (policy.failurePolicy === 'reconciliation-required') {
+        throw new IdempotencyReconciliationRequiredError(key);
+      }
       throw new IdempotencyConflictError(key);
     }
     return { handled: false };
@@ -99,48 +135,87 @@ export class IdempotencyService {
   private async run<T>(
     execution: IdempotentExecution<T>,
     requestHash: string,
-    retryFailed: boolean,
+    policy: ResolvedIdempotencyPolicy,
   ): Promise<T> {
     const scopedKey = this.scopedKey(execution);
-    const record = this.processingRecord(execution, requestHash);
-    const acquired = await this.store.acquire(record, execution.tenantId);
+    const processingRecord = this.processingRecord(execution, requestHash, policy);
+    const acquired = await this.store.acquire(processingRecord, execution.tenantId);
     if (!acquired) {
       const existing = await this.store.find(scopedKey, execution.tenantId);
-      const replay = this.replay<T>(existing, requestHash, execution.key, retryFailed);
+      const replay = this.replay<T>(existing, requestHash, execution.key, policy);
       if (replay.handled) {
-        return replay.value as T;
+        return execution.revive ? await execution.revive(replay.value) : (replay.value as T);
       }
-      if (existing?.status === 'processing' && !(execution.reclaimStaleProcessing ?? false)) {
+      if (existing?.status === 'processing' && !policy.reclaimStaleProcessing) {
         throw new IdempotencyInProgressError(execution.key);
       }
-      const claimed = await this.store.takeOver(record, execution.tenantId);
+      const claimed = await this.store.takeOver(processingRecord, execution.tenantId);
       if (!claimed) {
         throw new IdempotencyInProgressError(execution.key);
       }
     }
+    let executionResult: T;
     try {
-      const result = await execution.run();
-      const expiresAt = new Date(this.clock.now().getTime() + this.completedTtlMs);
-      await this.store.markCompleted(
-        scopedKey,
-        result,
-        execution.tenantId,
-        record.lockToken,
-        expiresAt,
-      );
-      return result;
+      executionResult = await execution.run();
     } catch (error) {
-      const failedExpiresAt = new Date(this.clock.now().getTime() + this.failedTtlMs);
-      await this.store
-        .markFailed(scopedKey, execution.tenantId, record.lockToken, failedExpiresAt)
-        .catch(() => {});
+      await this.markFailed(scopedKey, execution, processingRecord, policy.failedTtlMs);
       throw error;
     }
+
+    const expiresAt = new Date(this.clock.now().getTime() + this.completedTtlMs);
+    let completionError: unknown;
+    try {
+      await this.store.markCompleted(
+        scopedKey,
+        executionResult,
+        execution.tenantId,
+        processingRecord.lockToken,
+        expiresAt,
+      );
+    } catch (error) {
+      completionError = error;
+    }
+
+    let completedRecord: IdempotencyRecord | null = null;
+    let verificationError: unknown;
+    try {
+      completedRecord = await this.store.find(scopedKey, execution.tenantId);
+    } catch (error) {
+      verificationError = error;
+    }
+    if (completedRecord?.status === 'completed' && completedRecord.requestHash === requestHash) {
+      if (completionError === undefined) {
+        return executionResult;
+      }
+      return execution.revive
+        ? await execution.revive(completedRecord.response)
+        : (completedRecord.response as T);
+    }
+
+    await this.markFailed(scopedKey, execution, processingRecord, policy.failedTtlMs);
+    throw new IdempotencyResultPersistenceError(execution.key, {
+      cause: completionError ?? verificationError,
+      correlationId: execution.correlationId,
+      context: execution.correlationId ? { correlationId: execution.correlationId } : undefined,
+    });
+  }
+
+  private async markFailed<T>(
+    scopedKey: string,
+    execution: IdempotentExecution<T>,
+    record: IdempotencyRecord,
+    failedTtlMs: number,
+  ): Promise<void> {
+    const failedExpiresAt = new Date(this.clock.now().getTime() + failedTtlMs);
+    await this.store
+      .markFailed(scopedKey, execution.tenantId, record.lockToken, failedExpiresAt)
+      .catch(() => {});
   }
 
   private processingRecord<T>(
     execution: IdempotentExecution<T>,
     requestHash: string,
+    policy: ResolvedIdempotencyPolicy,
   ): IdempotencyRecord {
     return {
       key: this.scopedKey(execution),
@@ -151,7 +226,7 @@ export class IdempotencyService {
       requestHash,
       response: null,
       status: 'processing',
-      lockedUntil: new Date(this.clock.now().getTime() + (execution.lockTtlMs ?? this.lockTtlMs)),
+      lockedUntil: new Date(this.clock.now().getTime() + policy.lockTtlMs),
       expiresAt: null,
       lockToken: globalThis.crypto.randomUUID(),
     };
