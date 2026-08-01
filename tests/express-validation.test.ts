@@ -93,4 +93,20 @@ describe('express adapter', () => {
     expect(res.status).toBe(422);
     expect(res.body.error).toBe('VALIDATION_FAILED');
   });
+
+  it.each([
+    ['limit=0', { limit: '0' }],
+    ['limit=101', { limit: '101' }],
+    ['limit=1.5', { limit: '1.5' }],
+    ['active=maybe', { active: 'maybe' }],
+  ])('rejects catalog query %s before calling the provider', async (_name, query) => {
+    const provider = new FakeProvider();
+    const app = makeApp(createPayable({ providers: { stripe: provider } }));
+
+    const res = await request(app).get('/payable/products').query(query);
+
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBe('VALIDATION_FAILED');
+    expect(provider.lastListProducts).toBeUndefined();
+  });
 });

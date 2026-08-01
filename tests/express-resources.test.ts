@@ -2,6 +2,7 @@ import express from 'express';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
+import { PayableError } from '../src/domain/errors/payable-error';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import type { Payable } from '../src/payable';
@@ -107,5 +108,105 @@ describe('express adapter', () => {
       });
     expect(price.status).toBe(201);
     expect(price.body.providerPriceId).toBe('price_fake');
+  });
+
+  it('lists, retrieves, activates, and archives products over HTTP', async () => {
+    const provider = new FakeProvider();
+    provider.productsPage.nextCursor = 'prod_next';
+    const payable = createPayable({
+      providers: { stripe: provider },
+      tenant: { enabled: true },
+    });
+    const app = express();
+    app.use('/payable', createExpressPayableRoutes(payable, { resolveTenant: () => 'tenant-a' }));
+
+    const listed = await request(app)
+      .get('/payable/products')
+      .query({ limit: 25, cursor: 'prod_cursor', active: false });
+    expect(listed.status).toBe(200);
+    expect(listed.body).toMatchObject({
+      data: [{ providerProductId: 'prod_fake', active: true }],
+      nextCursor: 'prod_next',
+    });
+    expect(provider.lastListProducts).toEqual({
+      limit: 25,
+      cursor: 'prod_cursor',
+      active: false,
+    });
+
+    const retrieved = await request(app).get('/payable/products/prod_fake');
+    expect(retrieved.status).toBe(200);
+    expect(retrieved.body).toMatchObject({ providerProductId: 'prod_fake', active: true });
+
+    const activated = await request(app).post('/payable/products/prod_fake/activate');
+    expect(activated.status).toBe(200);
+    expect(activated.body).toMatchObject({ providerProductId: 'prod_fake', active: true });
+
+    const archived = await request(app).post('/payable/products/prod_fake/archive');
+    expect(archived.status).toBe(200);
+    expect(archived.body).toMatchObject({ providerProductId: 'prod_fake', active: false });
+    expect(provider.productActiveCalls.map(({ id, active }) => ({ id, active }))).toEqual([
+      { id: 'prod_fake', active: true },
+      { id: 'prod_fake', active: false },
+    ]);
+  });
+
+  it('lists, retrieves, activates, and archives prices over HTTP', async () => {
+    const provider = new FakeProvider();
+    provider.pricesPage.nextCursor = 'price_next';
+    const app = makeApp(createPayable({ providers: { stripe: provider } }));
+
+    const listed = await request(app).get('/payable/prices').query({
+      limit: 30,
+      cursor: 'price_cursor',
+      active: false,
+      providerProductId: 'prod_fake',
+    });
+    expect(listed.status).toBe(200);
+    expect(listed.body).toMatchObject({
+      data: [{ providerPriceId: 'price_fake', providerProductId: 'prod_fake', active: true }],
+      nextCursor: 'price_next',
+    });
+    expect(provider.lastListPrices).toEqual({
+      limit: 30,
+      cursor: 'price_cursor',
+      active: false,
+      providerProductId: 'prod_fake',
+    });
+
+    const retrieved = await request(app).get('/payable/prices/price_fake');
+    expect(retrieved.status).toBe(200);
+    expect(retrieved.body).toMatchObject({ providerPriceId: 'price_fake', active: true });
+
+    const activated = await request(app).post('/payable/prices/price_fake/activate');
+    expect(activated.status).toBe(200);
+    expect(activated.body).toMatchObject({ providerPriceId: 'price_fake', active: true });
+
+    const archived = await request(app).post('/payable/prices/price_fake/archive');
+    expect(archived.status).toBe(200);
+    expect(archived.body).toMatchObject({ providerPriceId: 'price_fake', active: false });
+    expect(provider.priceActiveCalls.map(({ id, active }) => ({ id, active }))).toEqual([
+      { id: 'price_fake', active: true },
+      { id: 'price_fake', active: false },
+    ]);
+  });
+
+  it('maps missing products and prices to 404 responses', async () => {
+    const provider = new FakeProvider();
+    provider.retrieveProduct = async () => {
+      throw new PayableError('Product not found', { code: 'PRODUCT_NOT_FOUND' });
+    };
+    provider.retrievePrice = async () => {
+      throw new PayableError('Price not found', { code: 'PRICE_NOT_FOUND' });
+    };
+    const app = makeApp(createPayable({ providers: { stripe: provider } }));
+
+    const product = await request(app).get('/payable/products/prod_missing');
+    expect(product.status).toBe(404);
+    expect(product.body.error).toBe('PRODUCT_NOT_FOUND');
+
+    const price = await request(app).get('/payable/prices/price_missing');
+    expect(price.status).toBe(404);
+    expect(price.body.error).toBe('PRICE_NOT_FOUND');
   });
 });
