@@ -10,6 +10,7 @@ import type { Payable } from '../src/payable';
 import type { NestPayableOptions } from '../src/presentation/nest/payable.constants';
 import { PayableController } from '../src/presentation/nest/payable.controller';
 import { PayableAuthGuard } from '../src/presentation/nest/payable-auth.guard';
+import { PayableCatalogController } from '../src/presentation/nest/payable-catalog.controller';
 import { PayableReadController } from '../src/presentation/nest/payable-read.controller';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
@@ -19,6 +20,13 @@ const billable = { billableType: 'User', billableId: '1', email: 'user@example.c
 
 function controllerFor(payable: Payable, options: NestPayableOptions = {}): PayableController {
   return new PayableController(payable, options);
+}
+
+function catalogControllerFor(
+  payable: Payable,
+  options: NestPayableOptions = {},
+): PayableCatalogController {
+  return new PayableCatalogController(payable, options);
 }
 
 function readControllerFor(
@@ -171,7 +179,9 @@ describe('nest adapter', () => {
   });
 
   it('creates products and prices', async () => {
-    const controller = controllerFor(createPayable({ providers: { stripe: new FakeProvider() } }));
+    const controller = catalogControllerFor(
+      createPayable({ providers: { stripe: new FakeProvider() } }),
+    );
 
     const product = await controller.createProduct({ headers: {} }, { name: 'Pro' });
     expect(product.providerProductId).toBe('prod_fake');
