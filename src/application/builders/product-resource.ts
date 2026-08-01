@@ -4,14 +4,14 @@ import {
   isCatalogReadCapable,
 } from '../../domain/contracts/payment-provider.contract';
 import type { CatalogPage, ListProductsInput } from '../../domain/dtos/catalog.dto';
-import type { OperationContext } from '../../domain/dtos/common.dto';
 import type {
   CreateProductInput,
   ProductDTO,
   UpdateProductInput,
 } from '../../domain/dtos/product.dto';
-import { CorrelationId } from '../../domain/value-objects/correlation-id';
 import { assertCatalogMutationAuthorized } from '../policies/catalog-mutation-authorization';
+import { reviveProduct } from '../services/catalog/catalog-idempotency-result';
+import { CatalogMutationIdempotencyExecutor } from '../services/catalog/catalog-mutation-idempotency-executor';
 import { CatalogPersistenceCoordinator } from '../services/catalog/catalog-persistence-coordinator';
 import { normalizeCatalogListInput } from '../services/catalog/normalize-catalog-list-input';
 import { assertCapableProvider } from '../services/provider-capabilities/assert-provider-capability';
@@ -19,9 +19,11 @@ import type { BillingDependencies } from './billing-dependencies';
 import type { CatalogMutationOptions } from './catalog-mutation-options';
 
 export class ProductResource {
+  private readonly idempotency: CatalogMutationIdempotencyExecutor;
   private readonly persistence: CatalogPersistenceCoordinator;
 
   constructor(private readonly deps: BillingDependencies) {
+    this.idempotency = new CatalogMutationIdempotencyExecutor(deps);
     this.persistence = new CatalogPersistenceCoordinator(deps);
   }
 
@@ -33,14 +35,22 @@ export class ProductResource {
     );
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'catalog', isCatalogCapable);
-    const operationContext = this.context();
-    const product = await provider.createProduct(input, operationContext);
-    await this.persistence.persistProduct(product, {
+    return this.idempotency.execute({
       action: 'product.create',
-      authorization: options?.authorization,
-      correlationId: operationContext.correlationId,
+      callerKey: options?.idempotencyKey,
+      request: input,
+      resourceType: 'product',
+      run: async (operationContext) => {
+        const product = await provider.createProduct(input, operationContext);
+        await this.persistence.persistProduct(product, {
+          action: 'product.create',
+          authorization: options?.authorization,
+          correlationId: operationContext.correlationId,
+        });
+        return product;
+      },
+      revive: reviveProduct,
     });
-    return product;
   }
 
   async update(input: UpdateProductInput, options?: CatalogMutationOptions): Promise<ProductDTO> {
@@ -51,14 +61,23 @@ export class ProductResource {
     );
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'catalog', isCatalogCapable);
-    const operationContext = this.context();
-    const product = await provider.updateProduct(input, operationContext);
-    await this.persistence.persistProduct(product, {
+    return this.idempotency.execute({
       action: 'product.update',
-      authorization: options?.authorization,
-      correlationId: operationContext.correlationId,
+      callerKey: options?.idempotencyKey,
+      request: input,
+      resourceType: 'product',
+      resourceId: input.providerProductId,
+      run: async (operationContext) => {
+        const product = await provider.updateProduct(input, operationContext);
+        await this.persistence.persistProduct(product, {
+          action: 'product.update',
+          authorization: options?.authorization,
+          correlationId: operationContext.correlationId,
+        });
+        return product;
+      },
+      revive: reviveProduct,
     });
-    return product;
   }
 
   async retrieve(id: string): Promise<ProductDTO> {
@@ -94,17 +113,22 @@ export class ProductResource {
     );
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'catalogLifecycle', isCatalogLifecycleCapable);
-    const operationContext = this.context();
-    const product = await provider.setProductActive(id, active, operationContext);
-    await this.persistence.persistProduct(product, {
+    return this.idempotency.execute({
       action,
-      authorization: options?.authorization,
-      correlationId: operationContext.correlationId,
+      callerKey: options?.idempotencyKey,
+      request: { id, active },
+      resourceType: 'product',
+      resourceId: id,
+      run: async (operationContext) => {
+        const product = await provider.setProductActive(id, active, operationContext);
+        await this.persistence.persistProduct(product, {
+          action,
+          authorization: options?.authorization,
+          correlationId: operationContext.correlationId,
+        });
+        return product;
+      },
+      revive: reviveProduct,
     });
-    return product;
-  }
-
-  private context(): OperationContext {
-    return { correlationId: CorrelationId.generate().toString() };
   }
 }
