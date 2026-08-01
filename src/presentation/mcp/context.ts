@@ -36,6 +36,14 @@ export function authorizeTool(
   return context;
 }
 
+export function resolveCatalogAccess(
+  toolName: string,
+  args: ToolArgs,
+  options: McpPayableOptions,
+): AuthorizationContext | undefined {
+  return options.policy?.authorization?.(toolName, args);
+}
+
 export function jsonResult(data: unknown): CallToolResult {
   return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
 }

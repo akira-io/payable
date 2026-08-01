@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { Payable } from '../../../payable';
-import { authorizeTool, providerFrom, respond, tenantFrom } from '../context';
+import { providerFrom, resolveCatalogAccess, respond, tenantFrom } from '../context';
 import type { McpPayableOptions } from '../options';
 import type { ToolGate } from '../policy';
 import { providerShape, tenantShape } from '../schemas';
@@ -41,7 +41,7 @@ function registerLifecycleTool(
     },
     (args) =>
       respond(() => {
-        const authorization = authorizeTool(toolName, args, options);
+        const authorization = resolveCatalogAccess(toolName, args, options);
         const provider = providerFrom(args, options);
         const tenant = tenantFrom(args, options);
         if (resource === 'product') {

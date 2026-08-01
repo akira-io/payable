@@ -118,6 +118,31 @@ describe('mcp catalog authorization', () => {
     }
   });
 
+  it('defers denied product-create authorization to the core resource', async () => {
+    const { client, context, db } = await setup(false);
+    const create = vi.spyOn(ProductResource.prototype, 'create');
+
+    try {
+      const result = (await client.callTool(calls[0])) as CallToolResult;
+
+      expect(result.isError).toBe(true);
+      expect(parse(result)).toMatchObject({
+        error: 'AUTHORIZATION_DENIED',
+        message: 'Not authorized to create product',
+      });
+      expect(create).toHaveBeenCalledOnce();
+      expect(create.mock.calls[0]?.[1]?.authorization).toBe(context);
+      await expect(create.mock.results[0]?.value).rejects.toMatchObject({
+        code: 'AUTHORIZATION_DENIED',
+        message: 'Not authorized to create product',
+        context: { action: 'product.create' },
+      });
+    } finally {
+      create.mockRestore();
+      await db.destroy();
+    }
+  });
+
   it('forwards the product-create authorization object by identity', async () => {
     const { client, context, db } = await setup(true);
     const create = vi.spyOn(ProductResource.prototype, 'create');

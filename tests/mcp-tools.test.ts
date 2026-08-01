@@ -33,12 +33,16 @@ class UniqueProvider extends FakeProvider {
   }
 }
 
-async function connect(options?: McpPayableOptions) {
+async function connect(options?: McpPayableOptions, authorizationEnabled = false) {
   const db = createTestDb();
   await migrate(db);
   const storage = new KnexStorageDriver(db, new FakeClock());
   const provider = new UniqueProvider();
-  const payable = createPayable({ providers: { stripe: provider }, storage });
+  const payable = createPayable({
+    providers: { stripe: provider },
+    storage,
+    authorization: { enabled: authorizationEnabled },
+  });
   const server = createPayableMcpServer(payable, options);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test', version: '0' });
@@ -148,6 +152,15 @@ describe('mcp execution-time authorization', () => {
   const denyAll = {
     policy: { allowMoneyMovement: true, authorization: () => ({ allowed: false }) },
   } satisfies McpPayableOptions;
+  const catalogToolNames = new Set([
+    'product_create',
+    'product_update',
+    'product_activate',
+    'product_archive',
+    'price_create',
+    'price_activate',
+    'price_archive',
+  ]);
 
   const deniedCalls: Array<{ name: string; arguments: Record<string, unknown> }> = [
     { name: 'product_create', arguments: { name: 'Pro Plan' } },
@@ -183,7 +196,7 @@ describe('mcp execution-time authorization', () => {
 
   for (const call of deniedCalls) {
     it(`denies ${call.name} when the authorization callback rejects`, async () => {
-      const { client, db } = await connect(denyAll);
+      const { client, db } = await connect(denyAll, catalogToolNames.has(call.name));
       const result = (await client.callTool(call)) as CallToolResult;
       expect(result.isError).toBe(true);
       expect((parse(result) as { error: string }).error).toBe('AUTHORIZATION_DENIED');

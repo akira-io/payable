@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { Payable } from '../../../payable';
-import { authorizeTool, providerFrom, respond, tenantFrom } from '../context';
+import { authorizeTool, providerFrom, resolveCatalogAccess, respond, tenantFrom } from '../context';
 import type { McpPayableOptions } from '../options';
 import type { ToolGate } from '../policy';
 import {
@@ -39,7 +39,7 @@ export function registerCatalogTools(
       },
       (args) =>
         respond(() => {
-          const authorization = authorizeTool('product_create', args, options);
+          const authorization = resolveCatalogAccess('product_create', args, options);
           return payable.products(providerFrom(args, options), tenantFrom(args, options)).create(
             {
               name: args.name,
@@ -69,7 +69,7 @@ export function registerCatalogTools(
       },
       (args) =>
         respond(() => {
-          const authorization = authorizeTool('product_update', args, options);
+          const authorization = resolveCatalogAccess('product_update', args, options);
           return payable.products(providerFrom(args, options), tenantFrom(args, options)).update(
             {
               providerProductId: args.providerProductId,
@@ -100,7 +100,7 @@ export function registerCatalogTools(
       },
       (args) =>
         respond(() => {
-          const authorization = authorizeTool('price_create', args, options);
+          const authorization = resolveCatalogAccess('price_create', args, options);
           return payable.prices(providerFrom(args, options), tenantFrom(args, options)).create(
             {
               providerProductId: args.providerProductId,
