@@ -86,9 +86,17 @@ constructor(
 | GET | `invoices` | 200 | `invoices` | List a billable's invoices |
 | GET | `invoices/:id/pdf` | 200 | `getInvoicePdf` | Download an invoice PDF as a `StreamableFile` (`application/pdf`) |
 | GET | `payments` | 200 | `payments` | List a billable's payments |
+| GET | `products` | 200 | `listProducts` | List products with `limit`, `cursor`, and `active` query fields |
+| GET | `products/:id` | 200 | `getProduct` | Retrieve a product by provider id |
 | POST | `products` | 201 | `createProduct` | Create a product at the provider |
 | PATCH | `products` | 200 | `updateProduct` | Update a product |
+| POST | `products/:id/activate` | 200 | `activateProduct` | Activate a product |
+| POST | `products/:id/archive` | 200 | `archiveProduct` | Archive a product without deleting it |
+| GET | `prices` | 200 | `listPrices` | List prices with product, state, and cursor filters |
+| GET | `prices/:id` | 200 | `getPrice` | Retrieve a price by provider id |
 | POST | `prices` | 201 | `createPrice` | Create a price for a product |
+| POST | `prices/:id/activate` | 200 | `activatePrice` | Activate a price |
+| POST | `prices/:id/archive` | 200 | `archivePrice` | Archive a price without deleting it |
 | GET | `subscriptions` | 200 | `subscriptions` | List a billable's subscriptions |
 | GET | `subscriptions/:name` | 200 | `getSubscription` | Get one subscription by name (404 if absent) |
 | GET | `refunds` | 200 | `listRefunds` | List a payment's refunds |
@@ -103,6 +111,11 @@ invoices, payments, products, prices, and refunds (create and list).
 Every JSON route validates its body or query with the shared Zod schemas in
 `src/presentation/shared/schemas.ts` via `parseBody`, so a malformed body is rejected with
 `VALIDATION_FAILED` (HTTP 422), the same as Express.
+
+Catalog lists return `{ data, nextCursor }`, treat cursors as opaque, default to active entries, and
+cap `limit` at 100. Price lists also accept `providerProductId`. The module exposes activation and
+archival instead of product or price delete routes. Changing price monetary terms requires creating
+a replacement price.
 
 ## Request body limits
 

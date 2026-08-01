@@ -58,9 +58,17 @@ cap it at `MAX_LIST_LIMIT = 100` (`src/presentation/mcp/schemas.ts`).
 | `audit_logs_query` | read | `payable.auditLogs(tenantId).run(filter)` |
 | `webhooks_list` | read | `payable.webhookEvents(tenantId).list(filter)` |
 | `webhook_get` | read | `payable.webhookEvents(tenantId).get(id)` |
+| `product_get` | read | `payable.products().retrieve(id)` |
+| `products_list` | read | `payable.products().list({ limit, cursor, active })` |
+| `price_get` | read | `payable.prices().retrieve(id)` |
+| `prices_list` | read | `payable.prices().list({ limit, cursor, active, providerProductId })` |
 | `product_create` | mutate | `payable.products().create(...)` |
 | `product_update` | mutate | `payable.products().update(...)` |
+| `product_activate` | mutate | `payable.products().activate(id)` |
+| `product_archive` | mutate | `payable.products().archive(id)` |
 | `price_create` | mutate | `payable.prices().create(...)` |
+| `price_activate` | mutate | `payable.prices().activate(id)` |
+| `price_archive` | mutate | `payable.prices().archive(id)` |
 | `subscription_create` | mutate | subscription builder |
 | `subscription_cancel` | mutate | `subscription(name).cancel(...)` |
 | `subscription_cancel_now` | mutate | `subscription(name).cancelNow(...)` |
@@ -72,6 +80,11 @@ cap it at `MAX_LIST_LIMIT = 100` (`src/presentation/mcp/schemas.ts`).
 | `charge` | money | `payable.customer().charge(...)` |
 | `refund` | money | `payable.refund(...)` |
 | `webhook_replay` | mutate | `payable.replayWebhook(id, context, provider)` |
+
+Catalog list tools return `{ data, nextCursor }`, treat cursors as opaque, default to active entries,
+and accept limits from 1 through 100. `prices_list` also accepts `providerProductId`. MCP exposes
+activation and archival instead of product or price delete tools. Changing price monetary terms
+requires creating a replacement price.
 
 ## Resources and prompts
 

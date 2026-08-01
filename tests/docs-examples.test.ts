@@ -38,6 +38,14 @@ async function multiProviderCheckoutExampleFromDocs() {
   return { paddle, session, stripe };
 }
 
+async function catalogLifecycleExampleFromDocs() {
+  const provider = new FakeProvider();
+  const payable = createPayable({ providers: { stripe: provider } });
+  const firstPage = await payable.products().list({ limit: 50 });
+  const archived = await payable.products().archive('prod_fake');
+  return { archived, firstPage, provider };
+}
+
 describe('documentation examples stay executable', () => {
   it('documents catalog tenant isolation and migration verification', () => {
     const contracts = readFileSync('docs/domain/33-contracts.md', 'utf8');
@@ -77,6 +85,23 @@ describe('documentation examples stay executable', () => {
       { priceId: 'pri_paddle_pro', quantity: 1 },
     ]);
     expect(stripe.lastCheckout).toBeUndefined();
+  });
+
+  it('executes and documents the catalog lifecycle example', async () => {
+    const { archived, firstPage, provider } = await catalogLifecycleExampleFromDocs();
+    const example = readFileSync('docs/examples/45-catalog-lifecycle.md', 'utf8');
+
+    expect(firstPage.data).toHaveLength(1);
+    expect(firstPage.nextCursor).toBeNull();
+    expect(provider.lastListProducts).toEqual({ limit: 50, active: true });
+    expect(archived.active).toBe(false);
+    expect(example).toContain('page.nextCursor');
+    expect(example).toContain('active: false');
+    expect(example).toContain("payable.prices().archive('price_123')");
+    expect(example).toContain('PRODUCT_NOT_FOUND');
+    expect(example).toContain('Create a new price');
+    expect(example).toContain('https://docs.stripe.com/api/products/list');
+    expect(example).toContain('https://developer.paddle.com/api-reference/products/list-products/');
   });
 
   it('executes the logical customer and provider binding example from docs/features/08-customers-billable.md', async () => {
