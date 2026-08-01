@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { PriceNotFoundError, ProductNotFoundError } from '../src/domain/errors';
+import {
+  CatalogIdempotencyStorageRequiredError,
+  IdempotencyReconciliationRequiredError,
+  IdempotencyResultPersistenceError,
+  InvalidIdempotencyKeyError,
+  PriceNotFoundError,
+  ProductNotFoundError,
+} from '../src/domain/errors';
 import { CustomerNotFoundError } from '../src/domain/errors/customer-not-found.error';
 import { PayableError } from '../src/domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../src/domain/errors/provider-capability-not-supported.error';
 import { ProviderNotFoundError } from '../src/domain/errors/provider-not-found.error';
+import { payableErrorStatus } from '../src/presentation/shared/payable-http';
 
 describe('PayableError', () => {
   it('carries a code and context', () => {
@@ -89,5 +97,41 @@ describe('PayableError', () => {
       correlationId: 'corr-price',
       cause,
     });
+  });
+
+  it('uses coded errors for catalog idempotency failures', () => {
+    const errors = [
+      new InvalidIdempotencyKeyError(),
+      new CatalogIdempotencyStorageRequiredError('stripe'),
+      new IdempotencyReconciliationRequiredError('catalog-key'),
+      new IdempotencyResultPersistenceError('catalog-key', {
+        correlationId: 'corr-catalog',
+        context: { provider: 'stripe' },
+      }),
+    ];
+
+    expect(errors).toMatchObject([
+      { code: 'INVALID_IDEMPOTENCY_KEY' },
+      { code: 'CATALOG_IDEMPOTENCY_STORAGE_REQUIRED', context: { provider: 'stripe' } },
+      { code: 'IDEMPOTENCY_RECONCILIATION_REQUIRED', context: { key: 'catalog-key' } },
+      {
+        code: 'IDEMPOTENCY_RESULT_PERSISTENCE_FAILED',
+        context: { key: 'catalog-key', provider: 'stripe' },
+        correlationId: 'corr-catalog',
+      },
+    ]);
+  });
+
+  it('maps catalog idempotency errors to HTTP statuses', () => {
+    const errorStatuses: Array<[PayableError, number]> = [
+      [new InvalidIdempotencyKeyError(), 400],
+      [new CatalogIdempotencyStorageRequiredError('stripe'), 500],
+      [new IdempotencyReconciliationRequiredError('catalog-key'), 409],
+      [new IdempotencyResultPersistenceError('catalog-key'), 500],
+    ];
+
+    for (const [error, status] of errorStatuses) {
+      expect(payableErrorStatus(error)).toBe(status);
+    }
   });
 });

@@ -110,6 +110,7 @@ describe('Paddle catalog', () => {
     expect(pricesUpdate).toHaveBeenCalledWith('pri_1', { status: 'archived' });
     expect(paddle.capabilities().has('catalogRead')).toBe(true);
     expect(paddle.capabilities().has('catalogLifecycle')).toBe(true);
+    expect(paddle.capabilities().has('catalogIdempotency')).toBe(false);
   });
 
   it('uses Paddle default product status when activity is omitted or true', async () => {

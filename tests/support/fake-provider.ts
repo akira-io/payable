@@ -84,6 +84,7 @@ export class FakeProvider extends FakeCatalog implements PaymentProvider {
     'catalog',
     'catalogRead',
     'catalogLifecycle',
+    'catalogIdempotency',
   ]);
 
   constructor(private readonly createdCustomerId = 'cus_fake') {

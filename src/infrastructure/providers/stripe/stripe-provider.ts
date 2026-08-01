@@ -159,6 +159,7 @@ export class StripeProvider
       'catalog',
       'catalogRead',
       'catalogLifecycle',
+      'catalogIdempotency',
     ]);
   }
 

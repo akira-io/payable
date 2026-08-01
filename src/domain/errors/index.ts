@@ -1,4 +1,5 @@
 export { AccountingProviderNotFoundError } from './accounting-provider-not-found.error';
+export { CatalogIdempotencyStorageRequiredError } from './catalog-idempotency-storage-required.error';
 export {
   CatalogPersistenceError,
   type CatalogPersistenceFailure,
@@ -9,7 +10,10 @@ export { CustomerProviderBindingConflictError } from './customer-provider-bindin
 export { CustomerProviderBindingPersistenceError } from './customer-provider-binding-persistence.error';
 export { IdempotencyConflictError } from './idempotency-conflict.error';
 export { IdempotencyInProgressError } from './idempotency-in-progress.error';
+export { IdempotencyReconciliationRequiredError } from './idempotency-reconciliation-required.error';
+export { IdempotencyResultPersistenceError } from './idempotency-result-persistence.error';
 export { IdentityProviderNotFoundError } from './identity-provider-not-found.error';
+export { InvalidIdempotencyKeyError } from './invalid-idempotency-key.error';
 export { InvalidStateTransitionError } from './invalid-state-transition.error';
 export { InvalidWebhookSignatureError } from './invalid-webhook-signature.error';
 export { IssuingProviderNotFoundError } from './issuing-provider-not-found.error';

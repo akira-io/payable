@@ -10,7 +10,7 @@ function stripeProvider(stripeClient: Stripe): StripeProvider {
 }
 
 describe('Stripe catalog', () => {
-  it('advertises catalog reads and lifecycle operations and creates price nicknames', async () => {
+  it('advertises catalog idempotency, reads, and lifecycle operations and creates price nicknames', async () => {
     const pricesCreate = vi.fn().mockResolvedValue({
       id: 'price_1',
       product: 'prod_1',
@@ -33,6 +33,7 @@ describe('Stripe catalog', () => {
 
     expect(provider.capabilities().has('catalogRead')).toBe(true);
     expect(provider.capabilities().has('catalogLifecycle')).toBe(true);
+    expect(provider.capabilities().has('catalogIdempotency')).toBe(true);
     expect(pricesCreate).toHaveBeenCalledWith(
       expect.objectContaining({ nickname: 'Monthly plan' }),
       { idempotencyKey: 'idem-1' },
