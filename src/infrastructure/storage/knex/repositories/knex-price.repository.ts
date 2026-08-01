@@ -8,7 +8,7 @@ import type { Price } from '../../../../domain/entities/price.entity';
 import { CurrencyManager } from '../../../../domain/value-objects/currency';
 import { assertCatalogTenantId, assertCatalogTenantIds } from '../../catalog-tenant';
 import { KnexRepository } from '../knex-repository';
-import { toBool, toDate, toMinor } from '../mappers';
+import { stripUndefined, toBool, toDate, toMinor } from '../mappers';
 
 export class KnexPriceRepository
   extends KnexRepository<Price, NewPrice>
@@ -34,6 +34,24 @@ export class KnexPriceRepository
   override async update(id: string, patch: PricePatch, tenantId: string | null): Promise<Price> {
     assertCatalogTenantId(tenantId);
     return super.update(id, patch, tenantId);
+  }
+
+  async updateIfUnchanged(
+    id: string,
+    expected: Price,
+    patch: PricePatch,
+    tenantId: string | null,
+  ): Promise<Price | null> {
+    assertCatalogTenantId(tenantId);
+    const updated = await this.knex(this.table)
+      .where({
+        ...this.scopedWhere(id, tenantId),
+        ...this.toUpdateRow(expected),
+      })
+      .update(
+        stripUndefined({ ...this.toUpdateRow(patch), updated_at: this.clock.now().toISOString() }),
+      );
+    return updated > 0 ? this.findByIdOrFail(id, tenantId) : null;
   }
 
   async findByProviderId(
@@ -92,7 +110,7 @@ export class KnexPriceRepository
       provider: data.provider,
       provider_price_id: data.providerPriceId,
       product_id: data.productId,
-      currency: data.currency,
+      currency: data.currency === undefined ? undefined : CurrencyManager.normalize(data.currency),
       unit_amount: data.unitAmount,
       interval: data.interval,
       interval_count: data.intervalCount,
@@ -105,7 +123,7 @@ export class KnexPriceRepository
       provider: data.provider,
       provider_price_id: data.providerPriceId,
       product_id: data.productId,
-      currency: data.currency,
+      currency: data.currency === undefined ? undefined : CurrencyManager.normalize(data.currency),
       unit_amount: data.unitAmount,
       interval: data.interval,
       interval_count: data.intervalCount,

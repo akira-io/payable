@@ -128,6 +128,34 @@ export function registerCatalogContract(ctx: ContractContext): void {
     });
   });
 
+  it('allows only one price compare-and-set update from the same durable state', async () => {
+    const harness = ctx.harness();
+    const fixture = await seedCatalog(harness.storage);
+    const expected = await harness.storage.prices.findById(fixture.priceId, 'tenant-a');
+    expect(expected).not.toBeNull();
+    if (!expected) {
+      throw new Error('Seeded price is missing');
+    }
+    const repository = harness.storage.prices as unknown as {
+      updateIfUnchanged(
+        id: string,
+        before: typeof expected,
+        patch: { unitAmount: number },
+        tenantId: string,
+      ): Promise<unknown | null>;
+    };
+
+    const updates = await Promise.all([
+      repository.updateIfUnchanged(fixture.priceId, expected, { unitAmount: 2499 }, 'tenant-a'),
+      repository.updateIfUnchanged(fixture.priceId, expected, { unitAmount: 2499 }, 'tenant-a'),
+    ]);
+
+    expect(updates.filter((price) => price !== null)).toHaveLength(1);
+    expect(await harness.storage.prices.findById(fixture.priceId, 'tenant-a')).toMatchObject({
+      unitAmount: 2499,
+    });
+  });
+
   it('cannot move a price through a JavaScript-shaped update patch', async () => {
     const harness = ctx.harness();
     const fixture = await seedCatalog(harness.storage);
