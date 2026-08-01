@@ -47,4 +47,96 @@ describe('payable.products / payable.prices', () => {
         .create({ providerProductId: 'prod_fake', unitAmount: Money.of(9900, 'USD') }),
     ).rejects.toMatchObject({ code: 'PROVIDER_CAPABILITY_NOT_SUPPORTED' });
   });
+
+  it('uses portable product list defaults', async () => {
+    const provider = new FakeProvider();
+    const payable = createPayable({ providers: { stripe: provider } });
+
+    await payable.products().retrieve('prod_fake');
+    await payable.products().list();
+
+    expect(provider.lastListProducts).toEqual({ limit: 50, active: true });
+  });
+
+  it('preserves price list filters', async () => {
+    const provider = new FakeProvider();
+    const payable = createPayable({ providers: { stripe: provider } });
+
+    await payable.prices().list({
+      limit: 25,
+      cursor: 'pri_cursor',
+      active: false,
+      providerProductId: 'prod_fake',
+    });
+
+    expect(provider.lastListPrices).toEqual({
+      limit: 25,
+      cursor: 'pri_cursor',
+      active: false,
+      providerProductId: 'prod_fake',
+    });
+  });
+
+  it('rejects invalid limits before provider calls', async () => {
+    const provider = new FakeProvider();
+    const payable = createPayable({ providers: { stripe: provider } });
+
+    await expect(payable.products().list({ limit: 0 })).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+    });
+    await expect(payable.prices().list({ limit: 101 })).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+    });
+
+    expect(provider.lastListProducts).toBeUndefined();
+  });
+
+  it('maps archive and activate to boolean calls', async () => {
+    const provider = new FakeProvider();
+    const payable = createPayable({ providers: { stripe: provider } });
+
+    await payable.products().archive('prod_fake');
+    await payable.prices().activate('price_fake');
+
+    expect(provider.productActiveCalls.at(-1)).toMatchObject({ id: 'prod_fake', active: false });
+    expect(provider.priceActiveCalls.at(-1)).toMatchObject({ id: 'price_fake', active: true });
+  });
+
+  it('rejects lifecycle mutations before provider calls when authorization is denied', async () => {
+    const provider = new FakeProvider();
+    const payable = createPayable({
+      providers: { stripe: provider },
+      authorization: { enabled: true },
+    });
+
+    await expect(payable.products().archive('prod_fake')).rejects.toMatchObject({
+      code: 'AUTHORIZATION_DENIED',
+    });
+    await expect(
+      payable.prices().activate('price_fake', { allowed: false, actorId: 'viewer' }),
+    ).rejects.toMatchObject({ code: 'AUTHORIZATION_DENIED' });
+
+    expect(provider.productActiveCalls).toEqual([]);
+    expect(provider.priceActiveCalls).toEqual([]);
+  });
+
+  it('rejects reads when the provider lacks the catalog read capability', async () => {
+    const provider = new FakeProvider();
+    provider.supportedCapabilities.delete('catalogRead');
+    const payable = createPayable({ providers: { stripe: provider } });
+
+    await expect(payable.products().retrieve('prod_fake')).rejects.toMatchObject({
+      code: 'PROVIDER_CAPABILITY_NOT_SUPPORTED',
+    });
+  });
+
+  it('rejects lifecycle calls when the provider lacks the catalog lifecycle capability', async () => {
+    const provider = new FakeProvider();
+    provider.supportedCapabilities.delete('catalogLifecycle');
+    const payable = createPayable({ providers: { stripe: provider } });
+
+    await expect(payable.prices().archive('price_fake')).rejects.toMatchObject({
+      code: 'PROVIDER_CAPABILITY_NOT_SUPPORTED',
+    });
+  });
 });

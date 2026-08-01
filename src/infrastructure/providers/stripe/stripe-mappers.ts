@@ -144,7 +144,9 @@ export function toProductDTO(product: Stripe.Product): ProductDTO {
   return {
     providerProductId: product.id,
     name: product.name,
+    description: product.description,
     active: product.active,
+    metadata: product.metadata,
   };
 }
 
@@ -154,6 +156,9 @@ export function toPriceDTO(price: Stripe.Price): PriceDTO {
     providerProductId: typeof price.product === 'string' ? price.product : price.product.id,
     unitAmount: stripeMoney(resolvePriceUnitAmount(price), price.currency),
     interval: (price.recurring?.interval as RecurringInterval | undefined) ?? null,
+    intervalCount: price.recurring?.interval_count ?? null,
+    description: price.nickname,
+    active: price.active,
   };
 }
 

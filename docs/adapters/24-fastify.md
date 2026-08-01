@@ -52,9 +52,17 @@ The plugin performs, in order:
 | GET | `/invoices` | 200 | List a billable's invoices (query: billableType, billableId, limit?) |
 | GET | `/invoices/:id/pdf` | 200 | Download an invoice PDF (`application/pdf`; 404 if absent, 422 if the provider lacks `invoicePdf`) |
 | GET | `/payments` | 200 | List a billable's payments (query: billableType, billableId) |
+| GET | `/products` | 200 | List products (query: limit?, cursor?, active?) |
+| GET | `/products/:id` | 200 | Retrieve a product by provider id |
 | POST | `/products` | 201 | Create a product at the provider |
 | PATCH | `/products` | 200 | Update a product |
+| POST | `/products/:id/activate` | 200 | Activate a product |
+| POST | `/products/:id/archive` | 200 | Archive a product without deleting it |
+| GET | `/prices` | 200 | List prices (query: limit?, cursor?, active?, providerProductId?) |
+| GET | `/prices/:id` | 200 | Retrieve a price by provider id |
 | POST | `/prices` | 201 | Create a price for a product |
+| POST | `/prices/:id/activate` | 200 | Activate a price |
+| POST | `/prices/:id/archive` | 200 | Archive a price without deleting it |
 | GET | `/subscriptions` | 200 | List a billable's subscriptions (query: billableType, billableId, limit?) |
 | GET | `/subscriptions/:name` | 200 | Get one subscription by name (404 if absent) |
 | POST | `/refunds` | 201 | Refund a payment |
@@ -70,6 +78,11 @@ Every JSON route parses its body or query with the shared Zod schemas in
 `src/presentation/shared/schemas.ts` via `parseBody`, so a malformed body is rejected with
 `VALIDATION_FAILED` (HTTP 422), the same as Express. List endpoints that accept a `limit` cap it at
 `MAX_LIST_LIMIT = 100`; a larger value fails validation with `VALIDATION_FAILED` (422).
+
+Catalog lists accept an opaque `cursor`, default to `active=true`, and return
+`{ data, nextCursor }`. Product lists accept `limit`, `cursor`, and `active`; price lists also accept
+`providerProductId`. The plugin exposes activation and archival instead of product or price delete
+routes. Changing price monetary terms requires creating a replacement price.
 
 ## Raw-body handling for webhooks
 

@@ -1,4 +1,4 @@
-import { PayableError } from '../../../domain/errors/payable-error';
+import { PayableError, type PayableErrorOptions } from '../../../domain/errors/payable-error';
 
 const CODE_BY_PADDLE: Record<string, string> = {
   payment_declined: 'PROVIDER_CARD_DECLINED',
@@ -21,11 +21,16 @@ interface PaddleLikeError {
   message?: string;
 }
 
+type PaddleNotFoundFactory = (options: PayableErrorOptions) => PayableError;
+
 function isPaddleError(error: unknown): error is PaddleLikeError {
   return typeof error === 'object' && error !== null && ('code' in error || 'detail' in error);
 }
 
-export async function withPaddleErrors<T>(fn: () => Promise<T>): Promise<T> {
+export async function withPaddleErrors<T>(
+  fn: () => Promise<T>,
+  notFound?: PaddleNotFoundFactory,
+): Promise<T> {
   try {
     return await fn();
   } catch (error) {
@@ -33,10 +38,19 @@ export async function withPaddleErrors<T>(fn: () => Promise<T>): Promise<T> {
       throw error;
     }
     const code = error.code ?? '';
-    throw new PayableError(error.detail ?? error.message ?? 'Paddle request failed', {
-      code: CODE_BY_PADDLE[code] ?? 'PROVIDER_ERROR',
+    const options: PayableErrorOptions = {
       context: { provider: 'paddle', paddleCode: code, paddleType: error.type },
       cause: error,
+    };
+    if (code === 'not_found' && notFound) {
+      throw notFound(options);
+    }
+    throw new PayableError(error.detail ?? error.message ?? 'Paddle request failed', {
+      ...options,
+      code:
+        code === 'not_found'
+          ? 'PROVIDER_REQUEST_INVALID'
+          : (CODE_BY_PADDLE[code] ?? 'PROVIDER_ERROR'),
     });
   }
 }

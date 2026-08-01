@@ -3,9 +3,14 @@ import type { Payable } from '../../../payable';
 import type { McpPayableOptions } from '../options';
 import { isToolEnabled, resolvePolicy, type ToolGate } from '../policy';
 import { registerMoneyTools } from './money.tools';
-import { registerReadTools } from './read.tools';
+import { registerCatalogReadTools, registerReadTools } from './read.tools';
 import { registerWebhookTools } from './webhook.tools';
-import { registerCatalogTools, registerLinkTools, registerSubscriptionTools } from './write.tools';
+import {
+  registerCatalogLifecycleTools,
+  registerCatalogTools,
+  registerLinkTools,
+  registerSubscriptionTools,
+} from './write.tools';
 
 export function registerTools(
   server: McpServer,
@@ -15,7 +20,9 @@ export function registerTools(
   const policy = resolvePolicy(options.policy);
   const gate: ToolGate = (name, kind) => isToolEnabled(name, kind, policy);
   registerReadTools(server, payable, options, gate);
+  registerCatalogReadTools(server, payable, options, gate);
   registerCatalogTools(server, payable, options, gate);
+  registerCatalogLifecycleTools(server, payable, options, gate);
   registerSubscriptionTools(server, payable, options, gate);
   registerLinkTools(server, payable, options, gate);
   registerMoneyTools(server, payable, options, gate);

@@ -161,10 +161,14 @@ describe('mcp execution-time authorization', () => {
   const deniedCalls: Array<{ name: string; arguments: Record<string, unknown> }> = [
     { name: 'product_create', arguments: { name: 'Pro Plan' } },
     { name: 'product_update', arguments: { providerProductId: 'prod_1', name: 'Pro' } },
+    { name: 'product_activate', arguments: { id: 'prod_1' } },
+    { name: 'product_archive', arguments: { id: 'prod_1' } },
     {
       name: 'price_create',
       arguments: { providerProductId: 'prod_1', unitAmount: { amount: 900, currency: 'USD' } },
     },
+    { name: 'price_activate', arguments: { id: 'price_1' } },
+    { name: 'price_archive', arguments: { id: 'price_1' } },
     {
       name: 'subscription_create',
       arguments: { billable, name: 'default', priceId: 'price_1' },
@@ -200,6 +204,26 @@ describe('mcp execution-time authorization', () => {
     const { client, provider, db } = await connect(denyAll);
     await client.callTool({ name: 'product_create', arguments: { name: 'Pro Plan' } });
     expect(provider.productCalls).toBe(0);
+    await db.destroy();
+  });
+
+  it('does not run catalog lifecycle mutations when authorization rejects', async () => {
+    const { client, provider, db } = await connect(denyAll);
+
+    const lifecycleCalls: ReadonlyArray<readonly [string, string]> = [
+      ['product_activate', 'prod_1'],
+      ['product_archive', 'prod_1'],
+      ['price_activate', 'price_1'],
+      ['price_archive', 'price_1'],
+    ];
+    for (const [name, id] of lifecycleCalls) {
+      const denied = (await client.callTool({ name, arguments: { id } })) as CallToolResult;
+      expect(denied.isError).toBe(true);
+      expect((parse(denied) as { error: string }).error).toBe('AUTHORIZATION_DENIED');
+    }
+
+    expect(provider.productActiveCalls).toEqual([]);
+    expect(provider.priceActiveCalls).toEqual([]);
     await db.destroy();
   });
 

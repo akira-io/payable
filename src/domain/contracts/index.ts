@@ -82,6 +82,8 @@ export type {
 export type {
   BillingPortalCapable,
   CatalogCapable,
+  CatalogLifecycleCapable,
+  CatalogReadCapable,
   ChargeCapable,
   CustomerCapable,
   DirectSubscriptionCapable,
@@ -103,6 +105,8 @@ export type {
 export {
   isBillingPortalCapable,
   isCatalogCapable,
+  isCatalogLifecycleCapable,
+  isCatalogReadCapable,
   isChargeCapable,
   isCustomerCapable,
   isDirectSubscriptionCapable,

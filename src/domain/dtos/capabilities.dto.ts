@@ -15,7 +15,9 @@ export type ProviderCapability =
   | 'disputes'
   | 'payouts'
   | 'webhookEndpointManagement'
-  | 'catalog';
+  | 'catalog'
+  | 'catalogRead'
+  | 'catalogLifecycle';
 
 export type ProviderCapabilityValue = ProviderCapability | (string & {});
 

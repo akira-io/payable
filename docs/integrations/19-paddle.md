@@ -41,6 +41,8 @@ capabilities(): ProviderCapabilities {
     'webhooks',
     'customers',
     'catalog',
+    'catalogRead',
+    'catalogLifecycle',
   ]);
 }
 ```
@@ -60,6 +62,45 @@ are:
   `isDirectSubscriptionCapable(paddleProvider)` returns `false`.
 - **Partial refunds are not supported.** `refund` throws when `input.amount` is set (see Failure
   scenarios). `meteredBilling` is absent, the same as Stripe.
+
+## Catalog lifecycle
+
+`PaddleProvider` implements `CatalogCapable`, `CatalogReadCapable`, and
+`CatalogLifecycleCapable`. Product and price list calls map the portable cursor to `after`, the limit
+to `perPage`, and active state to Paddle's `active` or `archived` status filter. Price lists also map
+`providerProductId` to Paddle's product filter. When the SDK collection has another page, Payable
+returns the final entity id as `nextCursor`; callers pass that cursor back unchanged.
+
+| Payable operation | Paddle call | Notes |
+| --- | --- | --- |
+| `products().retrieve(id)` | `products.get(id)` | A missing product maps to `PRODUCT_NOT_FOUND`. |
+| `products().list(input)` | `products.list({ after, perPage, status })` | Reads the SDK collection page with `next()`. |
+| `products().activate(id)` | `products.update(id, { status: 'active' })` | Restores an archived product. |
+| `products().archive(id)` | `products.update(id, { status: 'archived' })` | Keeps the Paddle product record. |
+| `prices().retrieve(id)` | `prices.get(id)` | A missing price maps to `PRICE_NOT_FOUND`. |
+| `prices().list(input)` | `prices.list({ after, perPage, productId, status })` | Supports product and active-state filters. |
+| `prices().activate(id)` | `prices.update(id, { status: 'active' })` | Restores an archived price. |
+| `prices().archive(id)` | `prices.update(id, { status: 'archived' })` | Keeps the Paddle price record. |
+
+Paddle product creation does not accept a `status` field. Payable creates an active product with
+`products.create`. When `CreateProductInput.active` is `false`, it then archives the returned product
+with `products.update`. An error from that second request is propagated, so the application can
+reconcile the product before retrying.
+
+Payable exposes no portable delete method for Paddle products or prices. Existing price monetary
+terms are not updateable through the contract. Create a replacement price and archive the old price
+when the amount, currency, billing interval, or interval count changes.
+
+Official Paddle references:
+
+- [List products](https://developer.paddle.com/api-reference/products/list-products/)
+- [Get a product](https://developer.paddle.com/api-reference/products/get-product/)
+- [Update a product](https://developer.paddle.com/api-reference/products/update-product/)
+- [List prices](https://developer.paddle.com/api-reference/prices/list-prices/)
+- [Get a price](https://developer.paddle.com/api-reference/prices/get-price/)
+- [Update a price](https://developer.paddle.com/api-reference/prices/update-price/)
+- [API errors](https://developer.paddle.com/api-reference/about/errors/)
+- [Archive entities](https://developer.paddle.com/api-reference/about/delete-entities/)
 
 ## Mappers
 

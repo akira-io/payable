@@ -16,6 +16,24 @@ async function toolNames(options?: McpPayableOptions): Promise<string[]> {
   return listed.tools.map((tool) => tool.name);
 }
 
+const catalogToolNames = [
+  'product_activate',
+  'product_archive',
+  'product_create',
+  'product_get',
+  'product_update',
+  'products_list',
+  'price_activate',
+  'price_archive',
+  'price_create',
+  'price_get',
+  'prices_list',
+].sort();
+
+function catalogTools(names: string[]): string[] {
+  return names.filter((name) => /^(product|products|price|prices)_/.test(name)).sort();
+}
+
 describe('mcp policy gating', () => {
   it('hides money tools by default', async () => {
     const names = await toolNames();
@@ -37,6 +55,15 @@ describe('mcp policy gating', () => {
     expect(names).not.toContain('charge');
     expect(names).not.toContain('subscription_create');
     expect(names).not.toContain('webhook_replay');
+    expect(catalogTools(names)).toEqual(
+      ['product_get', 'products_list', 'price_get', 'prices_list'].sort(),
+    );
+  });
+
+  it('registers only the supported catalog lifecycle tools', async () => {
+    const names = await toolNames();
+
+    expect(catalogTools(names)).toEqual(catalogToolNames);
   });
 
   it('restricts to an explicit allow-list', async () => {

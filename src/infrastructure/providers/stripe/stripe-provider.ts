@@ -1,6 +1,8 @@
 import type Stripe from 'stripe';
 import type { Logger } from '../../../domain/contracts/logger.contract';
 import type {
+  CatalogLifecycleCapable,
+  CatalogReadCapable,
   ChargeCapable,
   DirectSubscriptionCapable,
   DisputeCapable,
@@ -39,12 +41,6 @@ import type {
   PaymentMethodDTO,
 } from '../../../domain/dtos/payment-method.dto';
 import type { ListPayoutsInput, PayoutDTO } from '../../../domain/dtos/payout.dto';
-import type { CreatePriceInput, PriceDTO } from '../../../domain/dtos/price.dto';
-import type {
-  CreateProductInput,
-  ProductDTO,
-  UpdateProductInput,
-} from '../../../domain/dtos/product.dto';
 import type {
   CreateProviderWebhookEndpointInput,
   ListProviderWebhookEndpointsInput,
@@ -93,7 +89,9 @@ export class StripeProvider
     PaymentMethodSetupCapable,
     PaymentWebhookCapable,
     PayoutCapable,
-    ProviderWebhookEndpointManagementCapable
+    ProviderWebhookEndpointManagementCapable,
+    CatalogReadCapable,
+    CatalogLifecycleCapable
 {
   readonly name = 'stripe';
   private client?: Stripe;
@@ -101,6 +99,15 @@ export class StripeProvider
   private readonly subscriptions = new StripeSubscriptions(() => this.stripe());
   private readonly invoices = new StripeInvoices(() => this.stripe());
   private readonly catalog = new StripeCatalog(() => this.stripe());
+  readonly createProduct = this.catalog.createProduct.bind(this.catalog);
+  readonly updateProduct = this.catalog.updateProduct.bind(this.catalog);
+  readonly createPrice = this.catalog.createPrice.bind(this.catalog);
+  readonly retrieveProduct = this.catalog.retrieveProduct.bind(this.catalog);
+  readonly listProducts = this.catalog.listProducts.bind(this.catalog);
+  readonly retrievePrice = this.catalog.retrievePrice.bind(this.catalog);
+  readonly listPrices = this.catalog.listPrices.bind(this.catalog);
+  readonly setProductActive = this.catalog.setProductActive.bind(this.catalog);
+  readonly setPriceActive = this.catalog.setPriceActive.bind(this.catalog);
   private readonly customers = new StripeCustomers(() => this.stripe());
   private readonly paymentMethods = new StripePaymentMethods(() => this.stripe());
   private readonly paymentMethodSetup = new StripePaymentMethodSetup(() => this.stripe());
@@ -150,6 +157,8 @@ export class StripeProvider
       'payouts',
       'webhookEndpointManagement',
       'catalog',
+      'catalogRead',
+      'catalogLifecycle',
     ]);
   }
 
@@ -207,17 +216,6 @@ export class StripeProvider
 
   deleteWebhookEndpoint(providerWebhookEndpointId: string, ctx: OperationContext): Promise<void> {
     return this.webhookEndpoints.delete(providerWebhookEndpointId, ctx);
-  }
-
-  async createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO> {
-    return this.catalog.createProduct(input, ctx);
-  }
-
-  async updateProduct(input: UpdateProductInput, ctx: OperationContext): Promise<ProductDTO> {
-    return this.catalog.updateProduct(input, ctx);
-  }
-  async createPrice(input: CreatePriceInput, ctx: OperationContext): Promise<PriceDTO> {
-    return this.catalog.createPrice(input, ctx);
   }
 
   async createCheckoutSession(

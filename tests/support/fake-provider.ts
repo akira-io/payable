@@ -41,11 +41,12 @@ import type {
 } from '../../src/domain/dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../src/domain/dtos/webhook.dto';
 import { Money } from '../../src/domain/value-objects/money';
+import { FakeCatalog } from './fake-catalog';
 
 const PERIOD_END = new Date('2026-07-22T00:00:00.000Z');
 const TRIAL_END = new Date('2026-07-06T00:00:00.000Z');
 
-export class FakeProvider implements PaymentProvider {
+export class FakeProvider extends FakeCatalog implements PaymentProvider {
   readonly name = 'stripe';
   createCustomerCalls = 0;
   lastCustomerCtx?: OperationContext;
@@ -81,9 +82,13 @@ export class FakeProvider implements PaymentProvider {
     'webhooks',
     'customers',
     'catalog',
+    'catalogRead',
+    'catalogLifecycle',
   ]);
 
-  constructor(private readonly createdCustomerId = 'cus_fake') {}
+  constructor(private readonly createdCustomerId = 'cus_fake') {
+    super();
+  }
 
   capabilities(): ProviderCapabilities {
     return new Set(this.supportedCapabilities);
@@ -118,7 +123,13 @@ export class FakeProvider implements PaymentProvider {
 
   async createProduct(input: CreateProductInput): Promise<ProductDTO> {
     this.lastCreateProduct = input;
-    return { providerProductId: 'prod_fake', name: input.name, active: input.active ?? true };
+    return {
+      providerProductId: 'prod_fake',
+      name: input.name,
+      description: input.description ?? null,
+      active: input.active ?? true,
+      metadata: input.metadata ?? null,
+    };
   }
 
   async updateProduct(input: UpdateProductInput): Promise<ProductDTO> {
@@ -126,7 +137,9 @@ export class FakeProvider implements PaymentProvider {
     return {
       providerProductId: input.providerProductId,
       name: input.name ?? 'Product',
+      description: input.description ?? null,
       active: input.active ?? true,
+      metadata: null,
     };
   }
 
@@ -137,6 +150,9 @@ export class FakeProvider implements PaymentProvider {
       providerProductId: input.providerProductId,
       unitAmount: input.unitAmount,
       interval: input.interval ?? null,
+      intervalCount: input.intervalCount ?? null,
+      description: input.description ?? null,
+      active: true,
     };
   }
 

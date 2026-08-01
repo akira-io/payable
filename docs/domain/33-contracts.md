@@ -149,6 +149,8 @@ export interface PaymentProvider {
 | --- | --- | --- |
 | `CustomerCapable` | `createCustomer`, `updateCustomer` | `isCustomerCapable` |
 | `CatalogCapable` | `createProduct`, `updateProduct`, `createPrice` | `isCatalogCapable` |
+| `CatalogReadCapable` | `retrieveProduct`, `listProducts`, `retrievePrice`, `listPrices` | `isCatalogReadCapable` |
+| `CatalogLifecycleCapable` | `setProductActive`, `setPriceActive` | `isCatalogLifecycleCapable` |
 | `SubscriptionManagementCapable` | `updateSubscription`, `cancelSubscription`, `resumeSubscription` | `isSubscriptionManagementCapable` |
 | `DirectSubscriptionCapable` | `createSubscription` | `isDirectSubscriptionCapable` |
 | `ChargeCapable` | `charge` | `isChargeCapable` |
@@ -160,6 +162,45 @@ export interface PaymentProvider {
 | `RedirectCallbackCapable` | `verifyCallback`, `handleRedirectCallback` | `isRedirectCallbackCapable` |
 
 Implementations: `StripeProvider` (charge, direct subscription, invoice, and more), `PaddleProvider`, and `SispProvider` (redirect-callback based). See [Providers](../integrations/17-providers.md) for the capability matrix.
+
+### Catalog provider contracts
+
+Catalog capabilities are split so a provider can expose only the operations it supports. Creation
+and product metadata updates require `catalog`; retrieval and cursor pagination require
+`catalogRead`; activation and archival require `catalogLifecycle`.
+
+```ts
+export interface CatalogCapable {
+  createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO>;
+  updateProduct(input: UpdateProductInput, ctx: OperationContext): Promise<ProductDTO>;
+  createPrice(input: CreatePriceInput, ctx: OperationContext): Promise<PriceDTO>;
+}
+
+export interface CatalogReadCapable {
+  retrieveProduct(id: string): Promise<ProductDTO>;
+  listProducts(input?: ListProductsInput): Promise<CatalogPage<ProductDTO>>;
+  retrievePrice(id: string): Promise<PriceDTO>;
+  listPrices(input?: ListPricesInput): Promise<CatalogPage<PriceDTO>>;
+}
+
+export interface CatalogLifecycleCapable {
+  setProductActive(id: string, active: boolean, ctx: OperationContext): Promise<ProductDTO>;
+  setPriceActive(id: string, active: boolean, ctx: OperationContext): Promise<PriceDTO>;
+}
+```
+
+`ListProductsInput` accepts `limit`, `cursor`, and `active`. `ListPricesInput` adds an optional
+`providerProductId` filter. The resource layer defaults `limit` to 50 and `active` to `true`, rejects
+limits outside 1 through 100, and treats `CatalogPage.nextCursor` as an opaque provider cursor.
+
+`ProductDTO` contains provider identity, name, description, active state, and string metadata.
+`PriceDTO` contains provider price and product identities, `Money`, optional recurring terms,
+description, and active state. Price monetary terms have no update contract. Create a replacement
+price and archive the old price when an amount, currency, interval, or interval count changes.
+
+There is no portable delete contract for products or prices. Archival uses `setProductActive` or
+`setPriceActive` with `false`; activation uses the same methods with `true`. Missing provider records
+normalize to `PRODUCT_NOT_FOUND` or `PRICE_NOT_FOUND`.
 
 `PaymentMethodSetupCapable` models saving a payment method without charging it. Its normalized DTO
 supports provider flows that return a client secret, a hosted checkout URL, or a saved payment method

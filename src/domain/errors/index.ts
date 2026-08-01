@@ -10,6 +10,8 @@ export { InvalidWebhookSignatureError } from './invalid-webhook-signature.error'
 export { IssuingProviderNotFoundError } from './issuing-provider-not-found.error';
 export { MarketplaceProviderNotFoundError } from './marketplace-provider-not-found.error';
 export { PayableError, type PayableErrorOptions } from './payable-error';
+export { PriceNotFoundError } from './price-not-found.error';
+export { ProductNotFoundError } from './product-not-found.error';
 export { ProviderCapabilityNotSupportedError } from './provider-capability-not-supported.error';
 export { ProviderNotFoundError } from './provider-not-found.error';
 export { SubscriptionNotFoundError } from './subscription-not-found.error';

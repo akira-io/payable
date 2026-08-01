@@ -49,6 +49,22 @@ export const listRefundsQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(MAX_LIST_LIMIT).optional(),
 });
 
+const booleanQuerySchema = z
+  .union([z.boolean(), z.literal('true'), z.literal('false')])
+  .transform<boolean>((value) => value === true || value === 'true');
+
+export const catalogListQuerySchema = z.object({
+  limit: z.coerce.number().int().positive().max(MAX_LIST_LIMIT).optional(),
+  cursor: z.string().min(1).optional(),
+  active: booleanQuerySchema.optional(),
+});
+
+export const priceListQuerySchema = catalogListQuerySchema.extend({
+  providerProductId: z.string().min(1).optional(),
+});
+
+export const catalogIdParamSchema = z.object({ id: z.string().min(1) });
+
 export const productBodySchema = z.object({
   name: z.string().min(1),
   description: z.string().min(1).optional(),
@@ -83,7 +99,10 @@ export const refundBodySchema = z.object({
   reason: z.string().min(1).optional(),
 });
 
-export function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
+export function parseBody<TSchema extends z.ZodType>(
+  schema: TSchema,
+  body: unknown,
+): z.output<TSchema> {
   const result = schema.safeParse(body);
   if (!result.success) {
     throw new PayableError('Request validation failed', {

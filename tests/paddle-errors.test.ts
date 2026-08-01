@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PayableError } from '../src/domain/errors/payable-error';
+import { ProductNotFoundError } from '../src/domain/errors/product-not-found.error';
 import { withPaddleErrors } from '../src/infrastructure/providers/paddle/paddle-errors';
 
 describe('withPaddleErrors', () => {
@@ -26,5 +27,16 @@ describe('withPaddleErrors', () => {
     await expect(withPaddleErrors(() => Promise.reject(payable))).rejects.toBe(payable);
     const plain = new Error('network down');
     await expect(withPaddleErrors(() => Promise.reject(plain))).rejects.toBe(plain);
+  });
+
+  it('maps Paddle not_found errors only when an operation supplies a contextual code', async () => {
+    const missing = () => Promise.reject({ code: 'not_found', detail: 'missing' });
+
+    await expect(
+      withPaddleErrors(missing, (options) => new ProductNotFoundError('pro_missing', options)),
+    ).rejects.toMatchObject({ code: 'PRODUCT_NOT_FOUND' });
+    await expect(withPaddleErrors(missing)).rejects.toMatchObject({
+      code: 'PROVIDER_REQUEST_INVALID',
+    });
   });
 });

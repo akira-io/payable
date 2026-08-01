@@ -79,6 +79,7 @@ tree.
 42. [examples/42-sisp-redirect-checkout.md](examples/42-sisp-redirect-checkout.md) - vinti4 redirect checkout and callback reconciliation.
 43. [examples/43-revolut-merchant-checkout.md](examples/43-revolut-merchant-checkout.md) - Revolut Merchant amount checkout and hosted payment redirect.
 44. [examples/44-mcp-server.md](examples/44-mcp-server.md) - A policy-restricted Payable MCP server for AI clients.
+45. [examples/45-catalog-lifecycle.md](examples/45-catalog-lifecycle.md) - Portable product and price reads, pagination, archival, and reactivation.
 
 ---
 

@@ -27,6 +27,7 @@ import {
   runSwapSubscription,
 } from '../shared/operations';
 import {
+  catalogIdParamSchema,
   checkoutBodySchema,
   customerBodySchema,
   customerUpdateBodySchema,
@@ -209,6 +210,49 @@ export class PayableController {
       intervalCount: body.intervalCount,
       description: body.description,
     });
+  }
+
+  @Post('products/:id/activate')
+  @HttpCode(200)
+  @UseGuards(PayableAuthGuard)
+  activateProduct(
+    @Req() request: PayableHttpRequest,
+    @Param('id') id: string,
+  ): Promise<ProductDTO> {
+    const productId = parseBody(catalogIdParamSchema, { id }).id;
+    return this.payable
+      .products(undefined, this.tenantOf(request))
+      .activate(productId, this.authorizationOf(request));
+  }
+
+  @Post('products/:id/archive')
+  @HttpCode(200)
+  @UseGuards(PayableAuthGuard)
+  archiveProduct(@Req() request: PayableHttpRequest, @Param('id') id: string): Promise<ProductDTO> {
+    const productId = parseBody(catalogIdParamSchema, { id }).id;
+    return this.payable
+      .products(undefined, this.tenantOf(request))
+      .archive(productId, this.authorizationOf(request));
+  }
+
+  @Post('prices/:id/activate')
+  @HttpCode(200)
+  @UseGuards(PayableAuthGuard)
+  activatePrice(@Req() request: PayableHttpRequest, @Param('id') id: string): Promise<PriceDTO> {
+    const priceId = parseBody(catalogIdParamSchema, { id }).id;
+    return this.payable
+      .prices(undefined, this.tenantOf(request))
+      .activate(priceId, this.authorizationOf(request));
+  }
+
+  @Post('prices/:id/archive')
+  @HttpCode(200)
+  @UseGuards(PayableAuthGuard)
+  archivePrice(@Req() request: PayableHttpRequest, @Param('id') id: string): Promise<PriceDTO> {
+    const priceId = parseBody(catalogIdParamSchema, { id }).id;
+    return this.payable
+      .prices(undefined, this.tenantOf(request))
+      .archive(priceId, this.authorizationOf(request));
   }
 
   private receive(request: PayableHttpRequest, provider: string | undefined) {

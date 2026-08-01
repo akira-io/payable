@@ -100,10 +100,12 @@ capabilities(): ProviderCapabilities {
     'billingPortal',
     'invoicePdf',
     'webhooks',
-      'customers',
-      'paymentMethods',
-      'paymentMethodSetup',
-      'catalog',
+    'customers',
+    'paymentMethods',
+    'paymentMethodSetup',
+    'catalog',
+    'catalogRead',
+    'catalogLifecycle',
   ]);
 }
 ```
@@ -134,6 +136,40 @@ so it shares the provider's single SDK instance.
 `createSubscription` (from `DirectSubscriptionCapable`) routes to `StripeSubscriptions.create`; the
 contract's `updateSubscription`, `cancelSubscription`, and `resumeSubscription` route to the matching
 methods. Every call forwards `ctx.idempotencyKey` to Stripe's `idempotencyKey` request option.
+
+## Catalog lifecycle
+
+`StripeProvider` implements `CatalogCapable`, `CatalogReadCapable`, and
+`CatalogLifecycleCapable`. Product and price list calls map the portable `active`, `limit`, and
+`cursor` fields to Stripe's list parameters. Price lists also map `providerProductId` to Stripe's
+`product` filter. A page with `has_more: true` returns the final item id as `nextCursor`; callers pass
+that cursor back unchanged.
+
+| Payable operation | Stripe call | Notes |
+| --- | --- | --- |
+| `products().retrieve(id)` | `products.retrieve(id)` | A missing product maps to `PRODUCT_NOT_FOUND`. |
+| `products().list(input)` | `products.list({ active, limit, starting_after })` | Defaults are applied by the Payable resource before this call. |
+| `products().activate(id)` | `products.update(id, { active: true })` | Marks the Stripe product active. |
+| `products().archive(id)` | `products.update(id, { active: false })` | Keeps the Stripe product record. |
+| `prices().retrieve(id)` | `prices.retrieve(id)` | A missing price maps to `PRICE_NOT_FOUND`. |
+| `prices().list(input)` | `prices.list({ active, limit, product, starting_after })` | Supports product and active-state filters. |
+| `prices().activate(id)` | `prices.update(id, { active: true })` | Marks the Stripe price active. |
+| `prices().archive(id)` | `prices.update(id, { active: false })` | Keeps the Stripe price record. |
+
+Payable exposes no portable delete method for Stripe products or prices. Existing price monetary
+terms are not updateable through the contract. Create a replacement price and archive the old price
+when the amount, currency, billing interval, or interval count changes.
+
+Official Stripe references:
+
+- [List products](https://docs.stripe.com/api/products/list)
+- [Retrieve a product](https://docs.stripe.com/api/products/retrieve)
+- [Update a product](https://docs.stripe.com/api/products/update)
+- [List prices](https://docs.stripe.com/api/prices/list)
+- [Retrieve a price](https://docs.stripe.com/api/prices/retrieve)
+- [Update a price](https://docs.stripe.com/api/prices/update)
+- [API errors](https://docs.stripe.com/api/errors)
+- [Error codes](https://docs.stripe.com/error-codes)
 
 ## Entity mapping
 

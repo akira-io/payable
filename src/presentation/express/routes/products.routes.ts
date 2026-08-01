@@ -1,9 +1,12 @@
 import type { Router } from 'express';
 import type { Payable } from '../../../payable';
 import {
+  catalogIdParamSchema,
+  catalogListQuerySchema,
   parseBody,
   parseMoneyInput,
   priceBodySchema,
+  priceListQuerySchema,
   productBodySchema,
   productUpdateBodySchema,
 } from '../../shared/schemas';
@@ -14,6 +17,54 @@ export function registerCatalogRoutes(
   payable: Payable,
   options: ExpressPayableOptions = {},
 ): void {
+  router.get(
+    '/products',
+    asyncHandler(async (req, res) => {
+      const query = parseBody(catalogListQuerySchema, req.query);
+      const tenantId = options.resolveTenant?.(req) ?? null;
+      res.status(200).json(await payable.products(undefined, tenantId).list(query));
+    }),
+  );
+
+  router.get(
+    '/products/:id',
+    asyncHandler(async (req, res) => {
+      const { id } = parseBody(catalogIdParamSchema, req.params);
+      const tenantId = options.resolveTenant?.(req) ?? null;
+      res.status(200).json(await payable.products(undefined, tenantId).retrieve(id));
+    }),
+  );
+
+  router.post(
+    '/products/:id/activate',
+    asyncHandler(async (req, res) => {
+      const { id } = parseBody(catalogIdParamSchema, req.params);
+      const tenantId = options.resolveTenant?.(req) ?? null;
+      res
+        .status(200)
+        .json(
+          await payable
+            .products(undefined, tenantId)
+            .activate(id, options.resolveAuthorization?.(req)),
+        );
+    }),
+  );
+
+  router.post(
+    '/products/:id/archive',
+    asyncHandler(async (req, res) => {
+      const { id } = parseBody(catalogIdParamSchema, req.params);
+      const tenantId = options.resolveTenant?.(req) ?? null;
+      res
+        .status(200)
+        .json(
+          await payable
+            .products(undefined, tenantId)
+            .archive(id, options.resolveAuthorization?.(req)),
+        );
+    }),
+  );
+
   router.post(
     '/products',
     jsonBody(),
@@ -50,6 +101,54 @@ export function registerCatalogRoutes(
         description: body.description,
       });
       res.status(201).json(price);
+    }),
+  );
+
+  router.get(
+    '/prices',
+    asyncHandler(async (req, res) => {
+      const query = parseBody(priceListQuerySchema, req.query);
+      const tenantId = options.resolveTenant?.(req) ?? null;
+      res.status(200).json(await payable.prices(undefined, tenantId).list(query));
+    }),
+  );
+
+  router.get(
+    '/prices/:id',
+    asyncHandler(async (req, res) => {
+      const { id } = parseBody(catalogIdParamSchema, req.params);
+      const tenantId = options.resolveTenant?.(req) ?? null;
+      res.status(200).json(await payable.prices(undefined, tenantId).retrieve(id));
+    }),
+  );
+
+  router.post(
+    '/prices/:id/activate',
+    asyncHandler(async (req, res) => {
+      const { id } = parseBody(catalogIdParamSchema, req.params);
+      const tenantId = options.resolveTenant?.(req) ?? null;
+      res
+        .status(200)
+        .json(
+          await payable
+            .prices(undefined, tenantId)
+            .activate(id, options.resolveAuthorization?.(req)),
+        );
+    }),
+  );
+
+  router.post(
+    '/prices/:id/archive',
+    asyncHandler(async (req, res) => {
+      const { id } = parseBody(catalogIdParamSchema, req.params);
+      const tenantId = options.resolveTenant?.(req) ?? null;
+      res
+        .status(200)
+        .json(
+          await payable
+            .prices(undefined, tenantId)
+            .archive(id, options.resolveAuthorization?.(req)),
+        );
     }),
   );
 }

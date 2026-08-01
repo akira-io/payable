@@ -38,6 +38,8 @@ method or throws `ProviderCapabilityNotSupportedError`.
 | --- | --- | --- |
 | `CustomerCapable` | `createCustomer(input, ctx)`, `updateCustomer(input, ctx)` | `isCustomerCapable(provider)` |
 | `CatalogCapable` | `createProduct`, `updateProduct`, `createPrice` | `isCatalogCapable(provider)` |
+| `CatalogReadCapable` | `retrieveProduct`, `listProducts`, `retrievePrice`, `listPrices` | `isCatalogReadCapable(provider)` |
+| `CatalogLifecycleCapable` | `setProductActive`, `setPriceActive` | `isCatalogLifecycleCapable(provider)` |
 | `SubscriptionManagementCapable` | `updateSubscription`, `cancelSubscription`, `resumeSubscription` | `isSubscriptionManagementCapable(provider)` |
 | `WebhookCapable` | `verifyWebhook(input)`, `reconcileSubscription(verified)` | `isWebhookCapable(provider)` |
 | `PaymentWebhookCapable` | `reconcilePayment(verified)` | `isPaymentWebhookCapable(provider)` |
@@ -84,8 +86,9 @@ assertCapableProvider(provider, 'customers', isCustomerCapable);
 Some provider features are represented both ways: a known capability string for honest feature
 advertising and an optional interface for the callable methods. Examples include `customers`
 (`CustomerCapable`), `invoicePdf` (`InvoiceCapable`), `charges` (`ChargeCapable`), and `webhooks`
-(`WebhookCapable`). Redirect callbacks remain guard-only because they model a provider-specific browser
-callback flow, not an asynchronous provider webhook.
+(`WebhookCapable`). Catalog creation, reads, and lifecycle changes use `catalog`, `catalogRead`, and
+`catalogLifecycle` with their matching structural guards. Redirect callbacks remain guard-only because
+they model a provider-specific browser callback flow, not an asynchronous provider webhook.
 
 ### Capability matrix
 
@@ -95,6 +98,8 @@ callback flow, not an asynchronous provider webhook.
 | `refunds` | yes | yes | yes | yes (amount required) |
 | `customers` | yes | yes | no (local-only customers) | yes |
 | `catalog` | yes | yes | no | no |
+| `catalogRead` | yes | yes | no | no |
+| `catalogLifecycle` | yes | yes | no | no |
 | `subscriptions` | yes | yes | no | yes (limited) |
 | `billingPortal` | yes | yes | no | no |
 | `webhooks` (`WebhookCapable`) | yes | yes | no (uses redirect callback) | yes |
@@ -131,7 +136,9 @@ export type ProviderCapability =
   | 'disputes'
   | 'payouts'
   | 'webhookEndpointManagement'
-  | 'catalog';
+  | 'catalog'
+  | 'catalogRead'
+  | 'catalogLifecycle';
 
 export type ProviderCapabilityValue = ProviderCapability | (string & {});
 
@@ -195,15 +202,17 @@ runtime guards. Payment acceptance remains the responsibility of payment provide
 - Edge case: a provider may also throw `ProviderCapabilityNotSupportedError` from inside a method for a
   partial limitation. Paddle does this for partial refunds (see the Paddle integration page).
 
-`customers` and `catalog` gate the resource managers, not all providers expose customer or catalog
-write APIs:
+Known capabilities gate their matching resource operations before Payable calls a provider:
 
 - **`customers`** guards `payable.customers().create(...)` and `.update(...)`. A read with `.get(...)`
   comes from local storage and is not gated. Provider-backed customer sync also requires the
   `customers` capability before calling `createCustomer` or `updateCustomer`. If a stored customer has
   a provider customer id and the provider declares `customers`, update requires the full
   `CustomerCapable` interface instead of silently falling back to local-only changes.
-- **`catalog`** guards `payable.products().create(...) / .update(...)` and `payable.prices().create(...)`.
+- **`catalog`** guards `payable.products().create(...)`, `payable.products().update(...)`, and
+  `payable.prices().create(...)`.
+- **`catalogRead`** guards product and price `retrieve(...)` and `list(...)` operations.
+- **`catalogLifecycle`** guards product and price `activate(...)` and `archive(...)` operations.
 - **`subscriptions`** guards subscription management. Direct subscription creation also requires this
   declared capability before storage or provider calls, but a provider may still omit
   `DirectSubscriptionCapable` and support subscription creation only through checkout.

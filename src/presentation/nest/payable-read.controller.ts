@@ -19,10 +19,13 @@ import type { Payable } from '../../payable';
 import { safeContentDispositionFilename } from '../shared/payable-http';
 import {
   billableLookupSchema,
+  catalogIdParamSchema,
+  catalogListQuerySchema,
   listInvoicesQuerySchema,
   listRefundsQuerySchema,
   listSubscriptionsQuerySchema,
   parseBody,
+  priceListQuerySchema,
 } from '../shared/schemas';
 import {
   type NestPayableOptions,
@@ -132,6 +135,30 @@ export class PayableReadController {
     return this.payable
       .refunds(undefined, this.tenantOf(request))
       .list(lookup.paymentId, lookup.limit ? { limit: lookup.limit } : undefined);
+  }
+
+  @Get('products')
+  listProducts(@Req() request: PayableHttpRequest, @Query() query: unknown) {
+    const input = parseBody(catalogListQuerySchema, query);
+    return this.payable.products(undefined, this.tenantOf(request)).list(input);
+  }
+
+  @Get('products/:id')
+  getProduct(@Req() request: PayableHttpRequest, @Param('id') id: string) {
+    const productId = parseBody(catalogIdParamSchema, { id }).id;
+    return this.payable.products(undefined, this.tenantOf(request)).retrieve(productId);
+  }
+
+  @Get('prices')
+  listPrices(@Req() request: PayableHttpRequest, @Query() query: unknown) {
+    const input = parseBody(priceListQuerySchema, query);
+    return this.payable.prices(undefined, this.tenantOf(request)).list(input);
+  }
+
+  @Get('prices/:id')
+  getPrice(@Req() request: PayableHttpRequest, @Param('id') id: string) {
+    const priceId = parseBody(catalogIdParamSchema, { id }).id;
+    return this.payable.prices(undefined, this.tenantOf(request)).retrieve(priceId);
   }
 
   private tenantOf(request: PayableHttpRequest): string | null {

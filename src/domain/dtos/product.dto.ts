@@ -17,5 +17,7 @@ export interface UpdateProductInput {
 export interface ProductDTO {
   providerProductId: string;
   name: string;
+  description: string | null;
   active: boolean;
+  metadata: Metadata | null;
 }

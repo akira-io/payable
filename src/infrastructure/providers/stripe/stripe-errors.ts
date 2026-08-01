@@ -1,4 +1,4 @@
-import { PayableError } from '../../../domain/errors/payable-error';
+import { PayableError, type PayableErrorOptions } from '../../../domain/errors/payable-error';
 
 const CODE_BY_TYPE: Record<string, string> = {
   StripeCardError: 'PROVIDER_CARD_DECLINED',
@@ -14,6 +14,8 @@ interface StripeLikeError {
   message?: string;
 }
 
+type StripeNotFoundFactory = (options: PayableErrorOptions) => PayableError;
+
 function isStripeError(error: unknown): error is StripeLikeError {
   if (typeof error !== 'object' || error === null) {
     return false;
@@ -22,17 +24,27 @@ function isStripeError(error: unknown): error is StripeLikeError {
   return typeof type === 'string' && type.startsWith('Stripe');
 }
 
-export async function withStripeErrors<T>(fn: () => Promise<T>, provider = 'stripe'): Promise<T> {
+export async function withStripeErrors<T>(
+  fn: () => Promise<T>,
+  provider = 'stripe',
+  notFound?: StripeNotFoundFactory,
+): Promise<T> {
   try {
     return await fn();
   } catch (error) {
     if (error instanceof PayableError || !isStripeError(error)) {
       throw error;
     }
-    throw new PayableError(error.message ?? 'Stripe request failed', {
-      code: CODE_BY_TYPE[error.type ?? ''] ?? 'PROVIDER_ERROR',
+    const options: PayableErrorOptions = {
       context: { provider, stripeType: error.type, stripeCode: error.code },
       cause: error,
+    };
+    if (error.code === 'resource_missing' && notFound) {
+      throw notFound(options);
+    }
+    throw new PayableError(error.message ?? 'Stripe request failed', {
+      ...options,
+      code: CODE_BY_TYPE[error.type ?? ''] ?? 'PROVIDER_ERROR',
     });
   }
 }
