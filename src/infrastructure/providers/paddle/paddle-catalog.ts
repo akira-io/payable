@@ -26,10 +26,16 @@ export class PaddleCatalog {
         taxCategory: 'standard',
         description: input.description,
         customData: input.metadata,
-        status: input.active === undefined ? undefined : input.active ? 'active' : 'archived',
       }),
     );
-    return toProductDTO(product);
+    if (input.active !== false) {
+      return toProductDTO(product);
+    }
+    const archivedProduct = await withPaddleErrors(
+      () => paddle.products.update(product.id, { status: 'archived' }),
+      'PRODUCT_NOT_FOUND',
+    );
+    return toProductDTO(archivedProduct);
   }
 
   async updateProduct(input: UpdateProductInput, _ctx: OperationContext): Promise<ProductDTO> {

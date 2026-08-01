@@ -76,7 +76,6 @@ export interface PaddleClient {
       taxCategory: string;
       description?: string;
       customData?: Record<string, string>;
-      status?: string;
     }): Promise<PaddleProductEntity>;
     get(id: string): Promise<PaddleProductEntity>;
     list(query?: {
