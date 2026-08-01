@@ -41,6 +41,8 @@ capabilities(): ProviderCapabilities {
     'webhooks',
     'customers',
     'catalog',
+    'catalogRead',
+    'catalogLifecycle',
   ]);
 }
 ```

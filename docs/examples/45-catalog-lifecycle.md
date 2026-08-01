@@ -104,6 +104,8 @@ billing interval, or interval count, create a new price, move new purchases to i
 price.
 
 ```ts
+import { Money } from '@akira-io/payable';
+
 const replacement = await payable.prices().create({
   providerProductId: 'prod_123',
   unitAmount: Money.of(12900, 'USD'),

@@ -100,10 +100,12 @@ capabilities(): ProviderCapabilities {
     'billingPortal',
     'invoicePdf',
     'webhooks',
-      'customers',
-      'paymentMethods',
-      'paymentMethodSetup',
-      'catalog',
+    'customers',
+    'paymentMethods',
+    'paymentMethodSetup',
+    'catalog',
+    'catalogRead',
+    'catalogLifecycle',
   ]);
 }
 ```
@@ -147,11 +149,11 @@ that cursor back unchanged.
 | --- | --- | --- |
 | `products().retrieve(id)` | `products.retrieve(id)` | A missing product maps to `PRODUCT_NOT_FOUND`. |
 | `products().list(input)` | `products.list({ active, limit, starting_after })` | Defaults are applied by the Payable resource before this call. |
-| `products().activate(id)` | `products.update(id, { active: true })` | Forwards the operation idempotency key. |
+| `products().activate(id)` | `products.update(id, { active: true })` | Marks the Stripe product active. |
 | `products().archive(id)` | `products.update(id, { active: false })` | Keeps the Stripe product record. |
 | `prices().retrieve(id)` | `prices.retrieve(id)` | A missing price maps to `PRICE_NOT_FOUND`. |
 | `prices().list(input)` | `prices.list({ active, limit, product, starting_after })` | Supports product and active-state filters. |
-| `prices().activate(id)` | `prices.update(id, { active: true })` | Forwards the operation idempotency key. |
+| `prices().activate(id)` | `prices.update(id, { active: true })` | Marks the Stripe price active. |
 | `prices().archive(id)` | `prices.update(id, { active: false })` | Keeps the Stripe price record. |
 
 Payable exposes no portable delete method for Stripe products or prices. Existing price monetary
