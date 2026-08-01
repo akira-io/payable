@@ -7,6 +7,35 @@ The event classes are exported public API (typed contracts consumers can build, 
 - **In-process `EventBus` (best-effort).** The engine itself currently instantiates and emits exactly one of these classes: `WebhookProcessedEvent`, emitted by the `process-webhook` pipeline **after** its transaction commits, fire-and-forget (`.emit(...).catch(() => {})`). It is not transactional and is not retried. The other 13 classes are provided as typed contracts but are **not** emitted internally yet - emit them from your own listeners/actions if you need them.
 - **Transactional outbox (at-least-once).** Durable, replayable publication does **not** go through these classes. The `process-webhook` pipeline writes an `OutboxEvent` row in the same transaction as the webhook state change, keyed by an `eventType` string of the form `${normalizedType}.v1` (e.g. `payment.succeeded.v1`) with `{ providerEventId, data }` as payload and a `dedupeKey`. The outbox relay then delivers it **at least once**: a crash between delivery and marking the row published redelivers the same event, so consumers must deduplicate on the stable outbox event `id` (delivered as the envelope `id`) or on `providerEventId`. See [Reliability](../features/15-reliability.md). The durable event stream is keyed by normalized-type strings, not by the `DomainEvent` subclasses below.
 
+## Catalog outbox events
+
+When storage is configured, a changed catalog entity and its audit and outbox records commit in one
+local transaction. Catalog mutations write these outbox event types:
+
+| Mutation | Event type |
+| --- | --- |
+| Product created | `product.created.v1` |
+| Product updated | `product.updated.v1` |
+| Product activated | `product.activated.v1` |
+| Product archived | `product.archived.v1` |
+| Price created | `price.created.v1` |
+| Price activated | `price.activated.v1` |
+| Price archived | `price.archived.v1` |
+
+Every catalog outbox record has `eventVersion: 1`, the operation `correlationId`, and a normalized
+payload with these fields:
+
+- `action`: the portable mutation name, such as `product.update`.
+- `resourceType`: `product` or `price`.
+- `resourceId`: the local entity ID.
+- `provider`: the registered provider name.
+- `providerResourceId`: the provider's product or price ID.
+- `tenantId`: the current tenant or `null`.
+- `state`: the normalized durable catalog snapshot.
+
+These records use the transactional outbox, not the in-process `EventBus`. Consumers should apply the
+same at-least-once delivery deduplication described above.
+
 ## DomainEvent base
 
 `src/domain/events/domain-event.ts`. The abstract base every event extends.
