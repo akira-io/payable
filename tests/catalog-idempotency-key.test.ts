@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CatalogMutationOptions } from '../src/application/builders/catalog-mutation-options';
 import {
+  type CatalogProviderKeyInput,
   catalogIdempotencyScope,
   deriveCatalogProviderKey,
   validateCatalogIdempotencyKey,
@@ -20,6 +21,8 @@ describe('catalog idempotency key', () => {
     ' key',
     'key ',
     'x'.repeat(256),
+    '\uD800',
+    '\uDC00',
   ])('rejects invalid caller key %j', (callerKey) => {
     expect(() => validateCatalogIdempotencyKey(callerKey)).toThrow(InvalidIdempotencyKeyError);
   });
@@ -36,10 +39,10 @@ describe('catalog idempotency key', () => {
   });
 
   it('derives a deterministic provider-safe key scoped to the catalog mutation', async () => {
-    const input = {
+    const input: CatalogProviderKeyInput = {
       tenantId: 'tenant-a',
       providerName: 'stripe-primary',
-      action: 'product.create' as const,
+      action: 'product.create',
       callerKey: 'order-123',
     };
 
@@ -60,5 +63,22 @@ describe('catalog idempotency key', () => {
     expect(derivedKey).not.toBe(changedAction);
     expect(derivedKey).not.toBe(changedCallerKey);
     expect([...derivedKey].length).toBeLessThanOrEqual(255);
+  });
+
+  it('uses a tagged default tenant scope distinct from explicit tenant identifiers', async () => {
+    const input: CatalogProviderKeyInput = {
+      providerName: 'stripe-primary',
+      action: 'product.create',
+      callerKey: 'order-123',
+    };
+
+    const undefinedTenant = await deriveCatalogProviderKey(input);
+    const nullTenant = await deriveCatalogProviderKey({ ...input, tenantId: null });
+    const namedDefaultTenant = await deriveCatalogProviderKey({ ...input, tenantId: 'default' });
+    const namedTenant = await deriveCatalogProviderKey({ ...input, tenantId: 'tenant-a' });
+
+    expect(undefinedTenant).toBe(nullTenant);
+    expect(undefinedTenant).not.toBe(namedDefaultTenant);
+    expect(undefinedTenant).not.toBe(namedTenant);
   });
 });
