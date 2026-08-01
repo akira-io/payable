@@ -52,14 +52,6 @@ export class CatalogPersistenceCoordinator {
             ? await updateCatalogProduct(repositories.products, before, target, tenantId)
             : await repositories.products.create(target);
           if (!after) {
-            const concurrent = await repositories.products.findByProviderId(
-              this.dependencies.providerName,
-              product.providerProductId,
-              tenantId,
-            );
-            if (concurrent && productMatches(concurrent, target)) {
-              return;
-            }
             throw new Error(
               `Product ${product.providerProductId} changed during catalog persistence`,
             );
@@ -144,14 +136,6 @@ export class CatalogPersistenceCoordinator {
             ? await updateCatalogPrice(repositories.prices, before, durableTarget, tenantId)
             : await repositories.prices.create(durableTarget);
           if (!after) {
-            const concurrent = await repositories.prices.findByProviderId(
-              this.dependencies.providerName,
-              price.providerPriceId,
-              tenantId,
-            );
-            if (concurrent && priceMatches(concurrent, durableTarget)) {
-              return;
-            }
             throw new Error(`Price ${price.providerPriceId} changed during catalog persistence`);
           }
           await recordCatalogTransition(repositories, {

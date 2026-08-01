@@ -1,16 +1,12 @@
 import type { Knex } from 'knex';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
-import type { ProductRepository } from '../src/domain/contracts/product-repository.contract';
 import { CatalogPersistenceError } from '../src/domain/errors/catalog-persistence.error';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { FakeClock } from '../src/support/clock/fake-clock';
-import {
-  hideFirstProductProviderRead,
-  replaceTransactionRepositories,
-  withTransaction,
-} from './support/catalog-recovery-storage';
+import { withPriceCasLoss, withProductCasLoss } from './support/catalog-cas-recovery-storage';
+import { hideFirstProductProviderRead, withTransaction } from './support/catalog-recovery-storage';
 import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
 
@@ -89,10 +85,8 @@ describe('catalog concurrent persistence recovery', () => {
       active: true,
       metadata: null,
     });
-    const divergentStorage = replaceTransactionRepositories(storage, (repositories) => ({
-      ...repositories,
-      products: rejectProductCompareAndSet(repositories.products),
-    }));
+    const reads = { recovery: 0, transaction: 0 };
+    const divergentStorage = withProductCasLoss(storage, reads);
     const products = createPayable({
       providers: { registered: new FakeProvider() },
       storage: divergentStorage,
@@ -111,19 +105,75 @@ describe('catalog concurrent persistence recovery', () => {
     await expect(
       storage.products.findByProviderId('registered', 'prod_fake', 'tenant-a'),
     ).resolves.toMatchObject({ name: 'Durable winner' });
+    expect(reads).toEqual({ recovery: 1, transaction: 1 });
+    expect(await storage.auditLogs.list({ tenantId: 'tenant-a' })).toEqual([]);
+    expect(await storage.outboxEvents.claimPending(10)).toEqual([]);
+  });
+
+  it('classifies a matching product winner only through the recovery read', async () => {
+    const durable = await storage.products.create({
+      tenantId: 'tenant-a',
+      provider: 'registered',
+      providerProductId: 'prod_fake',
+      name: 'Converged target',
+      description: null,
+      active: true,
+      metadata: null,
+    });
+    const reads = { recovery: 0, transaction: 0 };
+    const concurrentStorage = withProductCasLoss(storage, reads, {
+      ...durable,
+      name: 'Stale state',
+    });
+    const products = createPayable({
+      providers: { registered: new FakeProvider() },
+      storage: concurrentStorage,
+    }).products('registered', 'tenant-a');
+
+    await expect(
+      products.update({ providerProductId: 'prod_fake', name: 'Converged target' }),
+    ).resolves.toMatchObject({ providerProductId: 'prod_fake' });
+
+    expect(reads).toEqual({ recovery: 1, transaction: 1 });
+    expect(await storage.auditLogs.list({ tenantId: 'tenant-a' })).toEqual([]);
+    expect(await storage.outboxEvents.claimPending(10)).toEqual([]);
+  });
+
+  it('classifies a divergent price loser after one recovery read', async () => {
+    const product = await storage.products.create({
+      tenantId: 'tenant-a',
+      provider: 'registered',
+      providerProductId: 'prod_fake',
+      name: 'Pro',
+      description: null,
+      active: true,
+      metadata: null,
+    });
+    await storage.prices.create({
+      tenantId: 'tenant-a',
+      provider: 'registered',
+      providerPriceId: 'price_fake',
+      productId: product.id,
+      currency: 'USD',
+      unitAmount: 1000,
+      interval: 'month',
+      intervalCount: 1,
+      active: true,
+    });
+    const reads = { recovery: 0, transaction: 0 };
+    const prices = createPayable({
+      providers: { registered: new FakeProvider() },
+      storage: withPriceCasLoss(storage, reads),
+    }).prices('registered', 'tenant-a');
+
+    await expect(prices.archive('price_fake')).rejects.toMatchObject({
+      code: 'CATALOG_PERSISTENCE_FAILED',
+      context: { providerResourceId: 'price_fake', action: 'price.archive' },
+      cause: expect.objectContaining({ message: expect.stringContaining('changed') }),
+    });
+
+    expect(reads).toEqual({ recovery: 1, transaction: 1 });
     expect(await storage.auditLogs.list({ tenantId: 'tenant-a' })).toEqual([]);
     expect(await storage.outboxEvents.claimPending(10)).toEqual([]);
   });
 });
-
-function rejectProductCompareAndSet(repository: ProductRepository): ProductRepository {
-  return new Proxy(repository, {
-    get(target, property, receiver) {
-      if (property === 'updateIfUnchanged') {
-        return async () => null;
-      }
-      const member = Reflect.get(target, property, receiver);
-      return typeof member === 'function' ? member.bind(target) : member;
-    },
-  });
-}
