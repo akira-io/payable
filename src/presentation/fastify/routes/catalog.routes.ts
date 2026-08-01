@@ -1,5 +1,7 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { CatalogMutationOptions } from '../../../application/builders/catalog-mutation-options';
 import type { Payable } from '../../../payable';
+import { resolveCatalogIdempotencyHeader } from '../../shared/catalog-idempotency';
 import {
   catalogIdParamSchema,
   catalogListQuerySchema,
@@ -12,6 +14,19 @@ import {
 } from '../../shared/schemas';
 import type { FastifyPayableOptions } from '../helpers';
 import { DEFAULT_BODY_LIMIT, DEFAULT_ROUTE_RATE_LIMIT } from '../limits';
+
+function mutationOptionsFor(
+  request: FastifyRequest,
+  options: FastifyPayableOptions,
+): CatalogMutationOptions {
+  return {
+    authorization: options.resolveAuthorization?.(request),
+    idempotencyKey: resolveCatalogIdempotencyHeader({
+      headers: request.headers,
+      rawHeaders: request.raw.rawHeaders,
+    }),
+  };
+}
 
 export async function registerCatalogRoutes(
   scope: FastifyInstance,
@@ -38,43 +53,54 @@ export async function registerCatalogRoutes(
   scope.post('/products/:id/activate', writeOptions, async (request, reply) => {
     const { id } = parseBody(catalogIdParamSchema, request.params);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    const authorization = options.resolveAuthorization?.(request);
     reply
       .status(200)
-      .send(await payable.products(undefined, tenantId).activate(id, { authorization }));
+      .send(
+        await payable
+          .products(undefined, tenantId)
+          .activate(id, mutationOptionsFor(request, options)),
+      );
   });
 
   scope.post('/products/:id/archive', writeOptions, async (request, reply) => {
     const { id } = parseBody(catalogIdParamSchema, request.params);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    const authorization = options.resolveAuthorization?.(request);
     reply
       .status(200)
-      .send(await payable.products(undefined, tenantId).archive(id, { authorization }));
+      .send(
+        await payable
+          .products(undefined, tenantId)
+          .archive(id, mutationOptionsFor(request, options)),
+      );
   });
 
   scope.post('/products', writeOptions, async (request, reply) => {
     const body = parseBody(productBodySchema, request.body);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    const authorization = options.resolveAuthorization?.(request);
     reply
       .status(201)
-      .send(await payable.products(undefined, tenantId).create(body, { authorization }));
+      .send(
+        await payable
+          .products(undefined, tenantId)
+          .create(body, mutationOptionsFor(request, options)),
+      );
   });
 
   scope.patch('/products', writeOptions, async (request, reply) => {
     const body = parseBody(productUpdateBodySchema, request.body);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    const authorization = options.resolveAuthorization?.(request);
     reply
       .status(200)
-      .send(await payable.products(undefined, tenantId).update(body, { authorization }));
+      .send(
+        await payable
+          .products(undefined, tenantId)
+          .update(body, mutationOptionsFor(request, options)),
+      );
   });
 
   scope.post('/prices', writeOptions, async (request, reply) => {
     const body = parseBody(priceBodySchema, request.body);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    const authorization = options.resolveAuthorization?.(request);
     const price = await payable.prices(undefined, tenantId).create(
       {
         providerProductId: body.providerProductId,
@@ -83,7 +109,7 @@ export async function registerCatalogRoutes(
         intervalCount: body.intervalCount,
         description: body.description,
       },
-      { authorization },
+      mutationOptionsFor(request, options),
     );
     reply.status(201).send(price);
   });
@@ -103,18 +129,22 @@ export async function registerCatalogRoutes(
   scope.post('/prices/:id/activate', writeOptions, async (request, reply) => {
     const { id } = parseBody(catalogIdParamSchema, request.params);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    const authorization = options.resolveAuthorization?.(request);
     reply
       .status(200)
-      .send(await payable.prices(undefined, tenantId).activate(id, { authorization }));
+      .send(
+        await payable
+          .prices(undefined, tenantId)
+          .activate(id, mutationOptionsFor(request, options)),
+      );
   });
 
   scope.post('/prices/:id/archive', writeOptions, async (request, reply) => {
     const { id } = parseBody(catalogIdParamSchema, request.params);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    const authorization = options.resolveAuthorization?.(request);
     reply
       .status(200)
-      .send(await payable.prices(undefined, tenantId).archive(id, { authorization }));
+      .send(
+        await payable.prices(undefined, tenantId).archive(id, mutationOptionsFor(request, options)),
+      );
   });
 }
