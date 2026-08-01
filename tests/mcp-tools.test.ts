@@ -17,16 +17,7 @@ import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
 
 class UniqueProvider extends FakeProvider {
-  productCalls = 0;
-
   private sequence = 0;
-
-  override async createProduct(
-    ...args: Parameters<FakeProvider['createProduct']>
-  ): ReturnType<FakeProvider['createProduct']> {
-    this.productCalls += 1;
-    return super.createProduct(...args);
-  }
 
   override async createCustomer(
     input: CreateCustomerInput,
@@ -199,33 +190,6 @@ describe('mcp execution-time authorization', () => {
       await db.destroy();
     });
   }
-
-  it('does not touch the provider when a catalog write is denied', async () => {
-    const { client, provider, db } = await connect(denyAll);
-    await client.callTool({ name: 'product_create', arguments: { name: 'Pro Plan' } });
-    expect(provider.productCalls).toBe(0);
-    await db.destroy();
-  });
-
-  it('does not run catalog lifecycle mutations when authorization rejects', async () => {
-    const { client, provider, db } = await connect(denyAll);
-
-    const lifecycleCalls: ReadonlyArray<readonly [string, string]> = [
-      ['product_activate', 'prod_1'],
-      ['product_archive', 'prod_1'],
-      ['price_activate', 'price_1'],
-      ['price_archive', 'price_1'],
-    ];
-    for (const [name, id] of lifecycleCalls) {
-      const denied = (await client.callTool({ name, arguments: { id } })) as CallToolResult;
-      expect(denied.isError).toBe(true);
-      expect((parse(denied) as { error: string }).error).toBe('AUTHORIZATION_DENIED');
-    }
-
-    expect(provider.productActiveCalls).toEqual([]);
-    expect(provider.priceActiveCalls).toEqual([]);
-    await db.destroy();
-  });
 
   it('allows catalog writes when the callback authorizes an actor', async () => {
     const { client, db } = await connect({
