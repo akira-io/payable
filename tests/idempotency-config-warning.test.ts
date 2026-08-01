@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { DependencyFactory } from '../src/application/builders/dependency-factory';
 import { createPayable } from '../src/create-payable';
 import type { Logger } from '../src/domain/contracts/logger.contract';
+import { ProviderRegistry } from '../src/provider-registry';
+import { resolveConfig } from '../src/support/config/payable-config';
+import { TreasuryProviderRegistry } from '../src/treasury-provider-registry';
 import { FakeProvider } from './support/fake-provider';
+import { InMemoryIdempotencyStore } from './support/fakes';
 
 function recordingLogger() {
   const warnings: string[] = [];
@@ -39,5 +44,41 @@ describe('idempotency configuration warning', () => {
       idempotency: { enabled: false },
     });
     expect(warnings).toHaveLength(0);
+  });
+
+  it('wires catalog idempotency in manual mode without changing general idempotency', () => {
+    const provider = new FakeProvider();
+    const resolved = resolveConfig({
+      providers: { stripe: provider },
+      idempotency: { strategy: 'manual', store: new InMemoryIdempotencyStore() },
+    });
+    const factory = new DependencyFactory(
+      resolved,
+      new ProviderRegistry(resolved.providers),
+      new TreasuryProviderRegistry(resolved.treasuryProviders),
+    );
+
+    const dependencies = factory.billing('stripe');
+
+    expect(dependencies.idempotency).toBeUndefined();
+    expect(dependencies.catalogIdempotency).toBeDefined();
+  });
+
+  it('shares one configured service for automatic and catalog idempotency', () => {
+    const provider = new FakeProvider();
+    const resolved = resolveConfig({
+      providers: { stripe: provider },
+      idempotency: { store: new InMemoryIdempotencyStore() },
+    });
+    const factory = new DependencyFactory(
+      resolved,
+      new ProviderRegistry(resolved.providers),
+      new TreasuryProviderRegistry(resolved.treasuryProviders),
+    );
+
+    const dependencies = factory.billing('stripe');
+
+    expect(dependencies.idempotency).toBeDefined();
+    expect(dependencies.catalogIdempotency).toBe(dependencies.idempotency);
   });
 });

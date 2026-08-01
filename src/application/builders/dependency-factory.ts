@@ -21,6 +21,7 @@ export class DependencyFactory {
       throw new ProviderNotFoundError(providerName ?? 'default');
     }
     this.assertTenant(tenantId);
+    const configuredIdempotency = this.configuredIdempotencyService();
     return {
       provider: this.registry.get(name),
       providerName: name,
@@ -28,7 +29,9 @@ export class DependencyFactory {
       storage: this.resolved.storage,
       tenantId: tenantId ?? null,
       authorizationEnabled: this.resolved.authorizationEnabled,
-      idempotency: this.idempotencyService(),
+      idempotency:
+        this.resolved.idempotency.strategy === 'manual' ? undefined : configuredIdempotency,
+      catalogIdempotency: configuredIdempotency,
       logger: this.resolved.logger,
     };
   }
@@ -79,9 +82,9 @@ export class DependencyFactory {
     }
   }
 
-  private idempotencyService(): IdempotencyService | undefined {
-    const { enabled, strategy, store } = this.resolved.idempotency;
-    if (!enabled || strategy === 'manual' || !store) {
+  private configuredIdempotencyService(): IdempotencyService | undefined {
+    const { enabled, store } = this.resolved.idempotency;
+    if (!enabled || !store) {
       return undefined;
     }
     return new IdempotencyService(store, this.resolved.clock);
