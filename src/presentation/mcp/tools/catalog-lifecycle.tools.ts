@@ -41,13 +41,13 @@ function registerLifecycleTool(
     },
     (args) =>
       respond(() => {
-        authorizeTool(toolName, args, options);
+        const authorization = authorizeTool(toolName, args, options);
         const provider = providerFrom(args, options);
         const tenant = tenantFrom(args, options);
         if (resource === 'product') {
-          return payable.products(provider, tenant)[action](args.id);
+          return payable.products(provider, tenant)[action](args.id, authorization);
         }
-        return payable.prices(provider, tenant)[action](args.id);
+        return payable.prices(provider, tenant)[action](args.id, authorization);
       }),
   );
 }

@@ -102,6 +102,24 @@ describe('payable.products / payable.prices', () => {
     expect(provider.priceActiveCalls.at(-1)).toMatchObject({ id: 'price_fake', active: true });
   });
 
+  it('rejects lifecycle mutations before provider calls when authorization is denied', async () => {
+    const provider = new FakeProvider();
+    const payable = createPayable({
+      providers: { stripe: provider },
+      authorization: { enabled: true },
+    });
+
+    await expect(payable.products().archive('prod_fake')).rejects.toMatchObject({
+      code: 'AUTHORIZATION_DENIED',
+    });
+    await expect(
+      payable.prices().activate('price_fake', { allowed: false, actorId: 'viewer' }),
+    ).rejects.toMatchObject({ code: 'AUTHORIZATION_DENIED' });
+
+    expect(provider.productActiveCalls).toEqual([]);
+    expect(provider.priceActiveCalls).toEqual([]);
+  });
+
   it('rejects reads when the provider lacks the catalog read capability', async () => {
     const provider = new FakeProvider();
     provider.supportedCapabilities.delete('catalogRead');

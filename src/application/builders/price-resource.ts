@@ -7,6 +7,8 @@ import type { CatalogPage, ListPricesInput } from '../../domain/dtos/catalog.dto
 import type { OperationContext } from '../../domain/dtos/common.dto';
 import type { CreatePriceInput, PriceDTO } from '../../domain/dtos/price.dto';
 import { CorrelationId } from '../../domain/value-objects/correlation-id';
+import { assertAuthorized } from '../policies/assert-authorized';
+import { type AuthorizationContext, isAuthorized } from '../policies/authorization-context';
 import { normalizeCatalogListInput } from '../services/catalog/normalize-catalog-list-input';
 import { assertCapableProvider } from '../services/provider-capabilities/assert-provider-capability';
 import type { BillingDependencies } from './billing-dependencies';
@@ -32,15 +34,25 @@ export class PriceResource {
     return provider.listPrices(normalizeCatalogListInput(input));
   }
 
-  async activate(id: string): Promise<PriceDTO> {
-    return this.setActive(id, true);
+  async activate(id: string, authorization?: AuthorizationContext): Promise<PriceDTO> {
+    return this.setActive(id, true, authorization);
   }
 
-  async archive(id: string): Promise<PriceDTO> {
-    return this.setActive(id, false);
+  async archive(id: string, authorization?: AuthorizationContext): Promise<PriceDTO> {
+    return this.setActive(id, false, authorization);
   }
 
-  private async setActive(id: string, active: boolean): Promise<PriceDTO> {
+  private async setActive(
+    id: string,
+    active: boolean,
+    authorization?: AuthorizationContext,
+  ): Promise<PriceDTO> {
+    assertAuthorized(
+      this.deps.authorizationEnabled ?? false,
+      isAuthorized,
+      authorization,
+      `${active ? 'activate' : 'archive'} price`,
+    );
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'catalogLifecycle', isCatalogLifecycleCapable);
     return provider.setPriceActive(id, active, this.context());

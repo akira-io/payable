@@ -7,10 +7,17 @@ import { createPayableMcpServer } from '../src/presentation/mcp/index';
 import type { McpPayableOptions } from '../src/presentation/mcp/options';
 import { FakeProvider } from './support/fake-provider';
 
-async function connect(options: McpPayableOptions = { defaultTenantId: 'tenant-a' }) {
+async function connect(
+  options: McpPayableOptions = { defaultTenantId: 'tenant-a' },
+  authorizationEnabled = false,
+) {
   const stripe = new FakeProvider();
   const paddle = new FakeProvider();
-  const payable = createPayable({ providers: { stripe, paddle }, tenant: { enabled: true } });
+  const payable = createPayable({
+    providers: { stripe, paddle },
+    tenant: { enabled: true },
+    authorization: { enabled: authorizationEnabled },
+  });
   const server = createPayableMcpServer(payable, {
     ...options,
     policy: {
@@ -97,6 +104,18 @@ describe('mcp catalog tools', () => {
       })) as CallToolResult;
       expect(invalid.isError).toBe(true);
     }
+  });
+
+  it('passes the authorized MCP context to lifecycle resources', async () => {
+    const { client, paddle } = await connect({ defaultTenantId: 'tenant-a' }, true);
+
+    const result = (await client.callTool({
+      name: 'product_archive',
+      arguments: { provider: 'paddle', id: 'prod_fake' },
+    })) as CallToolResult;
+
+    expect(result.isError).toBeUndefined();
+    expect(paddle.productActiveCalls).toMatchObject([{ id: 'prod_fake', active: false }]);
   });
 
   it('accepts and forwards both list limit boundaries', async () => {

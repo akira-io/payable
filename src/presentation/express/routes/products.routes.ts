@@ -40,7 +40,13 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const { id } = parseBody(catalogIdParamSchema, req.params);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      res.status(200).json(await payable.products(undefined, tenantId).activate(id));
+      res
+        .status(200)
+        .json(
+          await payable
+            .products(undefined, tenantId)
+            .activate(id, options.resolveAuthorization?.(req)),
+        );
     }),
   );
 
@@ -49,7 +55,13 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const { id } = parseBody(catalogIdParamSchema, req.params);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      res.status(200).json(await payable.products(undefined, tenantId).archive(id));
+      res
+        .status(200)
+        .json(
+          await payable
+            .products(undefined, tenantId)
+            .archive(id, options.resolveAuthorization?.(req)),
+        );
     }),
   );
 
@@ -115,7 +127,13 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const { id } = parseBody(catalogIdParamSchema, req.params);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      res.status(200).json(await payable.prices(undefined, tenantId).activate(id));
+      res
+        .status(200)
+        .json(
+          await payable
+            .prices(undefined, tenantId)
+            .activate(id, options.resolveAuthorization?.(req)),
+        );
     }),
   );
 
@@ -124,7 +142,13 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const { id } = parseBody(catalogIdParamSchema, req.params);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      res.status(200).json(await payable.prices(undefined, tenantId).archive(id));
+      res
+        .status(200)
+        .json(
+          await payable
+            .prices(undefined, tenantId)
+            .archive(id, options.resolveAuthorization?.(req)),
+        );
     }),
   );
 }

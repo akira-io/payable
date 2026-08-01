@@ -191,6 +191,35 @@ describe('express adapter', () => {
     ]);
   });
 
+  it('denies catalog lifecycle requests before provider mutation', async () => {
+    const provider = new FakeProvider();
+    const payable = createPayable({
+      providers: { stripe: provider },
+      authorization: { enabled: true },
+    });
+    const app = express();
+    app.use(
+      '/payable',
+      createExpressPayableRoutes(payable, {
+        authenticate: (_req, _res, next) => next(),
+        resolveAuthorization: () => ({ allowed: false, actorId: 'viewer' }),
+      }),
+    );
+
+    for (const path of [
+      '/payable/products/prod_fake/activate',
+      '/payable/products/prod_fake/archive',
+      '/payable/prices/price_fake/activate',
+      '/payable/prices/price_fake/archive',
+    ]) {
+      const response = await request(app).post(path);
+      expect(response.status).toBe(403);
+      expect(response.body).toMatchObject({ error: 'AUTHORIZATION_DENIED' });
+    }
+    expect(provider.productActiveCalls).toEqual([]);
+    expect(provider.priceActiveCalls).toEqual([]);
+  });
+
   it('maps missing products and prices to 404 responses', async () => {
     const provider = new FakeProvider();
     provider.retrieveProduct = async () => {
