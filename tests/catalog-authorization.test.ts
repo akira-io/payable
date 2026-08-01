@@ -1,6 +1,7 @@
 import type { Knex } from 'knex';
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
+import type { StorageDriver } from '../src/domain/contracts/storage-driver.contract';
 import { Money } from '../src/domain/value-objects/money';
 import type {
   CatalogMutationAction,
@@ -96,14 +97,30 @@ async function setup(authorizationEnabled: boolean) {
   await migrate(db);
   const provider = new FakeProvider();
   const clock = new FakeClock(new Date('2026-08-01T00:00:00.000Z'));
+  const storage = new KnexStorageDriver(db, clock);
   const payable = createPayable({
     providers: { stripe: provider },
-    storage: new KnexStorageDriver(db, clock),
+    storage,
     clock,
     authorization: { enabled: authorizationEnabled },
   });
 
-  return { db, payable, provider };
+  return { db, payable, provider, storage };
+}
+
+async function seedPriceParent(storage: StorageDriver, mutation: MutationCase): Promise<void> {
+  if (!mutation.action.startsWith('price.')) {
+    return;
+  }
+  await storage.products.create({
+    tenantId: null,
+    provider: 'stripe',
+    providerProductId: 'prod_fake',
+    name: 'Price parent',
+    description: null,
+    active: true,
+    metadata: null,
+  });
 }
 
 describe('catalog mutation authorization', () => {
@@ -149,7 +166,8 @@ describe('catalog mutation authorization', () => {
   });
 
   it.each(mutations)('allows %s with an authorized context', async (mutation) => {
-    const { db, payable, provider } = await setup(true);
+    const { db, payable, provider, storage } = await setup(true);
+    await seedPriceParent(storage, mutation);
 
     await mutation.run(payable, {
       authorization: {
@@ -187,7 +205,8 @@ describe('catalog mutation authorization', () => {
   it.each(
     mutations,
   )('allows %s with an authorized explicit context when authorization is disabled', async (mutation) => {
-    const { db, payable, provider } = await setup(false);
+    const { db, payable, provider, storage } = await setup(false);
+    await seedPriceParent(storage, mutation);
 
     await mutation.run(payable, {
       authorization: { allowed: true, actorId: 'catalog-admin' },
@@ -200,7 +219,8 @@ describe('catalog mutation authorization', () => {
   it.each(
     mutations,
   )('allows %s without options when authorization is disabled', async (mutation) => {
-    const { db, payable, provider } = await setup(false);
+    const { db, payable, provider, storage } = await setup(false);
+    await seedPriceParent(storage, mutation);
 
     await mutation.run(payable);
 

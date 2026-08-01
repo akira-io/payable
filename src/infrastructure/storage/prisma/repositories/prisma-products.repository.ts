@@ -7,6 +7,7 @@ import type {
 import type { Product } from '../../../../domain/entities/product.entity';
 import { assertCatalogTenantId, assertCatalogTenantIds } from '../../catalog-tenant';
 import { productPatchToRow, productToEntity, productToRow } from '../mappers/product.mapper';
+import { stripUndefined } from '../mappers/shared';
 import type { PrismaClient, PrismaProductRow } from '../prisma-client.types';
 import { PrismaRepository } from '../prisma-repository';
 
@@ -40,6 +41,26 @@ export class PrismaProductRepository
   ): Promise<Product> {
     assertCatalogTenantId(tenantId);
     return super.update(id, patch, tenantId);
+  }
+
+  async updateIfUnchanged(
+    id: string,
+    expected: Product,
+    patch: ProductPatch,
+    tenantId: string | null,
+  ): Promise<Product | null> {
+    assertCatalogTenantId(tenantId);
+    const updated = await this.delegate.updateMany({
+      where: {
+        ...this.scopedWhere(id, tenantId),
+        ...productPatchToRow(expected),
+      },
+      data: stripUndefined({
+        ...productPatchToRow(patch),
+        updatedAt: this.clock.now(),
+      }),
+    });
+    return updated.count > 0 ? this.findByIdOrFail(id, tenantId) : null;
   }
 
   async findByProviderId(

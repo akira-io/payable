@@ -1,14 +1,8 @@
+import type { CatalogPersistenceAction } from '../../domain/entities/catalog-mutation.entity';
 import { assertAuthorized } from './assert-authorized';
 import { type AuthorizationContext, isAuthorized } from './authorization-context';
 
-export type CatalogMutationAction =
-  | 'product.create'
-  | 'product.update'
-  | 'product.activate'
-  | 'product.archive'
-  | 'price.create'
-  | 'price.activate'
-  | 'price.archive';
+export type CatalogMutationAction = CatalogPersistenceAction;
 
 const ACTION_LABELS: Record<CatalogMutationAction, string> = {
   'product.create': 'create product',

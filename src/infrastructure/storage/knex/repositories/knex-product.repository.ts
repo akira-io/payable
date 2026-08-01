@@ -6,7 +6,7 @@ import type {
 import type { Product } from '../../../../domain/entities/product.entity';
 import { assertCatalogTenantId, assertCatalogTenantIds } from '../../catalog-tenant';
 import { KnexRepository } from '../knex-repository';
-import { fromJson, toBool, toDate, toJson } from '../mappers';
+import { fromJson, stripUndefined, toBool, toDate, toJson } from '../mappers';
 
 export class KnexProductRepository
   extends KnexRepository<Product, NewProduct>
@@ -36,6 +36,24 @@ export class KnexProductRepository
   ): Promise<Product> {
     assertCatalogTenantId(tenantId);
     return super.update(id, patch, tenantId);
+  }
+
+  async updateIfUnchanged(
+    id: string,
+    expected: Product,
+    patch: ProductPatch,
+    tenantId: string | null,
+  ): Promise<Product | null> {
+    assertCatalogTenantId(tenantId);
+    const updated = await this.knex(this.table)
+      .where({
+        ...this.scopedWhere(id, tenantId),
+        ...this.toUpdateRow(expected),
+      })
+      .update(
+        stripUndefined({ ...this.toUpdateRow(patch), updated_at: this.clock.now().toISOString() }),
+      );
+    return updated > 0 ? this.findByIdOrFail(id, tenantId) : null;
   }
 
   async findByProviderId(

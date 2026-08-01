@@ -7,6 +7,7 @@ export interface StorageHarness {
   idempotency: IdempotencyStore;
   clock: FakeClock;
   readCatalogRow(kind: 'product' | 'price', id: string): Promise<CatalogRowSnapshot | null>;
+  setRawPriceCurrency(id: string, currency: string): Promise<void>;
   reset(): Promise<void>;
   teardown(): Promise<void>;
 }

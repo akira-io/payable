@@ -13,6 +13,7 @@ import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
 import { createNestExpressApplication } from './support/nest-express-application';
+import { seedAuthorizedCatalogProduct } from './support/seed-authorized-catalog';
 
 type Mutation = {
   method: 'patch' | 'post';
@@ -80,9 +81,11 @@ async function setup(allowed: boolean) {
     tenantId: 'tenant-a',
   };
   const resolveAuthorization = vi.fn(() => authorization);
+  const storage = new KnexStorageDriver(db, new FakeClock());
+  await seedAuthorizedCatalogProduct(storage, allowed);
   const payable = createPayable({
     providers: { stripe: provider },
-    storage: new KnexStorageDriver(db, new FakeClock()),
+    storage,
     tenant: { enabled: true },
     authorization: { enabled: true },
   });

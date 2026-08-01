@@ -9,6 +9,7 @@ import { createFastifyPayablePlugin } from '../src/presentation/fastify/create-f
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
+import { seedAuthorizedCatalogProduct } from './support/seed-authorized-catalog';
 
 type Mutation = {
   method: 'PATCH' | 'POST';
@@ -69,9 +70,11 @@ async function setup(allowed: boolean) {
     tenantId: 'tenant-a',
   };
   const resolveAuthorization = vi.fn(() => authorization);
+  const storage = new KnexStorageDriver(db, new FakeClock());
+  await seedAuthorizedCatalogProduct(storage, allowed);
   const payable = createPayable({
     providers: { stripe: provider },
-    storage: new KnexStorageDriver(db, new FakeClock()),
+    storage,
     authorization: { enabled: true },
   });
   const app = Fastify();
@@ -79,6 +82,7 @@ async function setup(allowed: boolean) {
     createFastifyPayablePlugin(payable, {
       authenticate: async () => undefined,
       resolveAuthorization,
+      resolveTenant: () => 'tenant-a',
     }),
     { prefix: '/payable' },
   );

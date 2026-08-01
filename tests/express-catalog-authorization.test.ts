@@ -10,6 +10,7 @@ import { createExpressPayableRoutes } from '../src/presentation/express/create-e
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
+import { seedAuthorizedCatalogProduct } from './support/seed-authorized-catalog';
 
 type Mutation = {
   method: 'patch' | 'post';
@@ -70,13 +71,18 @@ async function setup(allowed: boolean) {
     tenantId: 'tenant-a',
   };
   const resolveAuthorization = vi.fn(() => authorization);
+  const storage = new KnexStorageDriver(db, new FakeClock());
+  await seedAuthorizedCatalogProduct(storage, allowed);
   const payable = createPayable({
     providers: { stripe: provider },
-    storage: new KnexStorageDriver(db, new FakeClock()),
+    storage,
     authorization: { enabled: true },
   });
   const app = express();
-  app.use('/payable', createExpressPayableRoutes(payable, { resolveAuthorization }));
+  app.use(
+    '/payable',
+    createExpressPayableRoutes(payable, { resolveAuthorization, resolveTenant: () => 'tenant-a' }),
+  );
 
   return { app, authorization, db, provider, resolveAuthorization };
 }

@@ -1,4 +1,9 @@
 export { AccountingProviderNotFoundError } from './accounting-provider-not-found.error';
+export {
+  CatalogPersistenceError,
+  type CatalogPersistenceFailure,
+  type CatalogPersistenceResource,
+} from './catalog-persistence.error';
 export { CustomerNotFoundError } from './customer-not-found.error';
 export { CustomerProviderBindingConflictError } from './customer-provider-binding-conflict.error';
 export { CustomerProviderBindingPersistenceError } from './customer-provider-binding-persistence.error';

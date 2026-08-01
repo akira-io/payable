@@ -8,13 +8,18 @@ import type { OperationContext } from '../../domain/dtos/common.dto';
 import type { CreatePriceInput, PriceDTO } from '../../domain/dtos/price.dto';
 import { CorrelationId } from '../../domain/value-objects/correlation-id';
 import { assertCatalogMutationAuthorized } from '../policies/catalog-mutation-authorization';
+import { CatalogPersistenceCoordinator } from '../services/catalog/catalog-persistence-coordinator';
 import { normalizeCatalogListInput } from '../services/catalog/normalize-catalog-list-input';
 import { assertCapableProvider } from '../services/provider-capabilities/assert-provider-capability';
 import type { BillingDependencies } from './billing-dependencies';
 import type { CatalogMutationOptions } from './catalog-mutation-options';
 
 export class PriceResource {
-  constructor(private readonly deps: BillingDependencies) {}
+  private readonly persistence: CatalogPersistenceCoordinator;
+
+  constructor(private readonly deps: BillingDependencies) {
+    this.persistence = new CatalogPersistenceCoordinator(deps);
+  }
 
   async create(input: CreatePriceInput, options?: CatalogMutationOptions): Promise<PriceDTO> {
     assertCatalogMutationAuthorized(
@@ -24,7 +29,19 @@ export class PriceResource {
     );
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'catalog', isCatalogCapable);
-    return provider.createPrice(input, this.context());
+    const productId = await this.persistence.resolveProductId(input.providerProductId);
+    const operationContext = this.context();
+    const price = await provider.createPrice(input, operationContext);
+    await this.persistence.persistPrice(
+      price,
+      {
+        action: 'price.create',
+        authorization: options?.authorization,
+        correlationId: operationContext.correlationId,
+      },
+      productId,
+    );
+    return price;
   }
 
   async retrieve(id: string): Promise<PriceDTO> {
@@ -60,7 +77,14 @@ export class PriceResource {
     );
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'catalogLifecycle', isCatalogLifecycleCapable);
-    return provider.setPriceActive(id, active, this.context());
+    const operationContext = this.context();
+    const price = await provider.setPriceActive(id, active, operationContext);
+    await this.persistence.persistPrice(price, {
+      action,
+      authorization: options?.authorization,
+      correlationId: operationContext.correlationId,
+    });
+    return price;
   }
 
   private context(): OperationContext {

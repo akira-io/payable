@@ -139,6 +139,37 @@ await payable.prices().archive('price_123');
 
 Create a new price instead of mutating monetary terms on an existing provider price.
 
+## Persist catalog mutations
+
+When a storage driver is configured, each successful product or price mutation also updates the
+local catalog. The provider confirms the mutation before Payable writes the catalog entity, audit
+record, and outbox event. A provider mutation cannot share a transaction with local SQL storage, so
+this sequence does not provide atomicity across both systems.
+
+The local entity, audit record, and outbox event do share one storage transaction. They commit or
+roll back together. Atomicity is limited to those local writes. The same `correlationId` connects
+the provider operation, audit record, outbox event, and any persistence error.
+
+Price creation has an additional local preflight. When storage is configured, Payable resolves
+`providerProductId` to a local product before calling the provider. A missing product raises
+`PRODUCT_NOT_FOUND`, and the provider is not called. Price activation and archival resolve their
+parent after the provider returns because the provider response supplies the product identifier.
+
+Without a storage driver, all catalog mutations remain provider-only. Payable does not require a
+local product preflight and does not create catalog, audit, or outbox records.
+
+### Recover a confirmed provider mutation
+
+If the provider succeeds but Payable cannot establish the expected local state, the call throws
+`CATALOG_PERSISTENCE_FAILED`. Its context contains `resourceType`, `action`, `provider`,
+`providerResourceId`, `tenantId`, and `correlationId`. The error `cause` preserves the storage,
+audit, outbox, or local parent-resolution failure.
+
+Record the context and reconcile `providerResourceId` with the provider before changing local state.
+Do not blindly retry the mutation because the provider may already contain the confirmed result.
+Caller-controlled idempotency and safe remote retry behavior are tracked in
+[issue #997](https://github.com/akira-io/payable/issues/997).
+
 ## Failure behavior
 
 | Error code | Cause | Recovery |
@@ -148,6 +179,7 @@ Create a new price instead of mutating monetary terms on an existing provider pr
 | `AUTHORIZATION_DENIED` | Global authorization is enabled with no context, or a supplied context is denied or lacks an actor ID | Authenticate the caller and pass an allowed authorization context. |
 | `PROVIDER_CAPABILITY_NOT_SUPPORTED` | The selected provider lacks the required catalog capability | Select a capable provider or disable the operation. |
 | `VALIDATION_FAILED` | A list limit is outside 1 through 100 or an adapter input is invalid | Correct the request before retrying. |
+| `CATALOG_PERSISTENCE_FAILED` | The provider confirmed a mutation, but its local state could not be recovered | Record the error context and reconcile the remote resource before retrying. |
 
 Provider errors are normalized at the catalog boundary. HTTP adapters return both not-found errors as
 404 responses. MCP tools return the same Payable error codes in their structured failure response.
