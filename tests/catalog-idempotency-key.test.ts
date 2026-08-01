@@ -73,10 +73,12 @@ describe('catalog idempotency key', () => {
     };
 
     const undefinedTenant = await deriveCatalogProviderKey(input);
+    const repeatedUndefinedTenant = await deriveCatalogProviderKey(input);
     const nullTenant = await deriveCatalogProviderKey({ ...input, tenantId: null });
     const namedDefaultTenant = await deriveCatalogProviderKey({ ...input, tenantId: 'default' });
     const namedTenant = await deriveCatalogProviderKey({ ...input, tenantId: 'tenant-a' });
 
+    expect(undefinedTenant).toBe(repeatedUndefinedTenant);
     expect(undefinedTenant).toBe(nullTenant);
     expect(undefinedTenant).not.toBe(namedDefaultTenant);
     expect(undefinedTenant).not.toBe(namedTenant);
