@@ -1,4 +1,7 @@
-import type { ProductRepository } from '../../src/domain/contracts/product-repository.contract';
+import type {
+  NewProduct,
+  ProductRepository,
+} from '../../src/domain/contracts/product-repository.contract';
 import type {
   Repositories,
   StorageDriver,
@@ -83,6 +86,37 @@ export function withProductRecoveryReadCount(
       return typeof member === 'function' ? member.bind(target) : member;
     },
   });
+}
+
+export function withLostTransactionAcknowledgement(
+  storage: StorageDriver,
+  persistenceCause: Error,
+): StorageDriver {
+  return withTransaction(storage, async (work) => {
+    await storage.transaction(work);
+    throw persistenceCause;
+  });
+}
+
+export function withMatchingProductCreateWinner(
+  storage: StorageDriver,
+  winner: NewProduct,
+  recoveryReads: { count: number },
+): StorageDriver {
+  let winnerCreated = false;
+  const concurrentStorage = withTransaction(storage, async (work) => {
+    if (!winnerCreated) {
+      winnerCreated = true;
+      await storage.products.create(winner);
+    }
+    return storage.transaction((repositories) =>
+      work({
+        ...repositories,
+        products: hideFirstProductProviderRead(repositories.products),
+      }),
+    );
+  });
+  return withProductRecoveryReadCount(concurrentStorage, recoveryReads);
 }
 
 export function replaceTransactionRepositories(

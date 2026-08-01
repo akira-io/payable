@@ -6,7 +6,7 @@ import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-stora
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { withPriceCasLoss, withProductCasLoss } from './support/catalog-cas-recovery-storage';
-import { hideFirstProductProviderRead, withTransaction } from './support/catalog-recovery-storage';
+import { withMatchingProductCreateWinner } from './support/catalog-recovery-storage';
 import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
 
@@ -25,27 +25,20 @@ describe('catalog concurrent persistence recovery', () => {
   });
 
   it('accepts a matching winner after a create uniqueness failure', async () => {
-    let winnerCreated = false;
-    const concurrentStorage = withTransaction(storage, async (work) => {
-      if (!winnerCreated) {
-        winnerCreated = true;
-        await storage.products.create({
-          tenantId: 'tenant-a',
-          provider: 'registered',
-          providerProductId: 'prod_fake',
-          name: 'Pro',
-          description: null,
-          active: true,
-          metadata: null,
-        });
-      }
-      return storage.transaction((repositories) =>
-        work({
-          ...repositories,
-          products: hideFirstProductProviderRead(repositories.products),
-        }),
-      );
-    });
+    const recoveryReads = { count: 0 };
+    const concurrentStorage = withMatchingProductCreateWinner(
+      storage,
+      {
+        tenantId: 'tenant-a',
+        provider: 'registered',
+        providerProductId: 'prod_fake',
+        name: 'Pro',
+        description: null,
+        active: true,
+        metadata: null,
+      },
+      recoveryReads,
+    );
     const products = createPayable({
       providers: { registered: new FakeProvider() },
       storage: concurrentStorage,
@@ -56,6 +49,7 @@ describe('catalog concurrent persistence recovery', () => {
     });
 
     expect(await db('payable_products')).toHaveLength(1);
+    expect(recoveryReads.count).toBe(1);
     expect(await storage.auditLogs.list({ tenantId: 'tenant-a' })).toEqual([]);
     expect(await storage.outboxEvents.claimPending(10)).toEqual([]);
   });
