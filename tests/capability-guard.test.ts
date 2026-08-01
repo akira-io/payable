@@ -9,6 +9,8 @@ import type { BillingDependencies } from '../src/application/builders/billing-de
 import type { WebhookDependencies } from '../src/application/builders/webhook-dependencies';
 import { assertProviderCapability } from '../src/application/services/provider-capabilities/assert-provider-capability';
 import {
+  isCatalogLifecycleCapable,
+  isCatalogReadCapable,
   isDisputeCapable,
   isInvoiceCapable,
   isPaymentMethodCapable,
@@ -183,6 +185,34 @@ describe('provider capability guard', () => {
     expect(isProviderWebhookEndpointManagementCapable(capable)).toBe(true);
   });
 
+  it('requires every catalog read operation', () => {
+    const partial = {
+      name: 'partial',
+      retrieveProduct: async () => ({}),
+      listProducts: async () => ({ data: [], nextCursor: null }),
+      retrievePrice: async () => ({}),
+    } as unknown as PaymentProvider;
+    expect(isCatalogReadCapable(partial)).toBe(false);
+    expect(
+      isCatalogReadCapable({
+        ...partial,
+        listPrices: async () => ({ data: [], nextCursor: null }),
+      } as unknown as PaymentProvider),
+    ).toBe(true);
+  });
+  it('requires both catalog lifecycle operations', () => {
+    const partial = {
+      name: 'partial',
+      setProductActive: async () => ({}),
+    } as unknown as PaymentProvider;
+    expect(isCatalogLifecycleCapable(partial)).toBe(false);
+    expect(
+      isCatalogLifecycleCapable({
+        ...partial,
+        setPriceActive: async () => ({}),
+      } as unknown as PaymentProvider),
+    ).toBe(true);
+  });
   it('declares charge and webhook capabilities for built-in providers that support them', () => {
     expect(stripe().capabilities().has('charges')).toBe(true);
     expect(stripe().capabilities().has('webhooks')).toBe(true);

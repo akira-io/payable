@@ -1,5 +1,6 @@
 import type { BillingPortalDTO, BillingPortalInput } from '../dtos/billing-portal.dto';
 import type { ProviderCapabilities } from '../dtos/capabilities.dto';
+import type { CatalogPage, ListPricesInput, ListProductsInput } from '../dtos/catalog.dto';
 import type { ChargeInput, ChargeResultDTO } from '../dtos/charge.dto';
 import type { CheckoutSessionDTO, CreateCheckoutSessionInput } from '../dtos/checkout.dto';
 import type { OperationContext } from '../dtos/common.dto';
@@ -57,6 +58,18 @@ export interface CatalogCapable {
   createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO>;
   updateProduct(input: UpdateProductInput, ctx: OperationContext): Promise<ProductDTO>;
   createPrice(input: CreatePriceInput, ctx: OperationContext): Promise<PriceDTO>;
+}
+
+export interface CatalogReadCapable {
+  retrieveProduct(id: string): Promise<ProductDTO>;
+  listProducts(input?: ListProductsInput): Promise<CatalogPage<ProductDTO>>;
+  retrievePrice(id: string): Promise<PriceDTO>;
+  listPrices(input?: ListPricesInput): Promise<CatalogPage<PriceDTO>>;
+}
+
+export interface CatalogLifecycleCapable {
+  setProductActive(id: string, active: boolean, ctx: OperationContext): Promise<ProductDTO>;
+  setPriceActive(id: string, active: boolean, ctx: OperationContext): Promise<PriceDTO>;
 }
 
 export interface SubscriptionManagementCapable {
@@ -178,6 +191,28 @@ export function isCatalogCapable(
     typeof candidate.createProduct === 'function' &&
     typeof candidate.updateProduct === 'function' &&
     typeof candidate.createPrice === 'function'
+  );
+}
+
+export function isCatalogReadCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & CatalogReadCapable {
+  const candidate = provider as Partial<CatalogReadCapable>;
+  return (
+    typeof candidate.retrieveProduct === 'function' &&
+    typeof candidate.listProducts === 'function' &&
+    typeof candidate.retrievePrice === 'function' &&
+    typeof candidate.listPrices === 'function'
+  );
+}
+
+export function isCatalogLifecycleCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & CatalogLifecycleCapable {
+  const candidate = provider as Partial<CatalogLifecycleCapable>;
+  return (
+    typeof candidate.setProductActive === 'function' &&
+    typeof candidate.setPriceActive === 'function'
   );
 }
 

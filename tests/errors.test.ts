@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PriceNotFoundError, ProductNotFoundError } from '../src/domain/errors';
 import { CustomerNotFoundError } from '../src/domain/errors/customer-not-found.error';
 import { PayableError } from '../src/domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../src/domain/errors/provider-capability-not-supported.error';
@@ -60,5 +61,16 @@ describe('PayableError', () => {
 
   it('formats not-found messages', () => {
     expect(new CustomerNotFoundError('cus_1').message).toContain('cus_1');
+  });
+
+  it('captures missing product and price identifiers', () => {
+    expect(new ProductNotFoundError('prod_missing')).toMatchObject({
+      code: 'PRODUCT_NOT_FOUND',
+      context: { providerProductId: 'prod_missing' },
+    });
+    expect(new PriceNotFoundError('price_missing')).toMatchObject({
+      code: 'PRICE_NOT_FOUND',
+      context: { providerPriceId: 'price_missing' },
+    });
   });
 });

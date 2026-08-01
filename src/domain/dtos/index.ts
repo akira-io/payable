@@ -24,6 +24,12 @@ export type {
   ProviderCapability,
   ProviderCapabilityValue,
 } from './capabilities.dto';
+export type {
+  CatalogPage,
+  ListCatalogInput,
+  ListPricesInput,
+  ListProductsInput,
+} from './catalog.dto';
 export type { ChargeInput, ChargeResultDTO } from './charge.dto';
 export type {
   CheckoutLineItem,

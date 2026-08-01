@@ -14,4 +14,7 @@ export interface PriceDTO {
   providerProductId: string;
   unitAmount: Money;
   interval: RecurringInterval | null;
+  intervalCount: number | null;
+  description: string | null;
+  active: boolean;
 }

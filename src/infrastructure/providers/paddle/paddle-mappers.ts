@@ -51,7 +51,13 @@ export function toCustomerDTO(customer: PaddleCustomer): CustomerDTO {
 }
 
 export function toProductDTO(product: PaddleProductEntity): ProductDTO {
-  return { providerProductId: product.id, name: product.name, active: product.status === 'active' };
+  return {
+    providerProductId: product.id,
+    name: product.name,
+    description: null,
+    active: product.status === 'active',
+    metadata: null,
+  };
 }
 
 export function toPriceDTO(price: PaddlePriceEntity): PriceDTO {
@@ -60,6 +66,9 @@ export function toPriceDTO(price: PaddlePriceEntity): PriceDTO {
     providerProductId: price.productId,
     unitAmount: paddleMoney(toMinorUnits(price.unitPrice.amount), price.unitPrice.currencyCode),
     interval: (price.billingCycle?.interval as RecurringInterval | undefined) ?? null,
+    intervalCount: price.billingCycle?.frequency ?? null,
+    description: null,
+    active: true,
   };
 }
 

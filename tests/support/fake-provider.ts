@@ -118,7 +118,13 @@ export class FakeProvider implements PaymentProvider {
 
   async createProduct(input: CreateProductInput): Promise<ProductDTO> {
     this.lastCreateProduct = input;
-    return { providerProductId: 'prod_fake', name: input.name, active: input.active ?? true };
+    return {
+      providerProductId: 'prod_fake',
+      name: input.name,
+      description: input.description ?? null,
+      active: input.active ?? true,
+      metadata: input.metadata ?? null,
+    };
   }
 
   async updateProduct(input: UpdateProductInput): Promise<ProductDTO> {
@@ -126,7 +132,9 @@ export class FakeProvider implements PaymentProvider {
     return {
       providerProductId: input.providerProductId,
       name: input.name ?? 'Product',
+      description: input.description ?? null,
       active: input.active ?? true,
+      metadata: null,
     };
   }
 
@@ -137,6 +145,9 @@ export class FakeProvider implements PaymentProvider {
       providerProductId: input.providerProductId,
       unitAmount: input.unitAmount,
       interval: input.interval ?? null,
+      intervalCount: input.intervalCount ?? null,
+      description: input.description ?? null,
+      active: true,
     };
   }
 
