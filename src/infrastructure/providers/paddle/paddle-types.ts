@@ -9,17 +9,27 @@ export interface PaddleCustomer {
   name: string | null;
 }
 
+export interface PaddleCollection<T> {
+  hasMore: boolean;
+  next(): Promise<T[]>;
+}
+
 export interface PaddleProductEntity {
   id: string;
   name: string;
   status: string;
+  description?: unknown;
+  customData?: Record<string, unknown> | null;
 }
 
 export interface PaddlePriceEntity {
   id: string;
   productId: string;
   unitPrice: PaddleMoney;
-  billingCycle?: { interval: string; frequency: number } | null;
+  description?: unknown;
+  customData?: Record<string, unknown> | null;
+  status: string;
+  billingCycle?: { interval: unknown; frequency: unknown } | null;
 }
 
 export interface PaddleTransaction {
@@ -65,8 +75,23 @@ export interface PaddleClient {
       name: string;
       taxCategory: string;
       description?: string;
+      customData?: Record<string, string>;
+      status?: string;
     }): Promise<PaddleProductEntity>;
-    update(id: string, body: { name?: string; description?: string }): Promise<PaddleProductEntity>;
+    get(id: string): Promise<PaddleProductEntity>;
+    list(query?: {
+      after?: string;
+      perPage?: number;
+      status?: string[];
+    }): PaddleCollection<PaddleProductEntity>;
+    update(
+      id: string,
+      body: {
+        name?: string;
+        description?: string;
+        status?: string;
+      },
+    ): Promise<PaddleProductEntity>;
   };
   prices: {
     create(body: {
@@ -75,6 +100,14 @@ export interface PaddleClient {
       unitPrice: PaddleMoney;
       billingCycle?: { interval: string; frequency: number };
     }): Promise<PaddlePriceEntity>;
+    get(id: string): Promise<PaddlePriceEntity>;
+    list(query?: {
+      after?: string;
+      perPage?: number;
+      productId?: string[];
+      status?: string[];
+    }): PaddleCollection<PaddlePriceEntity>;
+    update(id: string, body: { status?: string }): Promise<PaddlePriceEntity>;
   };
   transactions: {
     create(body: {

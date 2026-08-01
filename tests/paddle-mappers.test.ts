@@ -46,6 +46,7 @@ describe('paddle amount bounds', () => {
         id: 'pri_1',
         productId: 'pro_1',
         unitPrice: { amount: '99999999999999999999', currencyCode: 'USD' },
+        status: 'active',
       }),
     ).toThrow('exceeds the safe integer range');
   });

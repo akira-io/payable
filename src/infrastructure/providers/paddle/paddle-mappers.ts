@@ -4,7 +4,7 @@ import type { PriceDTO } from '../../../domain/dtos/price.dto';
 import type { ProductDTO } from '../../../domain/dtos/product.dto';
 import type { RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
-import type { RecurringInterval } from '../../../domain/entities/common';
+import type { Metadata, RecurringInterval } from '../../../domain/entities/common';
 import { PayableError } from '../../../domain/errors/payable-error';
 import type { RefundStatus } from '../../../domain/value-objects/refund-status';
 import type { SubscriptionStatus } from '../../../domain/value-objects/subscription-status';
@@ -50,13 +50,24 @@ export function toCustomerDTO(customer: PaddleCustomer): CustomerDTO {
   };
 }
 
+function stringValue(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+function stringMetadata(value: Record<string, unknown> | null | undefined): Metadata | null {
+  const entries = Object.entries(value ?? {}).filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string',
+  );
+  return entries.length > 0 ? Object.fromEntries(entries) : null;
+}
+
 export function toProductDTO(product: PaddleProductEntity): ProductDTO {
   return {
     providerProductId: product.id,
     name: product.name,
-    description: null,
+    description: stringValue(product.description),
     active: product.status === 'active',
-    metadata: null,
+    metadata: stringMetadata(product.customData),
   };
 }
 
@@ -65,10 +76,11 @@ export function toPriceDTO(price: PaddlePriceEntity): PriceDTO {
     providerPriceId: price.id,
     providerProductId: price.productId,
     unitAmount: paddleMoney(toMinorUnits(price.unitPrice.amount), price.unitPrice.currencyCode),
-    interval: (price.billingCycle?.interval as RecurringInterval | undefined) ?? null,
-    intervalCount: price.billingCycle?.frequency ?? null,
-    description: null,
-    active: true,
+    interval: (stringValue(price.billingCycle?.interval) as RecurringInterval | null) ?? null,
+    intervalCount:
+      typeof price.billingCycle?.frequency === 'number' ? price.billingCycle.frequency : null,
+    description: stringValue(price.description),
+    active: price.status === 'active',
   };
 }
 

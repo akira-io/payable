@@ -12,12 +12,6 @@ import type {
   CustomerDTO,
   UpdateCustomerInput,
 } from '../../../domain/dtos/customer.dto';
-import type { CreatePriceInput, PriceDTO } from '../../../domain/dtos/price.dto';
-import type {
-  CreateProductInput,
-  ProductDTO,
-  UpdateProductInput,
-} from '../../../domain/dtos/product.dto';
 import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import type {
   CancelSubscriptionInput,
@@ -28,7 +22,7 @@ import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/
 import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import { assertSubscriptionPayload } from '../webhook-subscription-payload';
-import { paddleAmount } from './paddle-amounts';
+import { PaddleCatalog } from './paddle-catalog';
 import { buildPaddleClientOptions } from './paddle-client-options';
 import { withPaddleErrors } from './paddle-errors';
 import { PaddleEventNormalizer } from './paddle-event-normalizer';
@@ -36,8 +30,6 @@ import {
   toCheckoutSessionDTO,
   toCustomerDTO,
   toPaddleSubscriptionEntity,
-  toPriceDTO,
-  toProductDTO,
   toRefundResultDTO,
   toSubscriptionDTO,
 } from './paddle-mappers';
@@ -53,12 +45,32 @@ export interface PaddleProviderOptions {
 
 export class PaddleProvider implements PaymentProvider {
   readonly name = 'paddle';
+  private readonly catalog: PaddleCatalog;
   private readonly normalizer: PaddleEventNormalizer;
   private readonly verifier: PaddleWebhookVerifier;
+  readonly createProduct: PaddleCatalog['createProduct'];
+  readonly updateProduct: PaddleCatalog['updateProduct'];
+  readonly createPrice: PaddleCatalog['createPrice'];
+  readonly retrieveProduct: PaddleCatalog['retrieveProduct'];
+  readonly listProducts: PaddleCatalog['listProducts'];
+  readonly retrievePrice: PaddleCatalog['retrievePrice'];
+  readonly listPrices: PaddleCatalog['listPrices'];
+  readonly setProductActive: PaddleCatalog['setProductActive'];
+  readonly setPriceActive: PaddleCatalog['setPriceActive'];
   constructor(
     private readonly options: PaddleProviderOptions,
     private client?: PaddleClient,
   ) {
+    this.catalog = new PaddleCatalog(() => this.paddle());
+    this.createProduct = this.catalog.createProduct.bind(this.catalog);
+    this.updateProduct = this.catalog.updateProduct.bind(this.catalog);
+    this.createPrice = this.catalog.createPrice.bind(this.catalog);
+    this.retrieveProduct = this.catalog.retrieveProduct.bind(this.catalog);
+    this.listProducts = this.catalog.listProducts.bind(this.catalog);
+    this.retrievePrice = this.catalog.retrievePrice.bind(this.catalog);
+    this.listPrices = this.catalog.listPrices.bind(this.catalog);
+    this.setProductActive = this.catalog.setProductActive.bind(this.catalog);
+    this.setPriceActive = this.catalog.setPriceActive.bind(this.catalog);
     this.normalizer = new PaddleEventNormalizer(options.logger);
     this.verifier = new PaddleWebhookVerifier(options.webhookSecret);
   }
@@ -80,6 +92,8 @@ export class PaddleProvider implements PaymentProvider {
       'webhooks',
       'customers',
       'catalog',
+      'catalogRead',
+      'catalogLifecycle',
     ]);
   }
 
@@ -100,48 +114,6 @@ export class PaddleProvider implements PaymentProvider {
       }),
     );
     return toCustomerDTO(customer);
-  }
-
-  async createProduct(input: CreateProductInput, _ctx: OperationContext): Promise<ProductDTO> {
-    const paddle = await this.paddle();
-    const product = await withPaddleErrors(() =>
-      paddle.products.create({
-        name: input.name,
-        taxCategory: 'standard',
-        description: input.description,
-      }),
-    );
-    return toProductDTO(product);
-  }
-
-  async updateProduct(input: UpdateProductInput, _ctx: OperationContext): Promise<ProductDTO> {
-    const paddle = await this.paddle();
-    const product = await withPaddleErrors(() =>
-      paddle.products.update(input.providerProductId, {
-        name: input.name,
-        description: input.description,
-      }),
-    );
-    return toProductDTO(product);
-  }
-
-  async createPrice(input: CreatePriceInput, _ctx: OperationContext): Promise<PriceDTO> {
-    const paddle = await this.paddle();
-    const price = await withPaddleErrors(() =>
-      paddle.prices.create({
-        productId: input.providerProductId,
-        description:
-          input.description ?? (input.interval ? `${input.interval} price` : 'One-time price'),
-        unitPrice: {
-          amount: paddleAmount(input.unitAmount),
-          currencyCode: input.unitAmount.currency(),
-        },
-        billingCycle: input.interval
-          ? { interval: input.interval, frequency: input.intervalCount ?? 1 }
-          : undefined,
-      }),
-    );
-    return toPriceDTO(price);
   }
 
   async createCheckoutSession(

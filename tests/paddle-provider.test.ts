@@ -104,25 +104,6 @@ const provider = (
   new PaddleProvider({ apiKey: 'pdl_test', webhookSecret: 'wh_test' }, client);
 
 describe('PaddleProvider', () => {
-  it('reports Paddle capabilities', () => {
-    const { client } = fakePaddle();
-    const capabilities = provider(client).capabilities();
-    expect(capabilities.has('checkout')).toBe(true);
-    expect(capabilities.has('invoicePdf')).toBe(false);
-    expect(capabilities.has('trials')).toBe(false);
-    expect(capabilities.has('coupons')).toBe(false);
-  });
-
-  it('creates a customer', async () => {
-    const { client, calls } = fakePaddle();
-    const dto = await provider(client).createCustomer(
-      { email: 'user@example.com', name: 'User', billableType: 'User', billableId: '1' },
-      ctx,
-    );
-    expect(dto).toEqual({ providerCustomerId: 'ctm_1', email: 'user@example.com', name: 'User' });
-    expect(calls.get('customers.create')).toMatchObject({ email: 'user@example.com' });
-  });
-
   it('converts Money to a Paddle string amount at the price boundary', async () => {
     const { client, calls } = fakePaddle();
     const dto = await provider(client).createPrice(

@@ -25,7 +25,7 @@ function isPaddleError(error: unknown): error is PaddleLikeError {
   return typeof error === 'object' && error !== null && ('code' in error || 'detail' in error);
 }
 
-export async function withPaddleErrors<T>(fn: () => Promise<T>): Promise<T> {
+export async function withPaddleErrors<T>(fn: () => Promise<T>, notFoundCode?: string): Promise<T> {
   try {
     return await fn();
   } catch (error) {
@@ -34,7 +34,10 @@ export async function withPaddleErrors<T>(fn: () => Promise<T>): Promise<T> {
     }
     const code = error.code ?? '';
     throw new PayableError(error.detail ?? error.message ?? 'Paddle request failed', {
-      code: CODE_BY_PADDLE[code] ?? 'PROVIDER_ERROR',
+      code:
+        code === 'not_found'
+          ? (notFoundCode ?? 'PROVIDER_REQUEST_INVALID')
+          : (CODE_BY_PADDLE[code] ?? 'PROVIDER_ERROR'),
       context: { provider: 'paddle', paddleCode: code, paddleType: error.type },
       cause: error,
     });
