@@ -20,7 +20,7 @@ export class CatalogPersistenceError extends PayableError {
         ...options,
         code: 'CATALOG_PERSISTENCE_FAILED',
         correlationId: failure.correlationId,
-        context: { ...failure, ...options.context },
+        context: { ...options.context, ...failure },
       },
     );
   }

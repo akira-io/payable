@@ -30,4 +30,36 @@ describe('CatalogPersistenceError', () => {
       },
     });
   });
+
+  it('keeps confirmed failure identity when context contains conflicting values', () => {
+    const error = new CatalogPersistenceError(
+      {
+        resourceType: 'product',
+        action: 'product.create',
+        provider: 'stripe',
+        providerResourceId: 'prod_remote',
+        tenantId: 'tenant-a',
+        correlationId: 'corr-catalog',
+      },
+      {
+        context: {
+          resourceType: 'price',
+          action: 'price.archive',
+          provider: 'paddle',
+          providerResourceId: 'price_conflict',
+          tenantId: 'tenant-conflict',
+          correlationId: 'corr-conflict',
+        },
+      },
+    );
+
+    expect(error.context).toMatchObject({
+      resourceType: 'product',
+      action: 'product.create',
+      provider: 'stripe',
+      providerResourceId: 'prod_remote',
+      tenantId: 'tenant-a',
+      correlationId: 'corr-catalog',
+    });
+  });
 });
