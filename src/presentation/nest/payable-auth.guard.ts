@@ -1,12 +1,12 @@
 import { type CanActivate, type ExecutionContext, Inject, Injectable } from '@nestjs/common';
-import type { ModuleRef } from '@nestjs/core';
+import { ModuleRef } from '@nestjs/core';
 import { type NestPayableOptions, PAYABLE_OPTIONS } from './payable.constants';
 
 @Injectable()
 export class PayableAuthGuard implements CanActivate {
   constructor(
     @Inject(PAYABLE_OPTIONS) private readonly options: NestPayableOptions,
-    private readonly moduleRef: ModuleRef,
+    @Inject(ModuleRef) private readonly moduleRef: ModuleRef,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {

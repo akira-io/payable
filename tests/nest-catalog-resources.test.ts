@@ -1,112 +1,137 @@
-import 'reflect-metadata';
-import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { type CanActivate, type ExecutionContext, Injectable } from '@nestjs/common';
+import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
 import { PayableError } from '../src/domain/errors/payable-error';
 import type { NestPayableOptions } from '../src/presentation/nest/payable.constants';
-import { PayableController } from '../src/presentation/nest/payable.controller';
-import { PayableAuthGuard } from '../src/presentation/nest/payable-auth.guard';
-import { PayableReadController } from '../src/presentation/nest/payable-read.controller';
-import { payableErrorStatus } from '../src/presentation/shared/payable-http';
+import { PayableModule } from '../src/presentation/nest/payable.module';
 import { FakeProvider } from './support/fake-provider';
+import { createNestExpressApplication } from './support/nest-express-application';
 
-const request = { headers: {} };
+@Injectable()
+class DenyGuard implements CanActivate {
+  canActivate(_context: ExecutionContext): boolean {
+    return false;
+  }
+}
 
-function controllers(provider: FakeProvider, options: NestPayableOptions = {}) {
+async function createApplication(provider: FakeProvider, options: NestPayableOptions = {}) {
   const payable = createPayable({ providers: { stripe: provider }, tenant: { enabled: true } });
-  return {
-    read: new PayableReadController(payable, options),
-    write: new PayableController(payable, options),
-  };
+  return createNestExpressApplication(PayableModule.forRoot(payable, options));
 }
 
 describe('nest catalog resources', () => {
-  it('lists and retrieves catalog resources with their filters intact', async () => {
+  it('serves all eight catalog paths through Nest with bound queries and tenant resolution', async () => {
     const provider = new FakeProvider();
-    let tenantResolutions = 0;
-    const { read } = controllers(provider, {
-      resolveTenant: () => {
-        tenantResolutions += 1;
-        return 'tenant-a';
+    const tenantIds: Array<string | null | undefined> = [];
+    const app = await createApplication(provider, {
+      resolveTenant: (httpRequest) => {
+        const tenantId = httpRequest.headers['x-tenant-id'];
+        tenantIds.push(typeof tenantId === 'string' ? tenantId : undefined);
+        return typeof tenantId === 'string' ? tenantId : null;
       },
     });
+    const server = app.getHttpServer();
 
-    const products = await read.listProducts(request, {
-      limit: '25',
-      cursor: 'products-cursor',
-      active: 'false',
-    });
-    expect(products.data[0]).toMatchObject({ providerProductId: 'prod_fake' });
-    expect(provider.lastListProducts).toEqual({
-      limit: 25,
-      cursor: 'products-cursor',
-      active: false,
-    });
-    await expect(read.getProduct(request, 'prod_fake')).resolves.toMatchObject({
-      providerProductId: 'prod_fake',
-    });
+    try {
+      const products = await request(server)
+        .get('/products')
+        .set('x-tenant-id', 'tenant-a')
+        .query({ limit: 25, cursor: 'products-cursor', active: false });
+      expect(products.status).toBe(200);
+      expect(products.body).toMatchObject({ data: [{ providerProductId: 'prod_fake' }] });
+      expect(provider.lastListProducts).toEqual({
+        limit: 25,
+        cursor: 'products-cursor',
+        active: false,
+      });
 
-    const prices = await read.listPrices(request, {
-      limit: '30',
-      cursor: 'prices-cursor',
-      active: 'false',
-      providerProductId: 'prod_fake',
-    });
-    expect(prices.data[0]).toMatchObject({ providerPriceId: 'price_fake' });
-    expect(provider.lastListPrices).toEqual({
-      limit: 30,
-      cursor: 'prices-cursor',
-      active: false,
-      providerProductId: 'prod_fake',
-    });
-    await expect(read.getPrice(request, 'price_fake')).resolves.toMatchObject({
-      providerPriceId: 'price_fake',
-    });
-    expect(tenantResolutions).toBe(4);
+      const product = await request(server)
+        .get('/products/prod_fake')
+        .set('x-tenant-id', 'tenant-a')
+        .expect(200);
+      expect(product.body).toMatchObject({ providerProductId: 'prod_fake' });
+
+      const prices = await request(server).get('/prices').set('x-tenant-id', 'tenant-a').query({
+        limit: 30,
+        cursor: 'prices-cursor',
+        active: false,
+        providerProductId: 'prod_fake',
+      });
+      expect(prices.status).toBe(200);
+      expect(prices.body).toMatchObject({ data: [{ providerPriceId: 'price_fake' }] });
+      expect(provider.lastListPrices).toEqual({
+        limit: 30,
+        cursor: 'prices-cursor',
+        active: false,
+        providerProductId: 'prod_fake',
+      });
+
+      const price = await request(server)
+        .get('/prices/price_fake')
+        .set('x-tenant-id', 'tenant-a')
+        .expect(200);
+      expect(price.body).toMatchObject({ providerPriceId: 'price_fake' });
+
+      for (const path of [
+        '/products/prod_fake/activate',
+        '/products/prod_fake/archive',
+        '/prices/price_fake/activate',
+        '/prices/price_fake/archive',
+      ]) {
+        await request(server).post(path).set('x-tenant-id', 'tenant-a').expect(200);
+      }
+
+      expect(provider.productActiveCalls.map(({ active }) => active)).toEqual([true, false]);
+      expect(provider.priceActiveCalls.map(({ active }) => active)).toEqual([true, false]);
+      expect(tenantIds).toEqual(Array.from({ length: 8 }, () => 'tenant-a'));
+    } finally {
+      await app.close();
+    }
   });
 
-  it('runs catalog lifecycle operations through guarded Nest endpoints', async () => {
-    const provider = new FakeProvider();
-    const { write } = controllers(provider, { resolveTenant: () => 'tenant-a' });
-
-    await expect(write.activateProduct(request, 'prod_fake')).resolves.toMatchObject({
-      active: true,
-    });
-    await expect(write.archiveProduct(request, 'prod_fake')).resolves.toMatchObject({
-      active: false,
-    });
-    await expect(write.activatePrice(request, 'price_fake')).resolves.toMatchObject({
-      active: true,
-    });
-    await expect(write.archivePrice(request, 'price_fake')).resolves.toMatchObject({
-      active: false,
-    });
-    expect(provider.productActiveCalls.map(({ active }) => active)).toEqual([true, false]);
-    expect(provider.priceActiveCalls.map(({ active }) => active)).toEqual([true, false]);
-    expect(
-      Reflect.getMetadata(GUARDS_METADATA, PayableController.prototype.activateProduct),
-    ).toContain(PayableAuthGuard);
-    expect(
-      Reflect.getMetadata(GUARDS_METADATA, PayableController.prototype.archivePrice),
-    ).toContain(PayableAuthGuard);
-  });
-
-  it('preserves catalog 404 and validation error mappings', async () => {
+  it('returns Nest-filtered catalog 404 and 422 responses', async () => {
     const provider = new FakeProvider();
     provider.retrieveProduct = async () => {
       throw new PayableError('Product not found', { code: 'PRODUCT_NOT_FOUND' });
     };
-    const { read } = controllers(provider, { resolveTenant: () => 'tenant-a' });
+    const app = await createApplication(provider, { resolveTenant: () => 'tenant-a' });
+    const server = app.getHttpServer();
 
-    await expect(read.getProduct(request, 'missing')).rejects.toMatchObject({
-      code: 'PRODUCT_NOT_FOUND',
-    });
     try {
-      await read.listPrices(request, { limit: '0' });
-      throw new Error('expected catalog query validation to fail');
-    } catch (error) {
-      expect(error).toMatchObject({ code: 'VALIDATION_FAILED' });
-      expect(payableErrorStatus(error)).toBe(422);
+      const missing = await request(server).get('/products/missing').expect(404);
+      expect(missing.body).toMatchObject({ error: 'PRODUCT_NOT_FOUND' });
+
+      const invalid = await request(server).get('/prices').query({ limit: 0 }).expect(422);
+      expect(invalid.body).toMatchObject({ error: 'VALIDATION_FAILED' });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('denies every catalog lifecycle request through the configured Nest guard', async () => {
+    const provider = new FakeProvider();
+    const app = await createApplication(provider, {
+      authenticate: DenyGuard,
+      resolveTenant: () => 'tenant-a',
+    });
+    const server = app.getHttpServer();
+
+    try {
+      for (const path of [
+        '/products/prod_fake/activate',
+        '/products/prod_fake/archive',
+        '/prices/price_fake/activate',
+        '/prices/price_fake/archive',
+      ]) {
+        const denied = await request(server).post(path);
+        expect(denied.body).toMatchObject({ statusCode: 403, message: 'Forbidden resource' });
+        expect(denied.status).toBe(403);
+      }
+      expect(provider.productActiveCalls).toEqual([]);
+      expect(provider.priceActiveCalls).toEqual([]);
+    } finally {
+      await app.close();
     }
   });
 });
