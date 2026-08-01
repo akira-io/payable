@@ -147,8 +147,8 @@ record, and outbox event. A provider mutation cannot share a transaction with lo
 this sequence does not provide atomicity across both systems.
 
 The local entity, audit record, and outbox event do share one storage transaction. They commit or
-roll back together. The same `correlationId` connects the provider operation, audit record, outbox
-event, and any persistence error.
+roll back together. Atomicity is limited to those local writes. The same `correlationId` connects
+the provider operation, audit record, outbox event, and any persistence error.
 
 Price creation has an additional local preflight. When storage is configured, Payable resolves
 `providerProductId` to a local product before calling the provider. A missing product raises

@@ -227,10 +227,11 @@ together - identical semantics to the Knex driver.
 ### Catalog mutation durability
 
 With `PrismaStorageDriver`, the product, price, audit, and outbox repositories use the same Prisma
-interactive transaction. Each catalog mutation writes either its product or price row together with
-one audit record and one outbox event. A failure inside the transaction rolls back all three local
-writes. The provider call occurs outside this SQL transaction and completes before the local writes
-begin.
+interactive transaction. Entity, audit, and outbox writes occur atomically only when normalized
+durable state changes. Each changed mutation writes either its product or price row together with one
+audit record and one outbox event. A failure inside the transaction rolls back all three local writes.
+Identical state is a no-op with no update, audit record, or outbox event. The provider call occurs
+outside this SQL transaction and completes before the local writes begin.
 
 The built-in product and price repositories use an internal compare-and-set operation for concurrent
 updates. After a transaction failure, Payable performs one read-after-failure by tenant, provider,

@@ -10,17 +10,18 @@ The event classes are exported public API (typed contracts consumers can build, 
 ## Catalog outbox events
 
 When storage is configured, a changed catalog entity and its audit and outbox records commit in one
-local transaction. Catalog mutations write these outbox event types:
+local transaction. Mutation actions use the imperative form. Audit actions name the confirmed state
+in the past tense, and each outbox event type adds the `.v1` schema suffix.
 
-| Mutation | Event type |
-| --- | --- |
-| Product created | `product.created.v1` |
-| Product updated | `product.updated.v1` |
-| Product activated | `product.activated.v1` |
-| Product archived | `product.archived.v1` |
-| Price created | `price.created.v1` |
-| Price activated | `price.activated.v1` |
-| Price archived | `price.archived.v1` |
+| Mutation action | Audit action | Outbox event type |
+| --- | --- | --- |
+| `product.create` | `product.created` | `product.created.v1` |
+| `product.update` | `product.updated` | `product.updated.v1` |
+| `product.activate` | `product.activated` | `product.activated.v1` |
+| `product.archive` | `product.archived` | `product.archived.v1` |
+| `price.create` | `price.created` | `price.created.v1` |
+| `price.activate` | `price.activated` | `price.activated.v1` |
+| `price.archive` | `price.archived` | `price.archived.v1` |
 
 Every catalog outbox record has `eventVersion: 1`, the operation `correlationId`, and a normalized
 payload with these fields:
@@ -33,8 +34,9 @@ payload with these fields:
 - `tenantId`: the current tenant or `null`.
 - `state`: the normalized durable catalog snapshot.
 
-These records use the transactional outbox, not the in-process `EventBus`. Consumers should apply the
-same at-least-once delivery deduplication described above.
+These records use the transactional outbox, not the in-process `EventBus`. Consumers must deduplicate
+catalog delivery using the stable outbox envelope `id`. `providerResourceId` identifies the catalog
+resource and is not a delivery dedupe key.
 
 ## DomainEvent base
 
