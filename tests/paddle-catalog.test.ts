@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createPayable } from '../src/create-payable';
+import { Money } from '../src/domain/value-objects/money';
 import { PaddleProvider } from '../src/infrastructure/providers/paddle/paddle-provider';
 import type { PaddleClient } from '../src/infrastructure/providers/paddle/paddle-types';
+import { InMemoryIdempotencyStore } from './support/fakes';
 
-const operationContext = { correlationId: 'corr-1', idempotencyKey: 'idem-1' };
+const operationContext = {
+  correlationId: 'corr-1',
+  idempotencyKey: `payable:catalog:v1:${'a'.repeat(64)}`,
+};
 
 describe('Paddle catalog', () => {
   it('reads, lists, and updates catalog resources with normalized fields', async () => {
@@ -40,16 +46,19 @@ describe('Paddle catalog', () => {
     const pricesNext = vi.fn().mockResolvedValue([priceOne, priceTwo]);
     const productsList = vi.fn(() => ({ hasMore: true, next: productsNext }));
     const pricesList = vi.fn(() => ({ hasMore: true, next: pricesNext }));
+    const productsCreate = vi.fn().mockResolvedValue(productOne);
+    const pricesCreate = vi.fn().mockResolvedValue(priceOne);
     const productsUpdate = vi.fn().mockResolvedValue({ ...productOne, status: 'archived' });
     const pricesUpdate = vi.fn().mockResolvedValue({ ...priceOne, status: 'archived' });
     const paddle = new PaddleProvider({ apiKey: 'pdl_test', webhookSecret: 'wh_test' }, {
       products: {
+        create: productsCreate,
         update: productsUpdate,
         get: vi.fn().mockResolvedValue(productOne),
         list: productsList,
       },
       prices: {
-        create: vi.fn().mockResolvedValue(priceOne),
+        create: pricesCreate,
         update: pricesUpdate,
         get: vi.fn().mockResolvedValue(priceOne),
         list: pricesList,
@@ -90,6 +99,12 @@ describe('Paddle catalog', () => {
       ],
       nextCursor: 'pri_2',
     });
+    await paddle.createProduct({ name: 'Pro' }, operationContext);
+    await paddle.updateProduct({ providerProductId: 'pro_1', name: 'Pro v2' }, operationContext);
+    await paddle.createPrice(
+      { providerProductId: 'pro_1', unitAmount: Money.of(9900, 'USD') },
+      operationContext,
+    );
     await paddle.setProductActive('pro_1', false, operationContext);
     await paddle.setPriceActive('pri_1', false, operationContext);
 
@@ -106,11 +121,56 @@ describe('Paddle catalog', () => {
     });
     expect(productsNext).toHaveBeenCalledOnce();
     expect(pricesNext).toHaveBeenCalledOnce();
-    expect(productsUpdate).toHaveBeenCalledWith('pro_1', { status: 'archived' });
+    expect(productsCreate).toHaveBeenCalledWith({
+      name: 'Pro',
+      taxCategory: 'standard',
+      description: undefined,
+      customData: undefined,
+    });
+    expect(productsUpdate).toHaveBeenNthCalledWith(1, 'pro_1', {
+      name: 'Pro v2',
+      description: undefined,
+      status: undefined,
+    });
+    expect(pricesCreate).toHaveBeenCalledWith({
+      productId: 'pro_1',
+      description: 'One-time price',
+      unitPrice: { amount: '9900', currencyCode: 'USD' },
+      billingCycle: undefined,
+    });
+    expect(productsUpdate).toHaveBeenNthCalledWith(2, 'pro_1', { status: 'archived' });
     expect(pricesUpdate).toHaveBeenCalledWith('pri_1', { status: 'archived' });
+    expect(productsCreate.mock.calls[0]).toHaveLength(1);
+    expect(productsUpdate.mock.calls[0]).toHaveLength(2);
+    expect(productsUpdate.mock.calls[1]).toHaveLength(2);
+    expect(pricesCreate.mock.calls[0]).toHaveLength(1);
+    expect(pricesUpdate.mock.calls[0]).toHaveLength(2);
     expect(paddle.capabilities().has('catalogRead')).toBe(true);
     expect(paddle.capabilities().has('catalogLifecycle')).toBe(true);
     expect(paddle.capabilities().has('catalogIdempotency')).toBe(false);
+
+    productsCreate.mockClear();
+    const products = createPayable({
+      providers: { paddle },
+      idempotency: { store: new InMemoryIdempotencyStore() },
+    }).products('paddle');
+    const createInput = { name: 'Pro', description: 'For teams', metadata: { tier: 'pro' } };
+    const createdProduct = await products.create(createInput, {
+      idempotencyKey: 'product-create-1',
+    });
+    const replayedProduct = await products.create(createInput, {
+      idempotencyKey: 'product-create-1',
+    });
+
+    expect(replayedProduct).toEqual(createdProduct);
+    expect(replayedProduct).toEqual({
+      providerProductId: 'pro_1',
+      name: 'Pro',
+      description: 'For teams',
+      active: true,
+      metadata: { tier: 'pro' },
+    });
+    expect(productsCreate).toHaveBeenCalledOnce();
   });
 
   it('uses Paddle default product status when activity is omitted or true', async () => {
