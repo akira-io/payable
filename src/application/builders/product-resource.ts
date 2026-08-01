@@ -1,4 +1,9 @@
-import { isCatalogCapable } from '../../domain/contracts/payment-provider.contract';
+import {
+  isCatalogCapable,
+  isCatalogLifecycleCapable,
+  isCatalogReadCapable,
+} from '../../domain/contracts/payment-provider.contract';
+import type { CatalogPage, ListProductsInput } from '../../domain/dtos/catalog.dto';
 import type { OperationContext } from '../../domain/dtos/common.dto';
 import type {
   CreateProductInput,
@@ -6,6 +11,7 @@ import type {
   UpdateProductInput,
 } from '../../domain/dtos/product.dto';
 import { CorrelationId } from '../../domain/value-objects/correlation-id';
+import { normalizeCatalogListInput } from '../services/catalog/normalize-catalog-list-input';
 import { assertCapableProvider } from '../services/provider-capabilities/assert-provider-capability';
 import type { BillingDependencies } from './billing-dependencies';
 
@@ -22,6 +28,32 @@ export class ProductResource {
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'catalog', isCatalogCapable);
     return provider.updateProduct(input, this.context());
+  }
+
+  async retrieve(id: string): Promise<ProductDTO> {
+    const provider = this.deps.provider;
+    assertCapableProvider(provider, 'catalogRead', isCatalogReadCapable);
+    return provider.retrieveProduct(id);
+  }
+
+  async list(input?: ListProductsInput): Promise<CatalogPage<ProductDTO>> {
+    const provider = this.deps.provider;
+    assertCapableProvider(provider, 'catalogRead', isCatalogReadCapable);
+    return provider.listProducts(normalizeCatalogListInput(input));
+  }
+
+  async activate(id: string): Promise<ProductDTO> {
+    return this.setActive(id, true);
+  }
+
+  async archive(id: string): Promise<ProductDTO> {
+    return this.setActive(id, false);
+  }
+
+  private async setActive(id: string, active: boolean): Promise<ProductDTO> {
+    const provider = this.deps.provider;
+    assertCapableProvider(provider, 'catalogLifecycle', isCatalogLifecycleCapable);
+    return provider.setProductActive(id, active, this.context());
   }
 
   private context(): OperationContext {
