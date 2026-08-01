@@ -161,10 +161,36 @@ describe('documentation examples stay executable', () => {
     expect(lifecycle.replacementPrice.unitAmount.amount()).toBe(12900);
     expect(lifecycle.provider.lastCreatePrice?.providerProductId).toBe('prod_fake');
     expect(example).toContain("import { Money } from '@akira-io/payable';");
+    expect(example).toContain("authorization: { allowed: true, actorId: 'catalog-admin' }");
     expect(example).toContain('PRODUCT_NOT_FOUND');
     expect(example).toContain('Create a new price');
+    expect(example).toContain('AUTHORIZATION_DENIED');
     expect(example).toContain('https://docs.stripe.com/api/products/list');
     expect(example).toContain('https://developer.paddle.com/api-reference/products/list-products/');
+  });
+
+  it('documents the catalog authorization boundary for direct and adapter calls', () => {
+    const security = readFileSync('docs/28-security.md', 'utf8');
+
+    expect(security).toContain('Payable does not authenticate callers');
+    expect(security).toContain('CatalogMutationOptions');
+    expect(security).toContain('AUTHORIZATION_DENIED');
+    expect(security).toContain('before capability validation or provider calls');
+
+    const adapterDocumentation: Array<[path: string, resolver: string]> = [
+      ['docs/adapters/23-express.md', 'resolveAuthorization'],
+      ['docs/adapters/24-fastify.md', 'resolveAuthorization'],
+      ['docs/adapters/25-nestjs.md', 'resolveAuthorization'],
+      ['docs/adapters/26-mcp.md', 'policy.authorization'],
+    ];
+
+    for (const [path, resolver] of adapterDocumentation) {
+      const adapter = readFileSync(path, 'utf8');
+
+      expect(adapter).toContain(resolver);
+      expect(adapter).toContain('runs once');
+      expect(adapter).toMatch(/core\s+resource makes\s+(?:the\s+)?final authorization decision/);
+    }
   });
 
   it('documents catalog capability declarations consistently', () => {

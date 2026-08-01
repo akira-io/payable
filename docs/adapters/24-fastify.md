@@ -142,12 +142,18 @@ export function payableErrorReply(error, _request, reply): void {
 Status and body follow the same `STATUS_BY_CODE` table and `{ error, message }` shape documented in
 `docs/adapters/23-express.md`. `INVALID_WEBHOOK_SIGNATURE` maps to 400 and `VALIDATION_FAILED` to 422.
 
-## No built-in authentication
+## Authentication and catalog authorization
 
 As with Express, the plugin installs no authentication or authorization. The checkout and
 subscription routes are unprotected; webhook routes are protected only by provider signature
 verification. The caller must authenticate the request and verify ownership of the billable. See
 `docs/28-security.md`.
+
+Use the `authenticate` hook to establish the caller before a catalog route runs. For each catalog
+mutation, `resolveAuthorization` runs once and returns an `AuthorizationContext` from that trusted
+identity. Fastify forwards the object unchanged in `CatalogMutationOptions`; the core resource makes
+the final authorization decision. A denied catalog write returns `AUTHORIZATION_DENIED` before
+capability validation or provider calls.
 
 ## Registration example
 
@@ -161,6 +167,22 @@ const payable = createPayable({ providers: { stripe: stripeProvider }, storage }
 const app = Fastify();
 await app.register(createFastifyPayablePlugin(payable), { prefix: '/billing' });
 await app.ready();
+```
+
+With catalog authorization enabled:
+
+```ts
+await app.register(
+  createFastifyPayablePlugin(payable, {
+    authenticate: requireApiKey,
+    resolveAuthorization: (request) => ({
+      allowed: true,
+      actorId: request.user.id,
+      tenantId: request.user.tenantId,
+    }),
+  }),
+  { prefix: '/billing' },
+);
 ```
 
 With a custom signature header:

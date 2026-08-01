@@ -5,7 +5,7 @@ tokens. Import the module with `PayableModule.forRoot(payable, options?)`.
 
 ## Purpose
 
-Expose the Payable facade as a single NestJS controller, mapping route handlers to facade calls and
+Expose the Payable facade through NestJS controllers, mapping route handlers to facade calls and
 `PayableError` instances to HTTP responses through an exception filter. The module provides the
 `Payable` instance and adapter options through DI tokens.
 
@@ -20,7 +20,7 @@ export class PayableModule {
 
 `forRoot` returns a `DynamicModule` that registers:
 
-- `controllers: [PayableController, PayableReadController]`
+- `controllers: [PayableController, PayableCatalogController, PayableReadController]`
 - `providers`:
   - `{ provide: PAYABLE_INSTANCE, useValue: payable }`
   - `{ provide: PAYABLE_OPTIONS, useValue: options }`
@@ -28,10 +28,9 @@ export class PayableModule {
   - `PayableAuthGuard`
   - `options.authenticate`, only when supplied (so the guard class can be resolved from DI)
 
-The route handlers are split across two controllers: `PayableController` holds the write routes
-(webhooks, checkout, subscription management, customers create/update, refunds, products, prices),
-and `PayableReadController` holds the `GET` read routes (customers, invoices, payments,
-subscriptions, refunds).
+The route handlers are split across three controllers: `PayableController` holds non-catalog write
+routes, `PayableCatalogController` holds product and price mutations, and `PayableReadController`
+holds the `GET` read routes (customers, invoices, payments, subscriptions, refunds).
 
 ```ts
 interface NestPayableOptions {
@@ -102,9 +101,9 @@ constructor(
 | GET | `refunds` | 200 | `listRefunds` | List a payment's refunds |
 | POST | `refunds` | 201 | `refunds` | Refund a payment |
 
-## Scope and parity vs Express
+## Scope and parity with Express
 
-The NestJS adapter is a single controller exposing the same route set as Express: webhooks, checkout,
+The NestJS adapter exposes the same route set as Express: webhooks, checkout,
 subscription management (`cancel`, `cancel-now`, `resume`, `swap`), subscription reads, customers,
 invoices, payments, products, prices, and refunds (create and list).
 
@@ -192,7 +191,7 @@ It uses the same `STATUS_BY_CODE` table and `{ error, message }` body shape docu
 `error: 'INVALID_WEBHOOK_SIGNATURE'`, and a plain `TypeError` maps to 500 with
 `error: 'INTERNAL_ERROR'`.
 
-## Authentication
+## Authentication and catalog authorization
 
 The adapter ships `PayableAuthGuard`, applied to every route except the webhook routes (which are
 protected only by provider signature verification). The guard is a no-op unless you pass an
@@ -203,8 +202,27 @@ are never guarded.
 Pass your guard class via `authenticate` to authenticate the read and write routes, and verify
 ownership of the billable yourself. See `docs/28-security.md`.
 
+`PayableAuthGuard` runs before each catalog controller method. After the guard succeeds,
+`resolveAuthorization` runs once for the catalog mutation and maps the trusted request identity to an
+`AuthorizationContext`. NestJS forwards that object unchanged in `CatalogMutationOptions`; the core
+resource makes the final authorization decision. A denied catalog write returns
+`AUTHORIZATION_DENIED` before capability validation or provider calls.
+
 ```ts
 PayableModule.forRoot(payable, { authenticate: ApiKeyGuard });
+```
+
+With catalog authorization enabled:
+
+```ts
+PayableModule.forRoot(payable, {
+  authenticate: ApiKeyGuard,
+  resolveAuthorization: (request) => ({
+    allowed: true,
+    actorId: request.user.id,
+    tenantId: request.user.tenantId,
+  }),
+});
 ```
 
 ## Module example

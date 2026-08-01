@@ -1,14 +1,12 @@
 # Security
 
-This page describes the security boundaries the library does and does not enforce. The short
-version: `@akira-io/payable` performs no request authentication and only minimal authorization. The
-caller owns authentication and ownership checks.
+This page describes the security boundaries the library does and does not enforce. Payable does not authenticate callers.
+The host application owns authentication and ownership checks.
 
 ## Authentication: none built in
 
-No adapter installs authentication middleware or guards. The Express router, the Fastify plugin,
-and the NestJS controller all mount their routes without any auth layer. Identifying and
-authenticating the caller is entirely your responsibility.
+No adapter establishes caller identity. The host application authenticates each caller, applies its
+ownership and permission rules, and constructs an `AuthorizationContext` from trusted identity data.
 
 The only route protected by a cryptographic check is the webhook route, and that check is signature
 verification of the provider payload - not authentication of an end user. See "Webhook signature
@@ -56,20 +54,17 @@ if (!this.policy.authorize(context)) {
 }
 ```
 
-The other policies (`can-create-checkout`, `can-create-subscription`, `can-cancel-subscription`,
-`can-resume-subscription`, `can-refund-payment`) are internal building blocks; they are not part of
-the package's public exports and are not invoked by the checkout, subscription, or refund actions.
-Do not rely on them to gate HTTP requests; they do not run automatically on the adapter routes.
+Authorization policies receive an explicit context. They do not authenticate a request or derive
+identity from it. Keep authentication and ownership-of-billable checks in the host application.
 
-The policy layer is authorization for business operations (notably webhook replay), driven by an
-explicit context. It is not request authentication, and it is not applied to
-checkout/subscription/refund routes by default. Request authentication and ownership-of-billable
-checks remain entirely on you.
+When `authorization: { enabled: true }` is configured, catalog mutations accept
+`CatalogMutationOptions` and fail with `AUTHORIZATION_DENIED` unless `authorization.allowed` is true
+and `authorization.actorId` is non-empty. Product and price resources enforce this before capability validation or provider calls.
+Express, Fastify, NestJS, and MCP resolve the context and forward it;
+the resource makes the final authorization decision.
 
-When `authorization: { enabled: true }` is configured, charge/checkout/subscription/refund calls
-require an `AuthorizationContext` with `allowed: true` and a non-empty `actorId`. Each HTTP adapter
-exposes a `resolveAuthorization(req)` option (sibling to `resolveTenant`) that maps the authenticated
-request to that context and threads it into the write calls:
+Each HTTP adapter exposes a `resolveAuthorization(req)` option that maps the authenticated request to
+that context:
 
 ```ts
 createExpressPayableRoutes(payable, {
@@ -81,8 +76,8 @@ createExpressPayableRoutes(payable, {
 });
 ```
 
-The same option exists on the Fastify plugin and the Nest module. Without it, every write returns
-`AUTHORIZATION_DENIED` (HTTP 403) while authorization is enabled.
+The same option exists on the Fastify plugin and the Nest module. A missing or denied catalog context
+returns `AUTHORIZATION_DENIED` (HTTP 403) while authorization is enabled.
 
 ## Webhook signature verification
 

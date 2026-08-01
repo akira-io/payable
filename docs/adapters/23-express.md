@@ -171,6 +171,7 @@ Code-to-status table:
 | `PRICE_NOT_FOUND` | 404 |
 | `WEBHOOK_EVENT_NOT_FOUND` | 404 |
 | `WEBHOOK_REPLAY_DENIED` | 403 |
+| `AUTHORIZATION_DENIED` | 403 |
 | `WEBHOOK_STORAGE_REQUIRED` | 500 |
 | (any other code, or non-`PayableError`) | 500 |
 
@@ -190,11 +191,32 @@ responsibility. Pass an `authenticate` middleware in `ExpressPayableOptions` to 
 inside the router after the webhook routes and before checkout/subscription/refund, or mount your
 own middleware ahead of the Payable router. See `docs/28-security.md`.
 
+## Catalog authorization
+
+Authenticate the caller before the catalog routes run, then use `resolveAuthorization` to derive an
+`AuthorizationContext` from that trusted identity. For each catalog mutation, `resolveAuthorization`
+runs once. Express forwards its returned object unchanged in `CatalogMutationOptions`; the core
+resource makes the final authorization decision. A denied catalog write returns `AUTHORIZATION_DENIED`
+before capability validation or provider calls.
+
 ```ts
 app.use(
   '/payable',
   createExpressPayableRoutes(payable, { authenticate: requireApiKey }),
 );
+```
+
+With catalog authorization enabled:
+
+```ts
+createExpressPayableRoutes(payable, {
+  authenticate: requireApiKey,
+  resolveAuthorization: (req) => ({
+    allowed: true,
+    actorId: req.user.id,
+    tenantId: req.user.tenantId,
+  }),
+});
 ```
 
 ## Mounting example
