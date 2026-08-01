@@ -8,6 +8,7 @@ import {
 import { CatalogMutationIdempotencyExecutor } from '../src/application/services/catalog/catalog-mutation-idempotency-executor';
 import { IdempotencyService } from '../src/application/services/idempotency/idempotency-service';
 import type { OperationContext } from '../src/domain/dtos/common.dto';
+import type { PriceDTO } from '../src/domain/dtos/price.dto';
 import type { ProductDTO } from '../src/domain/dtos/product.dto';
 import { Money } from '../src/domain/value-objects/money';
 import { FakeClock } from '../src/support/clock/fake-clock';
@@ -133,6 +134,42 @@ describe('CatalogMutationIdempotencyExecutor', () => {
     });
     expect(runs).toBe(1);
     expect(contexts[0]?.idempotencyKey).toBeUndefined();
+    expect(Object.hasOwn(contexts[0] ?? {}, 'idempotencyKey')).toBe(false);
+  });
+
+  it('replays an in-memory PriceDTO as a fresh Money value without rerunning', async () => {
+    const store = new InMemoryIdempotencyStore();
+    const executor = new CatalogMutationIdempotencyExecutor(dependencies({ native: true, store }));
+    let runs = 0;
+    const mutation = {
+      action: 'price.create' as const,
+      callerKey: 'price-123',
+      request: { providerProductId: 'prod_1', unitAmount: { amount: 9900, currency: 'USD' } },
+      resourceType: 'price' as const,
+      run: async (): Promise<PriceDTO> => {
+        runs += 1;
+        return {
+          providerPriceId: 'price_1',
+          providerProductId: 'prod_1',
+          unitAmount: Money.of(9900, 'USD'),
+          interval: 'month',
+          intervalCount: 1,
+          description: null,
+          active: true,
+        };
+      },
+      revive: revivePrice,
+    };
+
+    const first = await executor.execute(mutation);
+    const replay = await executor.execute(mutation);
+
+    expect(first.unitAmount).toBeInstanceOf(Money);
+    expect(replay.unitAmount).toBeInstanceOf(Money);
+    expect(replay.unitAmount).not.toBe(first.unitAmount);
+    expect(replay.unitAmount.amount()).toBe(9900);
+    expect(replay.unitAmount.currency()).toBe('USD');
+    expect(runs).toBe(1);
   });
 
   it('forwards distinct derived keys directly when native storage is unavailable', async () => {

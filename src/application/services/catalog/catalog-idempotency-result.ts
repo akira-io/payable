@@ -9,7 +9,7 @@ interface StoredMoney {
 }
 
 interface StoredPrice extends Omit<PriceDTO, 'unitAmount'> {
-  unitAmount: StoredMoney;
+  unitAmount: StoredMoney | Money;
 }
 
 function isRecord(storedValue: unknown): storedValue is Record<string, unknown> {
@@ -70,7 +70,7 @@ function isStoredPrice(storedValue: unknown): storedValue is StoredPrice {
     isRecord(storedValue) &&
     typeof storedValue.providerPriceId === 'string' &&
     typeof storedValue.providerProductId === 'string' &&
-    isStoredMoney(storedValue.unitAmount) &&
+    (storedValue.unitAmount instanceof Money || isStoredMoney(storedValue.unitAmount)) &&
     isRecurringInterval(storedValue.interval) &&
     isNullableInteger(storedValue.intervalCount) &&
     isNullableString(storedValue.description) &&
@@ -83,6 +83,13 @@ function malformedStoredResponse(resourceType: 'product' | 'price', cause?: unkn
     cause,
     context: { resourceType },
   });
+}
+
+function reviveMoney(storedMoney: StoredMoney | Money): Money {
+  if (storedMoney instanceof Money) {
+    return Money.of(storedMoney.amount(), storedMoney.currency());
+  }
+  return Money.of(storedMoney.amount, storedMoney.currency);
 }
 
 export function reviveProduct(storedResponse: unknown): ProductDTO {
@@ -99,7 +106,7 @@ export function revivePrice(storedResponse: unknown): PriceDTO {
   try {
     return {
       ...storedResponse,
-      unitAmount: Money.of(storedResponse.unitAmount.amount, storedResponse.unitAmount.currency),
+      unitAmount: reviveMoney(storedResponse.unitAmount),
     };
   } catch (error) {
     throw malformedStoredResponse('price', error);

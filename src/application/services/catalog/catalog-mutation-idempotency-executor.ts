@@ -36,11 +36,9 @@ export class CatalogMutationIdempotencyExecutor {
       callerKey,
     });
     const nativeIdempotency = this.dependencies.provider.capabilities().has('catalogIdempotency');
-    const context: OperationContext = {
-      correlationId,
-      tenantId: this.dependencies.tenantId,
-      idempotencyKey: nativeIdempotency ? providerKey : undefined,
-    };
+    const context: OperationContext = nativeIdempotency
+      ? { correlationId, tenantId: this.dependencies.tenantId, idempotencyKey: providerKey }
+      : { correlationId, tenantId: this.dependencies.tenantId };
     const idempotency = this.dependencies.catalogIdempotency;
 
     if (!idempotency && nativeIdempotency) {
