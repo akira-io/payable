@@ -1,10 +1,11 @@
-import { PayableError } from './payable-error';
+import { PayableError, type PayableErrorOptions } from './payable-error';
 
 export class ProductNotFoundError extends PayableError {
-  constructor(providerProductId: string) {
+  constructor(providerProductId: string, options: PayableErrorOptions = {}) {
     super(`Product not found: ${providerProductId}`, {
+      ...options,
       code: 'PRODUCT_NOT_FOUND',
-      context: { providerProductId },
+      context: { ...options.context, providerProductId },
     });
   }
 }

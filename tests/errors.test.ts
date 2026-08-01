@@ -64,13 +64,30 @@ describe('PayableError', () => {
   });
 
   it('captures missing product and price identifiers', () => {
-    expect(new ProductNotFoundError('prod_missing')).toMatchObject({
+    const cause = new Error('provider failure');
+    expect(
+      new ProductNotFoundError('prod_missing', {
+        context: { provider: 'stripe' },
+        correlationId: 'corr-product',
+        cause,
+      }),
+    ).toMatchObject({
       code: 'PRODUCT_NOT_FOUND',
-      context: { providerProductId: 'prod_missing' },
+      context: { providerProductId: 'prod_missing', provider: 'stripe' },
+      correlationId: 'corr-product',
+      cause,
     });
-    expect(new PriceNotFoundError('price_missing')).toMatchObject({
+    expect(
+      new PriceNotFoundError('price_missing', {
+        context: { provider: 'paddle' },
+        correlationId: 'corr-price',
+        cause,
+      }),
+    ).toMatchObject({
       code: 'PRICE_NOT_FOUND',
-      context: { providerPriceId: 'price_missing' },
+      context: { providerPriceId: 'price_missing', provider: 'paddle' },
+      correlationId: 'corr-price',
+      cause,
     });
   });
 });

@@ -1,27 +1,27 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createPayable } from '../src/create-payable';
 import { createPayableMcpServer } from '../src/presentation/mcp/index';
+import type { McpPayableOptions } from '../src/presentation/mcp/options';
 import { FakeProvider } from './support/fake-provider';
 
-async function connect() {
+async function connect(options: McpPayableOptions = { defaultTenantId: 'tenant-a' }) {
   const stripe = new FakeProvider();
   const paddle = new FakeProvider();
-  const server = createPayableMcpServer(
-    createPayable({ providers: { stripe, paddle }, tenant: { enabled: true } }),
-    {
-      defaultTenantId: 'tenant-a',
-      policy: {
-        authorization: () => ({ allowed: true, actorId: 'catalog-operator' }),
-      },
+  const payable = createPayable({ providers: { stripe, paddle }, tenant: { enabled: true } });
+  const server = createPayableMcpServer(payable, {
+    ...options,
+    policy: {
+      ...options.policy,
+      authorization: () => ({ allowed: true, actorId: 'catalog-operator' }),
     },
-  );
+  });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'catalog-test', version: '0' });
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
-  return { client, paddle };
+  return { client, paddle, payable };
 }
 
 function parse(result: CallToolResult): unknown {
@@ -57,6 +57,7 @@ describe('mcp catalog tools', () => {
       arguments: {
         provider: 'paddle',
         limit: 30,
+        cursor: 'prices-cursor',
         active: false,
         providerProductId: 'prod_fake',
       },
@@ -64,6 +65,7 @@ describe('mcp catalog tools', () => {
     expect(parse(prices)).toMatchObject({ data: [{ providerPriceId: 'price_fake' }] });
     expect(paddle.lastListPrices).toEqual({
       limit: 30,
+      cursor: 'prices-cursor',
       active: false,
       providerProductId: 'prod_fake',
     });
@@ -95,5 +97,82 @@ describe('mcp catalog tools', () => {
       })) as CallToolResult;
       expect(invalid.isError).toBe(true);
     }
+  });
+
+  it('accepts and forwards both list limit boundaries', async () => {
+    const { client, paddle } = await connect();
+
+    for (const limit of [1, 100]) {
+      const products = (await client.callTool({
+        name: 'products_list',
+        arguments: { provider: 'paddle', limit },
+      })) as CallToolResult;
+      expect(products.isError).toBeUndefined();
+      expect(paddle.lastListProducts?.limit).toBe(limit);
+
+      const prices = (await client.callTool({
+        name: 'prices_list',
+        arguments: { provider: 'paddle', limit },
+      })) as CallToolResult;
+      expect(prices.isError).toBeUndefined();
+      expect(paddle.lastListPrices?.limit).toBe(limit);
+    }
+  });
+
+  it.each([
+    {
+      name: 'uses a pinned default when override is disabled',
+      options: { defaultTenantId: 'tenant-a' },
+      tenantId: 'tenant-b',
+      expectedTenantId: 'tenant-a',
+    },
+    {
+      name: 'uses the client tenant when override is enabled',
+      options: { defaultTenantId: 'tenant-a', allowTenantOverride: true },
+      tenantId: 'tenant-b',
+      expectedTenantId: 'tenant-b',
+    },
+    {
+      name: 'ignores the client tenant without a pinned default',
+      options: {},
+      tenantId: 'tenant-b',
+      expectedTenantId: undefined,
+    },
+    {
+      name: 'uses the client tenant without a default when override is enabled',
+      options: { allowTenantOverride: true },
+      tenantId: 'tenant-c',
+      expectedTenantId: 'tenant-c',
+    },
+    {
+      name: 'uses the pinned default when the client omits a tenant',
+      options: { defaultTenantId: 'tenant-a', allowTenantOverride: true },
+      tenantId: undefined,
+      expectedTenantId: 'tenant-a',
+    },
+  ])('$name through catalog tools', async ({ options, tenantId, expectedTenantId }) => {
+    const { client, payable } = await connect(options);
+    const productsResource = vi.spyOn(payable, 'products');
+    const pricesResource = vi.spyOn(payable, 'prices');
+    const tenantArgument = tenantId === undefined ? {} : { tenantId };
+
+    const product = (await client.callTool({
+      name: 'product_get',
+      arguments: { provider: 'paddle', id: 'prod_fake', ...tenantArgument },
+    })) as CallToolResult;
+    const price = (await client.callTool({
+      name: 'price_get',
+      arguments: { provider: 'paddle', id: 'price_fake', ...tenantArgument },
+    })) as CallToolResult;
+
+    expect(productsResource).toHaveBeenCalledWith('paddle', expectedTenantId);
+    expect(pricesResource).toHaveBeenCalledWith('paddle', expectedTenantId);
+    if (expectedTenantId === undefined) {
+      expect(parse(product)).toMatchObject({ error: 'TENANT_REQUIRED' });
+      expect(parse(price)).toMatchObject({ error: 'TENANT_REQUIRED' });
+      return;
+    }
+    expect(product.isError).toBeUndefined();
+    expect(price.isError).toBeUndefined();
   });
 });

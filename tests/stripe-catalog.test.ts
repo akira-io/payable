@@ -190,29 +190,62 @@ describe('Stripe catalog', () => {
   });
 
   it('maps missing Stripe catalog resources by operation while list failures remain request errors', async () => {
-    const resourceMissing = () => {
-      throw { type: 'StripeInvalidRequestError', code: 'resource_missing', message: 'missing' };
+    const resourceMissing = {
+      type: 'StripeInvalidRequestError',
+      code: 'resource_missing',
+      message: 'missing',
     };
+    const rejectMissing = () => Promise.reject(resourceMissing);
     const provider = stripeProvider({
-      products: { retrieve: resourceMissing, update: resourceMissing, list: resourceMissing },
-      prices: { retrieve: resourceMissing, update: resourceMissing },
+      products: { retrieve: rejectMissing, update: rejectMissing, list: rejectMissing },
+      prices: { retrieve: rejectMissing, update: rejectMissing },
     } as unknown as Stripe);
 
     await expect(provider.retrieveProduct('prod_missing')).rejects.toMatchObject({
       code: 'PRODUCT_NOT_FOUND',
+      context: {
+        providerProductId: 'prod_missing',
+        provider: 'stripe',
+        stripeType: 'StripeInvalidRequestError',
+        stripeCode: 'resource_missing',
+      },
+      cause: resourceMissing,
     });
     await expect(
       provider.setProductActive('prod_missing', false, operationContext),
     ).rejects.toMatchObject({
       code: 'PRODUCT_NOT_FOUND',
+      correlationId: 'corr-1',
+      context: {
+        providerProductId: 'prod_missing',
+        provider: 'stripe',
+        stripeType: 'StripeInvalidRequestError',
+        stripeCode: 'resource_missing',
+      },
+      cause: resourceMissing,
     });
     await expect(provider.retrievePrice('price_missing')).rejects.toMatchObject({
       code: 'PRICE_NOT_FOUND',
+      context: {
+        providerPriceId: 'price_missing',
+        provider: 'stripe',
+        stripeType: 'StripeInvalidRequestError',
+        stripeCode: 'resource_missing',
+      },
+      cause: resourceMissing,
     });
     await expect(
       provider.setPriceActive('price_missing', false, operationContext),
     ).rejects.toMatchObject({
       code: 'PRICE_NOT_FOUND',
+      correlationId: 'corr-1',
+      context: {
+        providerPriceId: 'price_missing',
+        provider: 'stripe',
+        stripeType: 'StripeInvalidRequestError',
+        stripeCode: 'resource_missing',
+      },
+      cause: resourceMissing,
     });
     await expect(provider.listProducts()).rejects.toMatchObject({
       code: 'PROVIDER_REQUEST_INVALID',

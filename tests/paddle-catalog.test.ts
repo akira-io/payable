@@ -178,9 +178,8 @@ describe('Paddle catalog', () => {
   });
 
   it('uses entity-specific not-found errors except for catalog lists', async () => {
-    const missing = () => {
-      throw { code: 'not_found', detail: 'missing' };
-    };
+    const missingError = { code: 'not_found', type: 'request_error', detail: 'missing' };
+    const missing = () => Promise.reject(missingError);
     const paddle = new PaddleProvider({ apiKey: 'pdl_test', webhookSecret: 'wh_test' }, {
       products: { get: missing, update: missing, list: missing },
       prices: { get: missing, update: missing },
@@ -188,19 +187,49 @@ describe('Paddle catalog', () => {
 
     await expect(paddle.retrieveProduct('pro_missing')).rejects.toMatchObject({
       code: 'PRODUCT_NOT_FOUND',
+      context: {
+        providerProductId: 'pro_missing',
+        provider: 'paddle',
+        paddleCode: 'not_found',
+        paddleType: 'request_error',
+      },
+      cause: missingError,
     });
     await expect(
       paddle.setProductActive('pro_missing', false, operationContext),
     ).rejects.toMatchObject({
       code: 'PRODUCT_NOT_FOUND',
+      correlationId: 'corr-1',
+      context: {
+        providerProductId: 'pro_missing',
+        provider: 'paddle',
+        paddleCode: 'not_found',
+        paddleType: 'request_error',
+      },
+      cause: missingError,
     });
     await expect(paddle.retrievePrice('pri_missing')).rejects.toMatchObject({
       code: 'PRICE_NOT_FOUND',
+      context: {
+        providerPriceId: 'pri_missing',
+        provider: 'paddle',
+        paddleCode: 'not_found',
+        paddleType: 'request_error',
+      },
+      cause: missingError,
     });
     await expect(
       paddle.setPriceActive('pri_missing', false, operationContext),
     ).rejects.toMatchObject({
       code: 'PRICE_NOT_FOUND',
+      correlationId: 'corr-1',
+      context: {
+        providerPriceId: 'pri_missing',
+        provider: 'paddle',
+        paddleCode: 'not_found',
+        paddleType: 'request_error',
+      },
+      cause: missingError,
     });
     await expect(paddle.listProducts()).rejects.toMatchObject({ code: 'PROVIDER_REQUEST_INVALID' });
   });

@@ -11,6 +11,7 @@ import type {
   ProductDTO,
   UpdateProductInput,
 } from '../../../domain/dtos/product.dto';
+import { createPriceNotFoundFactory, createProductNotFoundFactory } from '../catalog-not-found';
 import { stripeAmount } from './stripe-amounts';
 import { withStripeErrors } from './stripe-errors';
 import { toPriceDTO, toProductDTO } from './stripe-mappers';
@@ -36,12 +37,15 @@ export class StripeCatalog {
 
   async updateProduct(input: UpdateProductInput, ctx: OperationContext): Promise<ProductDTO> {
     const stripe = await this.client();
-    const product = await withStripeErrors(() =>
-      stripe.products.update(
-        input.providerProductId,
-        { name: input.name, description: input.description, active: input.active },
-        { idempotencyKey: ctx.idempotencyKey },
-      ),
+    const product = await withStripeErrors(
+      () =>
+        stripe.products.update(
+          input.providerProductId,
+          { name: input.name, description: input.description, active: input.active },
+          { idempotencyKey: ctx.idempotencyKey },
+        ),
+      'stripe',
+      createProductNotFoundFactory(input.providerProductId, ctx),
     );
     return toProductDTO(product);
   }
@@ -68,7 +72,7 @@ export class StripeCatalog {
     const product = await withStripeErrors(
       () => stripe.products.retrieve(id),
       'stripe',
-      'PRODUCT_NOT_FOUND',
+      createProductNotFoundFactory(id),
     );
     return toProductDTO(product);
   }
@@ -93,7 +97,7 @@ export class StripeCatalog {
     const price = await withStripeErrors(
       () => stripe.prices.retrieve(id),
       'stripe',
-      'PRICE_NOT_FOUND',
+      createPriceNotFoundFactory(id),
     );
     return toPriceDTO(price);
   }
@@ -119,7 +123,7 @@ export class StripeCatalog {
     const product = await withStripeErrors(
       () => stripe.products.update(id, { active }, { idempotencyKey: ctx.idempotencyKey }),
       'stripe',
-      'PRODUCT_NOT_FOUND',
+      createProductNotFoundFactory(id, ctx),
     );
     return toProductDTO(product);
   }
@@ -129,7 +133,7 @@ export class StripeCatalog {
     const price = await withStripeErrors(
       () => stripe.prices.update(id, { active }, { idempotencyKey: ctx.idempotencyKey }),
       'stripe',
-      'PRICE_NOT_FOUND',
+      createPriceNotFoundFactory(id, ctx),
     );
     return toPriceDTO(price);
   }

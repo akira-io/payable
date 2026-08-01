@@ -10,6 +10,7 @@ import type {
   ProductDTO,
   UpdateProductInput,
 } from '../../../domain/dtos/product.dto';
+import { createPriceNotFoundFactory, createProductNotFoundFactory } from '../catalog-not-found';
 import { paddleAmount } from './paddle-amounts';
 import { withPaddleErrors } from './paddle-errors';
 import { toPriceDTO, toProductDTO } from './paddle-mappers';
@@ -18,7 +19,7 @@ import type { PaddleClient } from './paddle-types';
 export class PaddleCatalog {
   constructor(private readonly client: () => Promise<PaddleClient>) {}
 
-  async createProduct(input: CreateProductInput, _ctx: OperationContext): Promise<ProductDTO> {
+  async createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO> {
     const paddle = await this.client();
     const product = await withPaddleErrors(() =>
       paddle.products.create({
@@ -33,12 +34,12 @@ export class PaddleCatalog {
     }
     const archivedProduct = await withPaddleErrors(
       () => paddle.products.update(product.id, { status: 'archived' }),
-      'PRODUCT_NOT_FOUND',
+      createProductNotFoundFactory(product.id, ctx),
     );
     return toProductDTO(archivedProduct);
   }
 
-  async updateProduct(input: UpdateProductInput, _ctx: OperationContext): Promise<ProductDTO> {
+  async updateProduct(input: UpdateProductInput, ctx: OperationContext): Promise<ProductDTO> {
     const paddle = await this.client();
     const product = await withPaddleErrors(
       () =>
@@ -47,7 +48,7 @@ export class PaddleCatalog {
           description: input.description,
           status: input.active === undefined ? undefined : input.active ? 'active' : 'archived',
         }),
-      'PRODUCT_NOT_FOUND',
+      createProductNotFoundFactory(input.providerProductId, ctx),
     );
     return toProductDTO(product);
   }
@@ -73,7 +74,10 @@ export class PaddleCatalog {
 
   async retrieveProduct(id: string): Promise<ProductDTO> {
     const paddle = await this.client();
-    const product = await withPaddleErrors(() => paddle.products.get(id), 'PRODUCT_NOT_FOUND');
+    const product = await withPaddleErrors(
+      () => paddle.products.get(id),
+      createProductNotFoundFactory(id),
+    );
     return toProductDTO(product);
   }
 
@@ -95,7 +99,10 @@ export class PaddleCatalog {
 
   async retrievePrice(id: string): Promise<PriceDTO> {
     const paddle = await this.client();
-    const price = await withPaddleErrors(() => paddle.prices.get(id), 'PRICE_NOT_FOUND');
+    const price = await withPaddleErrors(
+      () => paddle.prices.get(id),
+      createPriceNotFoundFactory(id),
+    );
     return toPriceDTO(price);
   }
 
@@ -116,20 +123,20 @@ export class PaddleCatalog {
     };
   }
 
-  async setProductActive(id: string, active: boolean, _ctx: OperationContext): Promise<ProductDTO> {
+  async setProductActive(id: string, active: boolean, ctx: OperationContext): Promise<ProductDTO> {
     const paddle = await this.client();
     const product = await withPaddleErrors(
       () => paddle.products.update(id, { status: active ? 'active' : 'archived' }),
-      'PRODUCT_NOT_FOUND',
+      createProductNotFoundFactory(id, ctx),
     );
     return toProductDTO(product);
   }
 
-  async setPriceActive(id: string, active: boolean, _ctx: OperationContext): Promise<PriceDTO> {
+  async setPriceActive(id: string, active: boolean, ctx: OperationContext): Promise<PriceDTO> {
     const paddle = await this.client();
     const price = await withPaddleErrors(
       () => paddle.prices.update(id, { status: active ? 'active' : 'archived' }),
-      'PRICE_NOT_FOUND',
+      createPriceNotFoundFactory(id, ctx),
     );
     return toPriceDTO(price);
   }
