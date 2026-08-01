@@ -25,5 +25,11 @@ export function assertCatalogMutationAuthorized(
   authorization: AuthorizationContext | undefined,
   action: CatalogMutationAction,
 ): void {
-  assertAuthorized(enabled, isAuthorized, authorization, ACTION_LABELS[action], action);
+  assertAuthorized(
+    enabled || authorization !== undefined,
+    isAuthorized,
+    authorization,
+    ACTION_LABELS[action],
+    action,
+  );
 }

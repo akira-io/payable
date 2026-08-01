@@ -49,7 +49,7 @@ async function expectStorageUntouched(db: Knex): Promise<void> {
   }
 }
 
-async function setup(allowed: boolean) {
+async function setup(allowed: boolean, authorizationEnabled = true) {
   const db = createTestDb();
   await migrate(db);
   const provider = new FakeProvider();
@@ -64,7 +64,7 @@ async function setup(allowed: boolean) {
     providers: { stripe: provider },
     storage: new KnexStorageDriver(db, new FakeClock()),
     tenant: { enabled: true },
-    authorization: { enabled: true },
+    authorization: { enabled: authorizationEnabled },
   });
   const server = createPayableMcpServer(payable, {
     defaultTenantId: 'tenant-a',
@@ -139,6 +139,26 @@ describe('mcp catalog authorization', () => {
       });
     } finally {
       create.mockRestore();
+      await db.destroy();
+    }
+  });
+
+  it('enforces denied MCP catalog contexts when global authorization is disabled', async () => {
+    const { authorization, client, db, provider } = await setup(false, false);
+
+    try {
+      const result = (await client.callTool(calls[0])) as CallToolResult;
+
+      expect(result.isError).toBe(true);
+      expect(parse(result)).toMatchObject({
+        error: 'AUTHORIZATION_DENIED',
+        message: 'Not authorized to create product',
+      });
+      expect(authorization).toHaveBeenCalledOnce();
+      expect(authorization).toHaveBeenCalledWith(calls[0].name, calls[0].arguments);
+      expect(providerMutationCount(provider)).toBe(0);
+      await expectStorageUntouched(db);
+    } finally {
       await db.destroy();
     }
   });

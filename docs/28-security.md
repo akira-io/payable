@@ -57,11 +57,12 @@ if (!this.policy.authorize(context)) {
 Authorization policies receive an explicit context. They do not authenticate a request or derive
 identity from it. Keep authentication and ownership-of-billable checks in the host application.
 
-When `authorization: { enabled: true }` is configured, catalog mutations accept
-`CatalogMutationOptions` and fail with `AUTHORIZATION_DENIED` unless `authorization.allowed` is true
-and `authorization.actorId` is non-empty. Product and price resources enforce this before capability validation or provider calls.
-Express, Fastify, NestJS, and MCP resolve the context and forward it;
-the resource makes the final authorization decision.
+Catalog mutations accept `CatalogMutationOptions` and require an allowed context when global authorization is enabled or an
+explicit catalog authorization context is supplied. They fail with `AUTHORIZATION_DENIED` unless
+`authorization.allowed` is true and `authorization.actorId` is non-empty. When global authorization
+is disabled and no context is supplied, catalog mutations preserve their existing behavior. Product
+and price resources enforce this before capability validation or provider calls. Express, Fastify,
+NestJS, and MCP resolve the context and forward it; the resource makes the final authorization decision.
 
 Each HTTP adapter exposes a `resolveAuthorization(req)` option that maps the authenticated request to
 that context:
@@ -76,8 +77,9 @@ createExpressPayableRoutes(payable, {
 });
 ```
 
-The same option exists on the Fastify plugin and the Nest module. A missing or denied catalog context
-returns `AUTHORIZATION_DENIED` (HTTP 403) while authorization is enabled.
+The same option exists on the Fastify plugin and the Nest module. A missing context returns
+`AUTHORIZATION_DENIED` when global authorization is enabled; a supplied context that is denied or
+lacks an actor ID returns it regardless of global authorization.
 
 ## Webhook signature verification
 

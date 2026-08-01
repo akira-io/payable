@@ -116,7 +116,8 @@ the surface to the read group no matter what `allowMoneyMovement` says.
 result from the trusted MCP host identity, because Payable does not authenticate the MCP caller. For
 each catalog mutation, `policy.authorization` runs once. MCP forwards the returned object unchanged
 in `CatalogMutationOptions`; the core resource makes the final authorization decision. A denied
-catalog write returns `AUTHORIZATION_DENIED` before capability validation or provider calls. When
+catalog context returns `AUTHORIZATION_DENIED` before capability validation or provider calls, even
+when global authorization is disabled. When
 `requireAuthorization` is set but no `authorization` function is given, the non-read tools are not
 registered at all.
 

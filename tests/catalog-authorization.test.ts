@@ -166,6 +166,39 @@ describe('catalog mutation authorization', () => {
 
   it.each(
     mutations,
+  )('denies %s with a denied explicit context when authorization is disabled', async (mutation) => {
+    const { db, payable, provider } = await setup(false);
+    provider.supportedCapabilities.delete(mutation.capability);
+
+    await expect(
+      mutation.run(payable, {
+        authorization: { allowed: false, actorId: 'catalog-viewer' },
+      }),
+    ).rejects.toMatchObject({
+      code: 'AUTHORIZATION_DENIED',
+      message: `Not authorized to ${mutation.label}`,
+      context: { action: mutation.action },
+    });
+    expect(providerMutationCount(provider)).toBe(0);
+    await expectStorageUntouched(db);
+    await db.destroy();
+  });
+
+  it.each(
+    mutations,
+  )('allows %s with an authorized explicit context when authorization is disabled', async (mutation) => {
+    const { db, payable, provider } = await setup(false);
+
+    await mutation.run(payable, {
+      authorization: { allowed: true, actorId: 'catalog-admin' },
+    });
+
+    expect(providerMutationCount(provider)).toBe(1);
+    await db.destroy();
+  });
+
+  it.each(
+    mutations,
   )('allows %s without options when authorization is disabled', async (mutation) => {
     const { db, payable, provider } = await setup(false);
 

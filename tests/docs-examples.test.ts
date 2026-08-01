@@ -176,6 +176,12 @@ describe('documentation examples stay executable', () => {
     expect(security).toContain('CatalogMutationOptions');
     expect(security).toContain('AUTHORIZATION_DENIED');
     expect(security).toContain('before capability validation or provider calls');
+    expect(security).toMatch(
+      /global authorization is enabled or an\s+explicit catalog authorization\s+context is supplied/,
+    );
+
+    const mcp = readFileSync('docs/adapters/26-mcp.md', 'utf8');
+    expect(mcp).toMatch(/even\s+when global authorization is disabled/);
 
     const adapterDocumentation: Array<[path: string, resolver: string]> = [
       ['docs/adapters/23-express.md', 'resolveAuthorization'],
