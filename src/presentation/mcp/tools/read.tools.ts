@@ -6,6 +6,8 @@ import type { McpPayableOptions } from '../options';
 import type { ToolGate } from '../policy';
 import { billableObject, limitShape, providerShape, tenantShape } from '../schemas';
 
+export { registerCatalogReadTools } from './catalog-read.tools';
+
 const webhookStatus = z.enum(['pending', 'processing', 'processed', 'failed']);
 
 export function registerReadTools(

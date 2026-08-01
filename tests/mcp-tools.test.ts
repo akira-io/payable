@@ -161,10 +161,14 @@ describe('mcp execution-time authorization', () => {
   const deniedCalls: Array<{ name: string; arguments: Record<string, unknown> }> = [
     { name: 'product_create', arguments: { name: 'Pro Plan' } },
     { name: 'product_update', arguments: { providerProductId: 'prod_1', name: 'Pro' } },
+    { name: 'product_activate', arguments: { id: 'prod_1' } },
+    { name: 'product_archive', arguments: { id: 'prod_1' } },
     {
       name: 'price_create',
       arguments: { providerProductId: 'prod_1', unitAmount: { amount: 900, currency: 'USD' } },
     },
+    { name: 'price_activate', arguments: { id: 'price_1' } },
+    { name: 'price_archive', arguments: { id: 'price_1' } },
     {
       name: 'subscription_create',
       arguments: { billable, name: 'default', priceId: 'price_1' },

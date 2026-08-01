@@ -13,6 +13,8 @@ import {
   toMoney,
 } from '../schemas';
 
+export { registerCatalogLifecycleTools } from './catalog-lifecycle.tools';
+
 const metadata = z.record(z.string(), z.string()).optional();
 
 export function registerCatalogTools(
