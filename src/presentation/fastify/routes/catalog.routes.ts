@@ -43,7 +43,7 @@ export async function registerCatalogRoutes(
       .send(
         await payable
           .products(undefined, tenantId)
-          .activate(id, options.resolveAuthorization?.(request)),
+          .activate(id, { authorization: options.resolveAuthorization?.(request) }),
       );
   });
 
@@ -55,7 +55,7 @@ export async function registerCatalogRoutes(
       .send(
         await payable
           .products(undefined, tenantId)
-          .archive(id, options.resolveAuthorization?.(request)),
+          .archive(id, { authorization: options.resolveAuthorization?.(request) }),
       );
   });
 
@@ -104,7 +104,7 @@ export async function registerCatalogRoutes(
       .send(
         await payable
           .prices(undefined, tenantId)
-          .activate(id, options.resolveAuthorization?.(request)),
+          .activate(id, { authorization: options.resolveAuthorization?.(request) }),
       );
   });
 
@@ -116,7 +116,7 @@ export async function registerCatalogRoutes(
       .send(
         await payable
           .prices(undefined, tenantId)
-          .archive(id, options.resolveAuthorization?.(request)),
+          .archive(id, { authorization: options.resolveAuthorization?.(request) }),
       );
   });
 }

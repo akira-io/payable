@@ -60,6 +60,7 @@ export {
 export {
   type Billable,
   type BillingDependencies,
+  type CatalogMutationOptions,
   type ChargeRequest,
   CheckoutBuilder,
   type CheckoutRequest,
@@ -91,6 +92,7 @@ export {
   CanReplayWebhookPolicy,
   type ReplayWebhookContext,
 } from './application/policies/can-replay-webhook.policy';
+export type { CatalogMutationAction } from './application/policies/catalog-mutation-authorization';
 export { ListAuditLogsQuery } from './application/queries/audit/list-audit-logs.query';
 export { ListAllPaymentsQuery } from './application/queries/payments/list-all-payments.query';
 export { ListPaymentsQuery } from './application/queries/payments/list-payments.query';

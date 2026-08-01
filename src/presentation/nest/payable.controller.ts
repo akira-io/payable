@@ -222,7 +222,7 @@ export class PayableController {
     const productId = parseBody(catalogIdParamSchema, { id }).id;
     return this.payable
       .products(undefined, this.tenantOf(request))
-      .activate(productId, this.authorizationOf(request));
+      .activate(productId, { authorization: this.authorizationOf(request) });
   }
 
   @Post('products/:id/archive')
@@ -232,7 +232,7 @@ export class PayableController {
     const productId = parseBody(catalogIdParamSchema, { id }).id;
     return this.payable
       .products(undefined, this.tenantOf(request))
-      .archive(productId, this.authorizationOf(request));
+      .archive(productId, { authorization: this.authorizationOf(request) });
   }
 
   @Post('prices/:id/activate')
@@ -242,7 +242,7 @@ export class PayableController {
     const priceId = parseBody(catalogIdParamSchema, { id }).id;
     return this.payable
       .prices(undefined, this.tenantOf(request))
-      .activate(priceId, this.authorizationOf(request));
+      .activate(priceId, { authorization: this.authorizationOf(request) });
   }
 
   @Post('prices/:id/archive')
@@ -252,7 +252,7 @@ export class PayableController {
     const priceId = parseBody(catalogIdParamSchema, { id }).id;
     return this.payable
       .prices(undefined, this.tenantOf(request))
-      .archive(priceId, this.authorizationOf(request));
+      .archive(priceId, { authorization: this.authorizationOf(request) });
   }
 
   private receive(request: PayableHttpRequest, provider: string | undefined) {
