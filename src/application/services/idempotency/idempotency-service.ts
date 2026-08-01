@@ -184,7 +184,10 @@ export class IdempotencyService {
       verificationError = error;
     }
     if (completedRecord?.status === 'completed' && completedRecord.requestHash === requestHash) {
-      if (completionError === undefined) {
+      if (
+        completionError === undefined &&
+        completedRecord.lockToken === processingRecord.lockToken
+      ) {
         return executionResult;
       }
       return execution.revive

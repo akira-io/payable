@@ -141,6 +141,33 @@ describe('IdempotencyService recovery', () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
+  it('returns the stored winner when completion belongs to a different lease owner', async () => {
+    const store = new InMemoryIdempotencyStore();
+    const winner = createIdempotencyRecord({
+      requestHash: await hashRequest({ providerProductId: 'prod_1', unitAmount: 9900 }),
+      response: { unitAmount: { amount: 12_500, currency: 'USD' } },
+      status: 'completed',
+      lockedUntil: null,
+      expiresAt: new Date(NOW.getTime() + COMPLETED_TTL_MS),
+      lockToken: 'winner-token',
+    });
+    const find = vi.spyOn(store, 'find').mockResolvedValueOnce(null).mockResolvedValueOnce(winner);
+    const markCompleted = vi.spyOn(store, 'markCompleted').mockResolvedValue(undefined);
+    const markFailed = vi.spyOn(store, 'markFailed');
+    const run = vi.fn(async () => ({ unitAmount: Money.of(9900, 'USD') }));
+
+    const price = await new IdempotencyService(store, new FakeClock(NOW)).execute({
+      ...execution(run),
+      revive: revivePrice,
+    });
+
+    expect(price.unitAmount.amount()).toBe(12_500);
+    expect(find).toHaveBeenCalledTimes(2);
+    expect(markCompleted.mock.calls[0]?.[3]).not.toBe('winner-token');
+    expect(markFailed).not.toHaveBeenCalled();
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects when completion silently leaves the record processing', async () => {
     const store = new InMemoryIdempotencyStore();
     const markCompleted = vi.spyOn(store, 'markCompleted').mockResolvedValue(undefined);
