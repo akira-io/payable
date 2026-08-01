@@ -13,6 +13,7 @@ import {
   productMatches,
   productSnapshot,
 } from './catalog-persistence-snapshot';
+import { updateCatalogPrice, updateCatalogProduct } from './catalog-repository-compare-and-set';
 
 export interface CatalogTransitionContext {
   action: CatalogMutationAction;
@@ -41,7 +42,7 @@ export class CatalogPersistenceCoordinator {
         return;
       }
       const after = before
-        ? await repositories.products.updateIfUnchanged(before.id, before, target, tenantId)
+        ? await updateCatalogProduct(repositories.products, before, target, tenantId)
         : await repositories.products.create(target);
       if (!after) {
         const concurrent = await repositories.products.findByProviderId(
@@ -109,7 +110,7 @@ export class CatalogPersistenceCoordinator {
         return;
       }
       const after = before
-        ? await repositories.prices.updateIfUnchanged(before.id, before, target, tenantId)
+        ? await updateCatalogPrice(repositories.prices, before, target, tenantId)
         : await repositories.prices.create(target);
       if (!after) {
         const concurrent = await repositories.prices.findByProviderId(

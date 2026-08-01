@@ -107,14 +107,23 @@ export function registerCatalogContract(ctx: ContractContext): void {
       throw new Error('Seeded product is missing');
     }
 
+    const repository = harness.storage.products as unknown as {
+      updateIfUnchanged(
+        id: string,
+        before: typeof expected,
+        patch: { name: string },
+        tenantId: string,
+      ): Promise<unknown | null>;
+    };
+
     const updates = await Promise.all([
-      harness.storage.products.updateIfUnchanged(
+      repository.updateIfUnchanged(
         fixture.productId,
         expected,
         { name: 'Concurrent target' },
         'tenant-a',
       ),
-      harness.storage.products.updateIfUnchanged(
+      repository.updateIfUnchanged(
         fixture.productId,
         expected,
         { name: 'Concurrent target' },

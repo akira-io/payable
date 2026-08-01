@@ -94,6 +94,9 @@ export async function createPrismaHarness(): Promise<StorageHarness> {
           }
         : null;
     },
+    async setRawPriceCurrency(id, currency) {
+      await prisma.payablePrice.update({ where: { id }, data: { currency } });
+    },
     async reset() {
       await truncate(prisma);
       clock.set(CONTRACT_BASE_TIME);

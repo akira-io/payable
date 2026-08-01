@@ -5,6 +5,7 @@ import type {
   PriceRepository,
 } from '../../../../domain/contracts/price-repository.contract';
 import type { Price } from '../../../../domain/entities/price.entity';
+import { catalogCurrencyCaseVariants } from '../../catalog-currency-case-variants';
 import { assertCatalogTenantId, assertCatalogTenantIds } from '../../catalog-tenant';
 import { pricePatchToRow, priceToEntity, priceToRow } from '../mappers/price.mapper';
 import { stripUndefined } from '../mappers/shared';
@@ -50,6 +51,7 @@ export class PrismaPriceRepository
       where: {
         ...this.scopedWhere(id, tenantId),
         ...pricePatchToRow(expected),
+        currency: { in: catalogCurrencyCaseVariants(expected.currency) },
       },
       data: stripUndefined({
         ...pricePatchToRow(patch),

@@ -6,12 +6,6 @@ export type PricePatch = Partial<Omit<NewPrice, 'tenantId'>>;
 export interface PriceRepository {
   create(data: NewPrice): Promise<Price>;
   update(id: string, patch: PricePatch, tenantId: string | null): Promise<Price>;
-  updateIfUnchanged(
-    id: string,
-    expected: Price,
-    patch: PricePatch,
-    tenantId: string | null,
-  ): Promise<Price | null>;
   findById(id: string, tenantId: string | null): Promise<Price | null>;
   findByProviderId(
     provider: string,

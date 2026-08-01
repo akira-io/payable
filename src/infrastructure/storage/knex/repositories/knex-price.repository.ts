@@ -6,6 +6,7 @@ import type {
 import type { RecurringInterval } from '../../../../domain/entities/common';
 import type { Price } from '../../../../domain/entities/price.entity';
 import { CurrencyManager } from '../../../../domain/value-objects/currency';
+import { catalogCurrencyCaseVariants } from '../../catalog-currency-case-variants';
 import { assertCatalogTenantId, assertCatalogTenantIds } from '../../catalog-tenant';
 import { KnexRepository } from '../knex-repository';
 import { stripUndefined, toBool, toDate, toMinor } from '../mappers';
@@ -46,8 +47,15 @@ export class KnexPriceRepository
     const updated = await this.knex(this.table)
       .where({
         ...this.scopedWhere(id, tenantId),
-        ...this.toUpdateRow(expected),
+        provider: expected.provider,
+        provider_price_id: expected.providerPriceId,
+        product_id: expected.productId,
+        unit_amount: expected.unitAmount,
+        interval: expected.interval,
+        interval_count: expected.intervalCount,
+        active: expected.active,
       })
+      .whereIn('currency', catalogCurrencyCaseVariants(expected.currency))
       .update(
         stripUndefined({ ...this.toUpdateRow(patch), updated_at: this.clock.now().toISOString() }),
       );

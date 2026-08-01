@@ -28,6 +28,9 @@ describeStorageContract('Knex', async () => {
           }
         : null;
     },
+    async setRawPriceCurrency(id, currency) {
+      await db('payable_prices').where({ id }).update({ currency });
+    },
     async reset() {
       await db.destroy();
       db = createTestDb();
