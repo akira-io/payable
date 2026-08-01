@@ -1,40 +1,41 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import express from 'express';
 import type { Knex } from 'knex';
+import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { ProductResource } from '../src/application/builders/product-resource';
 import { createPayable } from '../src/create-payable';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
-import { createFastifyPayablePlugin } from '../src/presentation/fastify/create-fastify-payable-plugin';
+import { createExpressPayableRoutes } from '../src/presentation/express/create-express-payable-routes';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
 
 type Mutation = {
-  method: 'PATCH' | 'POST';
-  url: string;
-  payload?: Record<string, unknown>;
+  method: 'patch' | 'post';
+  path: string;
+  body?: Record<string, unknown>;
   status: number;
 };
 
 const mutations = [
-  { method: 'POST', url: '/payable/products', payload: { name: 'Pro' }, status: 201 },
+  { method: 'post', path: '/payable/products', body: { name: 'Pro' }, status: 201 },
   {
-    method: 'PATCH',
-    url: '/payable/products',
-    payload: { providerProductId: 'prod_fake', name: 'Pro v2' },
+    method: 'patch',
+    path: '/payable/products',
+    body: { providerProductId: 'prod_fake', name: 'Pro v2' },
     status: 200,
   },
-  { method: 'POST', url: '/payable/products/prod_fake/activate', status: 200 },
-  { method: 'POST', url: '/payable/products/prod_fake/archive', status: 200 },
+  { method: 'post', path: '/payable/products/prod_fake/activate', status: 200 },
+  { method: 'post', path: '/payable/products/prod_fake/archive', status: 200 },
   {
-    method: 'POST',
-    url: '/payable/prices',
-    payload: { providerProductId: 'prod_fake', amount: { amount: 9900, currency: 'USD' } },
+    method: 'post',
+    path: '/payable/prices',
+    body: { providerProductId: 'prod_fake', amount: { amount: 9900, currency: 'USD' } },
     status: 201,
   },
-  { method: 'POST', url: '/payable/prices/price_fake/activate', status: 200 },
-  { method: 'POST', url: '/payable/prices/price_fake/archive', status: 200 },
+  { method: 'post', path: '/payable/prices/price_fake/activate', status: 200 },
+  { method: 'post', path: '/payable/prices/price_fake/archive', status: 200 },
 ] as const;
 
 function providerMutationCount(provider: FakeProvider): number {
@@ -74,56 +75,45 @@ async function setup(allowed: boolean) {
     storage: new KnexStorageDriver(db, new FakeClock()),
     authorization: { enabled: true },
   });
-  const app = Fastify();
-  await app.register(
-    createFastifyPayablePlugin(payable, {
-      authenticate: async () => undefined,
-      resolveAuthorization,
-    }),
-    { prefix: '/payable' },
-  );
-  await app.ready();
+  const app = express();
+  app.use('/payable', createExpressPayableRoutes(payable, { resolveAuthorization }));
 
   return { app, authorization, db, provider, resolveAuthorization };
 }
 
-function sendMutation(app: FastifyInstance, mutation: Mutation) {
-  return app.inject({
-    method: mutation.method,
-    url: mutation.url,
-    payload: mutation.payload ?? {},
-  });
+function sendMutation(app: express.Express, mutation: Mutation): request.Test {
+  return request(app)
+    [mutation.method](mutation.path)
+    .send(mutation.body ?? {});
 }
 
-describe('fastify catalog authorization', () => {
-  it.each(mutations)('denies $method $url before provider mutation', async (mutation) => {
+describe('express catalog authorization', () => {
+  it.each(mutations)('denies $method $path before provider mutation', async (mutation) => {
     const { app, db, provider, resolveAuthorization } = await setup(false);
 
     try {
       const response = await sendMutation(app, mutation);
 
-      expect(response.statusCode).toBe(403);
-      expect(response.json()).toMatchObject({ error: 'AUTHORIZATION_DENIED' });
+      expect(response.status).toBe(403);
+      expect(response.body).toMatchObject({ error: 'AUTHORIZATION_DENIED' });
       expect(resolveAuthorization).toHaveBeenCalledOnce();
       expect(providerMutationCount(provider)).toBe(0);
       await expectStorageUntouched(db);
     } finally {
-      await app.close();
       await db.destroy();
     }
   });
 
-  it.each(mutations)('allows $method $url with one provider mutation', async (mutation) => {
+  it.each(mutations)('allows $method $path with one provider mutation', async (mutation) => {
     const { app, db, provider, resolveAuthorization } = await setup(true);
 
     try {
       const response = await sendMutation(app, mutation);
 
-      expect(response.statusCode).toBe(mutation.status);
+      expect(response.status).toBe(mutation.status);
       expect(resolveAuthorization).toHaveBeenCalledOnce();
       expect(providerMutationCount(provider)).toBe(1);
     } finally {
-      await app.close();
       await db.destroy();
     }
   });
@@ -133,16 +123,11 @@ describe('fastify catalog authorization', () => {
     const create = vi.spyOn(ProductResource.prototype, 'create');
 
     try {
-      await app.inject({
-        method: 'POST',
-        url: '/payable/products',
-        payload: { name: 'Pro' },
-      });
+      await request(app).post('/payable/products').send({ name: 'Pro' }).expect(201);
 
       expect(create.mock.calls[0]?.[1]?.authorization).toBe(authorization);
     } finally {
       create.mockRestore();
-      await app.close();
       await db.destroy();
     }
   });

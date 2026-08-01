@@ -17,16 +17,7 @@ import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
 
 class UniqueProvider extends FakeProvider {
-  productCalls = 0;
-
   private sequence = 0;
-
-  override async createProduct(
-    ...args: Parameters<FakeProvider['createProduct']>
-  ): ReturnType<FakeProvider['createProduct']> {
-    this.productCalls += 1;
-    return super.createProduct(...args);
-  }
 
   override async createCustomer(
     input: CreateCustomerInput,
@@ -42,12 +33,16 @@ class UniqueProvider extends FakeProvider {
   }
 }
 
-async function connect(options?: McpPayableOptions) {
+async function connect(options?: McpPayableOptions, authorizationEnabled = false) {
   const db = createTestDb();
   await migrate(db);
   const storage = new KnexStorageDriver(db, new FakeClock());
   const provider = new UniqueProvider();
-  const payable = createPayable({ providers: { stripe: provider }, storage });
+  const payable = createPayable({
+    providers: { stripe: provider },
+    storage,
+    authorization: { enabled: authorizationEnabled },
+  });
   const server = createPayableMcpServer(payable, options);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test', version: '0' });
@@ -157,6 +152,15 @@ describe('mcp execution-time authorization', () => {
   const denyAll = {
     policy: { allowMoneyMovement: true, authorization: () => ({ allowed: false }) },
   } satisfies McpPayableOptions;
+  const catalogToolNames = new Set([
+    'product_create',
+    'product_update',
+    'product_activate',
+    'product_archive',
+    'price_create',
+    'price_activate',
+    'price_archive',
+  ]);
 
   const deniedCalls: Array<{ name: string; arguments: Record<string, unknown> }> = [
     { name: 'product_create', arguments: { name: 'Pro Plan' } },
@@ -192,40 +196,13 @@ describe('mcp execution-time authorization', () => {
 
   for (const call of deniedCalls) {
     it(`denies ${call.name} when the authorization callback rejects`, async () => {
-      const { client, db } = await connect(denyAll);
+      const { client, db } = await connect(denyAll, catalogToolNames.has(call.name));
       const result = (await client.callTool(call)) as CallToolResult;
       expect(result.isError).toBe(true);
       expect((parse(result) as { error: string }).error).toBe('AUTHORIZATION_DENIED');
       await db.destroy();
     });
   }
-
-  it('does not touch the provider when a catalog write is denied', async () => {
-    const { client, provider, db } = await connect(denyAll);
-    await client.callTool({ name: 'product_create', arguments: { name: 'Pro Plan' } });
-    expect(provider.productCalls).toBe(0);
-    await db.destroy();
-  });
-
-  it('does not run catalog lifecycle mutations when authorization rejects', async () => {
-    const { client, provider, db } = await connect(denyAll);
-
-    const lifecycleCalls: ReadonlyArray<readonly [string, string]> = [
-      ['product_activate', 'prod_1'],
-      ['product_archive', 'prod_1'],
-      ['price_activate', 'price_1'],
-      ['price_archive', 'price_1'],
-    ];
-    for (const [name, id] of lifecycleCalls) {
-      const denied = (await client.callTool({ name, arguments: { id } })) as CallToolResult;
-      expect(denied.isError).toBe(true);
-      expect((parse(denied) as { error: string }).error).toBe('AUTHORIZATION_DENIED');
-    }
-
-    expect(provider.productActiveCalls).toEqual([]);
-    expect(provider.priceActiveCalls).toEqual([]);
-    await db.destroy();
-  });
 
   it('allows catalog writes when the callback authorizes an actor', async () => {
     const { client, db } = await connect({

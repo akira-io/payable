@@ -113,7 +113,9 @@ describe('payable.products / payable.prices', () => {
       code: 'AUTHORIZATION_DENIED',
     });
     await expect(
-      payable.prices().activate('price_fake', { allowed: false, actorId: 'viewer' }),
+      payable.prices().activate('price_fake', {
+        authorization: { allowed: false, actorId: 'viewer' },
+      }),
     ).rejects.toMatchObject({ code: 'AUTHORIZATION_DENIED' });
 
     expect(provider.productActiveCalls).toEqual([]);

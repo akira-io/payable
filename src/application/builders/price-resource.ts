@@ -7,16 +7,21 @@ import type { CatalogPage, ListPricesInput } from '../../domain/dtos/catalog.dto
 import type { OperationContext } from '../../domain/dtos/common.dto';
 import type { CreatePriceInput, PriceDTO } from '../../domain/dtos/price.dto';
 import { CorrelationId } from '../../domain/value-objects/correlation-id';
-import { assertAuthorized } from '../policies/assert-authorized';
-import { type AuthorizationContext, isAuthorized } from '../policies/authorization-context';
+import { assertCatalogMutationAuthorized } from '../policies/catalog-mutation-authorization';
 import { normalizeCatalogListInput } from '../services/catalog/normalize-catalog-list-input';
 import { assertCapableProvider } from '../services/provider-capabilities/assert-provider-capability';
 import type { BillingDependencies } from './billing-dependencies';
+import type { CatalogMutationOptions } from './catalog-mutation-options';
 
 export class PriceResource {
   constructor(private readonly deps: BillingDependencies) {}
 
-  async create(input: CreatePriceInput): Promise<PriceDTO> {
+  async create(input: CreatePriceInput, options?: CatalogMutationOptions): Promise<PriceDTO> {
+    assertCatalogMutationAuthorized(
+      this.deps.authorizationEnabled ?? false,
+      options?.authorization,
+      'price.create',
+    );
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'catalog', isCatalogCapable);
     return provider.createPrice(input, this.context());
@@ -34,24 +39,24 @@ export class PriceResource {
     return provider.listPrices(normalizeCatalogListInput(input));
   }
 
-  async activate(id: string, authorization?: AuthorizationContext): Promise<PriceDTO> {
-    return this.setActive(id, true, authorization);
+  async activate(id: string, options?: CatalogMutationOptions): Promise<PriceDTO> {
+    return this.setActive(id, true, options, 'price.activate');
   }
 
-  async archive(id: string, authorization?: AuthorizationContext): Promise<PriceDTO> {
-    return this.setActive(id, false, authorization);
+  async archive(id: string, options?: CatalogMutationOptions): Promise<PriceDTO> {
+    return this.setActive(id, false, options, 'price.archive');
   }
 
   private async setActive(
     id: string,
     active: boolean,
-    authorization?: AuthorizationContext,
+    options: CatalogMutationOptions | undefined,
+    action: 'price.activate' | 'price.archive',
   ): Promise<PriceDTO> {
-    assertAuthorized(
+    assertCatalogMutationAuthorized(
       this.deps.authorizationEnabled ?? false,
-      isAuthorized,
-      authorization,
-      `${active ? 'activate' : 'archive'} price`,
+      options?.authorization,
+      action,
     );
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'catalogLifecycle', isCatalogLifecycleCapable);

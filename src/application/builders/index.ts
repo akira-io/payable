@@ -1,5 +1,6 @@
 export type { Billable } from './billable';
 export type { BillingDependencies } from './billing-dependencies';
+export type { CatalogMutationOptions } from './catalog-mutation-options';
 export type { ChargeRequest } from './charge-request';
 export { CheckoutBuilder, type CheckoutRequest } from './checkout-builder';
 export { CustomerContext } from './customer-context';

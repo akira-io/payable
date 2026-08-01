@@ -38,49 +38,53 @@ export async function registerCatalogRoutes(
   scope.post('/products/:id/activate', writeOptions, async (request, reply) => {
     const { id } = parseBody(catalogIdParamSchema, request.params);
     const tenantId = options.resolveTenant?.(request) ?? null;
+    const authorization = options.resolveAuthorization?.(request);
     reply
       .status(200)
-      .send(
-        await payable
-          .products(undefined, tenantId)
-          .activate(id, options.resolveAuthorization?.(request)),
-      );
+      .send(await payable.products(undefined, tenantId).activate(id, { authorization }));
   });
 
   scope.post('/products/:id/archive', writeOptions, async (request, reply) => {
     const { id } = parseBody(catalogIdParamSchema, request.params);
     const tenantId = options.resolveTenant?.(request) ?? null;
+    const authorization = options.resolveAuthorization?.(request);
     reply
       .status(200)
-      .send(
-        await payable
-          .products(undefined, tenantId)
-          .archive(id, options.resolveAuthorization?.(request)),
-      );
+      .send(await payable.products(undefined, tenantId).archive(id, { authorization }));
   });
 
   scope.post('/products', writeOptions, async (request, reply) => {
     const body = parseBody(productBodySchema, request.body);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    reply.status(201).send(await payable.products(undefined, tenantId).create(body));
+    const authorization = options.resolveAuthorization?.(request);
+    reply
+      .status(201)
+      .send(await payable.products(undefined, tenantId).create(body, { authorization }));
   });
 
   scope.patch('/products', writeOptions, async (request, reply) => {
     const body = parseBody(productUpdateBodySchema, request.body);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    reply.status(200).send(await payable.products(undefined, tenantId).update(body));
+    const authorization = options.resolveAuthorization?.(request);
+    reply
+      .status(200)
+      .send(await payable.products(undefined, tenantId).update(body, { authorization }));
   });
 
   scope.post('/prices', writeOptions, async (request, reply) => {
     const body = parseBody(priceBodySchema, request.body);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    const price = await payable.prices(undefined, tenantId).create({
-      providerProductId: body.providerProductId,
-      unitAmount: parseMoneyInput(body.amount),
-      interval: body.interval,
-      intervalCount: body.intervalCount,
-      description: body.description,
-    });
+    const authorization = options.resolveAuthorization?.(request);
+    const price = await payable.prices(undefined, tenantId).create(
+      {
+        providerProductId: body.providerProductId,
+        unitAmount: parseMoneyInput(body.amount),
+        interval: body.interval,
+        intervalCount: body.intervalCount,
+        description: body.description,
+      },
+      { authorization },
+    );
     reply.status(201).send(price);
   });
 
@@ -99,24 +103,18 @@ export async function registerCatalogRoutes(
   scope.post('/prices/:id/activate', writeOptions, async (request, reply) => {
     const { id } = parseBody(catalogIdParamSchema, request.params);
     const tenantId = options.resolveTenant?.(request) ?? null;
+    const authorization = options.resolveAuthorization?.(request);
     reply
       .status(200)
-      .send(
-        await payable
-          .prices(undefined, tenantId)
-          .activate(id, options.resolveAuthorization?.(request)),
-      );
+      .send(await payable.prices(undefined, tenantId).activate(id, { authorization }));
   });
 
   scope.post('/prices/:id/archive', writeOptions, async (request, reply) => {
     const { id } = parseBody(catalogIdParamSchema, request.params);
     const tenantId = options.resolveTenant?.(request) ?? null;
+    const authorization = options.resolveAuthorization?.(request);
     reply
       .status(200)
-      .send(
-        await payable
-          .prices(undefined, tenantId)
-          .archive(id, options.resolveAuthorization?.(request)),
-      );
+      .send(await payable.prices(undefined, tenantId).archive(id, { authorization }));
   });
 }

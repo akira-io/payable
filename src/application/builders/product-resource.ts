@@ -11,22 +11,32 @@ import type {
   UpdateProductInput,
 } from '../../domain/dtos/product.dto';
 import { CorrelationId } from '../../domain/value-objects/correlation-id';
-import { assertAuthorized } from '../policies/assert-authorized';
-import { type AuthorizationContext, isAuthorized } from '../policies/authorization-context';
+import { assertCatalogMutationAuthorized } from '../policies/catalog-mutation-authorization';
 import { normalizeCatalogListInput } from '../services/catalog/normalize-catalog-list-input';
 import { assertCapableProvider } from '../services/provider-capabilities/assert-provider-capability';
 import type { BillingDependencies } from './billing-dependencies';
+import type { CatalogMutationOptions } from './catalog-mutation-options';
 
 export class ProductResource {
   constructor(private readonly deps: BillingDependencies) {}
 
-  async create(input: CreateProductInput): Promise<ProductDTO> {
+  async create(input: CreateProductInput, options?: CatalogMutationOptions): Promise<ProductDTO> {
+    assertCatalogMutationAuthorized(
+      this.deps.authorizationEnabled ?? false,
+      options?.authorization,
+      'product.create',
+    );
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'catalog', isCatalogCapable);
     return provider.createProduct(input, this.context());
   }
 
-  async update(input: UpdateProductInput): Promise<ProductDTO> {
+  async update(input: UpdateProductInput, options?: CatalogMutationOptions): Promise<ProductDTO> {
+    assertCatalogMutationAuthorized(
+      this.deps.authorizationEnabled ?? false,
+      options?.authorization,
+      'product.update',
+    );
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'catalog', isCatalogCapable);
     return provider.updateProduct(input, this.context());
@@ -44,24 +54,24 @@ export class ProductResource {
     return provider.listProducts(normalizeCatalogListInput(input));
   }
 
-  async activate(id: string, authorization?: AuthorizationContext): Promise<ProductDTO> {
-    return this.setActive(id, true, authorization);
+  async activate(id: string, options?: CatalogMutationOptions): Promise<ProductDTO> {
+    return this.setActive(id, true, options, 'product.activate');
   }
 
-  async archive(id: string, authorization?: AuthorizationContext): Promise<ProductDTO> {
-    return this.setActive(id, false, authorization);
+  async archive(id: string, options?: CatalogMutationOptions): Promise<ProductDTO> {
+    return this.setActive(id, false, options, 'product.archive');
   }
 
   private async setActive(
     id: string,
     active: boolean,
-    authorization?: AuthorizationContext,
+    options: CatalogMutationOptions | undefined,
+    action: 'product.activate' | 'product.archive',
   ): Promise<ProductDTO> {
-    assertAuthorized(
+    assertCatalogMutationAuthorized(
       this.deps.authorizationEnabled ?? false,
-      isAuthorized,
-      authorization,
-      `${active ? 'activate' : 'archive'} product`,
+      options?.authorization,
+      action,
     );
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'catalogLifecycle', isCatalogLifecycleCapable);

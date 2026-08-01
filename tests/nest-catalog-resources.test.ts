@@ -15,13 +15,6 @@ class DenyGuard implements CanActivate {
   }
 }
 
-@Injectable()
-class AllowGuard implements CanActivate {
-  canActivate(_context: ExecutionContext): boolean {
-    return true;
-  }
-}
-
 async function createApplication(
   provider: FakeProvider,
   options: NestPayableOptions = {},
@@ -142,37 +135,6 @@ describe('nest catalog resources', () => {
         const denied = await request(server).post(path);
         expect(denied.body).toMatchObject({ statusCode: 403, message: 'Forbidden resource' });
         expect(denied.status).toBe(403);
-      }
-      expect(provider.productActiveCalls).toEqual([]);
-      expect(provider.priceActiveCalls).toEqual([]);
-    } finally {
-      await app.close();
-    }
-  });
-
-  it('denies catalog lifecycle authorization before provider mutation', async () => {
-    const provider = new FakeProvider();
-    const app = await createApplication(
-      provider,
-      {
-        authenticate: AllowGuard,
-        resolveTenant: () => 'tenant-a',
-        resolveAuthorization: () => ({ allowed: false, actorId: 'viewer' }),
-      },
-      true,
-    );
-    const server = app.getHttpServer();
-
-    try {
-      for (const path of [
-        '/products/prod_fake/activate',
-        '/products/prod_fake/archive',
-        '/prices/price_fake/activate',
-        '/prices/price_fake/archive',
-      ]) {
-        const denied = await request(server).post(path).set('x-tenant-id', 'tenant-a');
-        expect(denied.status).toBe(403);
-        expect(denied.body).toMatchObject({ error: 'AUTHORIZATION_DENIED' });
       }
       expect(provider.productActiveCalls).toEqual([]);
       expect(provider.priceActiveCalls).toEqual([]);

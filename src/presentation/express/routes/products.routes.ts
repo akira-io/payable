@@ -40,13 +40,10 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const { id } = parseBody(catalogIdParamSchema, req.params);
       const tenantId = options.resolveTenant?.(req) ?? null;
+      const authorization = options.resolveAuthorization?.(req);
       res
         .status(200)
-        .json(
-          await payable
-            .products(undefined, tenantId)
-            .activate(id, options.resolveAuthorization?.(req)),
-        );
+        .json(await payable.products(undefined, tenantId).activate(id, { authorization }));
     }),
   );
 
@@ -55,13 +52,10 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const { id } = parseBody(catalogIdParamSchema, req.params);
       const tenantId = options.resolveTenant?.(req) ?? null;
+      const authorization = options.resolveAuthorization?.(req);
       res
         .status(200)
-        .json(
-          await payable
-            .products(undefined, tenantId)
-            .archive(id, options.resolveAuthorization?.(req)),
-        );
+        .json(await payable.products(undefined, tenantId).archive(id, { authorization }));
     }),
   );
 
@@ -71,7 +65,8 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const body = parseBody(productBodySchema, req.body);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const product = await payable.products(undefined, tenantId).create(body);
+      const authorization = options.resolveAuthorization?.(req);
+      const product = await payable.products(undefined, tenantId).create(body, { authorization });
       res.status(201).json(product);
     }),
   );
@@ -82,7 +77,8 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const body = parseBody(productUpdateBodySchema, req.body);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const product = await payable.products(undefined, tenantId).update(body);
+      const authorization = options.resolveAuthorization?.(req);
+      const product = await payable.products(undefined, tenantId).update(body, { authorization });
       res.status(200).json(product);
     }),
   );
@@ -93,13 +89,17 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const body = parseBody(priceBodySchema, req.body);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const price = await payable.prices(undefined, tenantId).create({
-        providerProductId: body.providerProductId,
-        unitAmount: parseMoneyInput(body.amount),
-        interval: body.interval,
-        intervalCount: body.intervalCount,
-        description: body.description,
-      });
+      const authorization = options.resolveAuthorization?.(req);
+      const price = await payable.prices(undefined, tenantId).create(
+        {
+          providerProductId: body.providerProductId,
+          unitAmount: parseMoneyInput(body.amount),
+          interval: body.interval,
+          intervalCount: body.intervalCount,
+          description: body.description,
+        },
+        { authorization },
+      );
       res.status(201).json(price);
     }),
   );
@@ -127,13 +127,10 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const { id } = parseBody(catalogIdParamSchema, req.params);
       const tenantId = options.resolveTenant?.(req) ?? null;
+      const authorization = options.resolveAuthorization?.(req);
       res
         .status(200)
-        .json(
-          await payable
-            .prices(undefined, tenantId)
-            .activate(id, options.resolveAuthorization?.(req)),
-        );
+        .json(await payable.prices(undefined, tenantId).activate(id, { authorization }));
     }),
   );
 
@@ -142,13 +139,10 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const { id } = parseBody(catalogIdParamSchema, req.params);
       const tenantId = options.resolveTenant?.(req) ?? null;
+      const authorization = options.resolveAuthorization?.(req);
       res
         .status(200)
-        .json(
-          await payable
-            .prices(undefined, tenantId)
-            .archive(id, options.resolveAuthorization?.(req)),
-        );
+        .json(await payable.prices(undefined, tenantId).archive(id, { authorization }));
     }),
   );
 }

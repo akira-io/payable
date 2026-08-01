@@ -112,9 +112,12 @@ allowMoneyMovement: false` (the defaults) the read and mutate groups are exposed
 not; setting `allowMoneyMovement: true` adds `charge` and `refund` on top. `readOnly: true` collapses
 the surface to the read group no matter what `allowMoneyMovement` says.
 
-`policy.authorization` is a function `(toolName, args) => AuthorizationContext`. When provided, mutating
-and money tools pass its result into the facade as the `AuthorizationContext`; the underlying actions
-run `assertAuthorized` and write an immutable audit log entry, so the adapter adds no bypass. When
+`policy.authorization` is a function `(toolName, args) => AuthorizationContext`. It must derive its
+result from the trusted MCP host identity, because Payable does not authenticate the MCP caller. For
+each catalog mutation, `policy.authorization` runs once. MCP forwards the returned object unchanged
+in `CatalogMutationOptions`; the core resource makes the final authorization decision. A denied
+catalog context returns `AUTHORIZATION_DENIED` before capability validation or provider calls, even
+when global authorization is disabled. When
 `requireAuthorization` is set but no `authorization` function is given, the non-read tools are not
 registered at all.
 

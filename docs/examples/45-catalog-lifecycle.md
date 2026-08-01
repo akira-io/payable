@@ -12,6 +12,27 @@ without deleting provider records.
 
 Stripe and Paddle implement all three capabilities.
 
+## Authorize catalog mutations
+
+Catalog mutations require an allowed context when global authorization is enabled or an explicit
+authorization context is supplied. When global authorization is disabled and no context is supplied,
+they preserve their existing behavior. The host application authenticates the caller and derives the
+context from trusted identity data. A known catalog administrator can use
+`authorization: { allowed: true, actorId: 'catalog-admin' }`.
+
+```ts
+const authorization = { allowed: true, actorId: 'catalog-admin' };
+await payable.products().archive('prod_123', { authorization });
+await payable.prices().create(
+  {
+    providerProductId: 'prod_123',
+    unitAmount: Money.of(12900, 'USD'),
+    interval: 'month',
+  },
+  { authorization },
+);
+```
+
 ## List products
 
 Catalog lists default to active entries, use a page size of 50, and accept limits from 1 through 100.
@@ -124,6 +145,7 @@ Create a new price instead of mutating monetary terms on an existing provider pr
 | --- | --- | --- |
 | `PRODUCT_NOT_FOUND` | Product retrieval or lifecycle target does not exist | Verify the provider and product identifier. |
 | `PRICE_NOT_FOUND` | Price retrieval or lifecycle target does not exist | Verify the provider and price identifier. |
+| `AUTHORIZATION_DENIED` | Global authorization is enabled with no context, or a supplied context is denied or lacks an actor ID | Authenticate the caller and pass an allowed authorization context. |
 | `PROVIDER_CAPABILITY_NOT_SUPPORTED` | The selected provider lacks the required catalog capability | Select a capable provider or disable the operation. |
 | `VALIDATION_FAILED` | A list limit is outside 1 through 100 or an adapter input is invalid | Correct the request before retrying. |
 

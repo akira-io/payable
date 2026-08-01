@@ -6,6 +6,7 @@ export function assertAuthorized(
   authorize: (context: AuthorizationContext) => boolean,
   context: AuthorizationContext | undefined,
   action: string,
+  contextAction: string = action,
 ): void {
   if (!enabled) {
     return;
@@ -13,7 +14,7 @@ export function assertAuthorized(
   if (!authorize(context ?? {})) {
     throw new PayableError(`Not authorized to ${action}`, {
       code: 'AUTHORIZATION_DENIED',
-      context: { action },
+      context: { action: contextAction },
     });
   }
 }

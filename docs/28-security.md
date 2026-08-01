@@ -1,14 +1,12 @@
 # Security
 
-This page describes the security boundaries the library does and does not enforce. The short
-version: `@akira-io/payable` performs no request authentication and only minimal authorization. The
-caller owns authentication and ownership checks.
+This page describes the security boundaries the library does and does not enforce. Payable does not authenticate callers.
+The host application owns authentication and ownership checks.
 
 ## Authentication: none built in
 
-No adapter installs authentication middleware or guards. The Express router, the Fastify plugin,
-and the NestJS controller all mount their routes without any auth layer. Identifying and
-authenticating the caller is entirely your responsibility.
+No adapter establishes caller identity. The host application authenticates each caller, applies its
+ownership and permission rules, and constructs an `AuthorizationContext` from trusted identity data.
 
 The only route protected by a cryptographic check is the webhook route, and that check is signature
 verification of the provider payload - not authentication of an end user. See "Webhook signature
@@ -16,14 +14,16 @@ verification" below.
 
 ## Authorization: the policy layer
 
-`src/application/policies/` contains `can-*` policies:
+`src/application/policies/` contains these `can-*` policies:
 
-- `can-create-checkout.policy.ts`
-- `can-create-subscription.policy.ts`
-- `can-cancel-subscription.policy.ts`
-- `can-resume-subscription.policy.ts`
-- `can-refund-payment.policy.ts`
-- `can-replay-webhook.policy.ts`
+- `CanChargePolicy` in `can-charge.policy.ts`
+- `CanCreateCheckoutPolicy` in `can-create-checkout.policy.ts`
+- `CanCreateSubscriptionPolicy` in `can-create-subscription.policy.ts`
+- `CanCancelSubscriptionPolicy` in `can-cancel-subscription.policy.ts`
+- `CanResumeSubscriptionPolicy` in `can-resume-subscription.policy.ts`
+- `CanUpdateSubscriptionPolicy` in `can-update-subscription.policy.ts`
+- `CanRefundPaymentPolicy` in `can-refund-payment.policy.ts`
+- `CanReplayWebhookPolicy` in `can-replay-webhook.policy.ts`
 
 These enforce business rules, not HTTP request authentication. Each evaluates an
 `AuthorizationContext`:
@@ -46,9 +46,23 @@ export function isAuthorized(context: AuthorizationContext = {}): boolean {
 A policy passes only when the caller passes an explicit `allowed: true` plus a non-empty `actorId`.
 The policy does not derive identity from the request; it trusts the context you supply.
 
-Only `CanReplayWebhookPolicy` is wired into an action. `ReplayWebhookAction` calls
-`this.policy.authorize(context)` and throws `PayableError` with code `WEBHOOK_REPLAY_DENIED` (HTTP
-403) when it returns false. It additionally rejects a tenant mismatch with the same code:
+The active enforcement paths are:
+
+- `ChargeAction` uses `CanChargePolicy`.
+- `CheckoutBuilder`, `RedirectCheckoutBuilder`, and subscription checkout use
+  `CanCreateCheckoutPolicy`.
+- Subscription creation uses `CanCreateSubscriptionPolicy`.
+- Subscription cancellation, resumption, swaps, and quantity updates use
+  `CanCancelSubscriptionPolicy`, `CanResumeSubscriptionPolicy`, or `CanUpdateSubscriptionPolicy`.
+- `RefundPaymentAction` uses `CanRefundPaymentPolicy`.
+- `ReplayWebhookAction` uses `CanReplayWebhookPolicy` and also rejects tenant mismatches.
+- `ProductResource` and `PriceResource` call `assertCatalogMutationAuthorized` before catalog writes.
+
+Charge, checkout, subscription, and refund policies run through `assertAuthorized` when global
+authorization is enabled. Webhook replay authorization is always checked: `ReplayWebhookAction`
+calls `this.policy.authorize(context)` and throws `PayableError` with code
+`WEBHOOK_REPLAY_DENIED` (HTTP 403) when it returns false. It rejects a tenant mismatch with the same
+code:
 
 ```ts
 if (!this.policy.authorize(context)) {
@@ -56,20 +70,18 @@ if (!this.policy.authorize(context)) {
 }
 ```
 
-The other policies (`can-create-checkout`, `can-create-subscription`, `can-cancel-subscription`,
-`can-resume-subscription`, `can-refund-payment`) are internal building blocks; they are not part of
-the package's public exports and are not invoked by the checkout, subscription, or refund actions.
-Do not rely on them to gate HTTP requests; they do not run automatically on the adapter routes.
+Authorization policies receive an explicit context. They do not authenticate a request or derive
+identity from it. Keep authentication and ownership-of-billable checks in the host application.
 
-The policy layer is authorization for business operations (notably webhook replay), driven by an
-explicit context. It is not request authentication, and it is not applied to
-checkout/subscription/refund routes by default. Request authentication and ownership-of-billable
-checks remain entirely on you.
+Catalog mutations accept `CatalogMutationOptions` and require an allowed context when global authorization is enabled or an
+explicit catalog authorization context is supplied. They fail with `AUTHORIZATION_DENIED` unless
+`authorization.allowed` is true and `authorization.actorId` is non-empty. When global authorization
+is disabled and no context is supplied, catalog mutations preserve their existing behavior. Product
+and price resources enforce this before capability validation or provider calls. Express, Fastify,
+NestJS, and MCP resolve the context and forward it; the resource makes the final authorization decision.
 
-When `authorization: { enabled: true }` is configured, charge/checkout/subscription/refund calls
-require an `AuthorizationContext` with `allowed: true` and a non-empty `actorId`. Each HTTP adapter
-exposes a `resolveAuthorization(req)` option (sibling to `resolveTenant`) that maps the authenticated
-request to that context and threads it into the write calls:
+Each HTTP adapter exposes a `resolveAuthorization(req)` option that maps the authenticated request to
+that context:
 
 ```ts
 createExpressPayableRoutes(payable, {
@@ -81,8 +93,9 @@ createExpressPayableRoutes(payable, {
 });
 ```
 
-The same option exists on the Fastify plugin and the Nest module. Without it, every write returns
-`AUTHORIZATION_DENIED` (HTTP 403) while authorization is enabled.
+The same option exists on the Fastify plugin and the Nest module. A missing context returns
+`AUTHORIZATION_DENIED` when global authorization is enabled; a supplied context that is denied or
+lacks an actor ID returns it regardless of global authorization.
 
 ## Webhook signature verification
 

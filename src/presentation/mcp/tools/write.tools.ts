@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { Payable } from '../../../payable';
-import { authorizeTool, providerFrom, respond, tenantFrom } from '../context';
+import { authorizeTool, providerFrom, resolveCatalogAccess, respond, tenantFrom } from '../context';
 import type { McpPayableOptions } from '../options';
 import type { ToolGate } from '../policy';
 import {
@@ -39,13 +39,16 @@ export function registerCatalogTools(
       },
       (args) =>
         respond(() => {
-          authorizeTool('product_create', args, options);
-          return payable.products(providerFrom(args, options), tenantFrom(args, options)).create({
-            name: args.name,
-            description: args.description,
-            active: args.active,
-            metadata: args.metadata,
-          });
+          const authorization = resolveCatalogAccess('product_create', args, options);
+          return payable.products(providerFrom(args, options), tenantFrom(args, options)).create(
+            {
+              name: args.name,
+              description: args.description,
+              active: args.active,
+              metadata: args.metadata,
+            },
+            { authorization },
+          );
         }),
     );
   }
@@ -66,13 +69,16 @@ export function registerCatalogTools(
       },
       (args) =>
         respond(() => {
-          authorizeTool('product_update', args, options);
-          return payable.products(providerFrom(args, options), tenantFrom(args, options)).update({
-            providerProductId: args.providerProductId,
-            name: args.name,
-            description: args.description,
-            active: args.active,
-          });
+          const authorization = resolveCatalogAccess('product_update', args, options);
+          return payable.products(providerFrom(args, options), tenantFrom(args, options)).update(
+            {
+              providerProductId: args.providerProductId,
+              name: args.name,
+              description: args.description,
+              active: args.active,
+            },
+            { authorization },
+          );
         }),
     );
   }
@@ -94,14 +100,17 @@ export function registerCatalogTools(
       },
       (args) =>
         respond(() => {
-          authorizeTool('price_create', args, options);
-          return payable.prices(providerFrom(args, options), tenantFrom(args, options)).create({
-            providerProductId: args.providerProductId,
-            unitAmount: toMoney(args.unitAmount),
-            interval: args.interval,
-            intervalCount: args.intervalCount,
-            description: args.description,
-          });
+          const authorization = resolveCatalogAccess('price_create', args, options);
+          return payable.prices(providerFrom(args, options), tenantFrom(args, options)).create(
+            {
+              providerProductId: args.providerProductId,
+              unitAmount: toMoney(args.unitAmount),
+              interval: args.interval,
+              intervalCount: args.intervalCount,
+              description: args.description,
+            },
+            { authorization },
+          );
         }),
     );
   }

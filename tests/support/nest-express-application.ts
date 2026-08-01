@@ -64,8 +64,11 @@ class ExpressTestAdapter extends AbstractHttpAdapter<Server, Request, Response> 
     return response.status(statusCode);
   }
 
-  reply(response: Response, body: unknown, statusCode = 200): Response {
-    return response.status(statusCode).send(body);
+  reply(response: Response, body: unknown, statusCode?: number): Response {
+    if (statusCode !== undefined) {
+      response.status(statusCode);
+    }
+    return response.send(body);
   }
 
   end(response: Response, message?: string): Response {
