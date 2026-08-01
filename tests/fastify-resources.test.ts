@@ -278,4 +278,23 @@ describe('fastify adapter', () => {
     expect(price.json().error).toBe('PRICE_NOT_FOUND');
     await app.close();
   });
+
+  it.each([
+    ['/payable/products?limit=0', (provider: FakeProvider) => provider.lastListProducts],
+    ['/payable/products?limit=101', (provider: FakeProvider) => provider.lastListProducts],
+    ['/payable/products?limit=1.5', (provider: FakeProvider) => provider.lastListProducts],
+    ['/payable/products?active=maybe', (provider: FakeProvider) => provider.lastListProducts],
+    ['/payable/products?cursor=', (provider: FakeProvider) => provider.lastListProducts],
+    ['/payable/prices?providerProductId=', (provider: FakeProvider) => provider.lastListPrices],
+  ])('rejects invalid catalog query %s before calling the provider', async (url, listInput) => {
+    const provider = new FakeProvider();
+    const app = await makeApp(createPayable({ providers: { stripe: provider } }));
+
+    const response = await app.inject({ method: 'GET', url });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json().error).toBe('VALIDATION_FAILED');
+    expect(listInput(provider)).toBeUndefined();
+    await app.close();
+  });
 });
