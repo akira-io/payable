@@ -11,6 +11,7 @@ import { createPayableMcpServer } from '../src/presentation/mcp/index';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
+import { seedAuthorizedCatalogProduct } from './support/seed-authorized-catalog';
 
 const calls = [
   { name: 'product_create', arguments: { name: 'Pro' } },
@@ -60,9 +61,11 @@ async function setup(allowed: boolean, authorizationEnabled = true) {
     tenantId: 'tenant-a',
   };
   const authorization = vi.fn(() => context);
+  const storage = new KnexStorageDriver(db, new FakeClock());
+  await seedAuthorizedCatalogProduct(storage, allowed);
   const payable = createPayable({
     providers: { stripe: provider },
-    storage: new KnexStorageDriver(db, new FakeClock()),
+    storage,
     tenant: { enabled: true },
     authorization: { enabled: authorizationEnabled },
   });
