@@ -22,15 +22,23 @@ function isStripeError(error: unknown): error is StripeLikeError {
   return typeof type === 'string' && type.startsWith('Stripe');
 }
 
-export async function withStripeErrors<T>(fn: () => Promise<T>, provider = 'stripe'): Promise<T> {
+export async function withStripeErrors<T>(
+  fn: () => Promise<T>,
+  provider = 'stripe',
+  resourceMissingCode?: string,
+): Promise<T> {
   try {
     return await fn();
   } catch (error) {
     if (error instanceof PayableError || !isStripeError(error)) {
       throw error;
     }
+    const code =
+      error.code === 'resource_missing' && resourceMissingCode
+        ? resourceMissingCode
+        : (CODE_BY_TYPE[error.type ?? ''] ?? 'PROVIDER_ERROR');
     throw new PayableError(error.message ?? 'Stripe request failed', {
-      code: CODE_BY_TYPE[error.type ?? ''] ?? 'PROVIDER_ERROR',
+      code,
       context: { provider, stripeType: error.type, stripeCode: error.code },
       cause: error,
     });
