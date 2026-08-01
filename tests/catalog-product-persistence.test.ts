@@ -56,15 +56,23 @@ describe('product mutation persistence', () => {
   it('persists a created product with one audit and outbox transition', async () => {
     const payable = payableWithStorage();
 
-    const product = await payable.products('registered', 'tenant-a').create({
-      name: 'Pro',
-      description: 'Monthly product',
-      metadata: { tier: 'pro' },
-    });
+    const product = await payable.products('registered', 'tenant-a').create(
+      {
+        name: 'Pro',
+        description: 'Monthly product',
+        metadata: { tier: 'pro' },
+      },
+      {
+        authorization: { allowed: true, actorType: 'service', actorId: 'catalog-admin' },
+      },
+    );
 
-    expect(
-      await storage.products.findByProviderId('registered', product.providerProductId, 'tenant-a'),
-    ).toMatchObject({
+    const localProduct = await storage.products.findByProviderId(
+      'registered',
+      product.providerProductId,
+      'tenant-a',
+    );
+    expect(localProduct).toMatchObject({
       tenantId: 'tenant-a',
       provider: 'registered',
       providerProductId: product.providerProductId,
@@ -76,19 +84,48 @@ describe('product mutation persistence', () => {
     const auditLogs = await storage.auditLogs.list({ resourceType: 'product' });
     expect(auditLogs).toHaveLength(1);
     expect(auditLogs[0]).toMatchObject({
+      tenantId: 'tenant-a',
       action: 'product.created',
       correlationId: provider.createProductContext?.correlationId,
+      actorType: 'service',
+      actorId: 'catalog-admin',
+      resourceType: 'product',
+      resourceId: localProduct?.id,
+      before: null,
+      after: {
+        id: localProduct?.id,
+        tenantId: 'tenant-a',
+        provider: 'registered',
+        providerProductId: product.providerProductId,
+        name: 'Pro',
+        description: 'Monthly product',
+        active: true,
+        metadata: { tier: 'pro' },
+      },
       metadata: {
         provider: 'registered',
         providerResourceId: product.providerProductId,
       },
+      ipAddress: null,
+      userAgent: null,
     });
     const outbox = await outboxRows();
     expect(outbox).toHaveLength(1);
     expect(outbox[0]).toMatchObject({
+      tenant_id: 'tenant-a',
       correlation_id: provider.createProductContext?.correlationId,
       event_type: 'product.created.v1',
       event_version: 1,
+      dedupe_key: `catalog:product:product.create:registered:${product.providerProductId}:${provider.createProductContext?.correlationId}`,
+    });
+    expect(JSON.parse(outbox[0]?.payload as string)).toEqual({
+      action: 'product.create',
+      resourceType: 'product',
+      resourceId: localProduct?.id,
+      provider: 'registered',
+      providerResourceId: product.providerProductId,
+      tenantId: 'tenant-a',
+      state: auditLogs[0]?.after,
     });
   });
 
@@ -101,11 +138,14 @@ describe('product mutation persistence', () => {
       'tenant-a',
     );
 
-    await payable.products('registered', 'tenant-a').update({
-      providerProductId: created.providerProductId,
-      name: 'Pro v2',
-      description: 'Updated product',
-    });
+    await payable.products('registered', 'tenant-a').update(
+      {
+        providerProductId: created.providerProductId,
+        name: 'Pro v2',
+        description: 'Updated product',
+      },
+      { authorization: { allowed: true, actorType: 'user', actorId: 'editor-1' } },
+    );
 
     const localAfter = await storage.products.findByProviderId(
       'registered',
@@ -117,14 +157,62 @@ describe('product mutation persistence', () => {
       name: 'Pro v2',
       description: 'Updated product',
     });
-    expect((await storage.auditLogs.list({ resourceType: 'product' }))[0]).toMatchObject({
+    const updateAudit = (await storage.auditLogs.list({ resourceType: 'product' }))[0];
+    expect(updateAudit).toMatchObject({
+      tenantId: 'tenant-a',
       action: 'product.updated',
+      actorType: 'user',
+      actorId: 'editor-1',
+      resourceType: 'product',
       resourceId: localBefore?.id,
+      before: {
+        id: localBefore?.id,
+        tenantId: 'tenant-a',
+        provider: 'registered',
+        providerProductId: created.providerProductId,
+        name: 'Pro',
+        description: null,
+        active: true,
+        metadata: null,
+      },
+      after: {
+        id: localBefore?.id,
+        tenantId: 'tenant-a',
+        provider: 'registered',
+        providerProductId: created.providerProductId,
+        name: 'Pro v2',
+        description: 'Updated product',
+        active: true,
+        metadata: null,
+      },
+      metadata: {
+        provider: 'registered',
+        providerResourceId: created.providerProductId,
+      },
+      ipAddress: null,
+      userAgent: null,
     });
-    expect((await outboxRows()).map((row) => row.event_type)).toEqual([
+    const updateOutbox = await outboxRows();
+    expect(updateOutbox.map((row) => row.event_type)).toEqual([
       'product.created.v1',
       'product.updated.v1',
     ]);
+    expect(updateOutbox[1]).toMatchObject({
+      tenant_id: 'tenant-a',
+      correlation_id: updateAudit?.correlationId,
+      event_type: 'product.updated.v1',
+      event_version: 1,
+      dedupe_key: `catalog:product:product.update:registered:${created.providerProductId}:${updateAudit?.correlationId}`,
+    });
+    expect(JSON.parse(updateOutbox[1]?.payload as string)).toEqual({
+      action: 'product.update',
+      resourceType: 'product',
+      resourceId: localBefore?.id,
+      provider: 'registered',
+      providerResourceId: created.providerProductId,
+      tenantId: 'tenant-a',
+      state: updateAudit?.after,
+    });
   });
 
   it('persists archive and activate states with their matching transitions', async () => {

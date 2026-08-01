@@ -6,6 +6,12 @@ export type ProductPatch = Partial<Omit<NewProduct, 'tenantId'>>;
 export interface ProductRepository {
   create(data: NewProduct): Promise<Product>;
   update(id: string, patch: ProductPatch, tenantId: string | null): Promise<Product>;
+  updateIfUnchanged(
+    id: string,
+    expected: Product,
+    patch: ProductPatch,
+    tenantId: string | null,
+  ): Promise<Product | null>;
   findById(id: string, tenantId: string | null): Promise<Product | null>;
   findByProviderId(
     provider: string,

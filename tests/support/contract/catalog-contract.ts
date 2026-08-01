@@ -98,6 +98,36 @@ export function registerCatalogContract(ctx: ContractContext): void {
     });
   });
 
+  it('allows only one product compare-and-set update from the same durable state', async () => {
+    const harness = ctx.harness();
+    const fixture = await seedCatalog(harness.storage);
+    const expected = await harness.storage.products.findById(fixture.productId, 'tenant-a');
+    expect(expected).not.toBeNull();
+    if (!expected) {
+      throw new Error('Seeded product is missing');
+    }
+
+    const updates = await Promise.all([
+      harness.storage.products.updateIfUnchanged(
+        fixture.productId,
+        expected,
+        { name: 'Concurrent target' },
+        'tenant-a',
+      ),
+      harness.storage.products.updateIfUnchanged(
+        fixture.productId,
+        expected,
+        { name: 'Concurrent target' },
+        'tenant-a',
+      ),
+    ]);
+
+    expect(updates.filter((product) => product !== null)).toHaveLength(1);
+    expect(await harness.storage.products.findById(fixture.productId, 'tenant-a')).toMatchObject({
+      name: 'Concurrent target',
+    });
+  });
+
   it('cannot move a price through a JavaScript-shaped update patch', async () => {
     const harness = ctx.harness();
     const fixture = await seedCatalog(harness.storage);

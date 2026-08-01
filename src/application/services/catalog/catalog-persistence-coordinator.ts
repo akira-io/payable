@@ -32,8 +32,19 @@ export class CatalogPersistenceCoordinator {
         return;
       }
       const after = before
-        ? await repositories.products.update(before.id, target, tenantId)
+        ? await repositories.products.updateIfUnchanged(before.id, before, target, tenantId)
         : await repositories.products.create(target);
+      if (!after) {
+        const concurrent = await repositories.products.findByProviderId(
+          this.dependencies.providerName,
+          product.providerProductId,
+          tenantId,
+        );
+        if (concurrent && productMatches(concurrent, target)) {
+          return;
+        }
+        throw new Error(`Product ${product.providerProductId} changed during catalog persistence`);
+      }
       await recordCatalogTransition(repositories, {
         resourceType: 'product',
         resourceId: after.id,
