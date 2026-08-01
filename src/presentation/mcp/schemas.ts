@@ -22,6 +22,10 @@ export const providerShape = {
   provider: z.string().optional(),
 };
 
+export const idempotencyKeyShape = {
+  idempotencyKey: z.string().optional(),
+};
+
 export const limitShape = {
   limit: z.number().int().positive().max(MAX_LIST_LIMIT).optional(),
 };
