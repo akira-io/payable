@@ -17,32 +17,29 @@ export type IdempotencyStrategy = 'auto' | 'manual';
 export interface IdempotencyConfig {
   enabled?: boolean;
   strategy?: IdempotencyStrategy;
-  resolver?: IdempotencyKeyResolver;
   store?: IdempotencyStore;
 }
 ```
 
-Resolution defaults (`resolveConfig`):
+`enabled` defaults to `true` and `strategy` defaults to `auto`. A configured `store` supplies the
+engine record used for request hashing, concurrency control, replay, and failure state.
 
-- `enabled` defaults to **`true`**.
-- `strategy` defaults to **`auto`**.
+### Configuration behavior
 
-### auto vs manual
+- `auto` wires the configured store into operations that derive their own keys. An explicit catalog
+  key also uses that store.
+- `manual` leaves existing non-catalog key handling manual. An explicit catalog key still uses the
+  configured store.
+- `enabled: false` prevents Payable from creating an engine idempotency service, even when a store
+  is present. A keyed catalog mutation can then use provider-native protection only.
 
-- **`auto`** - Payable derives the idempotency key itself from the operation context (provider,
-  operation, resource type/id) using the resolver chain below. The caller does not have to supply a
-  key.
-- **`manual`** - the caller is expected to supply an explicit key. Key resolution is the same
-  machinery; in `manual` mode the explicit key is the intended source rather than the derived
-  fallback.
+Catalog behavior depends on whether a caller key, an engine store, and provider-native catalog
+idempotency are available. See [Catalog mutation idempotency](#catalog-mutation-idempotency).
 
-In both strategies the actual key is produced by `ResolveIdempotencyKeyAction`, which always has a
-deterministic fallback, so a missing explicit key never crashes.
+## Non-catalog key resolution
 
-## Key resolution
-
-`ResolveIdempotencyKeyAction` (`src/application/actions/idempotency/resolve-idempotency-key.action.ts`)
-applies a fixed precedence:
+Some non-catalog actions use `ResolveIdempotencyKeyAction` to select an explicit key, then an entity
+resolver, then `DefaultIdempotencyKeyResolver`:
 
 ```ts
 const resolved =
@@ -53,14 +50,9 @@ const resolved =
 return IdempotencyKey.of(resolved);
 ```
 
-1. **Explicit key** - a key passed directly by the caller.
-2. **Entity resolver** - a per-entity `IdempotencyKeyResolver`.
-3. **Global resolver** - the resolver from config (`idempotency.resolver`).
-4. **Default resolver** - `DefaultIdempotencyKeyResolver`, always present.
-
-A resolver may return `null`, in which case the chain falls through to the next source. The
-`IdempotencyKeyResolverContext` carries `operation`, optional `provider`, optional `resourceType`,
-and optional `resourceId`.
+The configuration has no resolver field. Action callers may still supply `globalResolver`
+programmatically. A resolver may return `null`, which falls through to the next source and then the
+deterministic default.
 
 ### DefaultIdempotencyKeyResolver
 
@@ -134,96 +126,119 @@ A record has `status` of `processing | completed | failed | expired`, the `reque
 together. Service options: `lockTtlMs` (default `30_000`), `retryFailed` (default `true`),
 `completedTtlMs` (default `86_400_000`), and `failedTtlMs` (default = `lockTtlMs`).
 
-Every key is scope-isolated. Before touching the store the service wraps the key as
-`${scope}:${key}` via `scopedKey()`, and `find`, `acquire`, `markCompleted`, and `markFailed` all
-operate on that scoped key. Two operations that resolve to the same raw key under different scopes
-never collide.
+By default, store operations use the scoped key `${scope}:${key}`. An execution can supply a
+fixed-length storage identity when its accepted caller key could exceed a database key column after
+scoping. Tenant scope remains a separate store argument. Generic operations that omit this identity
+retain the existing scoped-key behavior.
 
-`completedTtlMs` and `failedTtlMs` drive the `expiresAt` TTLs stamped on the stored record: a
-completed record's `expiresAt` is `now + completedTtlMs`, a failed record's is `now + failedTtlMs`.
-Once `expiresAt` passes the record reports the `expired` status path and no longer replays.
+### Read, acquire, and replay
 
-`lockTtlMs` is the window before a held lock is considered stale. Set it comfortably above the
-slowest provider call so a long-running operation never lapses while in flight — a lapsed lock now
-fails closed (see above) rather than re-running. Any single execution can override the service
-default per operation with `lockTtlMs` on the `IdempotentExecution`, so a slow charge can claim a
-longer lock than a fast lookup without widening the window for everything. `retryFailed` is
-likewise overridable per execution (`execution.retryFailed ?? service default`), so one operation
-can opt out of retrying a failed record without changing the service-wide default.
+The service hashes the request, resolves the execution policy, and reads the scoped record. An
+unexpired record with another request hash raises `IdempotencyConflictError`. A completed record
+replays its stored response without calling `run`. When the execution supplies `revive`, replay passes
+the stored response through that function first, which reconstructs values such as `Money` after a
+database serialization round trip.
 
-```ts
-async execute<T>(execution: IdempotentExecution<T>): Promise<T> {
-  const requestHash = await hashRequest(execution.request);
-  const existing = await this.store.find(execution.key, execution.tenantId);
-  const replay = this.replay<T>(existing, requestHash, execution.key);
-  if (replay.handled) return replay.value as T;
-  return this.run(execution, requestHash);
-}
-```
+A processing record carries a random `lockToken` and `lockedUntil`. The token fences completion and
+failure writes so a previous lease owner cannot overwrite a newer result. A held lease raises
+`IdempotencyInProgressError`. When acquisition loses a race, the service reads the scoped record
+again and replays a completed winner when available. Expired records are eligible for `takeOver`.
+Failed records are eligible for `takeOver` only when the retry policy permits a retry. Stale processing
+records are eligible for `takeOver` only when the active reclaim policy permits it. In this takeover
+path, `IdempotencyInProgressError` is returned only when `takeOver` does not claim the record.
 
-### replay - what an existing record does
+The default policy uses `lockTtlMs`, the configured retry behavior, and `failedTtlMs`. It does not
+reclaim stale processing records unless the execution opts in. The `reconciliation-required` failure
+policy disables failed-record retries, enables stale takeover after the lease, and uses
+`completedTtlMs` for both its processing lease and failed-record expiry. Until that expiry, a retry of
+a failed record returns `IdempotencyReconciliationRequiredError`.
 
-```ts
-if (!existing) return { handled: false };
-if (this.isExpired(existing)) return { handled: false };
-if (existing.requestHash !== requestHash) throw new IdempotencyConflictError(key);
-if (existing.status === 'completed') return { handled: true, value: existing.response as T };
-if (existing.status === 'processing' && this.isLocked(existing)) throw new IdempotencyInProgressError(key);
-if (existing.status === 'failed' && !retryFailed) throw new IdempotencyConflictError(key);
-return { handled: false };
-```
+### Completion verification
 
-- **Expired record** → falls through and re-runs. The `isExpired` check comes **first**, before the
-  hash comparison, so an expired record bypasses the conflict guard entirely: a retry with a
-  *different* body does **not** throw, it re-runs the operation under the new request.
-- **Different request hash** → `IdempotencyConflictError`. This is the "same key, different body"
-  guard, checked for any non-expired record before status is considered.
-- **Completed** → the cached `response` is replayed; the operation does **not** run again.
-- **Processing and still locked** → `IdempotencyInProgressError`. A concurrent run holds the lock.
-- **Failed with `retryFailed: false`** → `IdempotencyConflictError`.
-- Otherwise (no record, failed with retry allowed) → fall through and run.
+After `run` returns, the service asks the store to `markCompleted` with the scoped key, response,
+tenant, `lockToken`, and `expiresAt = now + completedTtlMs`. It reads the scoped record after
+`markCompleted` whether that write resolves or throws. This read detects a silent zero-row update and
+recovers when the store persisted the completion before reporting an acknowledgement error.
 
-`isLocked` compares `lockedUntil` against the clock. A `processing` record whose `lockedUntil` has
-passed is **stale**: the original holder either crashed mid-flight (its side effect may already have
-committed) or is still running past the lock TTL. The service does **not** blindly re-run it. By
-default a stale `processing` record fails closed with `IdempotencyInProgressError`, so a money-moving
-operation is never silently executed twice. Set `reclaimStaleProcessing: true` on the execution to
-opt in to reclaiming and re-running a stale lock when the operation is known safe to repeat.
+A completed record with the same request hash is authoritative. The service returns the local result
+only when `markCompleted` resolved and the stored `lockToken` belongs to the current execution. If a
+different lock token won, or completion acknowledgement was lost, it returns the authoritative stored
+response through `revive`. This prevents a stale executor from returning its superseded result.
 
-### run - acquiring the lock and executing
+If the completion cannot be verified, the service attempts a fenced `markFailed` and raises
+`IdempotencyResultPersistenceError` with the caller key and correlation ID. A cleanup failure cannot
+hide that error. When `run` itself throws, the service marks the scoped record failed under the same
+lock token and rethrows the original operation error.
+
+## Catalog mutation idempotency
+
+Product and price writes accept `CatalogMutationOptions`:
 
 ```ts
-const record = this.processingRecord(execution, requestHash);
-const acquired = await this.store.acquire(record, execution.tenantId);
-if (!acquired) {
-  const existing = await this.store.find(execution.key, execution.tenantId);
-  const replay = this.replay<T>(existing, requestHash, execution.key);
-  if (replay.handled) return replay.value as T;
-  if (existing?.status === 'processing' && !execution.reclaimStaleProcessing) {
-    throw new IdempotencyInProgressError(execution.key);
-  }
-  const claimed = await this.store.takeOver(record, execution.tenantId);
-  if (!claimed) throw new IdempotencyInProgressError(execution.key);
+interface CatalogMutationOptions {
+  authorization?: AuthorizationContext;
+  idempotencyKey?: string;
 }
-try {
-  const result = await execution.run();
-  await this.store.markCompleted(execution.key, result, execution.tenantId);
-  return result;
-} catch (error) {
-  await this.store.markFailed(execution.key, execution.tenantId);
-  throw error;
-}
+
+await payable.products('stripe-primary', 'tenant-acme').create(
+  { name: 'Pro' },
+  { idempotencyKey: 'catalog-product-pro-v1' },
+);
 ```
 
-- `acquire` atomically inserts the `processing` record with `lockedUntil = now + lockTtlMs`. Only
-  one acquirer wins, even with a null tenant.
-- If acquisition fails, the service re-checks: the winner may already have completed (replay). A
-  stale `processing` record (expired lock) fails closed with `IdempotencyInProgressError` unless
-  `reclaimStaleProcessing` is set; a `failed`-with-retry or expired record is reclaimed via
-  `takeOver`. If `takeOver` claims nothing, the caller gets `IdempotencyInProgressError`.
-- On success the record is marked `completed` with the response cached. On failure it is marked
-  `failed` and the original error is rethrown - so with `retryFailed: true` (default) a later retry
-  re-runs the operation.
+The option applies to product create, update, activate, and archive operations, and to price create,
+activate, and archive operations. A caller key must contain 1 through 255 Unicode scalar values. It
+cannot be blank, start or end with whitespace, or contain an unpaired surrogate. Treat it as opaque
+and avoid customer identifiers or other sensitive data.
+
+Omitting the key preserves provider and persistence behavior without catalog idempotency. Reuse the
+same key only to retry the same request. The engine rejects the same key with a different request as
+`IDEMPOTENCY_CONFLICT`. A new key represents a new intentional operation.
+
+### Effective identity and provider key
+
+The effective identity combines four dimensions: tenant scope, registered provider, catalog
+operation, and caller key. The same caller key can therefore identify independent operations across
+tenants, provider registrations, or actions such as `product.create` and `product.update`.
+
+For a provider that declares `catalogIdempotency`, Payable derives this provider-safe key:
+
+```text
+payable:catalog:v1:<lowercase SHA-256 hex digest>
+```
+
+The digest covers the version tag, tagged tenant scope, registered provider, catalog operation, and
+caller key. The raw caller key is never forwarded to the provider. This prevents one tenant,
+provider registration, or operation from sharing the provider key of another.
+
+The engine store uses the same fixed-length derived identity as its persisted key. This keeps every
+valid 255-scalar caller key within the storage schema limit while retaining tenant, provider,
+operation, and caller-key isolation. Generic idempotency operations keep their existing scoped keys.
+
+### Execution matrix
+
+| Caller key | Engine store | Provider capability | Behavior |
+| --- | --- | --- | --- |
+| absent | any | any | Run without catalog idempotency. |
+| present | configured | `catalogIdempotency` | Deduplicate in the engine and send the derived key to the provider. |
+| present | configured | absent | Deduplicate in the engine and require reconciliation after an ambiguous failure. |
+| present | unavailable | `catalogIdempotency` | Send only the derived provider key. |
+| present | unavailable | absent | Fail before the provider with `CATALOG_IDEMPOTENCY_STORAGE_REQUIRED`. |
+
+The engine marks a catalog operation complete only after the provider mutation and durable local
+catalog persistence both succeed. If it cannot verify the completed record, it returns
+`IDEMPOTENCY_RESULT_PERSISTENCE_FAILED`. Authorization and capability checks run before any stored
+response can be replayed.
+
+For a provider without native catalog idempotency, an ambiguous mutation failure marks the operation
+for reconciliation. A retry with the same key returns `IDEMPOTENCY_RECONCILIATION_REQUIRED` instead
+of calling the provider again. List or retrieve the catalog entity, determine whether the first
+request succeeded, repair local state when required, then use a new key only for a new intentional
+operation.
+
+Idempotency is not a distributed transaction. It reduces duplicate execution, but it cannot make a
+remote provider mutation and local database commit atomic. Preserve correlation IDs and reconcile
+remote and local state whenever an outcome is uncertain.
 
 ## Wiring an operation through it
 

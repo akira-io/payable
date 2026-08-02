@@ -12,5 +12,6 @@ export interface BillingDependencies {
   tenantId?: string | null;
   authorizationEnabled?: boolean;
   idempotency?: IdempotencyService;
+  catalogIdempotency?: IdempotencyService;
   logger?: Logger;
 }

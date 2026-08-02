@@ -2,26 +2,26 @@ import type Stripe from 'stripe';
 import { describe, expect, it, vi } from 'vitest';
 import { Money } from '../src/domain/value-objects/money';
 import { StripeProvider } from '../src/infrastructure/providers/stripe/stripe-provider';
+import { createStripeCatalogClient } from './support/stripe-catalog-client';
 
-const operationContext = { correlationId: 'corr-1', idempotencyKey: 'idem-1' };
+const PROVIDER_IDEMPOTENCY_KEY = `payable:catalog:v1:${'a'.repeat(64)}`;
+const operationContext = {
+  correlationId: 'corr-1',
+  idempotencyKey: PROVIDER_IDEMPOTENCY_KEY,
+};
 
 function stripeProvider(stripeClient: Stripe): StripeProvider {
   return new StripeProvider({ secretKey: 'sk_test', webhookSecret: 'wh_test' }, stripeClient);
 }
 
 describe('Stripe catalog', () => {
-  it('advertises catalog reads and lifecycle operations and creates price nicknames', async () => {
-    const pricesCreate = vi.fn().mockResolvedValue({
-      id: 'price_1',
-      product: 'prod_1',
-      unit_amount: 9900,
-      currency: 'usd',
-      recurring: null,
-      nickname: 'Monthly plan',
-      active: true,
-    });
-    const provider = stripeProvider({ prices: { create: pricesCreate } } as unknown as Stripe);
+  it('advertises and forwards catalog idempotency through every mutation path', async () => {
+    const { client, productsCreate, productsUpdate, pricesCreate, pricesUpdate } =
+      createStripeCatalogClient();
+    const provider = stripeProvider(client);
 
+    await provider.createProduct({ name: 'Pro' }, operationContext);
+    await provider.updateProduct({ providerProductId: 'prod_1', name: 'Pro v2' }, operationContext);
     await provider.createPrice(
       {
         providerProductId: 'prod_1',
@@ -30,12 +30,44 @@ describe('Stripe catalog', () => {
       },
       operationContext,
     );
+    await provider.setProductActive('prod_1', false, operationContext);
+    await provider.setPriceActive('price_1', false, operationContext);
 
-    expect(provider.capabilities().has('catalogRead')).toBe(true);
-    expect(provider.capabilities().has('catalogLifecycle')).toBe(true);
+    expect(provider.capabilities().has('catalogIdempotency')).toBe(true);
+    expect(productsCreate).toHaveBeenCalledWith(
+      {
+        name: 'Pro',
+        description: undefined,
+        active: undefined,
+        metadata: undefined,
+      },
+      { idempotencyKey: PROVIDER_IDEMPOTENCY_KEY },
+    );
+    expect(productsUpdate).toHaveBeenNthCalledWith(
+      1,
+      'prod_1',
+      { name: 'Pro v2', description: undefined, active: undefined },
+      { idempotencyKey: PROVIDER_IDEMPOTENCY_KEY },
+    );
     expect(pricesCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ nickname: 'Monthly plan' }),
-      { idempotencyKey: 'idem-1' },
+      {
+        product: 'prod_1',
+        currency: 'usd',
+        unit_amount: 9900,
+        nickname: 'Monthly plan',
+      },
+      { idempotencyKey: PROVIDER_IDEMPOTENCY_KEY },
+    );
+    expect(productsUpdate).toHaveBeenNthCalledWith(
+      2,
+      'prod_1',
+      { active: false },
+      { idempotencyKey: PROVIDER_IDEMPOTENCY_KEY },
+    );
+    expect(pricesUpdate).toHaveBeenCalledWith(
+      'price_1',
+      { active: false },
+      { idempotencyKey: PROVIDER_IDEMPOTENCY_KEY },
     );
   });
 
@@ -150,43 +182,6 @@ describe('Stripe catalog', () => {
       product: 'prod_1',
       starting_after: 'price_prev',
     });
-  });
-
-  it('sets Stripe product and price activity with idempotency keys', async () => {
-    const productsUpdate = vi.fn().mockResolvedValue({
-      id: 'prod_1',
-      name: 'Pro',
-      description: null,
-      active: false,
-      metadata: {},
-    });
-    const pricesUpdate = vi.fn().mockResolvedValue({
-      id: 'price_1',
-      product: 'prod_1',
-      unit_amount: 9900,
-      currency: 'usd',
-      recurring: null,
-      nickname: null,
-      active: false,
-    });
-    const provider = stripeProvider({
-      products: { update: productsUpdate },
-      prices: { update: pricesUpdate },
-    } as unknown as Stripe);
-
-    await provider.setProductActive('prod_1', false, operationContext);
-    await provider.setPriceActive('price_1', false, operationContext);
-
-    expect(productsUpdate).toHaveBeenCalledWith(
-      'prod_1',
-      { active: false },
-      { idempotencyKey: 'idem-1' },
-    );
-    expect(pricesUpdate).toHaveBeenCalledWith(
-      'price_1',
-      { active: false },
-      { idempotencyKey: 'idem-1' },
-    );
   });
 
   it('maps missing Stripe catalog resources by operation while list failures remain request errors', async () => {

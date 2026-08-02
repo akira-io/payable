@@ -155,6 +155,24 @@ identity. Fastify forwards the object unchanged in `CatalogMutationOptions`; the
 the final authorization decision. A denied catalog write returns `AUTHORIZATION_DENIED` before
 capability validation or provider calls.
 
+## Catalog idempotency
+
+Product and price mutation routes accept one `Idempotency-Key` header. Fastify validates it and
+forwards the value as `CatalogMutationOptions.idempotencyKey`. Invalid or duplicate header lines
+return `INVALID_IDEMPOTENCY_KEY` with HTTP 400.
+
+```bash
+curl -X POST https://example.test/products \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: catalog-product-pro-v1' \
+  -d '{"name":"Pro"}'
+```
+
+Reuse the value for the same tenant, provider, catalog operation, and body. The shared error mapper
+returns `IDEMPOTENCY_RECONCILIATION_REQUIRED` as HTTP 409 and
+`CATALOG_IDEMPOTENCY_STORAGE_REQUIRED` as HTTP 500. See
+[Idempotency](../features/14-idempotency.md) for recovery guidance.
+
 ## Registration example
 
 ```ts

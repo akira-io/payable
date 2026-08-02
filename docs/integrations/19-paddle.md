@@ -101,6 +101,21 @@ Official Paddle references:
 - [Update a price](https://developer.paddle.com/api-reference/prices/update-price/)
 - [API errors](https://developer.paddle.com/api-reference/about/errors/)
 - [Archive entities](https://developer.paddle.com/api-reference/about/delete-entities/)
+- [SDK libraries and retry guidance](https://developer.paddle.com/sdks/libraries/)
+
+### Catalog idempotency
+
+Paddle does not declare Payable's `catalogIdempotency` capability. Paddle's official SDK guidance
+states that the API does not support client-supplied idempotency keys for arbitrary operations and
+advises checking the entity with a list or get operation before retrying a create after a timeout or
+network failure. See [Paddle SDK libraries](https://developer.paddle.com/sdks/libraries/).
+
+A keyed Paddle product or price mutation therefore requires an engine idempotency store. Without
+one, Payable returns `CATALOG_IDEMPOTENCY_STORAGE_REQUIRED` before calling Paddle. With a store,
+Payable prevents concurrent duplicate execution and replays completed results. If the Paddle call
+fails with an ambiguous outcome, retrying the same key returns
+`IDEMPOTENCY_RECONCILIATION_REQUIRED` without another provider call. List or retrieve the entity,
+compare it with the intended mutation, and use a new key only for a new intentional operation.
 
 ## Mappers
 
@@ -169,14 +184,11 @@ error **and** a `null` result as a signature failure, throwing `InvalidWebhookSi
 | Partial refund requested | `ProviderCapabilityNotSupportedError('paddle', 'partial refund')` thrown by `refund` when `input.amount` is set | Issue a full refund (omit `amount`). Paddle adjustments are created with `type: 'full'`. |
 | Invalid webhook signature | `InvalidWebhookSignatureError` (`provider: 'paddle'`) on a thrown error or a `null` unmarshal result | Verify `webhookSecret` matches the Paddle notification setting and the raw body is forwarded unmodified. |
 | Non-integer amount from Paddle | `PayableError` `PROVIDER_AMOUNT_INVALID` from `toMinorUnits` | Indicates an unexpected amount format; inspect the offending entity. |
-| Paddle API error | The SDK error propagates from the called method | Paddle has no client-supplied idempotency keys; before retrying a create, reconcile by listing or fetching the entity (or waiting for its webhook) to confirm whether the first attempt reached Paddle. |
+| Paddle API error | The SDK error propagates from the called method | Before retrying a create, reconcile by listing or fetching the entity to confirm whether the first attempt reached Paddle. |
 
-Paddle does not support client-supplied idempotency keys, so the provider sends none and a blind retry
-of a create after an ambiguous failure (for example a network error after the request reached Paddle)
-can duplicate the resource. The engine-level idempotency store still deduplicates Payable operations by
-`ctx.idempotencyKey` before they reach the provider; that guarantee is Payable's, not Paddle's. When an
-ambiguous failure escapes the store, reconcile against Paddle (list the entity or process its webhook)
-before issuing the create again.
+Paddle receives no idempotency key from Payable. A create may have succeeded even when the process did
+not receive the response, so a blind retry can duplicate the resource. Reconcile against Paddle by
+listing or retrieving the entity before issuing another create.
 
 ## Configuration example
 

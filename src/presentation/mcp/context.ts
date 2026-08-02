@@ -4,6 +4,7 @@ import {
   isAuthorized,
 } from '../../application/policies/authorization-context';
 import { PayableError } from '../../domain/errors/payable-error';
+import { payableErrorBody } from '../shared/payable-http';
 import type { McpPayableOptions, ToolArgs } from './options';
 
 export function providerFrom(args: ToolArgs, options: McpPayableOptions): string | undefined {
@@ -49,10 +50,7 @@ export function jsonResult(data: unknown): CallToolResult {
 }
 
 export function errorResult(error: unknown): CallToolResult {
-  const payload =
-    error instanceof PayableError
-      ? { error: error.code, message: error.message }
-      : { error: 'INTERNAL_ERROR', message: 'Unexpected error' };
+  const payload = payableErrorBody(error);
   return {
     content: [{ type: 'text', text: JSON.stringify(payload) }],
     isError: true,

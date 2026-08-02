@@ -145,9 +145,11 @@ if (entries.length === 0) {
 
 There is **no** `resolver` field on `IdempotencyConfig`. Key derivation is handled inside the
 operations (via `IdempotencyKey.forCharge`/`forRefund`/etc.); the exported `DefaultIdempotencyKeyResolver`
-and the `IdempotencyKeyResolver` contract are injected into `IdempotencyService` directly, not through
-config. `IdempotencyStrategy` is available as a type. The `IdempotencyStore` record status is one of
-`'processing' | 'completed' | 'failed' | 'expired'`. See [features/14-idempotency.md](features/14-idempotency.md).
+and the `IdempotencyKeyResolver` contract belong to `ResolveIdempotencyKeyAction`. Operation authors
+can pass entity or global resolvers through `ExecuteIdempotentOperationAction`; the action sends the
+resolved string key to `IdempotencyService`. `IdempotencyStrategy` is available as a type. The
+`IdempotencyStore` record status is one of `'processing' | 'completed' | 'failed' | 'expired'`. See
+[features/14-idempotency.md](features/14-idempotency.md).
 
 ## `TenantConfig`
 

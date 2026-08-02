@@ -10,10 +10,12 @@ import {
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
+import type { CatalogMutationOptions } from '../../application/builders/catalog-mutation-options';
 import type { AuthorizationContext } from '../../application/policies/authorization-context';
 import type { PriceDTO } from '../../domain/dtos/price.dto';
 import type { ProductDTO } from '../../domain/dtos/product.dto';
 import type { Payable } from '../../payable';
+import { resolveCatalogIdempotencyHeader } from '../shared/catalog-idempotency';
 import {
   catalogIdParamSchema,
   parseBody,
@@ -46,16 +48,18 @@ export class PayableCatalogController {
   @UseGuards(PayableAuthGuard)
   createProduct(@Req() request: PayableHttpRequest, @Body() rawBody: unknown): Promise<ProductDTO> {
     const body = parseBody(productBodySchema, rawBody);
-    const authorization = this.authorizationOf(request);
-    return this.payable.products(undefined, this.tenantOf(request)).create(body, { authorization });
+    return this.payable
+      .products(undefined, this.tenantOf(request))
+      .create(body, this.mutationOptionsOf(request));
   }
 
   @Patch('products')
   @UseGuards(PayableAuthGuard)
   updateProduct(@Req() request: PayableHttpRequest, @Body() rawBody: unknown): Promise<ProductDTO> {
     const body = parseBody(productUpdateBodySchema, rawBody);
-    const authorization = this.authorizationOf(request);
-    return this.payable.products(undefined, this.tenantOf(request)).update(body, { authorization });
+    return this.payable
+      .products(undefined, this.tenantOf(request))
+      .update(body, this.mutationOptionsOf(request));
   }
 
   @Post('products/:id/activate')
@@ -66,10 +70,9 @@ export class PayableCatalogController {
     @Param('id') id: string,
   ): Promise<ProductDTO> {
     const productId = parseBody(catalogIdParamSchema, { id }).id;
-    const authorization = this.authorizationOf(request);
     return this.payable
       .products(undefined, this.tenantOf(request))
-      .activate(productId, { authorization });
+      .activate(productId, this.mutationOptionsOf(request));
   }
 
   @Post('products/:id/archive')
@@ -77,10 +80,9 @@ export class PayableCatalogController {
   @UseGuards(PayableAuthGuard)
   archiveProduct(@Req() request: PayableHttpRequest, @Param('id') id: string): Promise<ProductDTO> {
     const productId = parseBody(catalogIdParamSchema, { id }).id;
-    const authorization = this.authorizationOf(request);
     return this.payable
       .products(undefined, this.tenantOf(request))
-      .archive(productId, { authorization });
+      .archive(productId, this.mutationOptionsOf(request));
   }
 
   @Post('prices')
@@ -88,7 +90,6 @@ export class PayableCatalogController {
   @UseGuards(PayableAuthGuard)
   createPrice(@Req() request: PayableHttpRequest, @Body() rawBody: unknown): Promise<PriceDTO> {
     const body = parseBody(priceBodySchema, rawBody);
-    const authorization = this.authorizationOf(request);
     return this.payable.prices(undefined, this.tenantOf(request)).create(
       {
         providerProductId: body.providerProductId,
@@ -97,7 +98,7 @@ export class PayableCatalogController {
         intervalCount: body.intervalCount,
         description: body.description,
       },
-      { authorization },
+      this.mutationOptionsOf(request),
     );
   }
 
@@ -106,10 +107,9 @@ export class PayableCatalogController {
   @UseGuards(PayableAuthGuard)
   activatePrice(@Req() request: PayableHttpRequest, @Param('id') id: string): Promise<PriceDTO> {
     const priceId = parseBody(catalogIdParamSchema, { id }).id;
-    const authorization = this.authorizationOf(request);
     return this.payable
       .prices(undefined, this.tenantOf(request))
-      .activate(priceId, { authorization });
+      .activate(priceId, this.mutationOptionsOf(request));
   }
 
   @Post('prices/:id/archive')
@@ -117,17 +117,43 @@ export class PayableCatalogController {
   @UseGuards(PayableAuthGuard)
   archivePrice(@Req() request: PayableHttpRequest, @Param('id') id: string): Promise<PriceDTO> {
     const priceId = parseBody(catalogIdParamSchema, { id }).id;
-    const authorization = this.authorizationOf(request);
     return this.payable
       .prices(undefined, this.tenantOf(request))
-      .archive(priceId, { authorization });
+      .archive(priceId, this.mutationOptionsOf(request));
   }
 
   private authorizationOf(request: PayableHttpRequest): AuthorizationContext | undefined {
     return resolveAuthorization(this.options, request);
   }
 
+  private mutationOptionsOf(request: PayableHttpRequest): CatalogMutationOptions {
+    return {
+      authorization: this.authorizationOf(request),
+      idempotencyKey: resolveCatalogIdempotencyHeader({
+        headers: request.headers,
+        rawHeaders: rawHeadersOf(request),
+      }),
+    };
+  }
+
   private tenantOf(request: PayableHttpRequest): string | null {
     return resolveTenantId(this.options, request);
   }
+}
+
+function rawHeadersOf(request: unknown): readonly string[] | undefined {
+  if (typeof request !== 'object' || request === null) {
+    return undefined;
+  }
+  if ('rawHeaders' in request && isStringArray(request.rawHeaders)) {
+    return request.rawHeaders;
+  }
+  if ('raw' in request) {
+    return rawHeadersOf(request.raw);
+  }
+  return undefined;
+}
+
+function isStringArray(candidate: unknown): candidate is string[] {
+  return Array.isArray(candidate) && candidate.every((entry) => typeof entry === 'string');
 }

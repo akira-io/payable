@@ -15,6 +15,10 @@ const STATUS_BY_CODE: Record<string, number> = {
   SUBSCRIPTION_NOT_FOUND: 404,
   IDEMPOTENCY_CONFLICT: 409,
   IDEMPOTENCY_IN_PROGRESS: 409,
+  INVALID_IDEMPOTENCY_KEY: 400,
+  CATALOG_IDEMPOTENCY_STORAGE_REQUIRED: 500,
+  IDEMPOTENCY_RECONCILIATION_REQUIRED: 409,
+  IDEMPOTENCY_RESULT_PERSISTENCE_FAILED: 500,
   PROVIDER_CAPABILITY_NOT_SUPPORTED: 422,
   CHECKOUT_PRICE_REQUIRED: 422,
   CHECKOUT_LINE_ITEMS_REQUIRED: 422,
@@ -42,6 +46,8 @@ export interface PayableErrorBody {
   error: string;
   message: string;
   fields?: Array<{ field: string; message: string }>;
+  correlationId?: string;
+  guidance?: string;
 }
 
 export function payableErrorStatus(error: unknown): number {
@@ -69,6 +75,11 @@ function nonPayableErrorBody(error: unknown): PayableErrorBody {
 export function payableErrorBody(error: unknown): PayableErrorBody {
   if (error instanceof PayableError) {
     const body: PayableErrorBody = { error: error.code, message: error.message };
+    if (error.code === 'IDEMPOTENCY_RESULT_PERSISTENCE_FAILED') {
+      body.correlationId = error.correlationId;
+      body.guidance =
+        'Reconcile the provider result and durable local state before retrying with a new idempotency key.';
+    }
     const issues = error.context?.issues;
     if (error.code === 'VALIDATION_FAILED' && Array.isArray(issues)) {
       body.fields = issues as Array<{ field: string; message: string }>;

@@ -162,6 +162,10 @@ Code-to-status table:
 | `SUBSCRIPTION_NOT_FOUND` | 404 |
 | `IDEMPOTENCY_CONFLICT` | 409 |
 | `IDEMPOTENCY_IN_PROGRESS` | 409 |
+| `INVALID_IDEMPOTENCY_KEY` | 400 |
+| `CATALOG_IDEMPOTENCY_STORAGE_REQUIRED` | 500 |
+| `IDEMPOTENCY_RECONCILIATION_REQUIRED` | 409 |
+| `IDEMPOTENCY_RESULT_PERSISTENCE_FAILED` | 500 |
 | `PROVIDER_CAPABILITY_NOT_SUPPORTED` | 422 |
 | `CHECKOUT_PRICE_REQUIRED` | 422 |
 | `CHECKOUT_LINE_ITEMS_REQUIRED` | 422 |
@@ -218,6 +222,25 @@ createExpressPayableRoutes(payable, {
   }),
 });
 ```
+
+## Catalog idempotency
+
+Every product and price mutation accepts one `Idempotency-Key` header. Express validates the header
+before calling the core resource and forwards it as `CatalogMutationOptions.idempotencyKey`. Duplicate
+header lines, blank values, surrounding whitespace, and values longer than 255 Unicode scalar values
+return `INVALID_IDEMPOTENCY_KEY` with HTTP 400.
+
+```bash
+curl -X POST https://example.test/products \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: catalog-product-pro-v1' \
+  -d '{"name":"Pro"}'
+```
+
+Reuse the header value only with the same method, route operation, tenant, provider, and request
+body. The core scopes the effective identity and returns HTTP 409 for an idempotency conflict or a
+reconciliation-required result. See [Idempotency](../features/14-idempotency.md) for the provider and
+storage matrix.
 
 ## Mounting example
 

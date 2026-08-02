@@ -100,6 +100,50 @@ function sendMutation(app: FastifyInstance, mutation: Mutation) {
 }
 
 describe('fastify catalog authorization', () => {
+  it('returns authorization denial before an invalid product idempotency key', async () => {
+    const { app, db, provider } = await setup(false);
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/payable/products',
+        headers: { 'Idempotency-Key': ' invalid ' },
+        payload: { name: 'Pro' },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toMatchObject({ error: 'AUTHORIZATION_DENIED' });
+      expect(providerMutationCount(provider)).toBe(0);
+    } finally {
+      await app.close();
+      await db.destroy();
+    }
+  });
+
+  it('returns missing price capability before an invalid idempotency key', async () => {
+    const { app, db, provider } = await setup(true);
+    provider.supportedCapabilities.delete('catalog');
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/payable/prices',
+        headers: { 'Idempotency-Key': ' invalid ' },
+        payload: {
+          providerProductId: 'prod_fake',
+          amount: { amount: 9900, currency: 'USD' },
+        },
+      });
+
+      expect(response.statusCode).toBe(422);
+      expect(response.json()).toMatchObject({ error: 'PROVIDER_CAPABILITY_NOT_SUPPORTED' });
+      expect(providerMutationCount(provider)).toBe(0);
+    } finally {
+      await app.close();
+      await db.destroy();
+    }
+  });
+
   it.each(mutations)('denies $method $url before provider mutation', async (mutation) => {
     const { app, db, provider, resolveAuthorization } = await setup(false);
 

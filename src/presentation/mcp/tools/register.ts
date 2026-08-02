@@ -2,15 +2,12 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Payable } from '../../../payable';
 import type { McpPayableOptions } from '../options';
 import { isToolEnabled, resolvePolicy, type ToolGate } from '../policy';
+import { registerCatalogLifecycleTools } from './catalog-lifecycle.tools';
+import { registerCatalogTools } from './catalog-mutation.tools';
 import { registerMoneyTools } from './money.tools';
 import { registerCatalogReadTools, registerReadTools } from './read.tools';
 import { registerWebhookTools } from './webhook.tools';
-import {
-  registerCatalogLifecycleTools,
-  registerCatalogTools,
-  registerLinkTools,
-  registerSubscriptionTools,
-} from './write.tools';
+import { registerLinkTools, registerSubscriptionTools } from './write.tools';
 
 export function registerTools(
   server: McpServer,

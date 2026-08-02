@@ -17,7 +17,8 @@ export type ProviderCapability =
   | 'webhookEndpointManagement'
   | 'catalog'
   | 'catalogRead'
-  | 'catalogLifecycle';
+  | 'catalogLifecycle'
+  | 'catalogIdempotency';
 
 export type ProviderCapabilityValue = ProviderCapability | (string & {});
 

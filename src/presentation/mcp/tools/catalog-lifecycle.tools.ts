@@ -4,7 +4,7 @@ import type { Payable } from '../../../payable';
 import { providerFrom, resolveCatalogAccess, respond, tenantFrom } from '../context';
 import type { McpPayableOptions } from '../options';
 import type { ToolGate } from '../policy';
-import { providerShape, tenantShape } from '../schemas';
+import { idempotencyKeyShape, providerShape, tenantShape } from '../schemas';
 
 type CatalogAction = 'activate' | 'archive';
 type CatalogResource = 'product' | 'price';
@@ -37,7 +37,12 @@ function registerLifecycleTool(
     toolName,
     {
       description: `${action === 'activate' ? 'Activate' : 'Archive'} a provider ${resource}.`,
-      inputSchema: { id: z.string().min(1), ...providerShape, ...tenantShape },
+      inputSchema: {
+        id: z.string().min(1),
+        ...idempotencyKeyShape,
+        ...providerShape,
+        ...tenantShape,
+      },
     },
     (args) =>
       respond(() => {
@@ -45,9 +50,15 @@ function registerLifecycleTool(
         const provider = providerFrom(args, options);
         const tenant = tenantFrom(args, options);
         if (resource === 'product') {
-          return payable.products(provider, tenant)[action](args.id, { authorization });
+          return payable.products(provider, tenant)[action](args.id, {
+            authorization,
+            idempotencyKey: args.idempotencyKey,
+          });
         }
-        return payable.prices(provider, tenant)[action](args.id, { authorization });
+        return payable.prices(provider, tenant)[action](args.id, {
+          authorization,
+          idempotencyKey: args.idempotencyKey,
+        });
       }),
   );
 }

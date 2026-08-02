@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { IdempotencyResultPersistenceError } from '../src/domain/errors/idempotency-result-persistence.error';
 import { PayableError } from '../src/domain/errors/payable-error';
 import { errorResult } from '../src/presentation/mcp/context';
 import {
@@ -57,6 +58,21 @@ describe('parseBody', () => {
 });
 
 describe('payableErrorBody', () => {
+  it('returns correlation and reconciliation guidance for an unpersisted result', () => {
+    const error = new IdempotencyResultPersistenceError('catalog-request', {
+      correlationId: 'corr-catalog-1',
+      context: { response: { providerProductId: 'prod_secret' } },
+    });
+
+    expect(payableErrorBody(error)).toEqual({
+      error: 'IDEMPOTENCY_RESULT_PERSISTENCE_FAILED',
+      message: 'Failed to persist idempotency result for key: catalog-request',
+      correlationId: 'corr-catalog-1',
+      guidance:
+        'Reconcile the provider result and durable local state before retrying with a new idempotency key.',
+    });
+  });
+
   it('surfaces validation fields for a VALIDATION_FAILED error', () => {
     const error = new PayableError('Request validation failed', {
       code: 'VALIDATION_FAILED',
@@ -94,6 +110,22 @@ describe('safeContentDispositionFilename', () => {
 });
 
 describe('mcp errorResult', () => {
+  it('returns the safe idempotency persistence envelope', () => {
+    const error = new IdempotencyResultPersistenceError('catalog-request', {
+      correlationId: 'corr-catalog-1',
+      context: { response: { providerProductId: 'prod_secret' } },
+    });
+    const block = errorResult(error).content[0];
+
+    expect(block?.type === 'text' ? JSON.parse(block.text) : null).toEqual({
+      error: 'IDEMPOTENCY_RESULT_PERSISTENCE_FAILED',
+      message: 'Failed to persist idempotency result for key: catalog-request',
+      correlationId: 'corr-catalog-1',
+      guidance:
+        'Reconcile the provider result and durable local state before retrying with a new idempotency key.',
+    });
+  });
+
   it('returns the code and message for a PayableError', () => {
     const block = errorResult(new PayableError('nope', { code: 'X' })).content[0];
     expect(block?.type === 'text' ? JSON.parse(block.text) : null).toEqual({

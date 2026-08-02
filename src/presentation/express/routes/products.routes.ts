@@ -1,5 +1,7 @@
-import type { Router } from 'express';
+import type { Request, Router } from 'express';
+import type { CatalogMutationOptions } from '../../../application/builders/catalog-mutation-options';
 import type { Payable } from '../../../payable';
+import { resolveCatalogIdempotencyHeader } from '../../shared/catalog-idempotency';
 import {
   catalogIdParamSchema,
   catalogListQuerySchema,
@@ -11,6 +13,19 @@ import {
   productUpdateBodySchema,
 } from '../../shared/schemas';
 import { asyncHandler, type ExpressPayableOptions, jsonBody } from '../helpers';
+
+function mutationOptionsFor(
+  request: Request,
+  options: ExpressPayableOptions,
+): CatalogMutationOptions {
+  return {
+    authorization: options.resolveAuthorization?.(request),
+    idempotencyKey: resolveCatalogIdempotencyHeader({
+      headers: request.headers,
+      rawHeaders: request.rawHeaders,
+    }),
+  };
+}
 
 export function registerCatalogRoutes(
   router: Router,
@@ -40,10 +55,13 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const { id } = parseBody(catalogIdParamSchema, req.params);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const authorization = options.resolveAuthorization?.(req);
       res
         .status(200)
-        .json(await payable.products(undefined, tenantId).activate(id, { authorization }));
+        .json(
+          await payable
+            .products(undefined, tenantId)
+            .activate(id, mutationOptionsFor(req, options)),
+        );
     }),
   );
 
@@ -52,10 +70,11 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const { id } = parseBody(catalogIdParamSchema, req.params);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const authorization = options.resolveAuthorization?.(req);
       res
         .status(200)
-        .json(await payable.products(undefined, tenantId).archive(id, { authorization }));
+        .json(
+          await payable.products(undefined, tenantId).archive(id, mutationOptionsFor(req, options)),
+        );
     }),
   );
 
@@ -65,8 +84,9 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const body = parseBody(productBodySchema, req.body);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const authorization = options.resolveAuthorization?.(req);
-      const product = await payable.products(undefined, tenantId).create(body, { authorization });
+      const product = await payable
+        .products(undefined, tenantId)
+        .create(body, mutationOptionsFor(req, options));
       res.status(201).json(product);
     }),
   );
@@ -77,8 +97,9 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const body = parseBody(productUpdateBodySchema, req.body);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const authorization = options.resolveAuthorization?.(req);
-      const product = await payable.products(undefined, tenantId).update(body, { authorization });
+      const product = await payable
+        .products(undefined, tenantId)
+        .update(body, mutationOptionsFor(req, options));
       res.status(200).json(product);
     }),
   );
@@ -89,7 +110,6 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const body = parseBody(priceBodySchema, req.body);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const authorization = options.resolveAuthorization?.(req);
       const price = await payable.prices(undefined, tenantId).create(
         {
           providerProductId: body.providerProductId,
@@ -98,7 +118,7 @@ export function registerCatalogRoutes(
           intervalCount: body.intervalCount,
           description: body.description,
         },
-        { authorization },
+        mutationOptionsFor(req, options),
       );
       res.status(201).json(price);
     }),
@@ -127,10 +147,11 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const { id } = parseBody(catalogIdParamSchema, req.params);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const authorization = options.resolveAuthorization?.(req);
       res
         .status(200)
-        .json(await payable.prices(undefined, tenantId).activate(id, { authorization }));
+        .json(
+          await payable.prices(undefined, tenantId).activate(id, mutationOptionsFor(req, options)),
+        );
     }),
   );
 
@@ -139,10 +160,11 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const { id } = parseBody(catalogIdParamSchema, req.params);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const authorization = options.resolveAuthorization?.(req);
       res
         .status(200)
-        .json(await payable.prices(undefined, tenantId).archive(id, { authorization }));
+        .json(
+          await payable.prices(undefined, tenantId).archive(id, mutationOptionsFor(req, options)),
+        );
     }),
   );
 }
