@@ -126,8 +126,10 @@ A record has `status` of `processing | completed | failed | expired`, the `reque
 together. Service options: `lockTtlMs` (default `30_000`), `retryFailed` (default `true`),
 `completedTtlMs` (default `86_400_000`), and `failedTtlMs` (default = `lockTtlMs`).
 
-Every store operation uses the scoped key `${scope}:${key}`. Tenant scope remains a separate store
-argument. The same caller key can therefore remain independent across operation scopes and tenants.
+By default, store operations use the scoped key `${scope}:${key}`. An execution can supply a
+fixed-length storage identity when its accepted caller key could exceed a database key column after
+scoping. Tenant scope remains a separate store argument. Generic operations that omit this identity
+retain the existing scoped-key behavior.
 
 ### Read, acquire, and replay
 
@@ -208,6 +210,10 @@ payable:catalog:v1:<lowercase SHA-256 hex digest>
 The digest covers the version tag, tagged tenant scope, registered provider, catalog operation, and
 caller key. The raw caller key is never forwarded to the provider. This prevents one tenant,
 provider registration, or operation from sharing the provider key of another.
+
+The engine store uses the same fixed-length derived identity as its persisted key. This keeps every
+valid 255-scalar caller key within the storage schema limit while retaining tenant, provider,
+operation, and caller-key isolation. Generic idempotency operations keep their existing scoped keys.
 
 ### Execution matrix
 

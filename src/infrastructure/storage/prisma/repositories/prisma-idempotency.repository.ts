@@ -52,17 +52,22 @@ export class PrismaIdempotencyRepository implements IdempotencyStore {
         OR: [
           {
             status: { in: ['processing', 'failed'] },
-            OR: [{ lockedUntil: null }, { lockedUntil: { lt: now } }],
+            OR: [{ lockedUntil: null }, { lockedUntil: { lte: now } }],
           },
-          { expiresAt: { not: null, lt: now } },
+          { expiresAt: { not: null, lte: now } },
         ],
       },
       data: {
         status: 'processing',
+        scope: record.scope,
+        operation: record.operation,
+        resourceType: record.resourceType,
+        resourceId: record.resourceId,
         requestHash: record.requestHash,
         response: null,
         lockedUntil: record.lockedUntil ?? null,
         lockToken: record.lockToken ?? null,
+        expiresAt: record.expiresAt ?? null,
         updatedAt: now,
       },
     });

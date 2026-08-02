@@ -205,6 +205,9 @@ could not verify the completed engine record. The error context preserves the ca
 determine which remote and local writes committed. Do not use a new key before reconciliation because
 it represents a new intentional operation.
 
+HTTP and MCP error envelopes include `correlationId` and reconciliation guidance. They do not include
+the unverified provider response.
+
 For a native provider, a retry with the same caller key reuses the derived provider identity, but
 reconciliation must establish the durable local result before another attempt. For a non-native
 provider, the engine keeps the failed operation in reconciliation-required state and a same-key retry

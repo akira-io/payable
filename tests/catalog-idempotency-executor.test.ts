@@ -99,14 +99,36 @@ describe('CatalogMutationIdempotencyExecutor', () => {
     });
     expect(runs).toBe(1);
     expect(contexts[0]?.idempotencyKey).toBe(providerKey);
-    expect(
-      await store.find('catalog:stripe%20primary:catalog.product.create:order-123'),
-    ).toMatchObject({
+    expect(await store.find(providerKey)).toMatchObject({
       operation: 'catalog.product.create',
       resourceType: 'product',
       resourceId: null,
       status: 'completed',
     });
+  });
+
+  it('persists a fixed-length identity for a maximum-length caller key', async () => {
+    const store = new InMemoryIdempotencyStore();
+    const executor = new CatalogMutationIdempotencyExecutor(dependencies({ native: true, store }));
+    const callerKey = '😀'.repeat(255);
+
+    await executor.execute({
+      action: 'product.create',
+      callerKey,
+      request: { name: 'Pro' },
+      resourceType: 'product',
+      run: async () => PRODUCT,
+      revive: reviveProduct,
+    });
+
+    const persistedKey = await deriveCatalogProviderKey({
+      providerName: 'stripe primary',
+      action: 'product.create',
+      callerKey,
+    });
+    expect(await store.find(persistedKey)).toMatchObject({ status: 'completed' });
+    expect([...persistedKey]).toHaveLength(83);
+    expect(persistedKey).not.toContain(callerKey);
   });
 
   it('requires reconciliation after a non-native provider mutation fails', async () => {

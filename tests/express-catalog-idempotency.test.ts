@@ -1,6 +1,7 @@
 import express from 'express';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
+import { validateCatalogIdempotencyKey } from '../src/application/services/catalog/catalog-idempotency-key';
 import { createExpressPayableRoutes } from '../src/presentation/express/create-express-payable-routes';
 import { resolveCatalogIdempotencyHeader } from '../src/presentation/shared/catalog-idempotency';
 import {
@@ -42,16 +43,25 @@ describe('express catalog idempotency', () => {
 
   it.each([
     { headers: { 'idempotency-key': ['one', 'two'] } },
-    { headers: { 'idempotency-key': '' } },
-    { headers: { 'idempotency-key': ' surrounded ' } },
-    { headers: { 'idempotency-key': 'x'.repeat(256) } },
     {
       headers: { 'idempotency-key': 'one' },
       rawHeaders: ['Idempotency-Key', 'one', 'idempotency-key', 'two'],
     },
-  ])('rejects an invalid or repeated header', (headerInput) => {
-    expect(() => resolveCatalogIdempotencyHeader(headerInput)).toThrowError(
+  ])('preserves a repeated header as invalid input for resource validation', (headerInput) => {
+    const extracted = resolveCatalogIdempotencyHeader(headerInput);
+    expect(extracted).not.toBe('one');
+    expect(() => validateCatalogIdempotencyKey(extracted)).toThrowError(
       expect.objectContaining({ code: 'INVALID_IDEMPOTENCY_KEY' }),
+    );
+  });
+
+  it.each([
+    '',
+    ' surrounded ',
+    'x'.repeat(256),
+  ])('extracts malformed header %j without validating it', (headerValue) => {
+    expect(resolveCatalogIdempotencyHeader({ headers: { 'idempotency-key': headerValue } })).toBe(
+      headerValue,
     );
   });
 
@@ -69,7 +79,7 @@ describe('express catalog idempotency', () => {
     }
 
     expect([...new Set(store.searchedKeys)]).toEqual(
-      CATALOG_WRITE_CASES.map(({ action }) => expectedStoredKey(action)),
+      await Promise.all(CATALOG_WRITE_CASES.map(({ action }) => expectedStoredKey(action))),
     );
     expect(provider.operationContexts).toHaveLength(7);
     expect(

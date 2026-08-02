@@ -47,7 +47,7 @@ describe('fastify catalog idempotency', () => {
     }
 
     expect([...new Set(store.searchedKeys)]).toEqual(
-      CATALOG_WRITE_CASES.map(({ action }) => expectedStoredKey(action)),
+      await Promise.all(CATALOG_WRITE_CASES.map(({ action }) => expectedStoredKey(action))),
     );
     expect(provider.operationContexts).toHaveLength(7);
     expect(

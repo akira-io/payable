@@ -52,18 +52,25 @@ export class KnexIdempotencyRepository implements IdempotencyStore {
           .where((live) =>
             live
               .whereIn('status', ['processing', 'failed'])
-              .andWhere((lock) => lock.whereNull('locked_until').orWhere('locked_until', '<', now)),
+              .andWhere((lock) =>
+                lock.whereNull('locked_until').orWhere('locked_until', '<=', now),
+              ),
           )
           .orWhere((expired) =>
-            expired.whereNotNull('expires_at').andWhere('expires_at', '<', now),
+            expired.whereNotNull('expires_at').andWhere('expires_at', '<=', now),
           ),
       )
       .update({
         status: 'processing',
+        scope: record.scope,
+        operation: record.operation,
+        resource_type: record.resourceType,
+        resource_id: record.resourceId,
         request_hash: record.requestHash,
         response: null,
         locked_until: record.lockedUntil ? record.lockedUntil.toISOString() : null,
         lock_token: record.lockToken ?? null,
+        expires_at: record.expiresAt ? record.expiresAt.toISOString() : null,
         updated_at: now,
       });
     return affected > 0;

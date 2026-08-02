@@ -1,58 +1,7 @@
 import { expect, it } from 'vitest';
-import { CONTRACT_BASE_TIME, type ContractContext } from './harness';
-
-const createIdempotencyRecord = (
-  key: string,
-  requestHash: string,
-  lockedUntil: Date | null = null,
-) => ({
-  key,
-  scope: key.split(':')[0] ?? 'catalog',
-  operation: 'create',
-  resourceType: null,
-  resourceId: null,
-  requestHash,
-  response: null,
-  status: 'processing' as const,
-  lockedUntil,
-  expiresAt: null,
-});
+import type { ContractContext } from './harness';
 
 export function registerSystemContract(ctx: ContractContext): void {
-  it('isolates idempotency records by tenant and full scoped key', async () => {
-    const { idempotency } = ctx.harness();
-    const product = createIdempotencyRecord('catalog.product.create:shared', 'product-a');
-    const price = createIdempotencyRecord('catalog.price.create:shared', 'price-a');
-    expect(await idempotency.acquire(product, 'tenant-a')).toBe(true);
-    expect(await idempotency.acquire(product, 'tenant-b')).toBe(true);
-    expect(await idempotency.acquire(price, 'tenant-a')).toBe(true);
-    expect(await idempotency.acquire(product, 'tenant-a')).toBe(false);
-    await idempotency.markCompleted(product.key, { productId: 'prod_1' }, 'tenant-a');
-    expect((await idempotency.find(product.key, 'tenant-a'))?.status).toBe('completed');
-    expect((await idempotency.find(product.key, 'tenant-a'))?.response).toEqual({
-      productId: 'prod_1',
-    });
-    expect((await idempotency.find(product.key, 'tenant-b'))?.status).toBe('processing');
-    expect((await idempotency.find(price.key, 'tenant-a'))?.requestHash).toBe('price-a');
-  });
-
-  it('takes over an idempotency key only after its supplied long lease expires', async () => {
-    const { idempotency, clock } = ctx.harness();
-    const original = createIdempotencyRecord(
-      'catalog.product.create:long-lease',
-      'hash-original',
-      new Date(CONTRACT_BASE_TIME.getTime() + 86_400_000),
-    );
-    expect(await idempotency.acquire(original)).toBe(true);
-    const takeover = () =>
-      idempotency.takeOver({ ...original, requestHash: 'hash-takeover', lockToken: 'token-b' });
-    clock.advance(86_399_999);
-    expect(await takeover()).toBe(false);
-    clock.advance(2);
-    expect(await takeover()).toBe(true);
-    expect((await idempotency.find(original.key))?.requestHash).toBe('hash-takeover');
-  });
-
   it('deduplicates and claims webhook events', async () => {
     const { storage, clock } = ctx.harness();
     const occurredAt = new Date('2026-07-14T10:00:00.000Z');

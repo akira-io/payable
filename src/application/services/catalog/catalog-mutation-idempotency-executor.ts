@@ -50,6 +50,7 @@ export class CatalogMutationIdempotencyExecutor {
 
     return idempotency.execute({
       key: callerKey,
+      storageKey: providerKey,
       scope: catalogIdempotencyScope(this.dependencies.providerName, mutation.action),
       operation: `catalog.${mutation.action}`,
       request: mutation.request,

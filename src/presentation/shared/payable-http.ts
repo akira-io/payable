@@ -46,6 +46,8 @@ export interface PayableErrorBody {
   error: string;
   message: string;
   fields?: Array<{ field: string; message: string }>;
+  correlationId?: string;
+  guidance?: string;
 }
 
 export function payableErrorStatus(error: unknown): number {
@@ -73,6 +75,11 @@ function nonPayableErrorBody(error: unknown): PayableErrorBody {
 export function payableErrorBody(error: unknown): PayableErrorBody {
   if (error instanceof PayableError) {
     const body: PayableErrorBody = { error: error.code, message: error.message };
+    if (error.code === 'IDEMPOTENCY_RESULT_PERSISTENCE_FAILED') {
+      body.correlationId = error.correlationId;
+      body.guidance =
+        'Reconcile the provider result and durable local state before retrying with a new idempotency key.';
+    }
     const issues = error.context?.issues;
     if (error.code === 'VALIDATION_FAILED' && Array.isArray(issues)) {
       body.fields = issues as Array<{ field: string; message: string }>;

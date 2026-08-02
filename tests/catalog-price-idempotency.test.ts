@@ -1,5 +1,6 @@
 import type { Knex } from 'knex';
 import { afterEach, describe, expect, it } from 'vitest';
+import { deriveCatalogProviderKey } from '../src/application/services/catalog/catalog-idempotency-key';
 import { createPayable } from '../src/create-payable';
 import type { Repositories } from '../src/domain/contracts/storage-driver.contract';
 import type { OperationContext } from '../src/domain/dtos/common.dto';
@@ -269,8 +270,12 @@ describe('price mutation idempotency', () => {
       prices.create(priceInput, { idempotencyKey: 'persistence-failure' }),
     ).rejects.toMatchObject({ code: 'CATALOG_PERSISTENCE_FAILED' });
 
-    expect(
-      await store.find('catalog:stripe:catalog.price.create:persistence-failure', 'tenant-a'),
-    ).toMatchObject({ status: 'failed' });
+    const storageKey = await deriveCatalogProviderKey({
+      tenantId: 'tenant-a',
+      providerName: 'stripe',
+      action: 'price.create',
+      callerKey: 'persistence-failure',
+    });
+    expect(await store.find(storageKey, 'tenant-a')).toMatchObject({ status: 'failed' });
   });
 });

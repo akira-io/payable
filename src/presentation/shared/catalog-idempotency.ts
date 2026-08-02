@@ -1,8 +1,7 @@
 import type { IncomingHttpHeaders } from 'node:http';
-import { validateCatalogIdempotencyKey } from '../../application/services/catalog/catalog-idempotency-key';
-import { InvalidIdempotencyKeyError } from '../../domain/errors/invalid-idempotency-key.error';
 
 const IDEMPOTENCY_HEADER = 'idempotency-key';
+const INVALID_REPEATED_HEADER = '\uD800';
 
 export interface CatalogIdempotencyHeaders {
   headers: IncomingHttpHeaders;
@@ -13,7 +12,7 @@ export function resolveCatalogIdempotencyHeader(
   input: CatalogIdempotencyHeaders,
 ): string | undefined {
   if (countRawHeaderOccurrences(input.rawHeaders) > 1) {
-    throw new InvalidIdempotencyKeyError();
+    return INVALID_REPEATED_HEADER;
   }
 
   const matchingHeaders = Object.entries(input.headers).filter(
@@ -23,17 +22,17 @@ export function resolveCatalogIdempotencyHeader(
     return undefined;
   }
   if (matchingHeaders.length > 1) {
-    throw new InvalidIdempotencyKeyError();
+    return INVALID_REPEATED_HEADER;
   }
 
   const headerValue = matchingHeaders[0]?.[1];
   if (Array.isArray(headerValue)) {
     if (headerValue.length !== 1) {
-      throw new InvalidIdempotencyKeyError();
+      return INVALID_REPEATED_HEADER;
     }
-    return validateCatalogIdempotencyKey(headerValue[0]);
+    return headerValue[0] ?? INVALID_REPEATED_HEADER;
   }
-  return validateCatalogIdempotencyKey(headerValue);
+  return headerValue ?? INVALID_REPEATED_HEADER;
 }
 
 function countRawHeaderOccurrences(rawHeaders?: readonly string[]): number {

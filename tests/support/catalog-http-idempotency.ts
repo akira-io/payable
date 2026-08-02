@@ -1,3 +1,4 @@
+import { deriveCatalogProviderKey } from '../../src/application/services/catalog/catalog-idempotency-key';
 import { createPayable } from '../../src/create-payable';
 import type { OperationContext } from '../../src/domain/dtos/common.dto';
 import type { CreatePriceInput, PriceDTO } from '../../src/domain/dtos/price.dto';
@@ -6,6 +7,7 @@ import type {
   ProductDTO,
   UpdateProductInput,
 } from '../../src/domain/dtos/product.dto';
+import type { CatalogPersistenceAction } from '../../src/domain/entities/catalog-mutation.entity';
 import { FakeProvider } from './fake-provider';
 import { InMemoryIdempotencyStore } from './fakes';
 
@@ -17,7 +19,7 @@ export interface CatalogHttpRequest {
 }
 
 export interface CatalogWriteCase extends CatalogHttpRequest {
-  action: string;
+  action: CatalogPersistenceAction;
   expectedStatus: number;
 }
 
@@ -173,6 +175,10 @@ export function catalogKey(action: string): string {
   return `catalog-${action}-opaque,part`;
 }
 
-export function expectedStoredKey(action: string): string {
-  return `catalog:stripe:catalog.${action}:${catalogKey(action)}`;
+export function expectedStoredKey(action: CatalogPersistenceAction): Promise<string> {
+  return deriveCatalogProviderKey({
+    providerName: 'stripe',
+    action,
+    callerKey: catalogKey(action),
+  });
 }

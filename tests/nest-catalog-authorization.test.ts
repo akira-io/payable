@@ -107,6 +107,46 @@ function sendMutation(server: Server, mutation: Mutation): request.Test {
 }
 
 describe('nest catalog authorization', () => {
+  it('returns authorization denial before an invalid product idempotency key', async () => {
+    const { app, db, provider } = await setup(false);
+
+    try {
+      const response = await request(app.getHttpServer())
+        .post('/products')
+        .set('Idempotency-Key', ' invalid ')
+        .send({ name: 'Pro' });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toMatchObject({ error: 'AUTHORIZATION_DENIED' });
+      expect(providerMutationCount(provider)).toBe(0);
+    } finally {
+      await app.close();
+      await db.destroy();
+    }
+  });
+
+  it('returns missing price capability before an invalid idempotency key', async () => {
+    const { app, db, provider } = await setup(true);
+    provider.supportedCapabilities.delete('catalog');
+
+    try {
+      const response = await request(app.getHttpServer())
+        .post('/prices')
+        .set('Idempotency-Key', ' invalid ')
+        .send({
+          providerProductId: 'prod_fake',
+          amount: { amount: 9900, currency: 'USD' },
+        });
+
+      expect(response.status).toBe(422);
+      expect(response.body).toMatchObject({ error: 'PROVIDER_CAPABILITY_NOT_SUPPORTED' });
+      expect(providerMutationCount(provider)).toBe(0);
+    } finally {
+      await app.close();
+      await db.destroy();
+    }
+  });
+
   it.each(mutations)('denies $method $path before provider mutation', async (mutation) => {
     const { app, db, provider, resolveAuthorization } = await setup(false);
 

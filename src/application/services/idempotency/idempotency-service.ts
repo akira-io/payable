@@ -21,6 +21,7 @@ interface ResolvedIdempotencyPolicy {
 
 export interface IdempotentExecution<T> {
   key: string;
+  storageKey?: string;
   scope: string;
   operation: string;
   request: unknown;
@@ -90,8 +91,10 @@ export class IdempotencyService {
     };
   }
 
-  private scopedKey(execution: Pick<IdempotentExecution<unknown>, 'scope' | 'key'>): string {
-    return `${execution.scope}:${execution.key}`;
+  private scopedKey(
+    execution: Pick<IdempotentExecution<unknown>, 'scope' | 'key' | 'storageKey'>,
+  ): string {
+    return execution.storageKey ?? `${execution.scope}:${execution.key}`;
   }
 
   private replay<T>(
