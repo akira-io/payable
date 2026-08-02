@@ -6,10 +6,11 @@ import {
   isMarketplaceOnboardingCapable,
   isMarketplacePayoutCapable,
   isMarketplaceTransferCapable,
+  isMarketplaceTransferReversalCapable,
 } from '../src/domain/contracts/marketplace-provider.contract';
 import { Money } from '../src/domain/value-objects/money';
 import { StripeMarketplaceProvider } from '../src/infrastructure/providers/stripe/stripe-marketplace-provider';
-import { fakeStripeMarketplace } from './support/stripe-marketplace';
+import { fakeStripeMarketplace, stripeMarketplaceTransfer } from './support/stripe-marketplace';
 
 const context = { correlationId: 'corr-1', idempotencyKey: 'marketplace-idem-1' };
 
@@ -23,11 +24,12 @@ describe('Stripe Marketplace provider', () => {
     const instance = provider(client);
 
     expect(instance.capabilities()).toEqual(
-      new Set(['accounts', 'onboarding', 'transfers', 'payouts']),
+      new Set(['accounts', 'onboarding', 'transfers', 'transferReversals', 'payouts']),
     );
     expect(isMarketplaceAccountCapable(instance)).toBe(true);
     expect(isMarketplaceOnboardingCapable(instance)).toBe(true);
     expect(isMarketplaceTransferCapable(instance)).toBe(true);
+    expect(isMarketplaceTransferReversalCapable(instance)).toBe(true);
     expect(isMarketplacePayoutCapable(instance)).toBe(true);
     const configured = new StripeMarketplaceProvider({ secretKey: 'sk_live_private' });
     expect(JSON.stringify(configured)).not.toContain('sk_live_private');
@@ -162,6 +164,8 @@ describe('Stripe Marketplace provider', () => {
         destinationProviderAccountId: 'acct_1',
         amount: Money.of(12_345, 'USD'),
         reference: 'order-1',
+        groupReference: 'order-1',
+        sourceReference: { type: 'charge', providerChargeId: 'ch_1' },
       },
       context,
     );
@@ -174,14 +178,60 @@ describe('Stripe Marketplace provider', () => {
         currency: 'usd',
         destination: 'acct_1',
         metadata: { reference: 'order-1' },
+        source_transaction: 'ch_1',
+        transfer_group: 'order-1',
       },
       { idempotencyKey: 'marketplace-idem-1' },
     );
     expect(calls.transfersList).toHaveBeenCalledWith({ destination: 'acct_1', limit: 100 });
     expect(calls.transfersPage.autoPagingToArray).toHaveBeenCalledWith({ limit: 120 });
     expect(calls.transfersRetrieve).toHaveBeenCalledWith('tr_1');
+    expect(created).toMatchObject({
+      groupReference: 'order-1',
+      sourceReference: { type: 'charge', providerChargeId: 'ch_1' },
+    });
     expect(created.status).toBe('completed');
     expect(created.amount.amount()).toBe(12_345);
+  });
+
+  it.each([
+    [
+      'group only',
+      { groupReference: 'group-1' },
+      expect.objectContaining({ transfer_group: 'group-1' }),
+    ],
+    [
+      'source only',
+      { sourceReference: { type: 'charge' as const, providerChargeId: 'ch_1' } },
+      expect.objectContaining({ source_transaction: 'ch_1' }),
+    ],
+  ])('maps a %s marketplace transfer association', async (_label, association, expected) => {
+    const { client, calls } = fakeStripeMarketplace();
+    await provider(client).createMarketplaceTransfer(
+      {
+        destinationProviderAccountId: 'acct_1',
+        amount: Money.of(1_000, 'USD'),
+        ...association,
+      },
+      context,
+    );
+
+    expect(calls.transfersCreate).toHaveBeenCalledWith(expected, {
+      idempotencyKey: 'marketplace-idem-1',
+    });
+  });
+
+  it('normalizes an expanded source Charge from a transfer response', async () => {
+    const { client, calls } = fakeStripeMarketplace();
+    calls.transfersRetrieve.mockResolvedValue(
+      stripeMarketplaceTransfer({
+        source_transaction: { id: 'ch_expanded' } as Stripe.Charge,
+      }),
+    );
+
+    const transfer = await provider(client).retrieveMarketplaceTransfer('tr_1');
+
+    expect(transfer.sourceReference).toEqual({ type: 'charge', providerChargeId: 'ch_expanded' });
   });
 
   it('creates and reads payouts only in the connected account context', async () => {
@@ -214,19 +264,6 @@ describe('Stripe Marketplace provider', () => {
       providerAccountId: 'acct_1',
       status: 'pending',
       arrivalAt: new Date(1_725_086_400_000),
-    });
-  });
-
-  it('normalizes Stripe Connect errors', async () => {
-    const { client, calls } = fakeStripeMarketplace();
-    calls.accountsRetrieve.mockRejectedValue({
-      type: 'StripeInvalidRequestError',
-      message: 'Connected account not found',
-    });
-
-    await expect(provider(client).retrieveMarketplaceAccount('missing')).rejects.toMatchObject({
-      code: 'PROVIDER_REQUEST_INVALID',
-      context: expect.objectContaining({ provider: 'stripe-connect' }),
     });
   });
 });

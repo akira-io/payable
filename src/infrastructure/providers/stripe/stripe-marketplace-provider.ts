@@ -5,6 +5,7 @@ import type {
   MarketplacePayoutCapable,
   MarketplaceProvider,
   MarketplaceTransferCapable,
+  MarketplaceTransferReversalCapable,
 } from '../../../domain/contracts/marketplace-provider.contract';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type {
@@ -12,14 +13,17 @@ import type {
   CreateMarketplaceOnboardingLinkInput,
   CreateMarketplacePayoutInput,
   CreateMarketplaceTransferInput,
+  CreateMarketplaceTransferReversalInput,
   ListMarketplaceAccountsInput,
   ListMarketplacePayoutsInput,
+  ListMarketplaceTransferReversalsInput,
   ListMarketplaceTransfersInput,
   MarketplaceAccountDTO,
   MarketplaceCapabilities,
   MarketplaceOnboardingLinkDTO,
   MarketplacePayoutDTO,
   MarketplaceTransferDTO,
+  MarketplaceTransferReversalDTO,
 } from '../../../domain/dtos/marketplace.dto';
 import { stripeAmount } from './stripe-amounts';
 import { STRIPE_API_VERSION } from './stripe-api-version';
@@ -30,7 +34,9 @@ import {
   mapStripeMarketplacePayout,
   mapStripeMarketplaceTransfer,
   stripeMarketplaceAccountParams,
+  stripeMarketplaceTransferParams,
 } from './stripe-marketplace-mappers';
+import { StripeMarketplaceTransferReversals } from './stripe-marketplace-transfer-reversals';
 
 const DEFAULT_LIST_LIMIT = 100;
 const STRIPE_PAGE_LIMIT = 100;
@@ -45,20 +51,23 @@ export class StripeMarketplaceProvider
     MarketplaceAccountCapable,
     MarketplaceOnboardingCapable,
     MarketplaceTransferCapable,
+    MarketplaceTransferReversalCapable,
     MarketplacePayoutCapable
 {
   readonly name = 'stripe-connect';
   private client?: Stripe;
+  private readonly transferReversals: StripeMarketplaceTransferReversals;
 
   constructor(
     private readonly options: StripeMarketplaceProviderOptions,
     client?: unknown,
   ) {
     this.client = client as Stripe | undefined;
+    this.transferReversals = new StripeMarketplaceTransferReversals(() => this.stripe());
   }
 
   capabilities(): MarketplaceCapabilities {
-    return new Set(['accounts', 'onboarding', 'transfers', 'payouts']);
+    return new Set(['accounts', 'onboarding', 'transfers', 'transferReversals', 'payouts']);
   }
 
   async createMarketplaceAccount(
@@ -129,18 +138,10 @@ export class StripeMarketplaceProvider
     input: CreateMarketplaceTransferInput,
     ctx: OperationContext,
   ): Promise<MarketplaceTransferDTO> {
+    const params = stripeMarketplaceTransferParams(input);
     const stripe = await this.stripe();
     const transfer = await withStripeErrors(
-      () =>
-        stripe.transfers.create(
-          {
-            amount: stripeAmount(input.amount),
-            currency: input.amount.currency().toLowerCase(),
-            destination: input.destinationProviderAccountId,
-            metadata: input.reference ? { reference: input.reference } : undefined,
-          },
-          this.idempotency(ctx),
-        ),
+      () => stripe.transfers.create(params, this.idempotency(ctx)),
       this.name,
     );
     return mapStripeMarketplaceTransfer(transfer);
@@ -171,6 +172,29 @@ export class StripeMarketplaceProvider
       this.name,
     );
     return mapStripeMarketplaceTransfer(transfer);
+  }
+
+  createMarketplaceTransferReversal(
+    input: CreateMarketplaceTransferReversalInput,
+    ctx: OperationContext,
+  ): Promise<MarketplaceTransferReversalDTO> {
+    return this.transferReversals.createMarketplaceTransferReversal(input, ctx);
+  }
+
+  retrieveMarketplaceTransferReversal(
+    providerTransferId: string,
+    providerReversalId: string,
+  ): Promise<MarketplaceTransferReversalDTO> {
+    return this.transferReversals.retrieveMarketplaceTransferReversal(
+      providerTransferId,
+      providerReversalId,
+    );
+  }
+
+  listMarketplaceTransferReversals(
+    input: ListMarketplaceTransferReversalsInput,
+  ): Promise<MarketplaceTransferReversalDTO[]> {
+    return this.transferReversals.listMarketplaceTransferReversals(input);
   }
 
   async createMarketplacePayout(

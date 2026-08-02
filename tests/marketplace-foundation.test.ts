@@ -67,6 +67,14 @@ describe('marketplace provider foundation', () => {
       ['createMarketplaceTransfer', 'listMarketplaceTransfers', 'retrieveMarketplaceTransfer'],
     ],
     [
+      'isMarketplaceTransferReversalCapable',
+      [
+        'createMarketplaceTransferReversal',
+        'retrieveMarketplaceTransferReversal',
+        'listMarketplaceTransferReversals',
+      ],
+    ],
+    [
       'isMarketplacePayoutCapable',
       ['createMarketplacePayout', 'listMarketplacePayouts', 'retrieveMarketplacePayout'],
     ],

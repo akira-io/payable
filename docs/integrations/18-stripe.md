@@ -320,16 +320,38 @@ contract is approved.
 ## Connect marketplace
 
 `StripeMarketplaceProvider` is an independent marketplace provider named `stripe-connect`. It
-implements seller accounts, hosted onboarding, platform-to-seller transfers, and connected-account
-payouts without adding Stripe Connect fields to payment DTOs or coupling marketplace operations to
-`StripeProvider`.
+advertises the `accounts`, `onboarding`, `transfers`, `transferReversals`, and `payouts` capabilities.
+It implements seller accounts, hosted onboarding, platform-to-seller transfers and reversals, and
+connected-account payouts without adding Stripe Connect fields to payment DTOs or coupling
+marketplace operations to `StripeProvider`.
 
 ```ts
-import { StripeMarketplaceProvider } from '@akira-io/payable';
+import { Money, StripeMarketplaceProvider } from '@akira-io/payable';
 
 const marketplace = new StripeMarketplaceProvider({
   secretKey: process.env.STRIPE_SECRET_KEY!,
 });
+```
+
+```ts
+const transfer = await marketplace.createMarketplaceTransfer(
+  {
+    destinationProviderAccountId: 'acct_123',
+    amount: Money.of(10_000, 'USD'),
+    groupReference: 'order-123',
+    sourceReference: { type: 'charge', providerChargeId: 'ch_123' },
+  },
+  { correlationId: 'order-123', idempotencyKey: 'transfer-order-123' },
+);
+
+await marketplace.createMarketplaceTransferReversal(
+  {
+    providerTransferId: transfer.providerTransferId,
+    amount: 2_500,
+    reference: 'order-123-partial-reversal',
+  },
+  { correlationId: 'order-123', idempotencyKey: 'reverse-order-123-1' },
+);
 ```
 
 Connected accounts use Stripe's current `controller` configuration instead of the deprecated account
@@ -347,6 +369,20 @@ the platform balance to the destination connected account and also forward idemp
 not expose a transfer lifecycle status, so unreversed transfers normalize to `completed` and fully
 reversed transfers normalize to `reversed`.
 
+Transfer and reversal constraints:
+
+- `groupReference` is an association label and does not change settlement behaviour.
+- `sourceReference` accepts a Charge ID. A PaymentIntent consumer must resolve `latest_charge` first.
+- Source-linked transfer funds become available when the source charge funds become available.
+- Omitting reversal `amount` reverses the full remaining amount; a positive integer performs a
+  partial reversal.
+- The destination connected account must have sufficient available balance unless connected
+  account reserves cover the reversal.
+- Refunding a charge does not automatically reverse related transfers.
+- An asynchronous payment failure does not automatically reverse a transfer; the application must
+  reconcile it.
+- Separate charges and transfers have provider-specific regional and cross-border restrictions.
+
 Payout create, list, and retrieve requests pass the seller account ID only through Stripe's
 `stripeAccount` request option. This makes payouts operate on the connected account balance while
 account, onboarding, and transfer calls remain platform requests. `pending` and `in_transit` Stripe
@@ -355,6 +391,16 @@ payouts normalize to `pending`; `paid`, `failed`, and `canceled` retain their me
 Marketplace transfers do not create customer payments and are not automatically reversed when an
 unrelated payment fails. The application remains responsible for choosing the payment flow, waiting
 for asynchronous funds when required, and reconciling transfer reversals.
+
+Official Stripe references:
+
+- [Separate charges and transfers](https://docs.stripe.com/connect/separate-charges-and-transfers)
+- [Create a transfer](https://docs.stripe.com/api/transfers/create?lang=node)
+- [Transfer reversals](https://docs.stripe.com/api/transfer_reversals)
+- [Create a transfer reversal](https://docs.stripe.com/api/transfer_reversals/create?lang=node)
+- [Retrieve a transfer reversal](https://docs.stripe.com/api/transfer_reversals/retrieve?lang=node)
+- [List transfer reversals](https://docs.stripe.com/api/transfer_reversals/list?lang=node)
+- [Stripe error codes](https://docs.stripe.com/error-codes)
 
 ## Terminal
 

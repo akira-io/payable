@@ -74,8 +74,10 @@ export type {
   CreateMarketplaceOnboardingLinkInput,
   CreateMarketplacePayoutInput,
   CreateMarketplaceTransferInput,
+  CreateMarketplaceTransferReversalInput,
   ListMarketplaceAccountsInput,
   ListMarketplacePayoutsInput,
+  ListMarketplaceTransferReversalsInput,
   ListMarketplaceTransfersInput,
   MarketplaceAccountDTO,
   MarketplaceAccountStatus,
@@ -86,6 +88,8 @@ export type {
   MarketplacePayoutDTO,
   MarketplacePayoutStatus,
   MarketplaceTransferDTO,
+  MarketplaceTransferReversalDTO,
+  MarketplaceTransferSourceReference,
   MarketplaceTransferStatus,
 } from './marketplace.dto';
 export type {
