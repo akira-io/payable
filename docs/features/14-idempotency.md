@@ -140,8 +140,10 @@ database serialization round trip.
 A processing record carries a random `lockToken` and `lockedUntil`. The token fences completion and
 failure writes so a previous lease owner cannot overwrite a newer result. A held lease raises
 `IdempotencyInProgressError`. When acquisition loses a race, the service reads the scoped record
-again, replays a completed winner when available, and otherwise uses `takeOver` only when the active
-policy permits it. A failed or expired takeover also returns `IdempotencyInProgressError`.
+again and replays a completed winner when available. Failed and expired records are eligible for
+`takeOver`; stale processing records are eligible only when the active policy permits reclaiming them.
+In this takeover path, `IdempotencyInProgressError` is returned only when `takeOver` does not claim the
+record.
 
 The default policy uses `lockTtlMs`, the configured retry behavior, and `failedTtlMs`. It does not
 reclaim stale processing records unless the execution opts in. The `reconciliation-required` failure

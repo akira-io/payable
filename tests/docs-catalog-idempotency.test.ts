@@ -68,6 +68,8 @@ describe('catalog idempotency documentation', () => {
     }
     expect(execution).toMatch(/reads? the scoped record after `markCompleted`/i);
     expect(execution).toMatch(/different lock token/i);
+    expect(execution).toMatch(/failed and expired records are eligible for `takeOver`/i);
+    expect(execution).toMatch(/only when `takeOver` does not claim the record/i);
     expect(execution).not.toContain(
       'await this.store.markCompleted(execution.key, result, execution.tenantId)',
     );
@@ -131,6 +133,9 @@ describe('catalog idempotency documentation', () => {
     expect(recovery).toContain('correlationId');
     expect(recovery).toMatch(/provider and durable local state/i);
     expect(recovery).toMatch(/do not use a new key before reconciliation/i);
+    expect(recovery).not.toMatch(
+      /\b(?:can|may|should)\s+(?:use|issue|create)\s+(?:a\s+)?new key before reconciliation\b/i,
+    );
     expect(recovery).toContain('native provider');
     expect(recovery).toContain('non-native provider');
   });
