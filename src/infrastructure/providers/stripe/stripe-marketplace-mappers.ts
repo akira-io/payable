@@ -1,14 +1,16 @@
 import type Stripe from 'stripe';
 import type {
   CreateMarketplaceAccountInput,
+  CreateMarketplaceTransferInput,
   MarketplaceAccountDTO,
   MarketplaceAccountStatus,
   MarketplacePayoutDTO,
   MarketplacePayoutStatus,
   MarketplaceTransferDTO,
+  MarketplaceTransferSourceReference,
 } from '../../../domain/dtos/marketplace.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
-import { stripeMoney } from './stripe-amounts';
+import { stripeAmount, stripeMoney } from './stripe-amounts';
 
 export function stripeMarketplaceAccountParams(
   input: CreateMarketplaceAccountInput,
@@ -24,6 +26,21 @@ export function stripeMarketplaceAccountParams(
       stripe_dashboard: { type: 'express' },
     },
     metadata: input.reference ? { reference: input.reference } : undefined,
+  };
+}
+
+export function stripeMarketplaceTransferParams(
+  input: CreateMarketplaceTransferInput,
+): Stripe.TransferCreateParams {
+  const sourceTransaction = stripeMarketplaceSourceTransaction(input.sourceReference);
+
+  return {
+    amount: stripeAmount(input.amount),
+    currency: input.amount.currency().toLowerCase(),
+    destination: input.destinationProviderAccountId,
+    metadata: input.reference ? { reference: input.reference } : undefined,
+    ...(input.groupReference ? { transfer_group: input.groupReference } : {}),
+    ...(sourceTransaction ? { source_transaction: sourceTransaction } : {}),
   };
 }
 
@@ -53,10 +70,74 @@ export function mapStripeMarketplaceTransfer(transfer: Stripe.Transfer): Marketp
     destinationProviderAccountId,
     amount: stripeMoney(transfer.amount, transfer.currency),
     status: transfer.reversed ? 'reversed' : 'completed',
-    groupReference: null,
-    sourceReference: null,
+    groupReference: transfer.transfer_group ?? null,
+    sourceReference: stripeMarketplaceSourceReference(transfer.source_transaction, transfer.id),
     createdAt: new Date(transfer.created * 1000),
   };
+}
+
+function stripeMarketplaceSourceTransaction(sourceReference: unknown): string | undefined {
+  if (sourceReference === undefined) {
+    return undefined;
+  }
+
+  if (
+    !isStripeMarketplaceChargeSourceReference(sourceReference) ||
+    !isStripeMarketplaceChargeId(sourceReference.providerChargeId)
+  ) {
+    throw new PayableError('Stripe marketplace transfer source must be a Charge identifier', {
+      code: 'PROVIDER_REQUEST_INVALID',
+      context: { provider: 'stripe-connect' },
+    });
+  }
+
+  return sourceReference.providerChargeId;
+}
+
+function stripeMarketplaceSourceReference(
+  sourceTransaction: unknown,
+  transferId: string,
+): MarketplaceTransferSourceReference | null {
+  if (sourceTransaction === null) {
+    return null;
+  }
+
+  const providerChargeId =
+    typeof sourceTransaction === 'string'
+      ? sourceTransaction
+      : isStripeMarketplaceResource(sourceTransaction)
+        ? sourceTransaction.id
+        : null;
+
+  if (!providerChargeId || !isStripeMarketplaceChargeId(providerChargeId)) {
+    throw invalidStripeMarketplaceResponse('Stripe transfer has an invalid source Charge', {
+      transferId,
+    });
+  }
+
+  return { type: 'charge', providerChargeId };
+}
+
+function isStripeMarketplaceChargeSourceReference(
+  value: unknown,
+): value is { type: 'charge'; providerChargeId: string } {
+  return (
+    isStripeMarketplaceRecord(value) &&
+    value.type === 'charge' &&
+    typeof value.providerChargeId === 'string'
+  );
+}
+
+function isStripeMarketplaceResource(value: unknown): value is { id: string } {
+  return isStripeMarketplaceRecord(value) && typeof value.id === 'string';
+}
+
+function isStripeMarketplaceRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isStripeMarketplaceChargeId(providerChargeId: string): boolean {
+  return providerChargeId.startsWith('ch_') && providerChargeId.length > 'ch_'.length;
 }
 
 export function mapStripeMarketplacePayout(

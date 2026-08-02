@@ -7,9 +7,10 @@ import {
   isMarketplacePayoutCapable,
   isMarketplaceTransferCapable,
 } from '../src/domain/contracts/marketplace-provider.contract';
+import type { CreateMarketplaceTransferInput } from '../src/domain/dtos/marketplace.dto';
 import { Money } from '../src/domain/value-objects/money';
 import { StripeMarketplaceProvider } from '../src/infrastructure/providers/stripe/stripe-marketplace-provider';
-import { fakeStripeMarketplace } from './support/stripe-marketplace';
+import { fakeStripeMarketplace, stripeMarketplaceTransfer } from './support/stripe-marketplace';
 
 const context = { correlationId: 'corr-1', idempotencyKey: 'marketplace-idem-1' };
 
@@ -162,6 +163,8 @@ describe('Stripe Marketplace provider', () => {
         destinationProviderAccountId: 'acct_1',
         amount: Money.of(12_345, 'USD'),
         reference: 'order-1',
+        groupReference: 'order-1',
+        sourceReference: { type: 'charge', providerChargeId: 'ch_1' },
       },
       context,
     );
@@ -174,14 +177,98 @@ describe('Stripe Marketplace provider', () => {
         currency: 'usd',
         destination: 'acct_1',
         metadata: { reference: 'order-1' },
+        source_transaction: 'ch_1',
+        transfer_group: 'order-1',
       },
       { idempotencyKey: 'marketplace-idem-1' },
     );
     expect(calls.transfersList).toHaveBeenCalledWith({ destination: 'acct_1', limit: 100 });
     expect(calls.transfersPage.autoPagingToArray).toHaveBeenCalledWith({ limit: 120 });
     expect(calls.transfersRetrieve).toHaveBeenCalledWith('tr_1');
+    expect(created).toMatchObject({
+      groupReference: 'order-1',
+      sourceReference: { type: 'charge', providerChargeId: 'ch_1' },
+    });
     expect(created.status).toBe('completed');
     expect(created.amount.amount()).toBe(12_345);
+  });
+
+  it.each([
+    [
+      'group only',
+      { groupReference: 'group-1' },
+      expect.objectContaining({ transfer_group: 'group-1' }),
+    ],
+    [
+      'source only',
+      { sourceReference: { type: 'charge' as const, providerChargeId: 'ch_1' } },
+      expect.objectContaining({ source_transaction: 'ch_1' }),
+    ],
+  ])('maps a %s marketplace transfer association', async (_label, association, expected) => {
+    const { client, calls } = fakeStripeMarketplace();
+    await provider(client).createMarketplaceTransfer(
+      {
+        destinationProviderAccountId: 'acct_1',
+        amount: Money.of(1_000, 'USD'),
+        ...association,
+      },
+      context,
+    );
+
+    expect(calls.transfersCreate).toHaveBeenCalledWith(expected, {
+      idempotencyKey: 'marketplace-idem-1',
+    });
+  });
+
+  it('normalizes an expanded source Charge from a transfer response', async () => {
+    const { client, calls } = fakeStripeMarketplace();
+    calls.transfersRetrieve.mockResolvedValue(
+      stripeMarketplaceTransfer({
+        source_transaction: { id: 'ch_expanded' } as Stripe.Charge,
+      }),
+    );
+
+    const transfer = await provider(client).retrieveMarketplaceTransfer('tr_1');
+
+    expect(transfer.sourceReference).toEqual({ type: 'charge', providerChargeId: 'ch_expanded' });
+  });
+
+  it.each([
+    'pi_1',
+    'cs_1',
+    'ch_',
+    '',
+  ])('rejects a non-Charge source identifier %j before calling Stripe', async (providerChargeId) => {
+    const { client, calls } = fakeStripeMarketplace();
+    const input: CreateMarketplaceTransferInput = {
+      destinationProviderAccountId: 'acct_1',
+      amount: Money.of(1_000, 'USD'),
+      sourceReference: { type: 'charge', providerChargeId },
+    };
+
+    await expect(provider(client).createMarketplaceTransfer(input, context)).rejects.toMatchObject({
+      code: 'PROVIDER_REQUEST_INVALID',
+      context: expect.objectContaining({ provider: 'stripe-connect' }),
+    });
+    expect(calls.transfersCreate).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-Charge runtime source type before calling Stripe', async () => {
+    const { client, calls } = fakeStripeMarketplace();
+    const instance = provider(client);
+    const input = {
+      destinationProviderAccountId: 'acct_1',
+      amount: Money.of(1_000, 'USD'),
+      sourceReference: { type: 'payment_intent', providerChargeId: 'pi_1' },
+    };
+
+    await expect(
+      Reflect.apply(instance.createMarketplaceTransfer, instance, [input, context]),
+    ).rejects.toMatchObject({
+      code: 'PROVIDER_REQUEST_INVALID',
+      context: expect.objectContaining({ provider: 'stripe-connect' }),
+    });
+    expect(calls.transfersCreate).not.toHaveBeenCalled();
   });
 
   it('creates and reads payouts only in the connected account context', async () => {

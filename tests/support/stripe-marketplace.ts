@@ -44,8 +44,8 @@ export function stripeMarketplaceTransfer(
     metadata: {},
     reversals: { object: 'list', data: [], has_more: false, url: '/v1/transfers/tr_1/reversals' },
     reversed: false,
-    source_transaction: null,
-    transfer_group: null,
+    source_transaction: 'ch_1',
+    transfer_group: 'order-1',
     ...overrides,
   } as Stripe.Transfer;
 }

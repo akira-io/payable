@@ -30,6 +30,7 @@ import {
   mapStripeMarketplacePayout,
   mapStripeMarketplaceTransfer,
   stripeMarketplaceAccountParams,
+  stripeMarketplaceTransferParams,
 } from './stripe-marketplace-mappers';
 
 const DEFAULT_LIST_LIMIT = 100;
@@ -129,18 +130,10 @@ export class StripeMarketplaceProvider
     input: CreateMarketplaceTransferInput,
     ctx: OperationContext,
   ): Promise<MarketplaceTransferDTO> {
+    const params = stripeMarketplaceTransferParams(input);
     const stripe = await this.stripe();
     const transfer = await withStripeErrors(
-      () =>
-        stripe.transfers.create(
-          {
-            amount: stripeAmount(input.amount),
-            currency: input.amount.currency().toLowerCase(),
-            destination: input.destinationProviderAccountId,
-            metadata: input.reference ? { reference: input.reference } : undefined,
-          },
-          this.idempotency(ctx),
-        ),
+      () => stripe.transfers.create(params, this.idempotency(ctx)),
       this.name,
     );
     return mapStripeMarketplaceTransfer(transfer);
