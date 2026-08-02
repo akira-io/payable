@@ -197,6 +197,20 @@ Catalog idempotency is not a distributed transaction: remote mutation and local 
 commit atomically. The contract and recovery boundary are tracked in
 [issue #997](https://github.com/akira-io/payable/issues/997).
 
+### Recover an idempotency result persistence failure
+
+`IDEMPOTENCY_RESULT_PERSISTENCE_FAILED` means the catalog callback may have succeeded, but Payable
+could not verify the completed engine record. The error context preserves the caller key and
+`correlationId`. Preserve that correlation ID, then inspect the provider and durable local state to
+determine which remote and local writes committed. Do not use a new key before reconciliation because
+it represents a new intentional operation.
+
+For a native provider, a retry with the same caller key reuses the derived provider identity, but
+reconciliation must establish the durable local result before another attempt. For a non-native
+provider, the engine keeps the failed operation in reconciliation-required state and a same-key retry
+returns `IDEMPOTENCY_RECONCILIATION_REQUIRED` without another provider call. Reconcile first in both
+cases; provider idempotency does not make the remote mutation and local commit atomic.
+
 ## Failure behavior
 
 | Error code | Cause | Recovery |
@@ -209,6 +223,7 @@ commit atomically. The contract and recovery boundary are tracked in
 | `CATALOG_PERSISTENCE_FAILED` | The provider confirmed a mutation, but its local state could not be recovered | Record the error context and reconcile the remote resource before retrying. |
 | `CATALOG_IDEMPOTENCY_STORAGE_REQUIRED` | A caller key targets a provider without native catalog idempotency and no engine store is configured | Configure an idempotency store or omit the key and accept unprotected execution. |
 | `IDEMPOTENCY_RECONCILIATION_REQUIRED` | A keyed mutation through a non-native provider previously ended ambiguously | Reconcile with list or retrieve before deciding whether to issue a new operation. |
+| `IDEMPOTENCY_RESULT_PERSISTENCE_FAILED` | The catalog callback returned, but the engine could not verify its completed result | Preserve `correlationId`; inspect provider and durable local state; do not use a new key before reconciliation. |
 
 Provider errors are normalized at the catalog boundary. HTTP adapters return both not-found errors as
 404 responses. MCP tools return the same Payable error codes in their structured failure response.

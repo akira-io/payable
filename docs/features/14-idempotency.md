@@ -126,96 +126,45 @@ A record has `status` of `processing | completed | failed | expired`, the `reque
 together. Service options: `lockTtlMs` (default `30_000`), `retryFailed` (default `true`),
 `completedTtlMs` (default `86_400_000`), and `failedTtlMs` (default = `lockTtlMs`).
 
-Every key is scope-isolated. Before touching the store the service wraps the key as
-`${scope}:${key}` via `scopedKey()`, and `find`, `acquire`, `markCompleted`, and `markFailed` all
-operate on that scoped key. Two operations that resolve to the same raw key under different scopes
-never collide.
+Every store operation uses the scoped key `${scope}:${key}`. Tenant scope remains a separate store
+argument. The same caller key can therefore remain independent across operation scopes and tenants.
 
-`completedTtlMs` and `failedTtlMs` drive the `expiresAt` TTLs stamped on the stored record: a
-completed record's `expiresAt` is `now + completedTtlMs`, a failed record's is `now + failedTtlMs`.
-Once `expiresAt` passes the record reports the `expired` status path and no longer replays.
+### Read, acquire, and replay
 
-`lockTtlMs` is the window before a held lock is considered stale. Set it comfortably above the
-slowest provider call so a long-running operation never lapses while in flight — a lapsed lock now
-fails closed (see above) rather than re-running. Any single execution can override the service
-default per operation with `lockTtlMs` on the `IdempotentExecution`, so a slow charge can claim a
-longer lock than a fast lookup without widening the window for everything. `retryFailed` is
-likewise overridable per execution (`execution.retryFailed ?? service default`), so one operation
-can opt out of retrying a failed record without changing the service-wide default.
+The service hashes the request, resolves the execution policy, and reads the scoped record. An
+unexpired record with another request hash raises `IdempotencyConflictError`. A completed record
+replays its stored response without calling `run`. When the execution supplies `revive`, replay passes
+the stored response through that function first, which reconstructs values such as `Money` after a
+database serialization round trip.
 
-```ts
-async execute<T>(execution: IdempotentExecution<T>): Promise<T> {
-  const requestHash = await hashRequest(execution.request);
-  const existing = await this.store.find(execution.key, execution.tenantId);
-  const replay = this.replay<T>(existing, requestHash, execution.key);
-  if (replay.handled) return replay.value as T;
-  return this.run(execution, requestHash);
-}
-```
+A processing record carries a random `lockToken` and `lockedUntil`. The token fences completion and
+failure writes so a previous lease owner cannot overwrite a newer result. A held lease raises
+`IdempotencyInProgressError`. When acquisition loses a race, the service reads the scoped record
+again, replays a completed winner when available, and otherwise uses `takeOver` only when the active
+policy permits it. A failed or expired takeover also returns `IdempotencyInProgressError`.
 
-### replay - what an existing record does
+The default policy uses `lockTtlMs`, the configured retry behavior, and `failedTtlMs`. It does not
+reclaim stale processing records unless the execution opts in. The `reconciliation-required` failure
+policy disables failed-record retries, enables stale takeover after the lease, and uses
+`completedTtlMs` for both its processing lease and failed-record expiry. Until that expiry, a retry of
+a failed record returns `IdempotencyReconciliationRequiredError`.
 
-```ts
-if (!existing) return { handled: false };
-if (this.isExpired(existing)) return { handled: false };
-if (existing.requestHash !== requestHash) throw new IdempotencyConflictError(key);
-if (existing.status === 'completed') return { handled: true, value: existing.response as T };
-if (existing.status === 'processing' && this.isLocked(existing)) throw new IdempotencyInProgressError(key);
-if (existing.status === 'failed' && !retryFailed) throw new IdempotencyConflictError(key);
-return { handled: false };
-```
+### Completion verification
 
-- **Expired record** → falls through and re-runs. The `isExpired` check comes **first**, before the
-  hash comparison, so an expired record bypasses the conflict guard entirely: a retry with a
-  *different* body does **not** throw, it re-runs the operation under the new request.
-- **Different request hash** → `IdempotencyConflictError`. This is the "same key, different body"
-  guard, checked for any non-expired record before status is considered.
-- **Completed** → the cached `response` is replayed; the operation does **not** run again.
-- **Processing and still locked** → `IdempotencyInProgressError`. A concurrent run holds the lock.
-- **Failed with `retryFailed: false`** → `IdempotencyConflictError`.
-- Otherwise (no record, failed with retry allowed) → fall through and run.
+After `run` returns, the service asks the store to `markCompleted` with the scoped key, response,
+tenant, `lockToken`, and `expiresAt = now + completedTtlMs`. It reads the scoped record after
+`markCompleted` whether that write resolves or throws. This read detects a silent zero-row update and
+recovers when the store persisted the completion before reporting an acknowledgement error.
 
-`isLocked` compares `lockedUntil` against the clock. A `processing` record whose `lockedUntil` has
-passed is **stale**: the original holder either crashed mid-flight (its side effect may already have
-committed) or is still running past the lock TTL. The service does **not** blindly re-run it. By
-default a stale `processing` record fails closed with `IdempotencyInProgressError`, so a money-moving
-operation is never silently executed twice. Set `reclaimStaleProcessing: true` on the execution to
-opt in to reclaiming and re-running a stale lock when the operation is known safe to repeat.
+A completed record with the same request hash is authoritative. The service returns the local result
+only when `markCompleted` resolved and the stored `lockToken` belongs to the current execution. If a
+different lock token won, or completion acknowledgement was lost, it returns the authoritative stored
+response through `revive`. This prevents a stale executor from returning its superseded result.
 
-### run - acquiring the lock and executing
-
-```ts
-const record = this.processingRecord(execution, requestHash);
-const acquired = await this.store.acquire(record, execution.tenantId);
-if (!acquired) {
-  const existing = await this.store.find(execution.key, execution.tenantId);
-  const replay = this.replay<T>(existing, requestHash, execution.key);
-  if (replay.handled) return replay.value as T;
-  if (existing?.status === 'processing' && !execution.reclaimStaleProcessing) {
-    throw new IdempotencyInProgressError(execution.key);
-  }
-  const claimed = await this.store.takeOver(record, execution.tenantId);
-  if (!claimed) throw new IdempotencyInProgressError(execution.key);
-}
-try {
-  const result = await execution.run();
-  await this.store.markCompleted(execution.key, result, execution.tenantId);
-  return result;
-} catch (error) {
-  await this.store.markFailed(execution.key, execution.tenantId);
-  throw error;
-}
-```
-
-- `acquire` atomically inserts the `processing` record with `lockedUntil = now + lockTtlMs`. Only
-  one acquirer wins, even with a null tenant.
-- If acquisition fails, the service re-checks: the winner may already have completed (replay). A
-  stale `processing` record (expired lock) fails closed with `IdempotencyInProgressError` unless
-  `reclaimStaleProcessing` is set; a `failed`-with-retry or expired record is reclaimed via
-  `takeOver`. If `takeOver` claims nothing, the caller gets `IdempotencyInProgressError`.
-- On success the record is marked `completed` with the response cached. On failure it is marked
-  `failed` and the original error is rethrown - so with `retryFailed: true` (default) a later retry
-  re-runs the operation.
+If the completion cannot be verified, the service attempts a fenced `markFailed` and raises
+`IdempotencyResultPersistenceError` with the caller key and correlation ID. A cleanup failure cannot
+hide that error. When `run` itself throws, the service marks the scoped record failed under the same
+lock token and rethrows the original operation error.
 
 ## Catalog mutation idempotency
 
