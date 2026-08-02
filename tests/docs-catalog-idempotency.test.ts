@@ -68,7 +68,13 @@ describe('catalog idempotency documentation', () => {
     }
     expect(execution).toMatch(/reads? the scoped record after `markCompleted`/i);
     expect(execution).toMatch(/different lock token/i);
-    expect(execution).toMatch(/failed and expired records are eligible for `takeOver`/i);
+    expect(execution).toMatch(/expired records are eligible for `takeOver`/i);
+    expect(execution).toMatch(
+      /failed records are eligible for `takeOver` only when the retry policy permits a retry/i,
+    );
+    expect(execution).toMatch(
+      /stale processing records are eligible for `takeOver` only when the active reclaim policy permits it/i,
+    );
     expect(execution).toMatch(/only when `takeOver` does not claim the record/i);
     expect(execution).not.toContain(
       'await this.store.markCompleted(execution.key, result, execution.tenantId)',
