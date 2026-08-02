@@ -326,7 +326,7 @@ connected-account payouts without adding Stripe Connect fields to payment DTOs o
 marketplace operations to `StripeProvider`.
 
 ```ts
-import { StripeMarketplaceProvider } from '@akira-io/payable';
+import { Money, StripeMarketplaceProvider } from '@akira-io/payable';
 
 const marketplace = new StripeMarketplaceProvider({
   secretKey: process.env.STRIPE_SECRET_KEY!,

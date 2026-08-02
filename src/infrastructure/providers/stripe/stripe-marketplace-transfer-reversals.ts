@@ -80,14 +80,14 @@ function validateCreateInput(input: CreateMarketplaceTransferReversalInput): voi
   }
 }
 
-function validateIdentifier(value: string, field: string): void {
-  if (value.trim().length === 0) {
+function validateIdentifier(value: unknown, field: string): void {
+  if (typeof value !== 'string' || value.trim().length === 0) {
     throw invalidReversalInput(`${field} must not be empty`, { field });
   }
 }
 
 function validatePositiveInteger(value: number, field: string): void {
-  if (!Number.isInteger(value) || value <= 0) {
+  if (!Number.isSafeInteger(value) || value <= 0) {
     throw invalidReversalInput(`${field} must be a positive integer`, { field });
   }
 }

@@ -98,6 +98,7 @@ describe('Stripe Marketplace transfer reversals', () => {
     1.5,
     Number.NaN,
     Number.POSITIVE_INFINITY,
+    Number.MAX_SAFE_INTEGER + 1,
   ])('rejects invalid reversal amount %j before calling Stripe', async (amount) => {
     const { client, calls } = fakeStripeMarketplace();
 
@@ -126,10 +127,41 @@ describe('Stripe Marketplace transfer reversals', () => {
     await expect(
       instance.listMarketplaceTransferReversals({ providerTransferId: 'tr_1', limit: 1.5 }),
     ).rejects.toMatchObject({ code: 'MARKETPLACE_TRANSFER_REVERSAL_INVALID' });
+    await expect(
+      instance.listMarketplaceTransferReversals({
+        providerTransferId: 'tr_1',
+        limit: Number.MAX_SAFE_INTEGER + 1,
+      }),
+    ).rejects.toMatchObject({ code: 'MARKETPLACE_TRANSFER_REVERSAL_INVALID' });
 
     expect(calls.transfersCreateReversal).not.toHaveBeenCalled();
     expect(calls.transfersRetrieveReversal).not.toHaveBeenCalled();
     expect(calls.transfersListReversals).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    null,
+    undefined,
+    123,
+  ])('normalizes non-string reversal identifier %j before calling Stripe', async (invalidIdentifier) => {
+    const { client, calls } = fakeStripeMarketplace();
+    const instance = provider(client);
+
+    await expect(
+      Reflect.apply(instance.createMarketplaceTransferReversal, instance, [
+        { providerTransferId: invalidIdentifier },
+        context,
+      ]),
+    ).rejects.toMatchObject({ code: 'MARKETPLACE_TRANSFER_REVERSAL_INVALID' });
+    await expect(
+      Reflect.apply(instance.retrieveMarketplaceTransferReversal, instance, [
+        'tr_1',
+        invalidIdentifier,
+      ]),
+    ).rejects.toMatchObject({ code: 'MARKETPLACE_TRANSFER_REVERSAL_INVALID' });
+
+    expect(calls.transfersCreateReversal).not.toHaveBeenCalled();
+    expect(calls.transfersRetrieveReversal).not.toHaveBeenCalled();
   });
 
   it('rejects a reversal response without a transfer identifier', async () => {
