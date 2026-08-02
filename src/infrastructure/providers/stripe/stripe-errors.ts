@@ -16,6 +16,8 @@ interface StripeLikeError {
 
 type StripeNotFoundFactory = (options: PayableErrorOptions) => PayableError;
 
+export type StripeErrorCodeResolver = (error: Readonly<StripeLikeError>) => string | undefined;
+
 function isStripeError(error: unknown): error is StripeLikeError {
   if (typeof error !== 'object' || error === null) {
     return false;
@@ -28,6 +30,7 @@ export async function withStripeErrors<T>(
   fn: () => Promise<T>,
   provider = 'stripe',
   notFound?: StripeNotFoundFactory,
+  resolveCode?: StripeErrorCodeResolver,
 ): Promise<T> {
   try {
     return await fn();
@@ -42,9 +45,10 @@ export async function withStripeErrors<T>(
     if (error.code === 'resource_missing' && notFound) {
       throw notFound(options);
     }
+    const code = resolveCode?.(error) ?? CODE_BY_TYPE[error.type ?? ''] ?? 'PROVIDER_ERROR';
     throw new PayableError(error.message ?? 'Stripe request failed', {
       ...options,
-      code: CODE_BY_TYPE[error.type ?? ''] ?? 'PROVIDER_ERROR',
+      code,
     });
   }
 }

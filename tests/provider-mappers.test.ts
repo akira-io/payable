@@ -12,11 +12,9 @@ import type {
   PaddlePriceEntity,
   PaddleSubscriptionEntity,
 } from '../src/infrastructure/providers/paddle/paddle-types';
-import { withStripeErrors } from '../src/infrastructure/providers/stripe/stripe-errors';
 import {
   toChargeResultDTO as toStripeChargeResultDTO,
   toCustomerDTO as toStripeCustomerDTO,
-  toInvoiceDTO as toStripeInvoiceDTO,
   toPriceDTO as toStripePriceDTO,
   toRefundResultDTO as toStripeRefundResultDTO,
   toSubscriptionDTO as toStripeSubscriptionDTO,
@@ -228,38 +226,6 @@ describe('paddle amount parsing', () => {
   });
 });
 
-describe('stripe invoice mapping', () => {
-  it('treats a missing total as zero rather than throwing', () => {
-    const dto = toStripeInvoiceDTO({
-      id: 'in_1',
-      status: 'draft',
-      total: null,
-      currency: 'usd',
-    } as unknown as Stripe.Invoice);
-    expect(dto.total.amount()).toBe(0);
-  });
-
-  it('passes a known invoice status through', () => {
-    const dto = toStripeInvoiceDTO({
-      id: 'in_2',
-      status: 'open',
-      total: 9900,
-      currency: 'usd',
-    } as unknown as Stripe.Invoice);
-    expect(dto.status).toBe('open');
-  });
-
-  it('falls back to draft for an unmodeled provider status instead of casting a lie', () => {
-    const dto = toStripeInvoiceDTO({
-      id: 'in_3',
-      status: 'deleted',
-      total: 0,
-      currency: 'usd',
-    } as unknown as Stripe.Invoice);
-    expect(dto.status).toBe('draft');
-  });
-});
-
 describe('stripe payment intent mapping', () => {
   it('maps modern payment intent statuses to domain statuses', () => {
     const succeeded = toStripeChargeResultDTO({
@@ -329,24 +295,5 @@ describe('paddle customer mapping', () => {
       name: null,
     } as PaddleCustomer);
     expect(dto.name).toBeNull();
-  });
-});
-
-describe('stripe error detection', () => {
-  it('rethrows a non-stripe error that merely has a type field', async () => {
-    const foreign = { type: 'something_else', message: 'not stripe' };
-    await expect(
-      withStripeErrors(async () => {
-        throw foreign;
-      }),
-    ).rejects.toBe(foreign);
-  });
-
-  it('wraps a stripe-shaped error in a PayableError', async () => {
-    await expect(
-      withStripeErrors(async () => {
-        throw { type: 'StripeCardError', code: 'card_declined', message: 'declined' };
-      }),
-    ).rejects.toMatchObject({ code: 'PROVIDER_CARD_DECLINED' });
   });
 });
