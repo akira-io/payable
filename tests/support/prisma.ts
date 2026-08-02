@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -57,7 +57,9 @@ function ensurePrismaClientGenerated(): void {
 
 export async function createPrismaTestClient(): Promise<PrismaClientLike> {
   const dir = mkdtempSync(join(tmpdir(), 'payable-prisma-'));
-  process.env.PAYABLE_PRISMA_TEST_URL = `file:${join(dir, 'test.db')}`;
+  const databasePath = join(dir, 'test.db');
+  writeFileSync(databasePath, '');
+  process.env.PAYABLE_PRISMA_TEST_URL = `file:${databasePath}`;
   ensurePrismaClientGenerated();
   execFileSync('npx', ['prisma', 'db', 'push', '--schema', SCHEMA, '--skip-generate'], {
     stdio: 'ignore',
