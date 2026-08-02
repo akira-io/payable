@@ -109,7 +109,7 @@ function mapStripeMarketplaceTransferReversal(reversal: unknown): MarketplaceTra
     providerReversalId,
   );
   const currency = requireResponseString(reversalRecord.currency, 'currency', providerReversalId);
-  const created = requireResponseTimestamp(reversalRecord.created, providerReversalId);
+  const createdAt = requireResponseCreatedAt(reversalRecord.created, providerReversalId);
   const reference = isRecord(reversalRecord.metadata)
     ? reversalRecord.metadata.reference
     : undefined;
@@ -118,7 +118,7 @@ function mapStripeMarketplaceTransferReversal(reversal: unknown): MarketplaceTra
     providerTransferId,
     amount: stripeMoney(amount, currency),
     reference: typeof reference === 'string' ? reference : null,
-    createdAt: new Date(created * 1000),
+    createdAt,
   };
 }
 
@@ -161,11 +161,15 @@ function requireResponsePositiveInteger(
   return candidate;
 }
 
-function requireResponseTimestamp(candidate: unknown, providerReversalId: string): number {
+function requireResponseCreatedAt(candidate: unknown, providerReversalId: string): Date {
   if (typeof candidate !== 'number' || !Number.isSafeInteger(candidate) || candidate < 0) {
     throw invalidReversalResponse('created', providerReversalId);
   }
-  return candidate;
+  const createdAt = new Date(candidate * 1000);
+  if (Number.isNaN(createdAt.getTime())) {
+    throw invalidReversalResponse('created', providerReversalId);
+  }
+  return createdAt;
 }
 
 function isRecord(candidate: unknown): candidate is Record<string, unknown> {

@@ -67,6 +67,11 @@ const malformedResponseCases: ReadonlyArray<
     'created',
     (reversal) => Reflect.set(reversal, 'created', '1725000300'),
   ],
+  [
+    'out-of-range created timestamp',
+    'created',
+    (reversal) => Reflect.set(reversal, 'created', Number.MAX_SAFE_INTEGER),
+  ],
 ];
 
 describe('Stripe Marketplace transfer reversal responses', () => {
