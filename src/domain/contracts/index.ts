@@ -66,12 +66,14 @@ export type {
   MarketplacePayoutCapable,
   MarketplaceProvider,
   MarketplaceTransferCapable,
+  MarketplaceTransferReversalCapable,
 } from './marketplace-provider.contract';
 export {
   isMarketplaceAccountCapable,
   isMarketplaceOnboardingCapable,
   isMarketplacePayoutCapable,
   isMarketplaceTransferCapable,
+  isMarketplaceTransferReversalCapable,
 } from './marketplace-provider.contract';
 export type {
   NewOutboxEvent,

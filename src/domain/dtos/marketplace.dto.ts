@@ -1,6 +1,11 @@
 import type { Money } from '../value-objects/money';
 
-export type MarketplaceCapability = 'accounts' | 'onboarding' | 'transfers' | 'payouts';
+export type MarketplaceCapability =
+  | 'accounts'
+  | 'onboarding'
+  | 'transfers'
+  | 'transferReversals'
+  | 'payouts';
 export type MarketplaceCapabilityValue = MarketplaceCapability | (string & {});
 export type MarketplaceCapabilities = ReadonlySet<MarketplaceCapabilityValue>;
 export type MarketplaceAccountStatus = 'pending' | 'active' | 'restricted' | 'disabled' | 'unknown';
@@ -47,19 +52,47 @@ export interface CreateMarketplaceTransferInput {
   destinationProviderAccountId: string;
   amount: Money;
   reference?: string;
+  groupReference?: string;
+  sourceReference?: MarketplaceTransferSourceReference;
 }
+
+export type MarketplaceTransferSourceReference = {
+  type: 'charge';
+  providerChargeId: string;
+};
 
 export interface MarketplaceTransferDTO {
   providerTransferId: string;
   destinationProviderAccountId: string;
   amount: Money;
   status: MarketplaceTransferStatus;
+  groupReference: string | null;
+  sourceReference: MarketplaceTransferSourceReference | null;
   createdAt: Date | null;
 }
 
 export interface ListMarketplaceTransfersInput {
   destinationProviderAccountId?: string;
   limit?: number;
+}
+
+export interface CreateMarketplaceTransferReversalInput {
+  providerTransferId: string;
+  amount?: number;
+  reference?: string;
+}
+
+export interface ListMarketplaceTransferReversalsInput {
+  providerTransferId: string;
+  limit?: number;
+}
+
+export interface MarketplaceTransferReversalDTO {
+  providerReversalId: string;
+  providerTransferId: string;
+  amount: Money;
+  reference: string | null;
+  createdAt: Date | null;
 }
 
 export interface CreateMarketplacePayoutInput {

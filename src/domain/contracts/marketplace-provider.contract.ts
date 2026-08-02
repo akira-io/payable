@@ -4,14 +4,17 @@ import type {
   CreateMarketplaceOnboardingLinkInput,
   CreateMarketplacePayoutInput,
   CreateMarketplaceTransferInput,
+  CreateMarketplaceTransferReversalInput,
   ListMarketplaceAccountsInput,
   ListMarketplacePayoutsInput,
+  ListMarketplaceTransferReversalsInput,
   ListMarketplaceTransfersInput,
   MarketplaceAccountDTO,
   MarketplaceCapabilities,
   MarketplaceOnboardingLinkDTO,
   MarketplacePayoutDTO,
   MarketplaceTransferDTO,
+  MarketplaceTransferReversalDTO,
 } from '../dtos/marketplace.dto';
 
 export interface MarketplaceProvider {
@@ -44,6 +47,20 @@ export interface MarketplaceTransferCapable {
     input?: ListMarketplaceTransfersInput,
   ): Promise<MarketplaceTransferDTO[]>;
   retrieveMarketplaceTransfer(providerTransferId: string): Promise<MarketplaceTransferDTO>;
+}
+
+export interface MarketplaceTransferReversalCapable {
+  createMarketplaceTransferReversal(
+    input: CreateMarketplaceTransferReversalInput,
+    ctx: OperationContext,
+  ): Promise<MarketplaceTransferReversalDTO>;
+  retrieveMarketplaceTransferReversal(
+    providerTransferId: string,
+    providerReversalId: string,
+  ): Promise<MarketplaceTransferReversalDTO>;
+  listMarketplaceTransferReversals(
+    input: ListMarketplaceTransferReversalsInput,
+  ): Promise<MarketplaceTransferReversalDTO[]>;
 }
 
 export interface MarketplacePayoutCapable {
@@ -86,6 +103,17 @@ export function isMarketplaceTransferCapable(
     typeof candidate.createMarketplaceTransfer === 'function' &&
     typeof candidate.listMarketplaceTransfers === 'function' &&
     typeof candidate.retrieveMarketplaceTransfer === 'function'
+  );
+}
+
+export function isMarketplaceTransferReversalCapable(
+  provider: MarketplaceProvider,
+): provider is MarketplaceProvider & MarketplaceTransferReversalCapable {
+  const candidate = provider as Partial<MarketplaceTransferReversalCapable>;
+  return (
+    typeof candidate.createMarketplaceTransferReversal === 'function' &&
+    typeof candidate.retrieveMarketplaceTransferReversal === 'function' &&
+    typeof candidate.listMarketplaceTransferReversals === 'function'
   );
 }
 

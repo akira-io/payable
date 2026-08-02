@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type {
   AuthorizationConfig,
   AuthorizationContext,
+  CreateMarketplaceTransferReversalInput,
   CreatePaymentMethodSetupInput,
+  MarketplaceTransferReversalCapable,
+  MarketplaceTransferReversalDTO,
+  MarketplaceTransferSourceReference,
   PaymentMethodSetupCapable,
   PaymentMethodSetupDTO,
   TaxCalculationDTO,
@@ -55,6 +59,7 @@ describe('public API surface', () => {
     expect(typeof payable.isMarketplaceAccountCapable).toBe('function');
     expect(typeof payable.isMarketplaceOnboardingCapable).toBe('function');
     expect(typeof payable.isMarketplaceTransferCapable).toBe('function');
+    expect(typeof payable.isMarketplaceTransferReversalCapable).toBe('function');
     expect(typeof payable.isMarketplacePayoutCapable).toBe('function');
     expect(typeof payable.MarketplaceProviderRegistry).toBe('function');
     expect(typeof payable.MarketplaceProviderNotFoundError).toBe('function');
@@ -105,6 +110,30 @@ describe('public API surface', () => {
 
     expect(setup.providerCustomerId).toBe('customer_1');
     expect(typeof capable).toBe('object');
+  });
+
+  it('exports the marketplace transfer reversal contract types', () => {
+    const source = {
+      type: 'charge',
+      providerChargeId: 'ch_1',
+    } satisfies MarketplaceTransferSourceReference;
+    const reversalInput = {
+      providerTransferId: 'tr_1',
+      amount: 400,
+      reference: 'order-1-reversal',
+    } satisfies CreateMarketplaceTransferReversalInput;
+    const reversal = {
+      providerReversalId: 'trr_1',
+      providerTransferId: reversalInput.providerTransferId,
+      amount: payable.Money.of(400, 'USD'),
+      reference: reversalInput.reference,
+      createdAt: null,
+    } satisfies MarketplaceTransferReversalDTO;
+    const reversalCapable = {} as MarketplaceTransferReversalCapable;
+
+    expect(source.providerChargeId).toBe('ch_1');
+    expect(reversal.amount.amount()).toBe(400);
+    expect(typeof reversalCapable).toBe('object');
   });
 
   it('exports the Treasury webhook contract types', () => {

@@ -53,6 +53,8 @@ export function mapStripeMarketplaceTransfer(transfer: Stripe.Transfer): Marketp
     destinationProviderAccountId,
     amount: stripeMoney(transfer.amount, transfer.currency),
     status: transfer.reversed ? 'reversed' : 'completed',
+    groupReference: null,
+    sourceReference: null,
     createdAt: new Date(transfer.created * 1000),
   };
 }
