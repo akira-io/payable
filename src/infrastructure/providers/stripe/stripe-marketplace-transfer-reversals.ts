@@ -57,7 +57,7 @@ export class StripeMarketplaceTransferReversals implements MarketplaceTransferRe
     input: ListMarketplaceTransferReversalsInput,
   ): Promise<MarketplaceTransferReversalDTO[]> {
     validateIdentifier(input.providerTransferId, 'providerTransferId');
-    const limit = input.limit ?? DEFAULT_LIST_LIMIT;
+    const limit = input.limit === undefined ? DEFAULT_LIST_LIMIT : input.limit;
     validatePositiveInteger(limit, 'limit');
     const stripe = await this.client();
     const reversals = await withStripeErrors(
@@ -86,8 +86,8 @@ function validateIdentifier(value: unknown, field: string): void {
   }
 }
 
-function validatePositiveInteger(value: number, field: string): void {
-  if (!Number.isSafeInteger(value) || value <= 0) {
+function validatePositiveInteger(candidate: unknown, field: string): void {
+  if (!Number.isSafeInteger(candidate) || typeof candidate !== 'number' || candidate <= 0) {
     throw invalidReversalInput(`${field} must be a positive integer`, { field });
   }
 }
@@ -99,25 +99,88 @@ function invalidReversalInput(message: string, context: Record<string, unknown>)
   });
 }
 
-function mapStripeMarketplaceTransferReversal(
-  reversal: Stripe.TransferReversal,
-): MarketplaceTransferReversalDTO {
-  const providerTransferId =
-    typeof reversal.transfer === 'string' ? reversal.transfer : reversal.transfer.id;
-  if (providerTransferId.trim().length === 0) {
-    throw new PayableError('Stripe transfer reversal has no transfer identifier', {
-      code: 'PROVIDER_RESPONSE_INVALID',
-      context: { provider: 'stripe-connect', providerReversalId: reversal.id },
-    });
-  }
-  const reference = reversal.metadata?.reference;
+function mapStripeMarketplaceTransferReversal(reversal: unknown): MarketplaceTransferReversalDTO {
+  const reversalRecord = requireReversalRecord(reversal);
+  const providerReversalId = requireResponseString(reversalRecord.id, 'id');
+  const providerTransferId = requireTransferId(reversalRecord.transfer, providerReversalId);
+  const amount = requireResponsePositiveInteger(
+    reversalRecord.amount,
+    'amount',
+    providerReversalId,
+  );
+  const currency = requireResponseString(reversalRecord.currency, 'currency', providerReversalId);
+  const created = requireResponseTimestamp(reversalRecord.created, providerReversalId);
+  const reference = isRecord(reversalRecord.metadata)
+    ? reversalRecord.metadata.reference
+    : undefined;
   return {
-    providerReversalId: reversal.id,
+    providerReversalId,
     providerTransferId,
-    amount: stripeMoney(reversal.amount, reversal.currency),
+    amount: stripeMoney(amount, currency),
     reference: typeof reference === 'string' ? reference : null,
-    createdAt: new Date(reversal.created * 1000),
+    createdAt: new Date(created * 1000),
   };
+}
+
+function requireReversalRecord(reversal: unknown): Record<string, unknown> {
+  if (!isRecord(reversal)) {
+    throw invalidReversalResponse('response');
+  }
+  return reversal;
+}
+
+function requireTransferId(candidate: unknown, providerReversalId: string): string {
+  if (typeof candidate === 'string') {
+    return requireResponseString(candidate, 'transfer', providerReversalId);
+  }
+  if (!isRecord(candidate)) {
+    throw invalidReversalResponse('transfer', providerReversalId);
+  }
+  return requireResponseString(candidate.id, 'transfer', providerReversalId);
+}
+
+function requireResponseString(
+  candidate: unknown,
+  field: string,
+  providerReversalId?: string,
+): string {
+  if (typeof candidate !== 'string' || candidate.trim().length === 0) {
+    throw invalidReversalResponse(field, providerReversalId);
+  }
+  return candidate;
+}
+
+function requireResponsePositiveInteger(
+  candidate: unknown,
+  field: string,
+  providerReversalId: string,
+): number {
+  if (typeof candidate !== 'number' || !Number.isSafeInteger(candidate) || candidate <= 0) {
+    throw invalidReversalResponse(field, providerReversalId);
+  }
+  return candidate;
+}
+
+function requireResponseTimestamp(candidate: unknown, providerReversalId: string): number {
+  if (typeof candidate !== 'number' || !Number.isSafeInteger(candidate) || candidate < 0) {
+    throw invalidReversalResponse('created', providerReversalId);
+  }
+  return candidate;
+}
+
+function isRecord(candidate: unknown): candidate is Record<string, unknown> {
+  return typeof candidate === 'object' && candidate !== null && !Array.isArray(candidate);
+}
+
+function invalidReversalResponse(field: string, providerReversalId?: string): PayableError {
+  return new PayableError(`Stripe transfer reversal response has an invalid ${field}`, {
+    code: 'PROVIDER_RESPONSE_INVALID',
+    context: {
+      provider: 'stripe-connect',
+      field,
+      ...(providerReversalId === undefined ? {} : { providerReversalId }),
+    },
+  });
 }
 
 function resolveReversalErrorCode(

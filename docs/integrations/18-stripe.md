@@ -376,8 +376,8 @@ Transfer and reversal constraints:
 - Source-linked transfer funds become available when the source charge funds become available.
 - Omitting reversal `amount` reverses the full remaining amount; a positive integer performs a
   partial reversal.
-- The destination connected account must have sufficient available balance for applicable
-  reversals.
+- The destination connected account must have sufficient available balance unless connected
+  account reserves cover the reversal.
 - Refunding a charge does not automatically reverse related transfers.
 - An asynchronous payment failure does not automatically reverse a transfer; the application must
   reconcile it.

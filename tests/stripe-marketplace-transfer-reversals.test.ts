@@ -139,6 +139,21 @@ describe('Stripe Marketplace transfer reversals', () => {
     expect(calls.transfersListReversals).not.toHaveBeenCalled();
   });
 
+  it('rejects a null list limit before calling Stripe', async () => {
+    const { client, calls } = fakeStripeMarketplace();
+    const instance = provider(client);
+
+    const operation = Reflect.apply(instance.listMarketplaceTransferReversals, instance, [
+      { providerTransferId: 'tr_1', limit: null },
+    ]);
+
+    await expect(operation).rejects.toMatchObject({
+      code: 'MARKETPLACE_TRANSFER_REVERSAL_INVALID',
+      context: expect.objectContaining({ provider: 'stripe-connect', field: 'limit' }),
+    });
+    expect(calls.transfersListReversals).not.toHaveBeenCalled();
+  });
+
   it.each([
     null,
     undefined,
