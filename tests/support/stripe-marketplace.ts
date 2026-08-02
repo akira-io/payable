@@ -50,6 +50,24 @@ export function stripeMarketplaceTransfer(
   } as Stripe.Transfer;
 }
 
+export function stripeMarketplaceTransferReversal(
+  overrides: Partial<Stripe.TransferReversal> = {},
+): Stripe.TransferReversal {
+  return {
+    id: 'trr_1',
+    object: 'transfer_reversal',
+    amount: 400,
+    balance_transaction: null,
+    created: 1_725_000_300,
+    currency: 'usd',
+    destination_payment_refund: null,
+    metadata: { reference: 'order-1-reversal' },
+    source_refund: null,
+    transfer: 'tr_1',
+    ...overrides,
+  } as Stripe.TransferReversal;
+}
+
 export function stripeMarketplacePayout(overrides: Partial<Stripe.Payout> = {}): Stripe.Payout {
   return {
     id: 'po_1',
@@ -101,6 +119,7 @@ export function fakeStripeMarketplace() {
     },
   });
   const transfer = stripeMarketplaceTransfer();
+  const transferReversal = stripeMarketplaceTransferReversal();
   const payout = stripeMarketplacePayout();
   const accountsPage = {
     autoPagingToArray: vi.fn().mockResolvedValue([account, restrictedAccount]),
@@ -109,6 +128,9 @@ export function fakeStripeMarketplace() {
     },
   };
   const transfersPage = { autoPagingToArray: vi.fn().mockResolvedValue([transfer]) };
+  const transferReversalsPage = {
+    autoPagingToArray: vi.fn().mockResolvedValue([transferReversal]),
+  };
   const payoutsPage = { autoPagingToArray: vi.fn().mockResolvedValue([payout]) };
   const calls = {
     accountsCreate: vi.fn().mockResolvedValue(account),
@@ -121,13 +143,17 @@ export function fakeStripeMarketplace() {
       url: 'https://connect.stripe.test/onboarding',
     }),
     transfersCreate: vi.fn().mockResolvedValue(transfer),
+    transfersCreateReversal: vi.fn().mockResolvedValue(transferReversal),
     transfersList: vi.fn().mockReturnValue(transfersPage),
+    transfersListReversals: vi.fn().mockReturnValue(transferReversalsPage),
     transfersRetrieve: vi.fn().mockResolvedValue(transfer),
+    transfersRetrieveReversal: vi.fn().mockResolvedValue(transferReversal),
     payoutsCreate: vi.fn().mockResolvedValue(payout),
     payoutsList: vi.fn().mockReturnValue(payoutsPage),
     payoutsRetrieve: vi.fn().mockResolvedValue(payout),
     accountsPage,
     transfersPage,
+    transferReversalsPage,
     payoutsPage,
   };
   const client = {
@@ -139,8 +165,11 @@ export function fakeStripeMarketplace() {
     accountLinks: { create: calls.accountLinksCreate },
     transfers: {
       create: calls.transfersCreate,
+      createReversal: calls.transfersCreateReversal,
       list: calls.transfersList,
+      listReversals: calls.transfersListReversals,
       retrieve: calls.transfersRetrieve,
+      retrieveReversal: calls.transfersRetrieveReversal,
     },
     payouts: {
       create: calls.payoutsCreate,

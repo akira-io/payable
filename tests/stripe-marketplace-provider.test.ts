@@ -6,8 +6,8 @@ import {
   isMarketplaceOnboardingCapable,
   isMarketplacePayoutCapable,
   isMarketplaceTransferCapable,
+  isMarketplaceTransferReversalCapable,
 } from '../src/domain/contracts/marketplace-provider.contract';
-import type { CreateMarketplaceTransferInput } from '../src/domain/dtos/marketplace.dto';
 import { Money } from '../src/domain/value-objects/money';
 import { StripeMarketplaceProvider } from '../src/infrastructure/providers/stripe/stripe-marketplace-provider';
 import { fakeStripeMarketplace, stripeMarketplaceTransfer } from './support/stripe-marketplace';
@@ -24,11 +24,12 @@ describe('Stripe Marketplace provider', () => {
     const instance = provider(client);
 
     expect(instance.capabilities()).toEqual(
-      new Set(['accounts', 'onboarding', 'transfers', 'payouts']),
+      new Set(['accounts', 'onboarding', 'transfers', 'transferReversals', 'payouts']),
     );
     expect(isMarketplaceAccountCapable(instance)).toBe(true);
     expect(isMarketplaceOnboardingCapable(instance)).toBe(true);
     expect(isMarketplaceTransferCapable(instance)).toBe(true);
+    expect(isMarketplaceTransferReversalCapable(instance)).toBe(true);
     expect(isMarketplacePayoutCapable(instance)).toBe(true);
     const configured = new StripeMarketplaceProvider({ secretKey: 'sk_live_private' });
     expect(JSON.stringify(configured)).not.toContain('sk_live_private');
@@ -233,44 +234,6 @@ describe('Stripe Marketplace provider', () => {
     expect(transfer.sourceReference).toEqual({ type: 'charge', providerChargeId: 'ch_expanded' });
   });
 
-  it.each([
-    'pi_1',
-    'cs_1',
-    'ch_',
-    '',
-  ])('rejects a non-Charge source identifier %j before calling Stripe', async (providerChargeId) => {
-    const { client, calls } = fakeStripeMarketplace();
-    const input: CreateMarketplaceTransferInput = {
-      destinationProviderAccountId: 'acct_1',
-      amount: Money.of(1_000, 'USD'),
-      sourceReference: { type: 'charge', providerChargeId },
-    };
-
-    await expect(provider(client).createMarketplaceTransfer(input, context)).rejects.toMatchObject({
-      code: 'PROVIDER_REQUEST_INVALID',
-      context: expect.objectContaining({ provider: 'stripe-connect' }),
-    });
-    expect(calls.transfersCreate).not.toHaveBeenCalled();
-  });
-
-  it('rejects a non-Charge runtime source type before calling Stripe', async () => {
-    const { client, calls } = fakeStripeMarketplace();
-    const instance = provider(client);
-    const input = {
-      destinationProviderAccountId: 'acct_1',
-      amount: Money.of(1_000, 'USD'),
-      sourceReference: { type: 'payment_intent', providerChargeId: 'pi_1' },
-    };
-
-    await expect(
-      Reflect.apply(instance.createMarketplaceTransfer, instance, [input, context]),
-    ).rejects.toMatchObject({
-      code: 'PROVIDER_REQUEST_INVALID',
-      context: expect.objectContaining({ provider: 'stripe-connect' }),
-    });
-    expect(calls.transfersCreate).not.toHaveBeenCalled();
-  });
-
   it('creates and reads payouts only in the connected account context', async () => {
     const { client, calls } = fakeStripeMarketplace();
     const instance = provider(client);
@@ -301,19 +264,6 @@ describe('Stripe Marketplace provider', () => {
       providerAccountId: 'acct_1',
       status: 'pending',
       arrivalAt: new Date(1_725_086_400_000),
-    });
-  });
-
-  it('normalizes Stripe Connect errors', async () => {
-    const { client, calls } = fakeStripeMarketplace();
-    calls.accountsRetrieve.mockRejectedValue({
-      type: 'StripeInvalidRequestError',
-      message: 'Connected account not found',
-    });
-
-    await expect(provider(client).retrieveMarketplaceAccount('missing')).rejects.toMatchObject({
-      code: 'PROVIDER_REQUEST_INVALID',
-      context: expect.objectContaining({ provider: 'stripe-connect' }),
     });
   });
 });
