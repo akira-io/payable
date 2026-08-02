@@ -225,6 +225,24 @@ PayableModule.forRoot(payable, {
 });
 ```
 
+## Catalog idempotency
+
+Product and price mutation handlers accept one `Idempotency-Key` header. The controller validates
+the header and forwards it as `CatalogMutationOptions.idempotencyKey`. Invalid or duplicate header
+lines return `INVALID_IDEMPOTENCY_KEY` with HTTP 400 through `PayableExceptionFilter`.
+
+```bash
+curl -X POST https://example.test/products \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: catalog-product-pro-v1' \
+  -d '{"name":"Pro"}'
+```
+
+Reuse the value for the same tenant, provider, catalog operation, and body. The shared error mapper
+returns `IDEMPOTENCY_RECONCILIATION_REQUIRED` as HTTP 409 and
+`CATALOG_IDEMPOTENCY_STORAGE_REQUIRED` as HTTP 500. See
+[Idempotency](../features/14-idempotency.md) for the complete execution matrix.
+
 ## Module example
 
 ```ts

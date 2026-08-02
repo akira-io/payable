@@ -86,6 +86,30 @@ and accept limits from 1 through 100. `prices_list` also accepts `providerProduc
 activation and archival instead of product or price delete tools. Changing price monetary terms
 requires creating a replacement price.
 
+## Catalog idempotency
+
+Every catalog mutation tool accepts an optional `idempotencyKey`. The adapter validates the caller
+key and forwards it through `CatalogMutationOptions` after the policy authorization callback runs.
+
+```json
+{
+  "name": "product_create",
+  "arguments": {
+    "name": "Pro",
+    "provider": "stripe-primary",
+    "tenantId": "tenant-acme",
+    "idempotencyKey": "catalog-product-pro-v1"
+  }
+}
+```
+
+Reuse the key only for the same tenant, provider, catalog operation, and arguments. Invalid keys
+return `INVALID_IDEMPOTENCY_KEY` in the structured tool error. A provider without native catalog
+idempotency requires an engine store; otherwise the tool returns
+`CATALOG_IDEMPOTENCY_STORAGE_REQUIRED`. After an ambiguous non-native provider failure, reconcile
+the remote entity before responding to `IDEMPOTENCY_RECONCILIATION_REQUIRED`. See
+[Idempotency](../features/14-idempotency.md) for the complete contract.
+
 ## Resources and prompts
 
 - Resource `payable://schema/entities` returns entity field names and status enums.

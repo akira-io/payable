@@ -106,6 +106,7 @@ capabilities(): ProviderCapabilities {
     'catalog',
     'catalogRead',
     'catalogLifecycle',
+    'catalogIdempotency',
   ]);
 }
 ```
@@ -170,6 +171,18 @@ Official Stripe references:
 - [Update a price](https://docs.stripe.com/api/prices/update)
 - [API errors](https://docs.stripe.com/api/errors)
 - [Error codes](https://docs.stripe.com/error-codes)
+
+### Catalog idempotency
+
+Stripe declares Payable's `catalogIdempotency` capability. For a keyed product or price mutation,
+Payable sends a derived `payable:catalog:v1:<sha256>` value through Stripe's `idempotencyKey` request
+option. The raw caller key is not sent. An engine store is optional for provider forwarding and adds
+local concurrency control, request-conflict detection, and response replay when configured.
+
+Stripe documents that idempotency keys can be supplied to `POST` requests, that repeated requests
+return the saved result, and that parameters are compared when a key is reused. Stripe also limits
+keys to 255 characters. Payable's derived key remains within that limit. See
+[Stripe idempotent requests](https://docs.stripe.com/api/idempotent_requests).
 
 ## Entity mapping
 
@@ -487,7 +500,7 @@ the `normalizedType`, and `event.data.object` as `data`.
 | Scenario | Symptom | Recovery |
 | --- | --- | --- |
 | Invalid webhook signature | `InvalidWebhookSignatureError` (`provider: 'stripe'`) from `verifyWebhook` | Confirm `webhookSecret` matches the Stripe endpoint's secret and that the adapter forwards the raw, unmodified body. Stripe retries the delivery. |
-| Stripe API error | The underlying SDK error propagates from the called method | Calls are idempotent via `ctx.idempotencyKey`; safe to retry the same operation with the same key. |
+| Stripe API error | The underlying SDK error propagates from the called method | Retry a keyed operation with the same key and input. Reconcile an unkeyed mutation before retrying. |
 | Price has no integer amount | `PayableError` `PROVIDER_PRICE_AMOUNT_UNRESOLVABLE` from `toPriceDTO` | Use integer minor-unit prices; non-integer `unit_amount_decimal` is rejected. |
 | Currency exponent mismatch | `PayableError` `PROVIDER_CURRENCY_EXPONENT_MISMATCH` from `stripeAmount` / `stripeMoney` | The amount cannot be rescaled to Stripe's currency exponent without precision loss; use an amount that fits the currency's minor-unit granularity. |
 | Invoice has no PDF | `PayableError` `INVOICE_PDF_UNAVAILABLE` from `downloadInvoicePdf` | Wait until Stripe finalizes the invoice; draft invoices have no `invoice_pdf`. |

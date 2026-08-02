@@ -17,32 +17,29 @@ export type IdempotencyStrategy = 'auto' | 'manual';
 export interface IdempotencyConfig {
   enabled?: boolean;
   strategy?: IdempotencyStrategy;
-  resolver?: IdempotencyKeyResolver;
   store?: IdempotencyStore;
 }
 ```
 
-Resolution defaults (`resolveConfig`):
+`enabled` defaults to `true` and `strategy` defaults to `auto`. A configured `store` supplies the
+engine record used for request hashing, concurrency control, replay, and failure state.
 
-- `enabled` defaults to **`true`**.
-- `strategy` defaults to **`auto`**.
+### Configuration behavior
 
-### auto vs manual
+- `auto` wires the configured store into operations that derive their own keys. An explicit catalog
+  key also uses that store.
+- `manual` leaves existing non-catalog key handling manual. An explicit catalog key still uses the
+  configured store.
+- `enabled: false` prevents Payable from creating an engine idempotency service, even when a store
+  is present. A keyed catalog mutation can then use provider-native protection only.
 
-- **`auto`** - Payable derives the idempotency key itself from the operation context (provider,
-  operation, resource type/id) using the resolver chain below. The caller does not have to supply a
-  key.
-- **`manual`** - the caller is expected to supply an explicit key. Key resolution is the same
-  machinery; in `manual` mode the explicit key is the intended source rather than the derived
-  fallback.
+Catalog behavior depends on whether a caller key, an engine store, and provider-native catalog
+idempotency are available. See [Catalog mutation idempotency](#catalog-mutation-idempotency).
 
-In both strategies the actual key is produced by `ResolveIdempotencyKeyAction`, which always has a
-deterministic fallback, so a missing explicit key never crashes.
+## Non-catalog key resolution
 
-## Key resolution
-
-`ResolveIdempotencyKeyAction` (`src/application/actions/idempotency/resolve-idempotency-key.action.ts`)
-applies a fixed precedence:
+Some non-catalog actions use `ResolveIdempotencyKeyAction` to select an explicit key, then an entity
+resolver, then `DefaultIdempotencyKeyResolver`:
 
 ```ts
 const resolved =
@@ -53,14 +50,9 @@ const resolved =
 return IdempotencyKey.of(resolved);
 ```
 
-1. **Explicit key** - a key passed directly by the caller.
-2. **Entity resolver** - a per-entity `IdempotencyKeyResolver`.
-3. **Global resolver** - the resolver from config (`idempotency.resolver`).
-4. **Default resolver** - `DefaultIdempotencyKeyResolver`, always present.
-
-A resolver may return `null`, in which case the chain falls through to the next source. The
-`IdempotencyKeyResolverContext` carries `operation`, optional `provider`, optional `resourceType`,
-and optional `resourceId`.
+The configuration has no resolver field. Action callers may still supply `globalResolver`
+programmatically. A resolver may return `null`, which falls through to the next source and then the
+deterministic default.
 
 ### DefaultIdempotencyKeyResolver
 
@@ -224,6 +216,72 @@ try {
 - On success the record is marked `completed` with the response cached. On failure it is marked
   `failed` and the original error is rethrown - so with `retryFailed: true` (default) a later retry
   re-runs the operation.
+
+## Catalog mutation idempotency
+
+Product and price writes accept `CatalogMutationOptions`:
+
+```ts
+interface CatalogMutationOptions {
+  authorization?: AuthorizationContext;
+  idempotencyKey?: string;
+}
+
+await payable.products('stripe-primary', 'tenant-acme').create(
+  { name: 'Pro' },
+  { idempotencyKey: 'catalog-product-pro-v1' },
+);
+```
+
+The option applies to product create, update, activate, and archive operations, and to price create,
+activate, and archive operations. A caller key must contain 1 through 255 Unicode scalar values. It
+cannot be blank, start or end with whitespace, or contain an unpaired surrogate. Treat it as opaque
+and avoid customer identifiers or other sensitive data.
+
+Omitting the key preserves provider and persistence behavior without catalog idempotency. Reuse the
+same key only to retry the same request. The engine rejects the same key with a different request as
+`IDEMPOTENCY_CONFLICT`. A new key represents a new intentional operation.
+
+### Effective identity and provider key
+
+The effective identity combines four dimensions: tenant scope, registered provider, catalog
+operation, and caller key. The same caller key can therefore identify independent operations across
+tenants, provider registrations, or actions such as `product.create` and `product.update`.
+
+For a provider that declares `catalogIdempotency`, Payable derives this provider-safe key:
+
+```text
+payable:catalog:v1:<lowercase SHA-256 hex digest>
+```
+
+The digest covers the version tag, tagged tenant scope, registered provider, catalog operation, and
+caller key. The raw caller key is never forwarded to the provider. This prevents one tenant,
+provider registration, or operation from sharing the provider key of another.
+
+### Execution matrix
+
+| Caller key | Engine store | Provider capability | Behavior |
+| --- | --- | --- | --- |
+| absent | any | any | Run without catalog idempotency. |
+| present | configured | `catalogIdempotency` | Deduplicate in the engine and send the derived key to the provider. |
+| present | configured | absent | Deduplicate in the engine and require reconciliation after an ambiguous failure. |
+| present | unavailable | `catalogIdempotency` | Send only the derived provider key. |
+| present | unavailable | absent | Fail before the provider with `CATALOG_IDEMPOTENCY_STORAGE_REQUIRED`. |
+
+The engine marks a catalog operation complete only after the provider mutation and durable local
+catalog persistence both succeed. If it cannot verify the completed record, it returns
+`IDEMPOTENCY_RESULT_PERSISTENCE_FAILED`. Authorization and capability checks run before any stored
+response can be replayed.
+
+For a provider without native catalog idempotency, an ambiguous mutation failure marks the operation
+for reconciliation. A retry with the same key returns `IDEMPOTENCY_RECONCILIATION_REQUIRED` instead
+of calling the provider again. List or retrieve the catalog entity, determine whether the first
+request succeeded, repair local state when required, then use a new key only for a new intentional
+operation.
+
+Idempotency is not a distributed transaction. It reduces duplicate execution, but it cannot make a
+remote provider mutation and local database commit atomic. Preserve correlation IDs and reconcile
+remote and local state whenever an outcome is uncertain.
 
 ## Wiring an operation through it
 
