@@ -1,11 +1,11 @@
-import type { CatalogPersistenceAction } from '../../../domain/entities/catalog-mutation.entity';
+import type { CatalogIdempotencyAction } from '../../../domain/entities/catalog-mutation.entity';
 import { InvalidIdempotencyKeyError } from '../../../domain/errors/invalid-idempotency-key.error';
 import { hashRequest } from '../../../support/hash/request-hash';
 
 export interface CatalogProviderKeyInput {
   tenantId?: string | null;
   providerName: string;
-  action: CatalogPersistenceAction;
+  action: CatalogIdempotencyAction;
   callerKey: string;
 }
 
@@ -51,7 +51,7 @@ function isLowSurrogate(codeUnit: number): boolean {
 
 export function catalogIdempotencyScope(
   providerName: string,
-  action: CatalogPersistenceAction,
+  action: CatalogIdempotencyAction,
 ): string {
   return `catalog:${encodeURIComponent(providerName)}:catalog.${action}`;
 }

@@ -1,5 +1,5 @@
 import type { OperationContext } from '../../../domain/dtos/common.dto';
-import type { CatalogPersistenceAction } from '../../../domain/entities/catalog-mutation.entity';
+import type { CatalogIdempotencyAction } from '../../../domain/entities/catalog-mutation.entity';
 import { CatalogIdempotencyStorageRequiredError } from '../../../domain/errors/catalog-idempotency-storage-required.error';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
@@ -10,7 +10,7 @@ import {
 } from './catalog-idempotency-key';
 
 export interface CatalogIdempotentMutation<T> {
-  action: CatalogPersistenceAction;
+  action: CatalogIdempotencyAction;
   callerKey?: string;
   request: unknown;
   resourceType: 'product' | 'price';

@@ -6,3 +6,5 @@ export type CatalogPersistenceAction =
   | 'price.create'
   | 'price.activate'
   | 'price.archive';
+
+export type CatalogIdempotencyAction = CatalogPersistenceAction | 'price.lookup-key.transfer';

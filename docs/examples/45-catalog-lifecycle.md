@@ -101,6 +101,7 @@ interface PriceDTO {
   intervalCount: number | null;
   description: string | null;
   active: boolean;
+  lookupKey: string | null;
 }
 ```
 
@@ -138,6 +139,73 @@ await payable.prices().archive('price_123');
 ```
 
 Create a new price instead of mutating monetary terms on an existing provider price.
+
+## Use Stripe price lookup keys
+
+Stripe declares `priceLookupKeys`. The capability is optional, so ordinary catalog creates and lists
+remain available when it is absent. A lookup key has a maximum of 200 Unicode code points. A
+`lookupKeys` filter accepts at most 10 keys.
+
+Payable rejects non-string, malformed Unicode, empty, whitespace-only, and over-limit keys with
+`PRICE_LOOKUP_KEY_INVALID`. It also rejects a non-array `lookupKeys` value or a list with more than
+10 keys. After the capability gate, `await payable.prices().list({ lookupKeys: [] })` returns an empty
+page locally and does not call the provider.
+
+```ts
+import { Money } from '@akira-io/payable';
+
+const price = await payable.prices().create(
+  {
+    providerProductId: product.providerProductId,
+    unitAmount: Money.of(1900, 'USD'),
+    interval: 'month',
+    lookupKey: 'standard_monthly',
+  },
+  { idempotencyKey: 'price-standard-monthly-v1' },
+);
+```
+
+Create a replacement and transfer the key in the same Stripe request:
+
+```ts
+const replacement = await payable.prices().create(
+  {
+    providerProductId: product.providerProductId,
+    unitAmount: Money.of(2400, 'USD'),
+    interval: 'month',
+    lookupKey: 'standard_monthly',
+    transferLookupKey: true,
+  },
+  { idempotencyKey: 'price-standard-monthly-v2' },
+);
+```
+
+Create-time transfer does not archive the former price. Archive it separately when its lifecycle
+ends.
+
+Transfer an existing Stripe lookup key explicitly, then list by key:
+
+```ts
+await payable.prices().transferLookupKey(
+  {
+    providerPriceId: replacement.providerPriceId,
+    lookupKey: 'standard_monthly',
+  },
+  { idempotencyKey: 'transfer-standard-monthly-v2' },
+);
+
+const page = await payable.prices().list({
+  lookupKeys: ['standard_monthly'],
+});
+```
+
+Use an idempotency key for create and transfer retries. If Stripe rejects a duplicate or conflicting
+key assignment, Payable returns generic provider invalid-request behavior such as
+`PROVIDER_REQUEST_INVALID`; inspect the provider error context and correct the request before retrying.
+
+Lookup keys are provider-native aliases, not Payable price identity. Payable does not persist an
+alias-only transfer or use the key as local price identity. Paddle does not support this capability:
+its `custom_data` is metadata, not an equivalent alias or atomic-transfer mechanism.
 
 ## Retry a catalog mutation safely
 
@@ -214,6 +282,9 @@ provider, the engine keeps the failed operation in reconciliation-required state
 returns `IDEMPOTENCY_RECONCILIATION_REQUIRED` without another provider call. Reconcile first in both
 cases; provider idempotency does not make the remote mutation and local commit atomic.
 
+Lookup-key transfer is provider-only. It does not write a local catalog price, audit record, or outbox
+event, and it does not alter the former price's lifecycle state.
+
 ## Failure behavior
 
 | Error code | Cause | Recovery |
@@ -239,9 +310,11 @@ operations:
 - [Stripe: list products](https://docs.stripe.com/api/products/list)
 - [Stripe: retrieve a product](https://docs.stripe.com/api/products/retrieve)
 - [Stripe: update a product](https://docs.stripe.com/api/products/update)
+- [Stripe: create a price](https://docs.stripe.com/api/prices/create)
 - [Stripe: list prices](https://docs.stripe.com/api/prices/list)
 - [Stripe: retrieve a price](https://docs.stripe.com/api/prices/retrieve)
 - [Stripe: update a price](https://docs.stripe.com/api/prices/update)
+- [Stripe: manage products and prices](https://docs.stripe.com/products-prices/manage-prices)
 - [Stripe: API errors](https://docs.stripe.com/api/errors)
 - [Stripe: error codes](https://docs.stripe.com/error-codes)
 - [Paddle: list products](https://developer.paddle.com/api-reference/products/list-products/)
@@ -252,6 +325,7 @@ operations:
 - [Paddle: update a price](https://developer.paddle.com/api-reference/prices/update-price/)
 - [Paddle: API errors](https://developer.paddle.com/api-reference/about/errors/)
 - [Paddle: archive entities](https://developer.paddle.com/api-reference/about/delete-entities/)
+- [Paddle: custom data](https://developer.paddle.com/api-reference/about/custom-data/)
 
 ---
 

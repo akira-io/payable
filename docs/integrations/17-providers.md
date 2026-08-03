@@ -30,9 +30,12 @@ provider: it implements the slim core plus the one optional interface that fits 
 
 ### Optional capability interfaces
 
-Each interface lives in `src/domain/contracts/payment-provider.contract.ts` and ships with a structural
-`isXCapable` guard (duck-typing on method presence). Calling code narrows first, then either calls the
-method or throws `ProviderCapabilityNotSupportedError`.
+Catalog capability interfaces are declared in `src/domain/contracts/catalog-provider.contract.ts`.
+`src/domain/contracts/payment-provider.contract.ts` retains their type and guard re-exports for
+compatibility. The remaining optional interfaces are declared in
+`src/domain/contracts/payment-provider.contract.ts`. Each interface ships with a structural `isXCapable`
+guard (duck-typing on method presence). Calling code narrows first, then either calls the method or throws
+`ProviderCapabilityNotSupportedError`.
 
 | Interface | Method(s) | Guard |
 | --- | --- | --- |
@@ -40,6 +43,7 @@ method or throws `ProviderCapabilityNotSupportedError`.
 | `CatalogCapable` | `createProduct`, `updateProduct`, `createPrice` | `isCatalogCapable(provider)` |
 | `CatalogReadCapable` | `retrieveProduct`, `listProducts`, `retrievePrice`, `listPrices` | `isCatalogReadCapable(provider)` |
 | `CatalogLifecycleCapable` | `setProductActive`, `setPriceActive` | `isCatalogLifecycleCapable(provider)` |
+| `PriceLookupKeyCapable` | keyed `createPrice`, keyed `listPrices`, `transferPriceLookupKey` | `isPriceLookupKeyCapable(provider)` |
 | `SubscriptionManagementCapable` | `updateSubscription`, `cancelSubscription`, `resumeSubscription` | `isSubscriptionManagementCapable(provider)` |
 | `WebhookCapable` | `verifyWebhook(input)`, `reconcileSubscription(verified)` | `isWebhookCapable(provider)` |
 | `PaymentWebhookCapable` | `reconcilePayment(verified)` | `isPaymentWebhookCapable(provider)` |
@@ -90,6 +94,11 @@ advertising and an optional interface for the callable methods. Examples include
 `catalogLifecycle` with their matching structural guards. Redirect callbacks remain guard-only because
 they model a provider-specific browser callback flow, not an asynchronous provider webhook.
 
+`PriceLookupKeyCapable` is narrower than the ordinary catalog capabilities. It supports a create
+with `lookupKey`, create-time `transferLookupKey: true`, list filtering with `lookupKeys`, and explicit
+`prices().transferLookupKey({ providerPriceId, lookupKey }, options)`. The engine gates those calls
+with `priceLookupKeys` and `isPriceLookupKeyCapable`; normal catalog operations do not require it.
+
 ### Capability matrix
 
 | Capability | Stripe | Paddle | SISP | Revolut |
@@ -100,6 +109,7 @@ they model a provider-specific browser callback flow, not an asynchronous provid
 | `catalog` | yes | yes | no | no |
 | `catalogRead` | yes | yes | no | no |
 | `catalogLifecycle` | yes | yes | no | no |
+| `priceLookupKeys` | yes | no | undocumented | undocumented |
 | `subscriptions` | yes | yes | no | yes (limited) |
 | `billingPortal` | yes | yes | no | no |
 | `webhooks` (`WebhookCapable`) | yes | yes | no (uses redirect callback) | yes |
@@ -138,7 +148,8 @@ export type ProviderCapability =
   | 'webhookEndpointManagement'
   | 'catalog'
   | 'catalogRead'
-  | 'catalogLifecycle';
+  | 'catalogLifecycle'
+  | 'priceLookupKeys';
 
 export type ProviderCapabilityValue = ProviderCapability | (string & {});
 
@@ -213,6 +224,9 @@ Known capabilities gate their matching resource operations before Payable calls 
   `payable.prices().create(...)`.
 - **`catalogRead`** guards product and price `retrieve(...)` and `list(...)` operations.
 - **`catalogLifecycle`** guards product and price `activate(...)` and `archive(...)` operations.
+- **`priceLookupKeys`** guards price creates carrying `lookupKey` or `transferLookupKey: true`, price
+  lists carrying `lookupKeys`, and `prices().transferLookupKey(...)`. Providers without an official
+  equivalent do not advertise it.
 - **`subscriptions`** guards subscription management. Direct subscription creation also requires this
   declared capability before storage or provider calls, but a provider may still omit
   `DirectSubscriptionCapable` and support subscription creation only through checkout.

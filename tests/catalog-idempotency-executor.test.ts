@@ -178,6 +178,7 @@ describe('CatalogMutationIdempotencyExecutor', () => {
           intervalCount: 1,
           description: null,
           active: true,
+          lookupKey: null,
         };
       },
       revive: revivePrice,

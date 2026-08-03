@@ -107,6 +107,7 @@ capabilities(): ProviderCapabilities {
     'catalogRead',
     'catalogLifecycle',
     'catalogIdempotency',
+    'priceLookupKeys',
   ]);
 }
 ```
@@ -140,11 +141,11 @@ methods. Every call forwards `ctx.idempotencyKey` to Stripe's `idempotencyKey` r
 
 ## Catalog lifecycle
 
-`StripeProvider` implements `CatalogCapable`, `CatalogReadCapable`, and
-`CatalogLifecycleCapable`. Product and price list calls map the portable `active`, `limit`, and
-`cursor` fields to Stripe's list parameters. Price lists also map `providerProductId` to Stripe's
-`product` filter. A page with `has_more: true` returns the final item id as `nextCursor`; callers pass
-that cursor back unchanged.
+`StripeProvider` implements `CatalogCapable`, `CatalogReadCapable`, `CatalogLifecycleCapable`, and
+`PriceLookupKeyCapable`. Product and price list calls map the portable `active`, `limit`, and `cursor`
+fields to Stripe's list parameters. Price lists also map `providerProductId` to Stripe's `product`
+filter and `lookupKeys` to Stripe's lookup-key filter. A page with `has_more: true` returns the final
+item id as `nextCursor`; callers pass that cursor back unchanged.
 
 | Payable operation | Stripe call | Notes |
 | --- | --- | --- |
@@ -153,7 +154,8 @@ that cursor back unchanged.
 | `products().activate(id)` | `products.update(id, { active: true })` | Marks the Stripe product active. |
 | `products().archive(id)` | `products.update(id, { active: false })` | Keeps the Stripe product record. |
 | `prices().retrieve(id)` | `prices.retrieve(id)` | A missing price maps to `PRICE_NOT_FOUND`. |
-| `prices().list(input)` | `prices.list({ active, limit, product, starting_after })` | Supports product and active-state filters. |
+| `prices().list(input)` | `prices.list({ active, limit, product, lookup_keys, starting_after })` | Supports product, lookup-key, and active-state filters. |
+| `prices().transferLookupKey({ providerPriceId, lookupKey }, options)` | `prices.update(providerPriceId, { lookup_key, transfer_lookup_key: true })` | Transfers the key atomically at Stripe. |
 | `prices().activate(id)` | `prices.update(id, { active: true })` | Marks the Stripe price active. |
 | `prices().archive(id)` | `prices.update(id, { active: false })` | Keeps the Stripe price record. |
 
@@ -161,14 +163,26 @@ Payable exposes no portable delete method for Stripe products or prices. Existin
 terms are not updateable through the contract. Create a replacement price and archive the old price
 when the amount, currency, billing interval, or interval count changes.
 
+Stripe lookup keys are optional provider-native aliases, not Payable price identity. A key contains at
+most 200 Unicode code points, and one price-list request accepts at most 10 keys. A create with
+`transferLookupKey: true` or an explicit transfer moves a Stripe lookup key atomically, but does not
+archive the former price. The caller manages that price's lifecycle separately. Payable does not
+persist lookup keys as local price identity.
+
+If Stripe rejects a duplicate or conflicting lookup-key request, Payable exposes generic provider
+invalid-request behavior as `PROVIDER_REQUEST_INVALID`. There is no portable lookup-key collision
+error type; inspect the provider error context and correct the request before retrying.
+
 Official Stripe references:
 
 - [List products](https://docs.stripe.com/api/products/list)
 - [Retrieve a product](https://docs.stripe.com/api/products/retrieve)
 - [Update a product](https://docs.stripe.com/api/products/update)
+- [Create a price](https://docs.stripe.com/api/prices/create)
 - [List prices](https://docs.stripe.com/api/prices/list)
 - [Retrieve a price](https://docs.stripe.com/api/prices/retrieve)
 - [Update a price](https://docs.stripe.com/api/prices/update)
+- [Manage products and prices](https://docs.stripe.com/products-prices/manage-prices)
 - [API errors](https://docs.stripe.com/api/errors)
 - [Error codes](https://docs.stripe.com/error-codes)
 

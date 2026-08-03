@@ -36,6 +36,9 @@ describe('catalog idempotency key', () => {
     expect(catalogIdempotencyScope('stripe primary', 'product.create')).toBe(
       'catalog:stripe%20primary:catalog.product.create',
     );
+    expect(catalogIdempotencyScope('stripe primary', 'price.lookup-key.transfer')).toBe(
+      'catalog:stripe%20primary:catalog.price.lookup-key.transfer',
+    );
   });
 
   it('derives a deterministic provider-safe key scoped to the catalog mutation', async () => {

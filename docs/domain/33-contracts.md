@@ -151,6 +151,7 @@ export interface PaymentProvider {
 | `CatalogCapable` | `createProduct`, `updateProduct`, `createPrice` | `isCatalogCapable` |
 | `CatalogReadCapable` | `retrieveProduct`, `listProducts`, `retrievePrice`, `listPrices` | `isCatalogReadCapable` |
 | `CatalogLifecycleCapable` | `setProductActive`, `setPriceActive` | `isCatalogLifecycleCapable` |
+| `PriceLookupKeyCapable` | keyed `createPrice`, keyed `listPrices`, `transferPriceLookupKey` | `isPriceLookupKeyCapable` |
 | `SubscriptionManagementCapable` | `updateSubscription`, `cancelSubscription`, `resumeSubscription` | `isSubscriptionManagementCapable` |
 | `DirectSubscriptionCapable` | `createSubscription` | `isDirectSubscriptionCapable` |
 | `ChargeCapable` | `charge` | `isChargeCapable` |
@@ -187,16 +188,39 @@ export interface CatalogLifecycleCapable {
   setProductActive(id: string, active: boolean, ctx: OperationContext): Promise<ProductDTO>;
   setPriceActive(id: string, active: boolean, ctx: OperationContext): Promise<PriceDTO>;
 }
+
+export interface PriceLookupKeyCapable {
+  createPrice(input: CreatePriceInput, ctx: OperationContext): Promise<PriceDTO>;
+  listPrices(input?: ListPricesInput): Promise<CatalogPage<PriceDTO>>;
+  transferPriceLookupKey(
+    input: TransferPriceLookupKeyInput,
+    ctx: OperationContext,
+  ): Promise<PriceDTO>;
+}
 ```
 
 `ListProductsInput` accepts `limit`, `cursor`, and `active`. `ListPricesInput` adds an optional
-`providerProductId` filter. The resource layer defaults `limit` to 50 and `active` to `true`, rejects
-limits outside 1 through 100, and treats `CatalogPage.nextCursor` as an opaque provider cursor.
+`providerProductId` filter and, for providers with `priceLookupKeys`, a `lookupKeys` filter. Each
+lookup key has a maximum of 200 Unicode code points, and a `lookupKeys` request accepts at most 10
+keys. The resource layer defaults `limit` to 50 and `active` to `true`, rejects limits outside 1
+through 100, and treats `CatalogPage.nextCursor` as an opaque provider cursor.
+
+Payable rejects non-string, malformed Unicode, empty, whitespace-only, and over-limit lookup keys
+with `PRICE_LOOKUP_KEY_INVALID`. It also rejects a `lookupKeys` value that is not an array or has more
+than 10 items with the same error. After the capability gate, `list({ lookupKeys: [] })` returns an
+empty page locally without calling the provider.
+
+`PriceLookupKeyCapable` is optional. The resource checks the `priceLookupKeys` capability and
+`isPriceLookupKeyCapable` before a create with `lookupKey` or `transferLookupKey: true`, a list with
+`lookupKeys`, or `transferLookupKey(...)`. Ordinary catalog creates and lists remain available to
+providers that do not support price lookup keys when these fields are absent.
 
 `ProductDTO` contains provider identity, name, description, active state, and string metadata.
 `PriceDTO` contains provider price and product identities, `Money`, optional recurring terms,
-description, and active state. Price monetary terms have no update contract. Create a replacement
-price and archive the old price when an amount, currency, interval, or interval count changes.
+description, active state, and a provider-returned `lookupKey` when available. A lookup key is
+provider-native routing metadata, not Payable price identity. Payable does not persist it as local
+price identity. Price monetary terms have no update contract. Create a replacement price and archive
+the old price when an amount, currency, interval, or interval count changes.
 
 There is no portable delete contract for products or prices. Archival uses `setProductActive` or
 `setPriceActive` with `false`; activation uses the same methods with `true`. Missing provider records

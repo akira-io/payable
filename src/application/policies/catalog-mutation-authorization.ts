@@ -1,8 +1,8 @@
-import type { CatalogPersistenceAction } from '../../domain/entities/catalog-mutation.entity';
+import type { CatalogIdempotencyAction } from '../../domain/entities/catalog-mutation.entity';
 import { assertAuthorized } from './assert-authorized';
 import { type AuthorizationContext, isAuthorized } from './authorization-context';
 
-export type CatalogMutationAction = CatalogPersistenceAction;
+export type CatalogMutationAction = CatalogIdempotencyAction;
 
 const ACTION_LABELS: Record<CatalogMutationAction, string> = {
   'product.create': 'create product',
@@ -12,6 +12,7 @@ const ACTION_LABELS: Record<CatalogMutationAction, string> = {
   'price.create': 'create price',
   'price.activate': 'activate price',
   'price.archive': 'archive price',
+  'price.lookup-key.transfer': 'transfer price lookup key',
 };
 
 export function assertCatalogMutationAuthorized(

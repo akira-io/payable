@@ -1,8 +1,8 @@
 import type { Repositories } from '../../../domain/contracts/storage-driver.contract';
-import type { CatalogMutationAction } from '../../policies/catalog-mutation-authorization';
+import type { CatalogPersistenceAction } from '../../../domain/entities/catalog-mutation.entity';
 import type { CatalogTransitionContext } from './catalog-persistence-coordinator';
 
-const TRANSITION_NAMES: Record<CatalogMutationAction, string> = {
+const TRANSITION_NAMES: Record<CatalogPersistenceAction, string> = {
   'product.create': 'product.created',
   'product.update': 'product.updated',
   'product.activate': 'product.activated',

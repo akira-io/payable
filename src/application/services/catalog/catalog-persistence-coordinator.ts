@@ -1,5 +1,6 @@
 import type { PriceDTO } from '../../../domain/dtos/price.dto';
 import type { ProductDTO } from '../../../domain/dtos/product.dto';
+import type { CatalogPersistenceAction } from '../../../domain/entities/catalog-mutation.entity';
 import {
   CatalogPersistenceError,
   type CatalogPersistenceFailure,
@@ -7,7 +8,6 @@ import {
 import { ProductNotFoundError } from '../../../domain/errors/product-not-found.error';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
 import type { AuthorizationContext } from '../../policies/authorization-context';
-import type { CatalogMutationAction } from '../../policies/catalog-mutation-authorization';
 import { recordCatalogTransition } from './catalog-persistence-events';
 import {
   newPriceFromDto,
@@ -20,7 +20,7 @@ import {
 import { updateCatalogPrice, updateCatalogProduct } from './catalog-repository-compare-and-set';
 
 export interface CatalogTransitionContext {
-  action: CatalogMutationAction;
+  action: CatalogPersistenceAction;
   authorization?: AuthorizationContext;
   correlationId: string;
 }

@@ -13,4 +13,5 @@ export interface ListProductsInput extends ListCatalogInput {}
 
 export interface ListPricesInput extends ListCatalogInput {
   providerProductId?: string;
+  lookupKeys?: string[];
 }

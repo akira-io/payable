@@ -49,11 +49,32 @@ const PRICE: Stripe.Response<Stripe.Price> = {
   lastResponse: LAST_RESPONSE,
 };
 
-export function createStripeCatalogClient() {
+export function createStripeCatalogPrice(
+  overrides: Partial<Stripe.Price> = {},
+): Stripe.Response<Stripe.Price> {
+  return { ...PRICE, ...overrides };
+}
+
+function createStripeCatalogPriceList(
+  price: Stripe.Response<Stripe.Price>,
+): Stripe.Response<Stripe.ApiList<Stripe.Price>> {
+  return {
+    object: 'list',
+    url: '/v1/prices',
+    data: [price],
+    has_more: false,
+    lastResponse: LAST_RESPONSE,
+  };
+}
+
+export function createStripeCatalogClient(price = PRICE) {
   const client = new Stripe('sk_test');
   const productsCreate = vi.spyOn(client.products, 'create').mockResolvedValue(PRODUCT);
   const productsUpdate = vi.spyOn(client.products, 'update').mockResolvedValue(PRODUCT);
-  const pricesCreate = vi.spyOn(client.prices, 'create').mockResolvedValue(PRICE);
-  const pricesUpdate = vi.spyOn(client.prices, 'update').mockResolvedValue(PRICE);
-  return { client, productsCreate, productsUpdate, pricesCreate, pricesUpdate };
+  const pricesCreate = vi.spyOn(client.prices, 'create').mockResolvedValue(price);
+  const pricesUpdate = vi.spyOn(client.prices, 'update').mockResolvedValue(price);
+  const pricesList = vi
+    .spyOn(client.prices, 'list')
+    .mockResolvedValue(createStripeCatalogPriceList(price));
+  return { client, productsCreate, productsUpdate, pricesCreate, pricesUpdate, pricesList };
 }
