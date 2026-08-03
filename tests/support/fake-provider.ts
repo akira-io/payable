@@ -154,6 +154,7 @@ export class FakeProvider extends FakeCatalog implements PaymentProvider {
       intervalCount: input.intervalCount ?? null,
       description: input.description ?? null,
       active: true,
+      lookupKey: null,
     };
   }
 

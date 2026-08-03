@@ -72,6 +72,7 @@ export function registerCatalogMutationPersistenceContract(context: ContractCont
           intervalCount: 1,
           description: null,
           active: true,
+          lookupKey: null,
         },
       ],
       nextCursor: null,

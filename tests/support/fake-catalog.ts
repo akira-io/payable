@@ -35,6 +35,7 @@ export class FakeCatalog {
         intervalCount: 1,
         description: null,
         active: true,
+        lookupKey: null,
       },
     ],
     nextCursor: null,
@@ -67,6 +68,7 @@ export class FakeCatalog {
         intervalCount: 1,
         description: null,
         active: true,
+        lookupKey: null,
       }
     );
   }

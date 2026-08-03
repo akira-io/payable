@@ -81,6 +81,7 @@ export function toPriceDTO(price: PaddlePriceEntity): PriceDTO {
       typeof price.billingCycle?.frequency === 'number' ? price.billingCycle.frequency : null,
     description: stringValue(price.description),
     active: price.status === 'active',
+    lookupKey: null,
   };
 }
 

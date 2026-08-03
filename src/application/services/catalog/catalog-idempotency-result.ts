@@ -8,7 +8,8 @@ interface StoredMoney {
   currency: string;
 }
 
-interface StoredPrice extends Omit<PriceDTO, 'unitAmount'> {
+interface StoredPrice extends Omit<PriceDTO, 'lookupKey' | 'unitAmount'> {
+  lookupKey?: string | null;
   unitAmount: StoredMoney | Money;
 }
 
@@ -74,7 +75,8 @@ function isStoredPrice(storedValue: unknown): storedValue is StoredPrice {
     isRecurringInterval(storedValue.interval) &&
     isNullableInteger(storedValue.intervalCount) &&
     isNullableString(storedValue.description) &&
-    typeof storedValue.active === 'boolean'
+    typeof storedValue.active === 'boolean' &&
+    (!('lookupKey' in storedValue) || isNullableString(storedValue.lookupKey))
   );
 }
 
@@ -106,6 +108,7 @@ export function revivePrice(storedResponse: unknown): PriceDTO {
   try {
     return {
       ...storedResponse,
+      lookupKey: storedResponse.lookupKey ?? null,
       unitAmount: reviveMoney(storedResponse.unitAmount),
     };
   } catch (error) {

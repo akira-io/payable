@@ -7,6 +7,13 @@ export interface CreatePriceInput {
   interval?: RecurringInterval;
   intervalCount?: number;
   description?: string;
+  lookupKey?: string;
+  transferLookupKey?: boolean;
+}
+
+export interface TransferPriceLookupKeyInput {
+  providerPriceId: string;
+  lookupKey: string;
 }
 
 export interface PriceDTO {
@@ -17,4 +24,5 @@ export interface PriceDTO {
   intervalCount: number | null;
   description: string | null;
   active: boolean;
+  lookupKey: string | null;
 }

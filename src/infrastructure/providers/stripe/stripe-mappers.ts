@@ -159,6 +159,7 @@ export function toPriceDTO(price: Stripe.Price): PriceDTO {
     intervalCount: price.recurring?.interval_count ?? null,
     description: price.nickname,
     active: price.active,
+    lookupKey: null,
   };
 }
 

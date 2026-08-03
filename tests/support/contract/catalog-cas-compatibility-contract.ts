@@ -39,6 +39,7 @@ export function registerCatalogCasCompatibilityContract(ctx: ContractContext): v
           intervalCount: 1,
           description: null,
           active: true,
+          lookupKey: null,
         },
       ],
       nextCursor: null,
