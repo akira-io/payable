@@ -146,6 +146,11 @@ Stripe declares `priceLookupKeys`. The capability is optional, so ordinary catal
 remain available when it is absent. A lookup key has a maximum of 200 Unicode code points. A
 `lookupKeys` filter accepts at most 10 keys.
 
+Payable rejects non-string, malformed Unicode, empty, whitespace-only, and over-limit keys with
+`PRICE_LOOKUP_KEY_INVALID`. It also rejects a non-array `lookupKeys` value or a list with more than
+10 keys. After the capability gate, `await payable.prices().list({ lookupKeys: [] })` returns an empty
+page locally and does not call the provider.
+
 ```ts
 import { Money } from '@akira-io/payable';
 

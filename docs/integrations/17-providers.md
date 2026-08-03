@@ -40,7 +40,7 @@ method or throws `ProviderCapabilityNotSupportedError`.
 | `CatalogCapable` | `createProduct`, `updateProduct`, `createPrice` | `isCatalogCapable(provider)` |
 | `CatalogReadCapable` | `retrieveProduct`, `listProducts`, `retrievePrice`, `listPrices` | `isCatalogReadCapable(provider)` |
 | `CatalogLifecycleCapable` | `setProductActive`, `setPriceActive` | `isCatalogLifecycleCapable(provider)` |
-| `PriceLookupKeyCapable` | keyed `createPrice`, keyed `listPrices`, `transferLookupKey` | `isPriceLookupKeyCapable(provider)` |
+| `PriceLookupKeyCapable` | keyed `createPrice`, keyed `listPrices`, `transferPriceLookupKey` | `isPriceLookupKeyCapable(provider)` |
 | `SubscriptionManagementCapable` | `updateSubscription`, `cancelSubscription`, `resumeSubscription` | `isSubscriptionManagementCapable(provider)` |
 | `WebhookCapable` | `verifyWebhook(input)`, `reconcileSubscription(verified)` | `isWebhookCapable(provider)` |
 | `PaymentWebhookCapable` | `reconcilePayment(verified)` | `isPaymentWebhookCapable(provider)` |
@@ -92,7 +92,7 @@ advertising and an optional interface for the callable methods. Examples include
 they model a provider-specific browser callback flow, not an asynchronous provider webhook.
 
 `PriceLookupKeyCapable` is narrower than the ordinary catalog capabilities. It supports a create
-with `lookupKey`, create-time `transferLookupKey`, list filtering with `lookupKeys`, and explicit
+with `lookupKey`, create-time `transferLookupKey: true`, list filtering with `lookupKeys`, and explicit
 `prices().transferLookupKey({ providerPriceId, lookupKey }, options)`. The engine gates those calls
 with `priceLookupKeys` and `isPriceLookupKeyCapable`; normal catalog operations do not require it.
 
@@ -106,7 +106,7 @@ with `priceLookupKeys` and `isPriceLookupKeyCapable`; normal catalog operations 
 | `catalog` | yes | yes | no | no |
 | `catalogRead` | yes | yes | no | no |
 | `catalogLifecycle` | yes | yes | no | no |
-| `priceLookupKeys` | yes | no | no | no |
+| `priceLookupKeys` | yes | no | undocumented | undocumented |
 | `subscriptions` | yes | yes | no | yes (limited) |
 | `billingPortal` | yes | yes | no | no |
 | `webhooks` (`WebhookCapable`) | yes | yes | no (uses redirect callback) | yes |
@@ -221,8 +221,8 @@ Known capabilities gate their matching resource operations before Payable calls 
   `payable.prices().create(...)`.
 - **`catalogRead`** guards product and price `retrieve(...)` and `list(...)` operations.
 - **`catalogLifecycle`** guards product and price `activate(...)` and `archive(...)` operations.
-- **`priceLookupKeys`** guards price creates carrying `lookupKey` or `transferLookupKey`, price lists
-  carrying `lookupKeys`, and `prices().transferLookupKey(...)`. Providers without an official
+- **`priceLookupKeys`** guards price creates carrying `lookupKey` or `transferLookupKey: true`, price
+  lists carrying `lookupKeys`, and `prices().transferLookupKey(...)`. Providers without an official
   equivalent do not advertise it.
 - **`subscriptions`** guards subscription management. Direct subscription creation also requires this
   declared capability before storage or provider calls, but a provider may still omit

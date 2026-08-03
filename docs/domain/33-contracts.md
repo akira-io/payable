@@ -205,8 +205,13 @@ lookup key has a maximum of 200 Unicode code points, and a `lookupKeys` request 
 keys. The resource layer defaults `limit` to 50 and `active` to `true`, rejects limits outside 1
 through 100, and treats `CatalogPage.nextCursor` as an opaque provider cursor.
 
+Payable rejects non-string, malformed Unicode, empty, whitespace-only, and over-limit lookup keys
+with `PRICE_LOOKUP_KEY_INVALID`. It also rejects a `lookupKeys` value that is not an array or has more
+than 10 items with the same error. After the capability gate, `list({ lookupKeys: [] })` returns an
+empty page locally without calling the provider.
+
 `PriceLookupKeyCapable` is optional. The resource checks the `priceLookupKeys` capability and
-`isPriceLookupKeyCapable` before a create with `lookupKey` or `transferLookupKey`, a list with
+`isPriceLookupKeyCapable` before a create with `lookupKey` or `transferLookupKey: true`, a list with
 `lookupKeys`, or `transferLookupKey(...)`. Ordinary catalog creates and lists remain available to
 providers that do not support price lookup keys when these fields are absent.
 
