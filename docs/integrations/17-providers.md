@@ -111,8 +111,11 @@ The matrix describes the capability set of each built-in Payable adapter. A `no`
 | `catalog` | yes | yes | no | no |
 | `catalogRead` | yes | yes | no | no |
 | `catalogLifecycle` | yes | yes | no | no |
+| `catalogIdempotency` | yes | no | no | no |
 | `priceLookupKeys` | yes | no | no | no |
 | `subscriptions` | yes | yes | no | yes (limited) |
+| `trials` | yes | no | no | no |
+| `coupons` | yes | no | no | no |
 | `billingPortal` | yes | yes | no | no |
 | `webhooks` (`WebhookCapable`) | yes | yes | no (uses redirect callback) | yes |
 | `PaymentWebhookCapable` | yes | no | no | yes |

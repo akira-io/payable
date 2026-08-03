@@ -141,6 +141,20 @@ function documentedCapabilityRows(markdown: string): DocumentedCapabilityRow[] {
     throw new Error('Capability matrix must include a lowercase capability row');
   }
 
+  const documentedCapabilities = rows.map((row) => row.capability);
+  if (new Set(documentedCapabilities).size !== documentedCapabilities.length) {
+    throw new Error('Capability matrix must not contain duplicate capability rows');
+  }
+
+  const runtimeCapabilities = new Set(
+    Object.values(builtInProviders).flatMap((provider) => [...provider.capabilities()]),
+  );
+  if (
+    documentedCapabilities.toSorted().join('|') !== [...runtimeCapabilities].toSorted().join('|')
+  ) {
+    throw new Error('Capability matrix rows do not match built-in provider capabilities');
+  }
+
   return rows;
 }
 
@@ -217,6 +231,12 @@ describe('documentation stays aligned with runtime', () => {
       '| Capability | Stripe | Paddle | SISP | Adyen |',
     );
     const withoutRows = providers.replace(/^\| `[a-z][^\n]+\n/gm, '');
+    const withoutCheckout = providers.replace(/^\| `checkout`[^\n]+\n/m, '');
+    const duplicateCheckout = providers.replace(/(^\| `checkout`[^\n]+\n)/m, '$1$1');
+    const unknownCapability = providers.replace(
+      /(^\| `checkout`[^\n]+\n)/m,
+      '$1| `unknownCapability` | no | no | no | no |\n',
+    );
 
     expect(() => documentedCapabilityRows(renamedSection)).toThrow(
       'Capability matrix section markers are missing or out of order',
@@ -238,6 +258,15 @@ describe('documentation stays aligned with runtime', () => {
     );
     expect(() => documentedCapabilityRows(withoutRows)).toThrow(
       'Capability matrix must include a lowercase capability row',
+    );
+    expect(() => documentedCapabilityRows(withoutCheckout)).toThrow(
+      'Capability matrix rows do not match built-in provider capabilities',
+    );
+    expect(() => documentedCapabilityRows(duplicateCheckout)).toThrow(
+      'Capability matrix must not contain duplicate capability rows',
+    );
+    expect(() => documentedCapabilityRows(unknownCapability)).toThrow(
+      'Capability matrix rows do not match built-in provider capabilities',
     );
   });
 
