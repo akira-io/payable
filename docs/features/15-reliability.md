@@ -196,21 +196,22 @@ export interface LockDriver {
 }
 ```
 
-**Drivers.** Two implementations are scaffolded: `MemoryLockDriver` (single-process) and
-`RedisLockDriver` (distributed, constructed with a Redis client). Both are marked Phase 7 and
-currently throw `NOT_IMPLEMENTED` for `acquire` and `withLock`. Concurrency control today is enforced
-primarily by the idempotency store's atomic `acquire`/`takeOver` (see [Idempotency](14-idempotency.md))
-and the outbox's `forUpdate().skipLocked()` claim.
+**Drivers.** `MemoryLockDriver` (single-process) and `RedisLockDriver` (distributed, constructed
+with a Redis client) are marked Phase 7 and currently throw `NOT_IMPLEMENTED` for `acquire` and
+`withLock`. Concurrency control today is enforced primarily by the idempotency store's atomic
+`acquire`/`takeOver` (see [Idempotency](14-idempotency.md)) and the outbox's
+`forUpdate().skipLocked()` claim.
 
-**When required.** A lock driver is opt-in (`locks` on `PayableConfig`). Use `MemoryLockDriver` for a
-single instance and `RedisLockDriver` when multiple processes must coordinate.
+**Configuration boundary.** `MemoryLockDriver` and `MemoryCacheDriver` are public direct-composition
+utilities. `RedisLockDriver` and `RedisCacheDriver` remain internal scaffolds. These contracts are
+not accepted by `createPayable`.
 
 ## Cache
 
 `CacheDriver` (`src/domain/contracts/cache-driver.contract.ts`) abstracts a key/value cache with
 `get`, `set`, `delete`, and `has`. `MemoryCacheDriver` and `RedisCacheDriver` mirror the lock
 drivers: memory for a single process, Redis for shared state. Both are Phase 7 scaffolds that throw
-`NOT_IMPLEMENTED`. The cache is optional (`cache` on `PayableConfig`).
+`NOT_IMPLEMENTED`.
 
 ## Event bus
 

@@ -62,26 +62,6 @@ if (entries.length === 0) {
   `dispatch`, so webhook processing happens synchronously in-process. Supplying `BullMQQueueDriver`
   moves processing onto a BullMQ queue/worker. See [persistence/22-queue.md](persistence/22-queue.md).
 
-### `cache?: CacheDriver`
-
-- **Type.** `CacheDriver` with `get`/`set`/`delete`/`has`.
-- **Required.** Optional.
-- **Default.** `undefined`.
-- **Behavior.** Available for caching needs; not substituted with a default. `MemoryCacheDriver` is
-  exported from the public API. A `RedisCacheDriver` also exists in-tree
-  (`src/infrastructure/cache/redis/`) but is not currently exported from `src/index.ts`; use it
-  bring-your-own or by deep import path.
-
-### `locks?: LockDriver`
-
-- **Type.** `LockDriver` with `acquire(key, ttlMs)` and `withLock(key, ttlMs, work)`.
-- **Required.** Optional.
-- **Default.** `undefined`.
-- **Behavior.** Provides distributed locking. `MemoryLockDriver` is exported from the public API. A
-  `RedisLockDriver` also exists in-tree (`src/infrastructure/locks/redis-lock-driver.ts`) but is not
-  currently exported from `src/index.ts`; use it bring-your-own or by deep import path. See
-  [features/15-reliability.md](features/15-reliability.md).
-
 ### `clock?: Clock`
 
 - **Type.** `Clock` with `now(): Date`.
@@ -171,8 +151,6 @@ resolved string key to `IdempotencyService`. `IdempotencyStrategy` is available 
 | `authorizationEnabled` | `config.authorization?.enabled` | `false` |
 | `providers` | `new Map(entries)` | required (throws if empty) |
 | `storage` | `config.storage` | `undefined` |
-| `cache` | `config.cache` | `undefined` |
-| `locks` | `config.locks` | `undefined` |
 | `queue` | `config.queue` | `new SyncQueueDriver()` |
 | `clock` | `config.clock` | `new SystemClock()` |
 | `logger` | `config.logger` | `new NullLogger()` |
@@ -181,6 +159,13 @@ resolved string key to `IdempotencyService`. `IdempotencyStrategy` is available 
 | `idempotency.enabled` | `config.idempotency?.enabled` | `true` |
 | `idempotency.strategy` | `config.idempotency?.strategy` | `'auto'` |
 | `idempotency.store` | `config.idempotency?.store` | `undefined` |
+
+## Cache and lock utilities
+
+`cache` and `locks` are not `PayableConfig` keys. `resolveConfig` rejects either key with
+`CONFIG_OPTION_UNSUPPORTED`. `CacheDriver`, `LockDriver`, `MemoryCacheDriver`, and
+`MemoryLockDriver` remain available for direct composition outside `createPayable`. Internal Redis
+scaffolds are not supported configuration and must not be deep-imported.
 
 ---
 

@@ -53,8 +53,8 @@ Money.of(9900, 'USD').format(); // "$99.00"
 
 With only providers supplied, the resolved defaults are: `SyncQueueDriver` for the queue,
 `SystemClock` for the clock, `NullLogger` for the logger, `InMemoryEventBus` for events, and
-idempotency `enabled: true` with strategy `auto`. Storage, cache, locks, and encryption stay
-undefined, which disables features that require them (see [04-configuration.md](04-configuration.md)).
+idempotency `enabled: true` with strategy `auto`. Storage and encryption remain undefined, which
+disables features that require them (see [04-configuration.md](04-configuration.md)).
 
 ## Full example with storage, queue, and events
 
