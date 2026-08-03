@@ -62,6 +62,8 @@ are:
   `isDirectSubscriptionCapable(paddleProvider)` returns `false`.
 - **Partial refunds are not supported.** `refund` throws when `input.amount` is set (see Failure
   scenarios). `meteredBilling` is absent, the same as Stripe.
+- **No `priceLookupKeys`.** Paddle does not implement `PriceLookupKeyCapable`; keyed price creation,
+  lookup-key list filtering, and atomic lookup-key transfer are unavailable.
 
 ## Catalog lifecycle
 
@@ -91,6 +93,9 @@ Payable exposes no portable delete method for Paddle products or prices. Existin
 terms are not updateable through the contract. Create a replacement price and archive the old price
 when the amount, currency, billing interval, or interval count changes.
 
+Paddle `custom_data` is metadata. It is not an equivalent lookup-key alias and does not provide an
+atomic price-transfer mechanism. Do not use it as a substitute for `priceLookupKeys`.
+
 Official Paddle references:
 
 - [List products](https://developer.paddle.com/api-reference/products/list-products/)
@@ -101,6 +106,7 @@ Official Paddle references:
 - [Update a price](https://developer.paddle.com/api-reference/prices/update-price/)
 - [API errors](https://developer.paddle.com/api-reference/about/errors/)
 - [Archive entities](https://developer.paddle.com/api-reference/about/delete-entities/)
+- [Custom data](https://developer.paddle.com/api-reference/about/custom-data/)
 - [SDK libraries and retry guidance](https://developer.paddle.com/sdks/libraries/)
 
 ### Catalog idempotency
