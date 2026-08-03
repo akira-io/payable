@@ -84,6 +84,19 @@ describe('price lookup key public contract', () => {
     expect(paddle.lookupKey).toBeNull();
   });
 
+  it('preserves a Stripe lookup key when the provider returns one', () => {
+    const stripe = toStripePriceDTO({
+      id: 'price_stripe',
+      product: 'prod_1',
+      unit_amount: 1000,
+      currency: 'usd',
+      active: true,
+      lookup_key: 'standard_monthly',
+    } as unknown as Stripe.Price);
+
+    expect(stripe.lookupKey).toBe('standard_monthly');
+  });
+
   it('revives lookup keys from current and legacy stored prices', () => {
     const current = revivePrice({
       providerPriceId: 'price_current',
