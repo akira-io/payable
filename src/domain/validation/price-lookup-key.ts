@@ -1,4 +1,4 @@
-import { PriceLookupKeyInvalidError } from '../../../domain/errors/price-lookup-key-invalid.error';
+import { PriceLookupKeyInvalidError } from '../errors/price-lookup-key-invalid.error';
 
 export const PRICE_LOOKUP_KEY_MAX_LENGTH = 200;
 export const PRICE_LOOKUP_KEYS_MAX_ITEMS = 10;

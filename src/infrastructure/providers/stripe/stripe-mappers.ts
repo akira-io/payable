@@ -159,8 +159,22 @@ export function toPriceDTO(price: Stripe.Price): PriceDTO {
     intervalCount: price.recurring?.interval_count ?? null,
     description: price.nickname,
     active: price.active,
-    lookupKey: price.lookup_key ?? null,
+    lookupKey: stripePriceLookupKey(price),
   };
+}
+
+function stripePriceLookupKey(price: Stripe.Price): string | null {
+  const lookupKey = (price as { lookup_key?: unknown }).lookup_key;
+  if (lookupKey === null || lookupKey === undefined) {
+    return null;
+  }
+  if (typeof lookupKey === 'string') {
+    return lookupKey;
+  }
+  throw new PayableError('Stripe price response does not contain the requested lookup key', {
+    code: 'PROVIDER_RESPONSE_INVALID',
+    context: { provider: 'stripe', field: 'lookup_key', providerPriceId: price.id },
+  });
 }
 
 export function toCheckoutSessionDTO(session: Stripe.Checkout.Session): CheckoutSessionDTO {

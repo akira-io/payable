@@ -1,0 +1,26 @@
+import type { ProviderCapabilities } from '../../../domain/dtos/capabilities.dto';
+
+export function stripeCapabilities(): ProviderCapabilities {
+  return new Set([
+    'checkout',
+    'charges',
+    'subscriptions',
+    'trials',
+    'refunds',
+    'coupons',
+    'billingPortal',
+    'invoicePdf',
+    'webhooks',
+    'customers',
+    'paymentMethods',
+    'paymentMethodSetup',
+    'disputes',
+    'payouts',
+    'webhookEndpointManagement',
+    'catalog',
+    'catalogRead',
+    'catalogLifecycle',
+    'catalogIdempotency',
+    'priceLookupKeys',
+  ]);
+}

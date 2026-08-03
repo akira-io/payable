@@ -17,7 +17,6 @@ import type {
   ResumeSubscriptionInput,
 } from '../../../domain/contracts/payment-provider.contract';
 import type { BillingPortalDTO, BillingPortalInput } from '../../../domain/dtos/billing-portal.dto';
-import type { ProviderCapabilities } from '../../../domain/dtos/capabilities.dto';
 import type { ChargeInput, ChargeResultDTO } from '../../../domain/dtos/charge.dto';
 import type {
   CheckoutSessionDTO,
@@ -57,6 +56,7 @@ import type {
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { STRIPE_API_VERSION } from './stripe-api-version';
 import { StripeBillingPortal } from './stripe-billing-portal';
+import { stripeCapabilities } from './stripe-capabilities';
 import { StripeCatalog } from './stripe-catalog';
 import { StripeCheckout } from './stripe-checkout';
 import { StripeCustomers } from './stripe-customers';
@@ -108,6 +108,7 @@ export class StripeProvider
   readonly listPrices = this.catalog.listPrices.bind(this.catalog);
   readonly setProductActive = this.catalog.setProductActive.bind(this.catalog);
   readonly setPriceActive = this.catalog.setPriceActive.bind(this.catalog);
+  readonly transferPriceLookupKey = this.catalog.transferPriceLookupKey.bind(this.catalog);
   private readonly customers = new StripeCustomers(() => this.stripe());
   private readonly paymentMethods = new StripePaymentMethods(() => this.stripe());
   private readonly paymentMethodSetup = new StripePaymentMethodSetup(() => this.stripe());
@@ -139,28 +140,8 @@ export class StripeProvider
     return `StripeProvider { name: '${this.name}' }`;
   }
 
-  capabilities(): ProviderCapabilities {
-    return new Set([
-      'checkout',
-      'charges',
-      'subscriptions',
-      'trials',
-      'refunds',
-      'coupons',
-      'billingPortal',
-      'invoicePdf',
-      'webhooks',
-      'customers',
-      'paymentMethods',
-      'paymentMethodSetup',
-      'disputes',
-      'payouts',
-      'webhookEndpointManagement',
-      'catalog',
-      'catalogRead',
-      'catalogLifecycle',
-      'catalogIdempotency',
-    ]);
+  capabilities() {
+    return stripeCapabilities();
   }
 
   createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {

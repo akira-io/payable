@@ -5,12 +5,22 @@ import type {
   ListProductsInput,
 } from '../../../domain/dtos/catalog.dto';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
-import type { CreatePriceInput, PriceDTO } from '../../../domain/dtos/price.dto';
+import type {
+  CreatePriceInput,
+  PriceDTO,
+  TransferPriceLookupKeyInput,
+} from '../../../domain/dtos/price.dto';
 import type {
   CreateProductInput,
   ProductDTO,
   UpdateProductInput,
 } from '../../../domain/dtos/product.dto';
+import { PayableError } from '../../../domain/errors/payable-error';
+import {
+  validateLookupKey,
+  validateLookupKeys,
+  validateTransferLookupKey,
+} from '../../../domain/validation/price-lookup-key';
 import { createPriceNotFoundFactory, createProductNotFoundFactory } from '../catalog-not-found';
 import { stripeAmount } from './stripe-amounts';
 import { withStripeErrors } from './stripe-errors';
@@ -51,6 +61,9 @@ export class StripeCatalog {
   }
 
   async createPrice(input: CreatePriceInput, ctx: OperationContext): Promise<PriceDTO> {
+    const lookupKey =
+      input.lookupKey === undefined ? undefined : validateLookupKey(input.lookupKey);
+    const transferLookupKey = validateTransferLookupKey(input.transferLookupKey, lookupKey);
     const stripe = await this.client();
     const params: Stripe.PriceCreateParams = {
       product: input.providerProductId,
@@ -61,10 +74,18 @@ export class StripeCatalog {
     if (input.interval) {
       params.recurring = { interval: input.interval, interval_count: input.intervalCount ?? 1 };
     }
+    if (lookupKey !== undefined) {
+      params.lookup_key = lookupKey;
+    }
+    if (transferLookupKey) {
+      params.transfer_lookup_key = true;
+    }
     const price = await withStripeErrors(() =>
       stripe.prices.create(params, { idempotencyKey: ctx.idempotencyKey }),
     );
-    return toPriceDTO(price);
+    return lookupKey === undefined
+      ? toPriceDTO(price)
+      : requirePriceLookupKey(toPriceDTO(price), lookupKey);
   }
 
   async retrieveProduct(id: string): Promise<ProductDTO> {
@@ -103,15 +124,22 @@ export class StripeCatalog {
   }
 
   async listPrices(input: ListPricesInput = {}): Promise<CatalogPage<PriceDTO>> {
+    const lookupKeys =
+      input.lookupKeys === undefined ? undefined : validateLookupKeys(input.lookupKeys);
+    if (lookupKeys?.length === 0) {
+      return { data: [], nextCursor: null };
+    }
     const stripe = await this.client();
-    const page = await withStripeErrors(() =>
-      stripe.prices.list({
-        active: input.active,
-        limit: input.limit,
-        product: input.providerProductId,
-        starting_after: input.cursor,
-      }),
-    );
+    const params: Stripe.PriceListParams = {
+      active: input.active,
+      limit: input.limit,
+      product: input.providerProductId,
+      starting_after: input.cursor,
+    };
+    if (lookupKeys !== undefined) {
+      params.lookup_keys = lookupKeys;
+    }
+    const page = await withStripeErrors(() => stripe.prices.list(params));
     return {
       data: page.data.map(toPriceDTO),
       nextCursor: page.has_more ? (page.data.at(-1)?.id ?? null) : null,
@@ -137,4 +165,34 @@ export class StripeCatalog {
     );
     return toPriceDTO(price);
   }
+
+  async transferPriceLookupKey(
+    input: TransferPriceLookupKeyInput,
+    ctx: OperationContext,
+  ): Promise<PriceDTO> {
+    validateLookupKey(input.providerPriceId, 'providerPriceId');
+    const lookupKey = validateLookupKey(input.lookupKey);
+    const stripe = await this.client();
+    const price = await withStripeErrors(
+      () =>
+        stripe.prices.update(
+          input.providerPriceId,
+          { lookup_key: lookupKey, transfer_lookup_key: true },
+          { idempotencyKey: ctx.idempotencyKey },
+        ),
+      'stripe',
+      createPriceNotFoundFactory(input.providerPriceId, ctx),
+    );
+    return requirePriceLookupKey(toPriceDTO(price), lookupKey);
+  }
+}
+
+function requirePriceLookupKey(price: PriceDTO, lookupKey: string): PriceDTO {
+  if (price.lookupKey === lookupKey) {
+    return price;
+  }
+  throw new PayableError('Stripe price response does not contain the requested lookup key', {
+    code: 'PROVIDER_RESPONSE_INVALID',
+    context: { provider: 'stripe', field: 'lookup_key', providerPriceId: price.providerPriceId },
+  });
 }

@@ -10,16 +10,16 @@ import type {
   PriceDTO,
   TransferPriceLookupKeyInput,
 } from '../../domain/dtos/price.dto';
+import {
+  validateLookupKey,
+  validateLookupKeys,
+  validateTransferLookupKey,
+} from '../../domain/validation/price-lookup-key';
 import { assertCatalogMutationAuthorized } from '../policies/catalog-mutation-authorization';
 import { revivePrice } from '../services/catalog/catalog-idempotency-result';
 import { CatalogMutationIdempotencyExecutor } from '../services/catalog/catalog-mutation-idempotency-executor';
 import { CatalogPersistenceCoordinator } from '../services/catalog/catalog-persistence-coordinator';
 import { normalizeCatalogListInput } from '../services/catalog/normalize-catalog-list-input';
-import {
-  validateLookupKey,
-  validateLookupKeys,
-  validateTransferLookupKey,
-} from '../services/catalog/price-lookup-key-input';
 import { assertCapableProvider } from '../services/provider-capabilities/assert-provider-capability';
 import type { BillingDependencies } from './billing-dependencies';
 import type { CatalogMutationOptions } from './catalog-mutation-options';
