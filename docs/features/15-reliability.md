@@ -1,10 +1,10 @@
 # Reliability
 
-Payable's reliability primitives keep state consistent when work is retried, replayed, or run
-concurrently: a transactional outbox for at-least-once event delivery, an immutable audit log,
-encryption at rest for sensitive webhook data, locks and a cache for concurrency control, and an
-event bus for in-process domain events. Each primitive sits behind a domain contract so the
-integrating application can supply its own driver.
+Payable's engine-integrated reliability concerns keep state consistent when work is retried,
+replayed, or run concurrently. Storage and queue drivers support engine workflows: storage
+repositories persist the transactional outbox and immutable audit log, encryption protects
+sensitive webhook data at rest, and the event bus dispatches in-process domain events. Cache and
+lock contracts are direct-composition utilities outside `createPayable`.
 
 ## Transactional outbox
 

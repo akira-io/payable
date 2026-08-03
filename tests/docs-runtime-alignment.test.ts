@@ -103,10 +103,8 @@ function createPayableCodeFences(markdown: string): string[] {
 }
 
 function documentedCapabilityRows(markdown: string): DocumentedCapabilityRow[] {
-  const startMarker = '### Capability matrix';
-  const endMarker = '## The capabilities system';
-  const startIndex = markdown.indexOf(startMarker);
-  const endIndex = markdown.indexOf(endMarker);
+  const startIndex = markdown.search(/^### Capability matrix$/m);
+  const endIndex = markdown.search(/^## The capabilities system$/m);
   if (startIndex < 0 || endIndex < 0 || startIndex >= endIndex) {
     throw new Error('Capability matrix section markers are missing or out of order');
   }
@@ -163,6 +161,7 @@ describe('documentation stays aligned with runtime', () => {
     expect(gettingStarted).not.toContain('Storage, cache, locks, and encryption stay');
     expect(reliability).not.toContain('`locks` on `PayableConfig`');
     expect(reliability).not.toContain('`cache` on `PayableConfig`');
+    expect(reliability).not.toContain('integrating application can supply its own driver');
     expect(reliability).toContain('not accepted by `createPayable`');
     expect(reliability).toContain(
       '`MemoryLockDriver` is a working single-process direct-composition utility',
@@ -202,6 +201,14 @@ describe('documentation stays aligned with runtime', () => {
       '### Provider capability matrix',
     );
     const missingSection = providers.replace('## The capabilities system', '## Capability sets');
+    const suffixedStartSection = providers.replace(
+      '### Capability matrix',
+      '### Capability matrix v2',
+    );
+    const suffixedEndSection = providers.replace(
+      '## The capabilities system',
+      '## The capabilities system v2',
+    );
     const invertedSections = providers
       .replace('### Capability matrix', '### Built-in provider matrix')
       .replace('## The capabilities system', '## The capabilities system\n\n### Capability matrix');
@@ -215,6 +222,12 @@ describe('documentation stays aligned with runtime', () => {
       'Capability matrix section markers are missing or out of order',
     );
     expect(() => documentedCapabilityRows(missingSection)).toThrow(
+      'Capability matrix section markers are missing or out of order',
+    );
+    expect(() => documentedCapabilityRows(suffixedStartSection)).toThrow(
+      'Capability matrix section markers are missing or out of order',
+    );
+    expect(() => documentedCapabilityRows(suffixedEndSection)).toThrow(
       'Capability matrix section markers are missing or out of order',
     );
     expect(() => documentedCapabilityRows(invertedSections)).toThrow(
