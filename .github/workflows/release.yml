@@ -8,7 +8,7 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
+  pull-requests: read
 
 jobs:
   release:
@@ -20,6 +20,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
       - name: Install git-cliff
         uses: taiki-e/install-action@9e1e5806d4a4822de933115878265be9aaa786d9 # v2
         with:
@@ -27,8 +31,7 @@ jobs:
 
       - name: Bump package.json version
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          node -e "const p=require('./package.json'); p.version='${VERSION}'; require('fs').writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n')"
+          node -e "const p=require('./package.json'); p.version='${{ steps.version.outputs.version }}'; require('fs').writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n')"
 
       - name: Generate CHANGELOG
         env:
@@ -60,29 +63,18 @@ jobs:
             --notes "${{ steps.notes.outputs.body }}" \
             "${RELEASE_FLAG}"
 
-      - name: Open release pull request
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Commit release metadata
         run: |
           DEFAULT_BRANCH="$(git remote show origin | sed -n 's/.*HEAD branch: //p')"
-          BRANCH="release/${{ github.ref_name }}"
-          git config user.name "${GITHUB_ACTOR}"
-          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-          git add package.json CHANGELOG.md
+          git config user.name "$(git show -s --format='%an' HEAD)"
+          git config user.email "$(git show -s --format='%ae' HEAD)"
+          git add CHANGELOG.md package.json
           if git diff --cached --quiet; then
-            echo "No release changes to propose."
-            exit 0
+            echo "No release metadata changes."
+          else
+            git commit -m "chore(changelog): ${{ github.ref_name }}"
+            git push origin "HEAD:${DEFAULT_BRANCH}"
           fi
-          if git ls-remote --exit-code --heads origin "${BRANCH}" >/dev/null 2>&1; then
-            echo "Release branch ${BRANCH} already exists; skipping pull request."
-            exit 0
-          fi
-          git checkout -b "${BRANCH}"
-          git commit -m "chore(release): ${{ github.ref_name }}"
-          git push origin "${BRANCH}"
-          gh pr create --base "${DEFAULT_BRANCH}" --head "${BRANCH}" \
-            --title "chore(release): ${{ github.ref_name }}" \
-            --body "Automated version bump and changelog for ${{ github.ref_name }}."
 
       - name: Send GitHub Release to Discord
         if: ${{ env.DISCORD_WEBHOOK != '' }}
