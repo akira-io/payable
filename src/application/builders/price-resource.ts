@@ -2,14 +2,24 @@ import {
   isCatalogCapable,
   isCatalogLifecycleCapable,
   isCatalogReadCapable,
+  isPriceLookupKeyCapable,
 } from '../../domain/contracts/payment-provider.contract';
 import type { CatalogPage, ListPricesInput } from '../../domain/dtos/catalog.dto';
-import type { CreatePriceInput, PriceDTO } from '../../domain/dtos/price.dto';
+import type {
+  CreatePriceInput,
+  PriceDTO,
+  TransferPriceLookupKeyInput,
+} from '../../domain/dtos/price.dto';
 import { assertCatalogMutationAuthorized } from '../policies/catalog-mutation-authorization';
 import { revivePrice } from '../services/catalog/catalog-idempotency-result';
 import { CatalogMutationIdempotencyExecutor } from '../services/catalog/catalog-mutation-idempotency-executor';
 import { CatalogPersistenceCoordinator } from '../services/catalog/catalog-persistence-coordinator';
 import { normalizeCatalogListInput } from '../services/catalog/normalize-catalog-list-input';
+import {
+  validateLookupKey,
+  validateLookupKeys,
+  validateTransferLookupKey,
+} from '../services/catalog/price-lookup-key-input';
 import { assertCapableProvider } from '../services/provider-capabilities/assert-provider-capability';
 import type { BillingDependencies } from './billing-dependencies';
 import type { CatalogMutationOptions } from './catalog-mutation-options';
@@ -29,8 +39,15 @@ export class PriceResource {
       options?.authorization,
       'price.create',
     );
+    const transferLookupKey = validateTransferLookupKey(input.transferLookupKey, input.lookupKey);
+    if (input.lookupKey !== undefined) {
+      validateLookupKey(input.lookupKey);
+    }
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'catalog', isCatalogCapable);
+    if (input.lookupKey !== undefined || transferLookupKey) {
+      assertCapableProvider(provider, 'priceLookupKeys', isPriceLookupKeyCapable);
+    }
     return this.idempotency.execute({
       action: 'price.create',
       callerKey: options?.idempotencyKey,
@@ -63,7 +80,39 @@ export class PriceResource {
   async list(input?: ListPricesInput): Promise<CatalogPage<PriceDTO>> {
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'catalogRead', isCatalogReadCapable);
-    return provider.listPrices(normalizeCatalogListInput(input));
+    if (input?.lookupKeys === undefined) {
+      return provider.listPrices(normalizeCatalogListInput(input));
+    }
+    assertCapableProvider(provider, 'priceLookupKeys', isPriceLookupKeyCapable);
+    const lookupKeys = validateLookupKeys(input.lookupKeys);
+    if (lookupKeys.length === 0) {
+      return { data: [], nextCursor: null };
+    }
+    return provider.listPrices(normalizeCatalogListInput({ ...input, lookupKeys }));
+  }
+
+  async transferLookupKey(
+    input: TransferPriceLookupKeyInput,
+    options?: CatalogMutationOptions,
+  ): Promise<PriceDTO> {
+    assertCatalogMutationAuthorized(
+      this.deps.authorizationEnabled ?? false,
+      options?.authorization,
+      'price.lookup-key.transfer',
+    );
+    validateLookupKey(input.providerPriceId, 'providerPriceId');
+    validateLookupKey(input.lookupKey);
+    const provider = this.deps.provider;
+    assertCapableProvider(provider, 'priceLookupKeys', isPriceLookupKeyCapable);
+    return this.idempotency.execute({
+      action: 'price.lookup-key.transfer',
+      callerKey: options?.idempotencyKey,
+      request: input,
+      resourceType: 'price',
+      resourceId: input.providerPriceId,
+      run: (operationContext) => provider.transferPriceLookupKey(input, operationContext),
+      revive: revivePrice,
+    });
   }
 
   async activate(id: string, options?: CatalogMutationOptions): Promise<PriceDTO> {

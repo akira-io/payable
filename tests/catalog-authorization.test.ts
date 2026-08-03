@@ -2,6 +2,8 @@ import type { Knex } from 'knex';
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
 import type { StorageDriver } from '../src/domain/contracts/storage-driver.contract';
+import type { OperationContext } from '../src/domain/dtos/common.dto';
+import type { PriceDTO, TransferPriceLookupKeyInput } from '../src/domain/dtos/price.dto';
 import { Money } from '../src/domain/value-objects/money';
 import type {
   CatalogMutationAction,
@@ -14,6 +16,32 @@ import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
+
+class LookupKeyProvider extends FakeProvider {
+  transferCalls = 0;
+
+  constructor() {
+    super();
+    this.supportedCapabilities.add('priceLookupKeys');
+  }
+
+  async transferPriceLookupKey(
+    input: TransferPriceLookupKeyInput,
+    _context: OperationContext,
+  ): Promise<PriceDTO> {
+    this.transferCalls += 1;
+    return {
+      providerPriceId: input.providerPriceId,
+      providerProductId: 'prod_fake',
+      unitAmount: Money.of(9900, 'USD'),
+      interval: null,
+      intervalCount: null,
+      description: null,
+      active: true,
+      lookupKey: input.lookupKey,
+    };
+  }
+}
 
 type MutationCase = {
   action: CatalogMutationAction;
@@ -69,15 +97,25 @@ const mutations: MutationCase[] = [
     capability: 'catalogLifecycle',
     run: (payable, options) => payable.prices().archive('price_fake', options),
   },
+  {
+    action: 'price.lookup-key.transfer',
+    label: 'transfer price lookup key',
+    capability: 'priceLookupKeys',
+    run: (payable, options) =>
+      payable
+        .prices()
+        .transferLookupKey({ providerPriceId: 'price_fake', lookupKey: 'monthly' }, options),
+  },
 ];
 
-function providerMutationCount(provider: FakeProvider): number {
+function providerMutationCount(provider: LookupKeyProvider): number {
   return [
     provider.lastCreateProduct,
     provider.lastUpdateProduct,
     provider.lastCreatePrice,
     ...provider.productActiveCalls,
     ...provider.priceActiveCalls,
+    ...Array(provider.transferCalls).fill({}),
   ].filter((mutation) => mutation !== undefined).length;
 }
 
@@ -95,7 +133,7 @@ async function expectStorageUntouched(db: Knex): Promise<void> {
 async function setup(authorizationEnabled: boolean) {
   const db = createTestDb();
   await migrate(db);
-  const provider = new FakeProvider();
+  const provider = new LookupKeyProvider();
   const clock = new FakeClock(new Date('2026-08-01T00:00:00.000Z'));
   const storage = new KnexStorageDriver(db, clock);
   const payable = createPayable({
