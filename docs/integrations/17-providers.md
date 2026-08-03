@@ -30,9 +30,12 @@ provider: it implements the slim core plus the one optional interface that fits 
 
 ### Optional capability interfaces
 
-Each interface lives in `src/domain/contracts/payment-provider.contract.ts` and ships with a structural
-`isXCapable` guard (duck-typing on method presence). Calling code narrows first, then either calls the
-method or throws `ProviderCapabilityNotSupportedError`.
+Catalog capability interfaces are declared in `src/domain/contracts/catalog-provider.contract.ts`.
+`src/domain/contracts/payment-provider.contract.ts` retains their type and guard re-exports for
+compatibility. The remaining optional interfaces are declared in
+`src/domain/contracts/payment-provider.contract.ts`. Each interface ships with a structural `isXCapable`
+guard (duck-typing on method presence). Calling code narrows first, then either calls the method or throws
+`ProviderCapabilityNotSupportedError`.
 
 | Interface | Method(s) | Guard |
 | --- | --- | --- |

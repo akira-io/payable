@@ -185,6 +185,16 @@ describe('price lookup key resource behavior', () => {
     expect(provider.lastLookupList).toEqual({ lookupKeys: [' monthly '], limit: 50, active: true });
   });
 
+  it('accepts ten lookup keys and passes the original array to the provider', async () => {
+    const provider = new LookupKeyProvider();
+    const lookupKeys = Array.from({ length: 10 }, (_, index) => `lookup-${index}`);
+
+    await prices(provider).list({ lookupKeys });
+
+    expect(provider.listCalls).toBe(1);
+    expect(provider.lastLookupList?.lookupKeys).toEqual(lookupKeys);
+  });
+
   it('rejects sparse lookup lists before provider calls', async () => {
     const provider = new LookupKeyProvider();
     const sparseLookupKeys = new Array<string>(1);

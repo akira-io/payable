@@ -40,6 +40,10 @@ export class PriceResource {
       'price.create',
     );
     const transferLookupKey = validateTransferLookupKey(input.transferLookupKey, input.lookupKey);
+    const canonicalInput = { ...input };
+    if (canonicalInput.transferLookupKey === false) {
+      delete canonicalInput.transferLookupKey;
+    }
     if (input.lookupKey !== undefined) {
       validateLookupKey(input.lookupKey);
     }
@@ -51,11 +55,11 @@ export class PriceResource {
     return this.idempotency.execute({
       action: 'price.create',
       callerKey: options?.idempotencyKey,
-      request: input,
+      request: canonicalInput,
       resourceType: 'price',
       run: async (operationContext) => {
-        const productId = await this.persistence.resolveProductId(input.providerProductId);
-        const price = await provider.createPrice(input, operationContext);
+        const productId = await this.persistence.resolveProductId(canonicalInput.providerProductId);
+        const price = await provider.createPrice(canonicalInput, operationContext);
         await this.persistence.persistPrice(
           price,
           {

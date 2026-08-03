@@ -4,7 +4,11 @@ import { deriveCatalogProviderKey } from '../src/application/services/catalog/ca
 import { revivePrice } from '../src/application/services/catalog/catalog-idempotency-result';
 import { createPayable } from '../src/create-payable';
 import type { OperationContext } from '../src/domain/dtos/common.dto';
-import type { PriceDTO, TransferPriceLookupKeyInput } from '../src/domain/dtos/price.dto';
+import type {
+  CreatePriceInput,
+  PriceDTO,
+  TransferPriceLookupKeyInput,
+} from '../src/domain/dtos/price.dto';
 import { Money } from '../src/domain/value-objects/money';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
@@ -17,12 +21,28 @@ import { createTestDb } from './support/knex';
 const NOW = new Date('2026-08-03T00:00:00.000Z');
 
 class TransferProvider extends FakeProvider {
+  createCalls = 0;
   transferCalls = 0;
   contexts: OperationContext[] = [];
 
   constructor() {
     super();
     this.supportedCapabilities.add('priceLookupKeys');
+  }
+
+  override async createPrice(input: CreatePriceInput): Promise<PriceDTO> {
+    this.createCalls += 1;
+    this.lastCreatePrice = input;
+    return {
+      providerPriceId: `price_${this.createCalls}`,
+      providerProductId: input.providerProductId,
+      unitAmount: input.unitAmount,
+      interval: input.interval ?? null,
+      intervalCount: input.intervalCount ?? null,
+      description: input.description ?? null,
+      active: true,
+      lookupKey: input.lookupKey ?? null,
+    };
   }
 
   async transferPriceLookupKey(
@@ -85,6 +105,23 @@ describe('price lookup key transfer idempotency', () => {
         callerKey: 'transfer-1',
       }),
     );
+  });
+
+  it('replays create retries when false transferLookupKey is omitted or explicit', async () => {
+    const provider = new TransferProvider();
+    const prices = resource(provider, new InMemoryIdempotencyStore());
+    const input = { providerProductId: 'prod_1', unitAmount: Money.of(1000, 'USD') };
+
+    const created = await prices.create(input, { idempotencyKey: 'price-1' });
+
+    const replay = await prices.create(
+      { ...input, transferLookupKey: false },
+      { idempotencyKey: 'price-1' },
+    );
+
+    expect(replay).toMatchObject({ providerPriceId: created.providerPriceId });
+    expect(provider.createCalls).toBe(1);
+    expect(provider.lastCreatePrice).not.toHaveProperty('transferLookupKey');
   });
 
   it('conflicts when a caller key is reused for another transfer target or lookup key', async () => {
