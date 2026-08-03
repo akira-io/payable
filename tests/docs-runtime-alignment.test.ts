@@ -32,5 +32,13 @@ describe('documentation stays aligned with runtime', () => {
     expect(reliability).not.toContain('`locks` on `PayableConfig`');
     expect(reliability).not.toContain('`cache` on `PayableConfig`');
     expect(reliability).toContain('not accepted by `createPayable`');
+    expect(reliability).toContain(
+      '`MemoryLockDriver` is a working single-process direct-composition utility',
+    );
+    expect(reliability).toContain(
+      '`MemoryCacheDriver` is a working single-process direct-composition utility',
+    );
+    expect(reliability).not.toContain('`MemoryLockDriver` (single-process) and `RedisLockDriver`');
+    expect(reliability).not.toContain('Both are Phase 7 scaffolds that throw `NOT_IMPLEMENTED`');
   });
 });

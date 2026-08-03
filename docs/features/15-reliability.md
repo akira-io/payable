@@ -196,11 +196,11 @@ export interface LockDriver {
 }
 ```
 
-**Drivers.** `MemoryLockDriver` (single-process) and `RedisLockDriver` (distributed, constructed
-with a Redis client) are marked Phase 7 and currently throw `NOT_IMPLEMENTED` for `acquire` and
-`withLock`. Concurrency control today is enforced primarily by the idempotency store's atomic
-`acquire`/`takeOver` (see [Idempotency](14-idempotency.md)) and the outbox's
-`forUpdate().skipLocked()` claim.
+**Drivers.** `MemoryLockDriver` is a working single-process direct-composition utility.
+`RedisLockDriver` is internal Phase 7 scaffolding, constructed with a Redis client, and throws
+`NOT_IMPLEMENTED` for `acquire` and `withLock`. Concurrency control today is enforced primarily by
+the idempotency store's atomic `acquire`/`takeOver` (see [Idempotency](14-idempotency.md)) and the
+outbox's `forUpdate().skipLocked()` claim.
 
 **Configuration boundary.** `MemoryLockDriver` and `MemoryCacheDriver` are public direct-composition
 utilities. `RedisLockDriver` and `RedisCacheDriver` remain internal scaffolds. These contracts are
@@ -209,8 +209,8 @@ not accepted by `createPayable`.
 ## Cache
 
 `CacheDriver` (`src/domain/contracts/cache-driver.contract.ts`) abstracts a key/value cache with
-`get`, `set`, `delete`, and `has`. `MemoryCacheDriver` and `RedisCacheDriver` mirror the lock
-drivers: memory for a single process, Redis for shared state. Both are Phase 7 scaffolds that throw
+`get`, `set`, `delete`, and `has`. `MemoryCacheDriver` is a working single-process direct-composition utility.
+`RedisCacheDriver` is internal Phase 7 scaffolding for shared Redis state and throws
 `NOT_IMPLEMENTED`.
 
 ## Event bus
