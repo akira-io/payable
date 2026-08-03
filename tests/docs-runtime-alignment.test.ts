@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { PaymentProvider } from '../src/domain/contracts/payment-provider.contract';
 import type { ProviderCapabilityValue } from '../src/domain/dtos/capabilities.dto';
@@ -25,6 +26,33 @@ const documentedConfig = {
   treasuryProviders: {},
   idempotency: { enabled: true, strategy: 'auto' },
 } satisfies PayableConfig;
+
+const documentedConfigKeys = [
+  'tenant',
+  'authorization',
+  'providers',
+  'accountingProviders',
+  'identityProviders',
+  'issuingProviders',
+  'marketplaceProviders',
+  'taxProviders',
+  'terminalProviders',
+  'treasuryProviders',
+  'storage',
+  'queue',
+  'clock',
+  'logger',
+  'events',
+  'encryption',
+  'idempotency',
+] as const satisfies readonly (keyof PayableConfig)[];
+
+type MissingDocumentedConfigKey = Exclude<
+  keyof PayableConfig,
+  (typeof documentedConfigKeys)[number]
+>;
+
+const documentsEveryConfigKey: MissingDocumentedConfigKey extends never ? true : false = true;
 
 const sispOptions: SispProviderOptions = {
   posId: '90000045',
@@ -53,38 +81,81 @@ function tableCells(line: string): string[] {
     .map((cell) => cell.trim());
 }
 
-function documentedCapabilityRows(markdown: string): DocumentedCapabilityRow[] {
-  const section = markdown.slice(
-    markdown.indexOf('### Capability matrix'),
-    markdown.indexOf('## The capabilities system'),
-  );
-  const lines = section.split('\n').filter((line) => line.startsWith('|'));
-  const providerNames = tableCells(lines[0] ?? '').slice(1) as ProviderName[];
+function documentedPayableConfigKeys(markdown: string): string[] {
+  return Array.from(markdown.matchAll(/^### `([a-zA-Z]+)(?:\?|:)/gm), (match) => match[1] ?? '');
+}
 
-  return lines.slice(2).flatMap((line) => {
+function publicMarkdownFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      return entry.name === 'superpowers' ? [] : publicMarkdownFiles(path);
+    }
+    return entry.isFile() && entry.name.endsWith('.md') ? [path] : [];
+  });
+}
+
+function createPayableCodeFences(markdown: string): string[] {
+  return Array.from(
+    markdown.matchAll(/```(?:ts|typescript)\n([\s\S]*?)```/g),
+    (match) => match[1] ?? '',
+  ).filter((code) => code.includes('createPayable({'));
+}
+
+function documentedCapabilityRows(markdown: string): DocumentedCapabilityRow[] {
+  const startMarker = '### Capability matrix';
+  const endMarker = '## The capabilities system';
+  const startIndex = markdown.indexOf(startMarker);
+  const endIndex = markdown.indexOf(endMarker);
+  if (startIndex < 0 || endIndex < 0 || startIndex >= endIndex) {
+    throw new Error('Capability matrix section markers are missing or out of order');
+  }
+
+  const section = markdown.slice(startIndex, endIndex);
+  const lines = section.split('\n').filter((line) => line.startsWith('|'));
+  const headers = tableCells(lines[0] ?? '');
+  const expectedHeaders = ['Capability', ...Object.keys(builtInProviders)];
+  if (headers.join('|') !== expectedHeaders.join('|')) {
+    throw new Error('Capability matrix provider headers do not match built-in providers');
+  }
+
+  const providerNames = headers.slice(1) as ProviderName[];
+  const rows = lines.slice(2).flatMap((line) => {
     const [label = '', ...cells] = tableCells(line);
     const match = label.match(/^`([a-z][A-Za-z]+)`/);
     if (!match?.[1]) {
       return [];
     }
+
     const support = Object.fromEntries(
       providerNames.map((provider, index) => {
         const value = cells[index] ?? '';
-        expect(value).toMatch(/^(?:yes|no)(?: \(.+\))?$/);
+        if (!/^(?:yes|no)(?: \(.+\))?$/.test(value)) {
+          throw new Error(`Invalid capability support value: ${value}`);
+        }
         return [provider, value.startsWith('yes')];
       }),
     ) as Record<ProviderName, boolean>;
     return [{ capability: match[1], support }];
   });
+
+  if (rows.length === 0) {
+    throw new Error('Capability matrix must include a lowercase capability row');
+  }
+
+  return rows;
 }
 
 describe('documentation stays aligned with runtime', () => {
   it('documents only configuration accepted by createPayable', () => {
     const configuration = readFileSync('docs/04-configuration.md', 'utf8');
+    const contracts = readFileSync('docs/domain/33-contracts.md', 'utf8');
     const gettingStarted = readFileSync('docs/03-getting-started.md', 'utf8');
     const reliability = readFileSync('docs/features/15-reliability.md', 'utf8');
 
     expect(documentedConfig.providers.fake).toBeInstanceOf(FakeProvider);
+    expect(documentsEveryConfigKey).toBe(true);
+    expect(documentedPayableConfigKeys(configuration)).toEqual(documentedConfigKeys);
     expect(configuration).not.toMatch(/^### `(?:cache|locks)\??:/m);
     expect(configuration).not.toMatch(/^\| `(?:cache|locks)` \|/m);
     expect(configuration).toContain('CONFIG_OPTION_UNSUPPORTED');
@@ -101,6 +172,60 @@ describe('documentation stays aligned with runtime', () => {
     );
     expect(reliability).not.toContain('`MemoryLockDriver` (single-process) and `RedisLockDriver`');
     expect(reliability).not.toContain('Both are Phase 7 scaffolds that throw `NOT_IMPLEMENTED`');
+    expect(reliability).toMatch(
+      /`RedisLockDriver`[\s\S]+?constructor throws `NOT_IMPLEMENTED` before\s+`acquire` or `withLock` can run\./,
+    );
+    expect(reliability).toMatch(
+      /`RedisCacheDriver`[\s\S]+?constructor throws `NOT_IMPLEMENTED` before `get`, `set`,\s+`delete`, or `has` can run\./,
+    );
+    expect(contracts).toMatch(
+      /`MemoryCacheDriver` and `MemoryLockDriver` can be instantiated and used directly outside\s+`createPayable`/,
+    );
+    expect(contracts).toMatch(
+      /Each Redis constructor throws `NOT_IMPLEMENTED` before cache operations, `acquire`, or\s+`withLock` can run\./,
+    );
+  });
+
+  it('keeps unsupported drivers out of public createPayable examples', () => {
+    for (const path of publicMarkdownFiles('docs')) {
+      const markdown = readFileSync(path, 'utf8');
+      for (const code of createPayableCodeFences(markdown)) {
+        expect(code, path).not.toMatch(/^\s*(?:cache|locks)\s*:/m);
+      }
+    }
+  });
+
+  it('fails closed when the capability matrix structure is invalid', () => {
+    const providers = readFileSync('docs/integrations/17-providers.md', 'utf8');
+    const renamedSection = providers.replace(
+      '### Capability matrix',
+      '### Provider capability matrix',
+    );
+    const missingSection = providers.replace('## The capabilities system', '## Capability sets');
+    const invertedSections = providers
+      .replace('### Capability matrix', '### Built-in provider matrix')
+      .replace('## The capabilities system', '## The capabilities system\n\n### Capability matrix');
+    const invalidHeader = providers.replace(
+      '| Capability | Stripe | Paddle | SISP | Revolut |',
+      '| Capability | Stripe | Paddle | SISP | Adyen |',
+    );
+    const withoutRows = providers.replace(/^\| `[a-z][^\n]+\n/gm, '');
+
+    expect(() => documentedCapabilityRows(renamedSection)).toThrow(
+      'Capability matrix section markers are missing or out of order',
+    );
+    expect(() => documentedCapabilityRows(missingSection)).toThrow(
+      'Capability matrix section markers are missing or out of order',
+    );
+    expect(() => documentedCapabilityRows(invertedSections)).toThrow(
+      'Capability matrix section markers are missing or out of order',
+    );
+    expect(() => documentedCapabilityRows(invalidHeader)).toThrow(
+      'Capability matrix provider headers do not match built-in providers',
+    );
+    expect(() => documentedCapabilityRows(withoutRows)).toThrow(
+      'Capability matrix must include a lowercase capability row',
+    );
   });
 
   it('matches the built-in provider capability matrix to runtime declarations', () => {

@@ -186,8 +186,8 @@ with one, all reads transparently decrypt.
 
 ## Locks
 
-`LockDriver` (`src/domain/contracts/lock-driver.contract.ts`) provides distributed mutual exclusion
-for concurrency-sensitive sections:
+`LockDriver` (`src/domain/contracts/lock-driver.contract.ts`) defines mutual exclusion operations for
+direct composition outside the Payable engine:
 
 ```ts
 export interface LockDriver {
@@ -197,10 +197,10 @@ export interface LockDriver {
 ```
 
 **Drivers.** `MemoryLockDriver` is a working single-process direct-composition utility.
-`RedisLockDriver` is internal Phase 7 scaffolding, constructed with a Redis client, and throws
-`NOT_IMPLEMENTED` for `acquire` and `withLock`. Concurrency control today is enforced primarily by
-the idempotency store's atomic `acquire`/`takeOver` (see [Idempotency](14-idempotency.md)) and the
-outbox's `forUpdate().skipLocked()` claim.
+`RedisLockDriver` is unusable internal scaffolding. Its constructor throws `NOT_IMPLEMENTED` before
+`acquire` or `withLock` can run. Concurrency control today is enforced primarily by the idempotency
+store's atomic `acquire`/`takeOver` (see [Idempotency](14-idempotency.md)) and the outbox's
+`forUpdate().skipLocked()` claim.
 
 **Configuration boundary.** `MemoryLockDriver` and `MemoryCacheDriver` are public direct-composition
 utilities. `RedisLockDriver` and `RedisCacheDriver` remain internal scaffolds. These contracts are
@@ -209,9 +209,10 @@ not accepted by `createPayable`.
 ## Cache
 
 `CacheDriver` (`src/domain/contracts/cache-driver.contract.ts`) abstracts a key/value cache with
-`get`, `set`, `delete`, and `has`. `MemoryCacheDriver` is a working single-process direct-composition utility.
-`RedisCacheDriver` is internal Phase 7 scaffolding for shared Redis state and throws
-`NOT_IMPLEMENTED`.
+`get`, `set`, `delete`, and `has` for direct composition outside the Payable engine.
+`MemoryCacheDriver` is a working single-process direct-composition utility. `RedisCacheDriver` is
+unusable internal scaffolding. Its constructor throws `NOT_IMPLEMENTED` before `get`, `set`,
+`delete`, or `has` can run.
 
 ## Event bus
 

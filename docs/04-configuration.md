@@ -31,6 +31,15 @@ if (entries.length === 0) {
   incoming webhook's provider, headers, and raw payload. See
   [features/16-multi-tenancy.md](features/16-multi-tenancy.md).
 
+### `authorization?: AuthorizationConfig`
+
+- **Type.** `{ enabled: boolean }`.
+- **Required.** Optional.
+- **Default.** `undefined`; resolves to `authorizationEnabled: false`.
+- **Behavior.** When `enabled` is `true`, mutating actions enforce an `AuthorizationContext` through
+  `assertAuthorized` and the policies in `src/application/policies/`. The context is supplied per
+  call. When authorization is disabled, policy checks are skipped.
+
 ### `providers: Record<string, PaymentProvider>`
 
 - **Type.** Map of provider name to a `PaymentProvider` implementation.
@@ -40,6 +49,55 @@ if (entries.length === 0) {
   passed to `customer(...)`, the first registered provider is used. Webhook routing
   with more than one provider registered requires `/webhooks/:provider`; otherwise `Payable` throws
   `PayableError` code `WEBHOOK_PROVIDER_AMBIGUOUS`.
+
+### `accountingProviders?: Record<string, AccountingProvider>`
+
+- **Type.** Map of provider name to an `AccountingProvider` implementation.
+- **Required.** Optional.
+- **Default.** An empty map.
+- **Behavior.** Each entry is registered by name and exposed through `Payable.accountingProviders()`.
+
+### `identityProviders?: Record<string, IdentityProvider>`
+
+- **Type.** Map of provider name to an `IdentityProvider` implementation.
+- **Required.** Optional.
+- **Default.** An empty map.
+- **Behavior.** Each entry is registered by name and exposed through `Payable.identityProviders()`.
+
+### `issuingProviders?: Record<string, IssuingProvider>`
+
+- **Type.** Map of provider name to an `IssuingProvider` implementation.
+- **Required.** Optional.
+- **Default.** An empty map.
+- **Behavior.** Each entry is registered by name and exposed through `Payable.issuingProviders()`.
+
+### `marketplaceProviders?: Record<string, MarketplaceProvider>`
+
+- **Type.** Map of provider name to a `MarketplaceProvider` implementation.
+- **Required.** Optional.
+- **Default.** An empty map.
+- **Behavior.** Each entry is registered by name and exposed through `Payable.marketplaceProviders()`.
+
+### `taxProviders?: Record<string, TaxProvider>`
+
+- **Type.** Map of provider name to a `TaxProvider` implementation.
+- **Required.** Optional.
+- **Default.** An empty map.
+- **Behavior.** Each entry is registered by name and exposed through `Payable.taxProviders()`.
+
+### `terminalProviders?: Record<string, TerminalProvider>`
+
+- **Type.** Map of provider name to a `TerminalProvider` implementation.
+- **Required.** Optional.
+- **Default.** An empty map.
+- **Behavior.** Each entry is registered by name and exposed through `Payable.terminalProviders()`.
+
+### `treasuryProviders?: Record<string, TreasuryProvider>`
+
+- **Type.** Map of provider name to a `TreasuryProvider` implementation.
+- **Required.** Optional.
+- **Default.** An empty map.
+- **Behavior.** Each entry is registered by name and exposed through `Payable.treasuryProviders()`.
 
 ### `storage?: StorageDriver`
 
@@ -95,19 +153,6 @@ if (entries.length === 0) {
 - **Behavior.** Used to encrypt/decrypt sensitive stored values when supplied. The bundled
   implementation is `NodeEncryptionDriver`. See [28-security.md](28-security.md).
 
-### `authorization?: AuthorizationConfig`
-
-- **Type.** `{ enabled: boolean }`.
-- **Required.** Optional.
-- **Default.** `undefined`; resolves to `authorizationEnabled: false` (authorization off).
-- **Behavior.** When `enabled` is `true`, mutating actions enforce an `AuthorizationContext` through
-  `assertAuthorized` and the policies in `src/application/policies/` (e.g. `CanChargePolicy`,
-  `CanRefundPaymentPolicy`, `CanReplayWebhookPolicy`); a call without an authorization context is
-  rejected. When off (the default), the policy checks are skipped. The context is supplied per call
-  (for example `charge`/`refund`/`replayWebhook` accept an `authorization` field) and, in the
-  adapters, derived from request hooks. Authorization coverage is per-action - consult the action's
-  input type to confirm it accepts an `authorization` context.
-
 ### `idempotency?: IdempotencyConfig`
 
 - **Type.** `{ enabled?: boolean; strategy?: 'auto' | 'manual'; store?: IdempotencyStore }`.
@@ -150,6 +195,13 @@ resolved string key to `IdempotencyService`. `IdempotencyStrategy` is available 
 | `tenantResolver` | `config.tenant?.resolver` | `undefined` |
 | `authorizationEnabled` | `config.authorization?.enabled` | `false` |
 | `providers` | `new Map(entries)` | required (throws if empty) |
+| `accountingProviders` | `config.accountingProviders` | empty `Map` |
+| `identityProviders` | `config.identityProviders` | empty `Map` |
+| `issuingProviders` | `config.issuingProviders` | empty `Map` |
+| `marketplaceProviders` | `config.marketplaceProviders` | empty `Map` |
+| `taxProviders` | `config.taxProviders` | empty `Map` |
+| `terminalProviders` | `config.terminalProviders` | empty `Map` |
+| `treasuryProviders` | `config.treasuryProviders` | empty `Map` |
 | `storage` | `config.storage` | `undefined` |
 | `queue` | `config.queue` | `new SyncQueueDriver()` |
 | `clock` | `config.clock` | `new SystemClock()` |
