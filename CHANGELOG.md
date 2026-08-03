@@ -5,6 +5,72 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta4](https://github.com/akira-io/payable/compare/v1.0.0-beta3...v1.0.0-beta4) (2026-08-03)
+
+### Bug Fixes
+
+- **storage:** Tenant-scope catalog identities ([336d8a5](https://github.com/akira-io/payable/commit/336d8a5861911db2582f884a4bb34ffc6934fca8))
+- **prisma:** Normalize catalog tenant keys ([c15f00b](https://github.com/akira-io/payable/commit/c15f00baa4d3df1a4cdf32f3f82ddc2ba6a029db))
+- **storage:** Enforce catalog tenant boundaries ([79e3f74](https://github.com/akira-io/payable/commit/79e3f74fd46fa988d8d6e32dec2999996750978b))
+- **storage:** Scope Knex catalog create fallback ([505714c](https://github.com/akira-io/payable/commit/505714c6c141eabb2e50c29d38fbb8d59d378d42))
+- **storage:** Address catalog isolation review ([e451517](https://github.com/akira-io/payable/commit/e45151753ab2c7e2079cd1c0ed1e3d6c16786417))
+- **storage:** Validate bulk catalog tenants ([4150340](https://github.com/akira-io/payable/commit/4150340d168269321278da4f1fd872fd77b32c2b))
+- **paddle:** Respect product create contract ([40f3d70](https://github.com/akira-io/payable/commit/40f3d706646845d5cbf7973eb26ad6133ae99ed0))
+- **catalog:** Preserve not-found error context ([f8e01c3](https://github.com/akira-io/payable/commit/f8e01c30ca454bd4b96f9fea0c916c4f0b14168a))
+- **catalog:** Enforce lifecycle authorization ([2a7f3ab](https://github.com/akira-io/payable/commit/2a7f3abd754927c1071629ff6f028efcdf0e0903))
+- **express:** Forward catalog authorization ([2d92177](https://github.com/akira-io/payable/commit/2d92177ef848253c761b752560a48d2a56341f45))
+- **fastify:** Forward catalog authorization ([169ebc9](https://github.com/akira-io/payable/commit/169ebc9d7ff2ee9bb097761de4a32220fd3eb72b))
+- **nest:** Forward catalog authorization ([70e9f76](https://github.com/akira-io/payable/commit/70e9f76e746f740bbb73917f10c7684503348c3d))
+- **mcp:** Forward catalog authorization ([a39cead](https://github.com/akira-io/payable/commit/a39cead3e73fbb36f4fd1f396ed66792daee3d2a))
+- **mcp:** Defer catalog authorization to core ([ff14d0c](https://github.com/akira-io/payable/commit/ff14d0c8ad860c5bdb7c91fd14f28a87dca43285))
+- **catalog:** Enforce explicit authorization context ([3128811](https://github.com/akira-io/payable/commit/31288114a57aef9a7f0e9c569fb9b1133a89ec85))
+- **catalog:** Preserve persistence failure identity ([93536d9](https://github.com/akira-io/payable/commit/93536d9db582d6aa251c1186a2c8c29c2a9c10fa))
+- **catalog:** Make product transitions concurrency-safe ([79efb4e](https://github.com/akira-io/payable/commit/79efb4eaba0ef1d04e6df7179fef4175dcf86299))
+- **catalog:** Preserve repository compatibility ([ef01063](https://github.com/akira-io/payable/commit/ef010633ec43d97583860c5a3a4945d05220fc9d))
+- **catalog:** Recover durable catalog writes ([bc037d3](https://github.com/akira-io/payable/commit/bc037d39b4be29867590adce75ec94d00c4e6394))
+- **catalog:** Classify cas loss once ([0d32b08](https://github.com/akira-io/payable/commit/0d32b08720a916ca2efe2d9c549403fefb4340d3))
+- **catalog:** Reject malformed idempotency keys ([bd8e9ae](https://github.com/akira-io/payable/commit/bd8e9ae4e0edef2592e3de6c7fb0a7c3a3ff113f))
+- **idempotency:** Recover catalog-safe execution state ([d136c52](https://github.com/akira-io/payable/commit/d136c52bce9ae1cea7468098e62e85c44cf531ba))
+- **idempotency:** Return authoritative completion winner ([1d5efa0](https://github.com/akira-io/payable/commit/1d5efa05d5936864d1124542cc69b890b2ac2c94))
+- **catalog:** Harden idempotent mutation replay ([a5af058](https://github.com/akira-io/payable/commit/a5af0580b7bbb44a4e80276b333d22a02cedd971))
+- **catalog:** Harden idempotency recovery ([8ae76df](https://github.com/akira-io/payable/commit/8ae76df6a4515c932c788c5f43ace4ab15625b60))
+- **prisma:** Create SQLite database before schema push ([548422e](https://github.com/akira-io/payable/commit/548422e3c4f2c99d66b67be5bb6f4ce27b5eb4f4))
+- **stripe:** Validate transfer reversal boundaries ([a4ba2fc](https://github.com/akira-io/payable/commit/a4ba2fc7360282120022a446c79cffde3bd8450e))
+- **stripe:** Validate transfer reversal responses ([98df8ac](https://github.com/akira-io/payable/commit/98df8ac60eb2da96d60eaef30074cb353658dc9f))
+- **stripe:** Reject out-of-range reversal timestamps ([b799a68](https://github.com/akira-io/payable/commit/b799a681a4cea0af03ea8a9c6d208176c59e5899))
+- **stripe:** Preserve price lookup keys ([5b12bfe](https://github.com/akira-io/payable/commit/5b12bfe502389c8b702cd6b74b72f23dc3cd8109))
+- **catalog:** Harden lookup key lifecycle ([e524ace](https://github.com/akira-io/payable/commit/e524aced5fd0d059a10b88c7e35b5d8a5c1e8438))
+- **catalog:** Canonicalize lookup key inputs ([603bd07](https://github.com/akira-io/payable/commit/603bd0774ac4f229daccd14a6243d7a37ae65850))
+- **docs:** Enforce complete capability matrix ([0e6e41f](https://github.com/akira-io/payable/commit/0e6e41fb3542f37a5b11d19e1e4f912ee5acb10f))
+
+
+### Features
+
+- **customers:** Normalize provider identities ([935875e](https://github.com/akira-io/payable/commit/935875e2eca5c082247a2ee5153bd98bf42e4dbe))
+- **catalog:** Define catalog read and lifecycle contracts ([6dce744](https://github.com/akira-io/payable/commit/6dce7445306aadd22f0eb75c415e069b77017594))
+- **catalog:** Add catalog read and lifecycle resources ([dce1571](https://github.com/akira-io/payable/commit/dce1571d4a750070519e45aeea220247e019260e))
+- **stripe:** Complete catalog lifecycle operations ([9c3eed2](https://github.com/akira-io/payable/commit/9c3eed28d2ff6b62b8ddde19891bdf67996ac4f5))
+- **paddle:** Complete catalog lifecycle operations ([8fd294e](https://github.com/akira-io/payable/commit/8fd294e420c2ed7b9ab7a1003797c1e18fa9fd3e))
+- **http:** Expose catalog read and lifecycle routes ([e0cb03c](https://github.com/akira-io/payable/commit/e0cb03c48a577f76d34cb11d0cb0e3b8d1670929))
+- **adapters:** Add catalog lifecycle parity ([88efef3](https://github.com/akira-io/payable/commit/88efef366e916e3a2520e55374f4bc8cf0c13c02))
+- **catalog:** Enforce mutation authorization ([39ccd56](https://github.com/akira-io/payable/commit/39ccd5678d1336748a3b8ea83fc17c12b67ff525))
+- **catalog:** Add persistence failure contract ([ab6cf67](https://github.com/akira-io/payable/commit/ab6cf67fab974571e6ca1410abfe109fe2a18c67))
+- **catalog:** Persist product mutations ([42d31aa](https://github.com/akira-io/payable/commit/42d31aaabd40e67efa083cd15865a013194ef92b))
+- **catalog:** Persist price mutations ([9e39c50](https://github.com/akira-io/payable/commit/9e39c50e8d0594bcf6f30b77677e7338d7036704))
+- **catalog:** Define idempotency contract ([542e212](https://github.com/akira-io/payable/commit/542e212a22bbfdd6597b0fc7e30b7e7aa24f7026))
+- **catalog:** Orchestrate idempotent mutations ([4c8bd80](https://github.com/akira-io/payable/commit/4c8bd8084322d1e3f241bada823b54e5b28c58b6))
+- **catalog:** Protect product mutations ([6f9488e](https://github.com/akira-io/payable/commit/6f9488edf5b30165aee6a3a868ff1cec73101ddd))
+- **catalog:** Protect price mutations ([45f3cda](https://github.com/akira-io/payable/commit/45f3cda10ce0a27c73c4481da6b30236084286ae))
+- **adapters:** Accept catalog idempotency keys ([ba9e35b](https://github.com/akira-io/payable/commit/ba9e35bb8911ea87c944b2862869acb33dc33c7c))
+- **mcp:** Expose catalog idempotency keys ([590fa4c](https://github.com/akira-io/payable/commit/590fa4c2ffb46b1661abd5a15918a3bfe15f925a))
+- **marketplace:** Define transfer reversal capability ([1c67128](https://github.com/akira-io/payable/commit/1c6712893c08732a2ef8d0e63e5a1dcf74acbaa1))
+- **stripe:** Link marketplace transfers to charges ([13eb9a6](https://github.com/akira-io/payable/commit/13eb9a61cc0ad1256581dd04ebeeee39965aa173))
+- **stripe:** Support operation error classifiers ([ef9284c](https://github.com/akira-io/payable/commit/ef9284c77cb7cbab6941411d809984ac429a8c9f))
+- **stripe:** Add marketplace transfer reversals ([7d32f44](https://github.com/akira-io/payable/commit/7d32f44b1a63f56239accd71e8ee47a7ca405013))
+- **catalog:** Define price lookup key capability ([9857baa](https://github.com/akira-io/payable/commit/9857baafc63edd9a027c07a1077b3580d967859a))
+- **catalog:** Add lookup key lifecycle ([90765dd](https://github.com/akira-io/payable/commit/90765dd832cf91e964c3c27be5834a03c652a9a5))
+- **stripe:** Support price lookup keys ([ff6d079](https://github.com/akira-io/payable/commit/ff6d079de08e3bbfae187687f71b36dd6549ea03))
+
 ## [1.0.0-beta3](https://github.com/akira-io/payable/compare/...v1.0.0-beta3) (2026-07-15)
 
 ### Bug Fixes
