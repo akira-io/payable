@@ -101,16 +101,21 @@ with `priceLookupKeys` and `isPriceLookupKeyCapable`; normal catalog operations 
 
 ### Capability matrix
 
+The matrix describes the capability set of each built-in Payable adapter. A `no` cell does not make a claim about functionality offered by the external gateway.
+
 | Capability | Stripe | Paddle | SISP | Revolut |
 | --- | --- | --- | --- | --- |
 | `checkout` | yes | yes | yes (redirect form) | yes (amount order, subscription setup order) |
-| `refunds` | yes | yes | yes | yes (amount required) |
+| `refunds` | yes | yes | no | yes (amount required) |
 | `customers` | yes | yes | no (local-only customers) | yes |
 | `catalog` | yes | yes | no | no |
 | `catalogRead` | yes | yes | no | no |
 | `catalogLifecycle` | yes | yes | no | no |
-| `priceLookupKeys` | yes | no | undocumented | undocumented |
+| `catalogIdempotency` | yes | no | no | no |
+| `priceLookupKeys` | yes | no | no | no |
 | `subscriptions` | yes | yes | no | yes (limited) |
+| `trials` | yes | no | no | no |
+| `coupons` | yes | no | no | no |
 | `billingPortal` | yes | yes | no | no |
 | `webhooks` (`WebhookCapable`) | yes | yes | no (uses redirect callback) | yes |
 | `PaymentWebhookCapable` | yes | no | no | yes |
@@ -118,7 +123,7 @@ with `priceLookupKeys` and `isPriceLookupKeyCapable`; normal catalog operations 
 | `charges` (`ChargeCapable`) | yes | no | no | no |
 | `invoicePdf` (`InvoiceCapable`) | yes | no | no | no |
 | `paymentMethods` (`PaymentMethodCapable`) | yes | no | no | yes |
-| `paymentMethodSetup` (`PaymentMethodSetupCapable`) | no | no | no | no |
+| `paymentMethodSetup` (`PaymentMethodSetupCapable`) | yes | no | no | yes |
 | `disputes` (`DisputeCapable`) | yes | no | no | yes (production only) |
 | `payouts` (`PayoutCapable`) | yes | no | no | yes |
 | `webhookEndpointManagement` | yes | no | no | yes |

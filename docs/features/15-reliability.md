@@ -1,10 +1,10 @@
 # Reliability
 
-Payable's reliability primitives keep state consistent when work is retried, replayed, or run
-concurrently: a transactional outbox for at-least-once event delivery, an immutable audit log,
-encryption at rest for sensitive webhook data, locks and a cache for concurrency control, and an
-event bus for in-process domain events. Each primitive sits behind a domain contract so the
-integrating application can supply its own driver.
+Payable's engine-integrated reliability concerns keep state consistent when work is retried,
+replayed, or run concurrently. Storage and queue drivers support engine workflows: storage
+repositories persist the transactional outbox and immutable audit log, encryption protects
+sensitive webhook data at rest, and the event bus dispatches in-process domain events. Cache and
+lock contracts are direct-composition utilities outside `createPayable`.
 
 ## Transactional outbox
 
@@ -186,8 +186,8 @@ with one, all reads transparently decrypt.
 
 ## Locks
 
-`LockDriver` (`src/domain/contracts/lock-driver.contract.ts`) provides distributed mutual exclusion
-for concurrency-sensitive sections:
+`LockDriver` (`src/domain/contracts/lock-driver.contract.ts`) defines mutual exclusion operations for
+direct composition outside the Payable engine:
 
 ```ts
 export interface LockDriver {
@@ -196,21 +196,23 @@ export interface LockDriver {
 }
 ```
 
-**Drivers.** Two implementations are scaffolded: `MemoryLockDriver` (single-process) and
-`RedisLockDriver` (distributed, constructed with a Redis client). Both are marked Phase 7 and
-currently throw `NOT_IMPLEMENTED` for `acquire` and `withLock`. Concurrency control today is enforced
-primarily by the idempotency store's atomic `acquire`/`takeOver` (see [Idempotency](14-idempotency.md))
-and the outbox's `forUpdate().skipLocked()` claim.
+**Drivers.** `MemoryLockDriver` is a working single-process direct-composition utility.
+`RedisLockDriver` is unusable internal scaffolding. Its constructor throws `NOT_IMPLEMENTED` before
+`acquire` or `withLock` can run. Concurrency control today is enforced primarily by the idempotency
+store's atomic `acquire`/`takeOver` (see [Idempotency](14-idempotency.md)) and the outbox's
+`forUpdate().skipLocked()` claim.
 
-**When required.** A lock driver is opt-in (`locks` on `PayableConfig`). Use `MemoryLockDriver` for a
-single instance and `RedisLockDriver` when multiple processes must coordinate.
+**Configuration boundary.** `MemoryLockDriver` and `MemoryCacheDriver` are public direct-composition
+utilities. `RedisLockDriver` and `RedisCacheDriver` remain internal scaffolds. These contracts are
+not accepted by `createPayable`.
 
 ## Cache
 
 `CacheDriver` (`src/domain/contracts/cache-driver.contract.ts`) abstracts a key/value cache with
-`get`, `set`, `delete`, and `has`. `MemoryCacheDriver` and `RedisCacheDriver` mirror the lock
-drivers: memory for a single process, Redis for shared state. Both are Phase 7 scaffolds that throw
-`NOT_IMPLEMENTED`. The cache is optional (`cache` on `PayableConfig`).
+`get`, `set`, `delete`, and `has` for direct composition outside the Payable engine.
+`MemoryCacheDriver` is a working single-process direct-composition utility. `RedisCacheDriver` is
+unusable internal scaffolding. Its constructor throws `NOT_IMPLEMENTED` before `get`, `set`,
+`delete`, or `has` can run.
 
 ## Event bus
 

@@ -102,15 +102,21 @@ export interface ListOptions {
 
 ## Drivers
 
-Drivers are the infrastructure backends the engine runs on. Each has at least one in-process implementation and one external implementation, so the same engine code runs against memory or a real backend.
+Drivers define infrastructure contracts. The engine consumes the storage, queue, and encryption
+contracts. Cache and lock contracts remain available for direct composition outside the engine.
 
 | Contract | Key methods | Implementations in this repo |
 | --- | --- | --- |
 | `StorageDriver` (extends `Repositories`) | `transaction<T>(work: (repos) => Promise<T>)` plus all repository accessors | `KnexStorageDriver` |
 | `QueueDriver` | `dispatch<T>(job)`, `process<T>(name, handler)` | `SyncQueueDriver`, `BullMQQueueDriver` |
-| `CacheDriver` | `get`, `set`, `delete`, `has` | `MemoryCacheDriver`, `RedisCacheDriver` |
-| `LockDriver` | `acquire(key, ttlMs)`, `withLock(key, ttlMs, work)` | `MemoryLockDriver`, `RedisLockDriver` |
+| `CacheDriver` | `get`, `set`, `delete`, `has` | `MemoryCacheDriver` (public, working); `RedisCacheDriver` (internal, unusable) |
+| `LockDriver` | `acquire(key, ttlMs)`, `withLock(key, ttlMs, work)` | `MemoryLockDriver` (public, working); `RedisLockDriver` (internal, unusable) |
 | `Encryption` | `encrypt(plaintext)`, `decrypt(ciphertext)` | `NodeEncryptionDriver` |
+
+`MemoryCacheDriver` and `MemoryLockDriver` can be instantiated and used directly outside
+`createPayable`. The Redis classes are internal scaffolds, not external backends available to the
+engine. Each Redis constructor throws `NOT_IMPLEMENTED` before cache operations, `acquire`, or
+`withLock` can run.
 
 `StorageDriver` exposes the full `Repositories` bag both directly and inside `transaction`, so a unit of work commits or rolls back atomically:
 
