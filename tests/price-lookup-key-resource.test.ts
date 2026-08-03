@@ -185,6 +185,25 @@ describe('price lookup key resource behavior', () => {
     expect(provider.lastLookupList).toEqual({ lookupKeys: [' monthly '], limit: 50, active: true });
   });
 
+  it('rejects sparse lookup lists before provider calls', async () => {
+    const provider = new LookupKeyProvider();
+    const sparseLookupKeys = new Array<string>(1);
+
+    await expectInvalid(prices(provider).list({ lookupKeys: sparseLookupKeys }));
+
+    expect(provider.listCalls).toBe(0);
+  });
+
+  it('validates an empty lookup-list page before returning it locally', async () => {
+    const provider = new LookupKeyProvider();
+
+    await expect(prices(provider).list({ lookupKeys: [], limit: 0 })).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+    });
+
+    expect(provider.listCalls).toBe(0);
+  });
+
   it('validates and transfers a lookup key through the capability-gated provider boundary', async () => {
     const provider = new LookupKeyProvider();
     const resource = prices(provider);

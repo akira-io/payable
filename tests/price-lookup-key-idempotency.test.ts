@@ -9,6 +9,7 @@ import { Money } from '../src/domain/value-objects/money';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { FakeClock } from '../src/support/clock/fake-clock';
+import { hashRequest } from '../src/support/hash/request-hash';
 import { FakeProvider } from './support/fake-provider';
 import { InMemoryIdempotencyStore } from './support/fakes';
 import { createTestDb } from './support/knex';
@@ -101,6 +102,24 @@ describe('price lookup key transfer idempotency', () => {
       ),
     ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
     expect(provider.transferCalls).toBe(1);
+  });
+
+  it('hashes the transfer action together with its input', async () => {
+    const provider = new TransferProvider();
+    const store = new InMemoryIdempotencyStore();
+    const input = { providerPriceId: 'price_new', lookupKey: 'monthly' };
+
+    await resource(provider, store).transferLookupKey(input, { idempotencyKey: 'transfer-1' });
+
+    const storageKey = await deriveCatalogProviderKey({
+      tenantId: 'tenant-a',
+      providerName: 'stripe',
+      action: 'price.lookup-key.transfer',
+      callerKey: 'transfer-1',
+    });
+    expect((await store.find(storageKey, 'tenant-a'))?.requestHash).toBe(
+      await hashRequest({ action: 'price.lookup-key.transfer', input }),
+    );
   });
 
   it('requires idempotency storage before a non-native provider transfer', async () => {

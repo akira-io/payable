@@ -85,10 +85,11 @@ export class PriceResource {
     }
     assertCapableProvider(provider, 'priceLookupKeys', isPriceLookupKeyCapable);
     const lookupKeys = validateLookupKeys(input.lookupKeys);
+    const normalizedInput = normalizeCatalogListInput({ ...input, lookupKeys });
     if (lookupKeys.length === 0) {
       return { data: [], nextCursor: null };
     }
-    return provider.listPrices(normalizeCatalogListInput({ ...input, lookupKeys }));
+    return provider.listPrices(normalizedInput);
   }
 
   async transferLookupKey(
@@ -107,7 +108,7 @@ export class PriceResource {
     return this.idempotency.execute({
       action: 'price.lookup-key.transfer',
       callerKey: options?.idempotencyKey,
-      request: input,
+      request: { action: 'price.lookup-key.transfer', input },
       resourceType: 'price',
       resourceId: input.providerPriceId,
       run: (operationContext) => provider.transferPriceLookupKey(input, operationContext),

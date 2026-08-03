@@ -26,7 +26,11 @@ export function validateLookupKeys(value: unknown): string[] {
   if (value.length > PRICE_LOOKUP_KEYS_MAX_ITEMS) {
     throw invalid('lookupKeys', 'exceeds the maximum item count', PRICE_LOOKUP_KEYS_MAX_ITEMS);
   }
-  return value.map((lookupKey, index) => validateLookupKey(lookupKey, `lookupKeys[${index}]`));
+  const lookupKeys: string[] = [];
+  for (let index = 0; index < value.length; index += 1) {
+    lookupKeys.push(validateLookupKey(value[index], `lookupKeys[${index}]`));
+  }
+  return lookupKeys;
 }
 
 export function validateTransferLookupKey(value: unknown, lookupKey: unknown): boolean {
