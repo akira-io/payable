@@ -1,3 +1,9 @@
+export {
+  type AuditPage,
+  type AuditPageQuery,
+  type AuditRecordInput,
+  AuditResource,
+} from './audit-resource';
 export type { Billable } from './billable';
 export type { BillingDependencies } from './billing-dependencies';
 export type { CatalogMutationOptions } from './catalog-mutation-options';

@@ -120,7 +120,7 @@ export class PrismaAuditLogRepository implements AuditLogRepository {
       let sequence = latest?.sequence ?? 0;
       for (const row of legacy) {
         sequence += 1;
-        const entry = auditLogToEntity(row);
+        const entry = auditLogToEntity({ ...row, sequence });
         const hash = await auditEntryHash(
           previousHash,
           sequence,
@@ -162,6 +162,7 @@ export class PrismaAuditLogRepository implements AuditLogRepository {
 
   async list(query: AuditLogQuery): Promise<AuditLog[]> {
     const where: Record<string, unknown> = {};
+    const conjunctions: Record<string, unknown>[] = [];
     if (query.tenantId !== undefined) {
       where.tenantId = tenant(query.tenantId);
     }
@@ -173,6 +174,36 @@ export class PrismaAuditLogRepository implements AuditLogRepository {
     }
     if (query.correlationId) {
       where.correlationId = query.correlationId;
+    }
+    if (query.actions) {
+      where.action = { in: [...query.actions] };
+    }
+    if (query.resourceTypes) {
+      conjunctions.push({ resourceType: { in: [...query.resourceTypes] } });
+    }
+    if (query.resourceIds) {
+      conjunctions.push({ resourceId: { in: [...query.resourceIds] } });
+    }
+    if (query.correlationIds) {
+      conjunctions.push({ correlationId: { in: [...query.correlationIds] } });
+    }
+    if (query.actorTypes) {
+      where.actorType = { in: [...query.actorTypes] };
+    }
+    if (query.actorIds) {
+      where.actorId = { in: [...query.actorIds] };
+    }
+    if (query.createdAfter || query.createdBefore) {
+      where.createdAt = {
+        ...(query.createdAfter ? { gte: query.createdAfter } : {}),
+        ...(query.createdBefore ? { lt: query.createdBefore } : {}),
+      };
+    }
+    if (query.beforeSequence) {
+      where.sequence = { lt: query.beforeSequence };
+    }
+    if (conjunctions.length > 0) {
+      where.AND = conjunctions;
     }
     const limit = Math.min(query.limit ?? DEFAULT_AUDIT_LIST_LIMIT, MAX_AUDIT_LIST_LIMIT);
     const rows = await this.delegate.findMany({

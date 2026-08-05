@@ -108,7 +108,7 @@ export class KnexAuditLogRepository implements AuditLogRepository {
       let sequence = latest?.sequence ?? 0;
       for (const row of legacy) {
         sequence += 1;
-        const entry = this.toEntity(row);
+        const entry = this.toEntity({ ...row, sequence });
         const hash = await auditEntryHash(
           previousHash,
           sequence,
@@ -177,6 +177,33 @@ export class KnexAuditLogRepository implements AuditLogRepository {
     if (query.correlationId) {
       builder = builder.where('correlation_id', query.correlationId);
     }
+    if (query.actions) {
+      builder = builder.whereIn('action', query.actions);
+    }
+    if (query.resourceTypes) {
+      builder = builder.whereIn('resource_type', query.resourceTypes);
+    }
+    if (query.resourceIds) {
+      builder = builder.whereIn('resource_id', query.resourceIds);
+    }
+    if (query.correlationIds) {
+      builder = builder.whereIn('correlation_id', query.correlationIds);
+    }
+    if (query.actorTypes) {
+      builder = builder.whereIn('actor_type', query.actorTypes);
+    }
+    if (query.actorIds) {
+      builder = builder.whereIn('actor_id', query.actorIds);
+    }
+    if (query.createdAfter) {
+      builder = builder.where('created_at', '>=', query.createdAfter.toISOString());
+    }
+    if (query.createdBefore) {
+      builder = builder.where('created_at', '<', query.createdBefore.toISOString());
+    }
+    if (query.beforeSequence) {
+      builder = builder.where('sequence', '<', query.beforeSequence);
+    }
     const limit = Math.min(query.limit ?? DEFAULT_AUDIT_LIST_LIMIT, MAX_AUDIT_LIST_LIMIT);
     builder = builder.limit(limit);
     const rows = (await builder) as Record<string, unknown>[];
@@ -184,8 +211,16 @@ export class KnexAuditLogRepository implements AuditLogRepository {
   }
 
   private toEntity(row: Record<string, unknown>): AuditLog {
+    const sequence = row.sequence;
+    if (typeof sequence !== 'number' || !Number.isInteger(sequence) || sequence < 1) {
+      throw new PayableError('Audit log entry has no valid chain sequence', {
+        code: 'AUDIT_SEQUENCE_INVALID',
+        context: { auditLogId: row.id },
+      });
+    }
     return {
       id: row.id as string,
+      sequence,
       tenantId: (row.tenant_id as string) || null,
       correlationId: row.correlation_id as string,
       actorType: (row.actor_type as string | null) ?? null,

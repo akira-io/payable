@@ -32,10 +32,29 @@ if (typeof esm.createPayable !== 'function') {
   console.error('ESM core entry does not export createPayable');
   process.exit(1);
 }
+if (typeof esm.AuditResource !== 'function' || typeof esm.KnexAuditLogRepository !== 'function') {
+  console.error('ESM core entry does not export the generic audit resource and Knex repository');
+  process.exit(1);
+}
 
 const cjs = require(fileURLToPath(new URL(core.require, root)));
 if (typeof cjs.createPayable !== 'function') {
   console.error('CJS core entry does not export createPayable');
+  process.exit(1);
+}
+if (typeof cjs.AuditResource !== 'function' || typeof cjs.KnexAuditLogRepository !== 'function') {
+  console.error('CJS core entry does not export the generic audit resource and Knex repository');
+  process.exit(1);
+}
+
+const prisma = pkg.exports['./prisma'];
+const prismaEsm = await import(new URL(prisma.import, root).href);
+const prismaCjs = require(fileURLToPath(new URL(prisma.require, root)));
+if (
+  typeof prismaEsm.PrismaAuditLogRepository !== 'function' ||
+  typeof prismaCjs.PrismaAuditLogRepository !== 'function'
+) {
+  console.error('Prisma entry does not export PrismaAuditLogRepository under ESM and CJS');
   process.exit(1);
 }
 

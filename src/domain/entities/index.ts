@@ -1,4 +1,4 @@
-export type { AuditLog } from './audit-log.entity';
+export type { AuditLog, SequencedAuditLog } from './audit-log.entity';
 export type {
   Metadata,
   RecurringInterval,

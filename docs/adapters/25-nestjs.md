@@ -9,6 +9,10 @@ Expose the Payable facade through NestJS controllers, mapping route handlers to 
 `PayableError` instances to HTTP responses through an exception filter. The module provides the
 `Payable` instance and adapter options through DI tokens.
 
+The module does not register a generic audit-write controller. Inject the configured `Payable`
+instance into an authorized host service and call `payable.audit(tenantId)` directly. See
+[Custom domain audit](../examples/46-custom-domain-audit.md).
+
 ## Module
 
 ```ts

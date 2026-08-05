@@ -10,6 +10,10 @@ Translate HTTP requests into `Payable` facade calls and `PayableError` instances
 responses. The adapter owns request parsing (including raw-body parsing for webhooks) and error
 mapping; it owns no business logic.
 
+The adapter does not register a generic audit-write route. Authenticate and authorize host domain
+operations in the application, then call `payable.audit(tenantId)` directly. See
+[Custom domain audit](../examples/46-custom-domain-audit.md).
+
 ## API
 
 ```ts

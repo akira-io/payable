@@ -25,6 +25,44 @@ Repositories persist and read the [entities](05-domain-model.md). Each defines a
 | `AuditLogRepository` | `create`, `list`, `verifyChain`, `backfillChain` | Hash-chained; `verifyChain`/`backfillChain` operate per tenant. See [Reliability](../features/15-reliability.md). |
 | `OutboxEventRepository` | `create`, `claimPending`, `markPublished`, `markFailed` | Backs the transactional outbox; `claimPending(limit)` leases rows for the relay. |
 
+### Audit resource and repository
+
+`AuditLogRepository` is the storage seam; `AuditResource` is the application-facing API. The
+resource binds a trusted tenant, validates custom domain entries, returns cursor pages, and delegates
+hash-chain verification to the repository.
+
+```ts
+export interface AuditLogQuery {
+  tenantId?: string | null;
+  actions?: readonly string[];
+  resourceTypes?: readonly string[];
+  resourceIds?: readonly string[];
+  correlationIds?: readonly string[];
+  actorTypes?: readonly string[];
+  actorIds?: readonly string[];
+  createdAfter?: Date;
+  createdBefore?: Date;
+  beforeSequence?: number;
+  limit?: number;
+}
+
+export interface AuditLogRepository {
+  create(data: NewAuditLog): Promise<AuditLog>;
+  list(query: AuditLogQuery): Promise<AuditLog[]>;
+  verifyChain(tenantId: string | null): Promise<boolean>;
+  backfillChain(tenantId: string | null): Promise<number>;
+}
+```
+
+Fields within one plural filter use OR semantics; separate filter dimensions use AND semantics.
+Repositories order by the immutable tenant sequence descending. `AuditResource` converts that
+sequence into an opaque cursor and returns `{ data, nextCursor }`.
+
+Applications may construct `new AuditResource(repositories.auditLogs, tenantId)` inside a storage
+transaction. For transactions that also modify host-owned tables, use the exported
+`KnexAuditLogRepository` or `PrismaAuditLogRepository` over the host transaction. See
+[Custom domain audit](../examples/46-custom-domain-audit.md).
+
 ```ts
 export interface CustomerRepository {
   create(data: NewCustomer): Promise<Customer>;

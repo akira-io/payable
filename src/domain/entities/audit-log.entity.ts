@@ -2,6 +2,7 @@ import type { TenantScoped } from './common';
 
 export interface AuditLog extends TenantScoped {
   readonly id: string;
+  readonly sequence?: number;
   readonly correlationId: string;
   readonly actorType: string | null;
   readonly actorId: string | null;
@@ -16,4 +17,8 @@ export interface AuditLog extends TenantScoped {
   readonly previousHash: string | null;
   readonly hash: string;
   readonly createdAt: Date;
+}
+
+export interface SequencedAuditLog extends AuditLog {
+  readonly sequence: number;
 }

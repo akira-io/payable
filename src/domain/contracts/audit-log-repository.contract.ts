@@ -1,12 +1,21 @@
 import type { AuditLog } from '../entities/audit-log.entity';
 
-export type NewAuditLog = Omit<AuditLog, 'id' | 'createdAt' | 'hash' | 'previousHash'>;
+export type NewAuditLog = Omit<AuditLog, 'id' | 'sequence' | 'createdAt' | 'hash' | 'previousHash'>;
 
 export interface AuditLogQuery {
   tenantId?: string | null;
   resourceType?: string;
   resourceId?: string;
   correlationId?: string;
+  actions?: readonly string[];
+  resourceTypes?: readonly string[];
+  resourceIds?: readonly string[];
+  correlationIds?: readonly string[];
+  actorTypes?: readonly string[];
+  actorIds?: readonly string[];
+  createdAfter?: Date;
+  createdBefore?: Date;
+  beforeSequence?: number;
   limit?: number;
 }
 

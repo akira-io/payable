@@ -6,6 +6,22 @@ as `KnexStorageDriver`, backed by a Prisma Client. It is published from the subp
 and the adapter itself imports nothing from `@prisma/client` (it accepts a structurally typed client),
 so the zero-peer-dependency guarantee of the core entry is preserved.
 
+## Transaction-scoped audit events
+
+`PrismaAuditLogRepository` is exported from `@akira-io/payable/prisma`. A host can construct it over
+an existing Prisma transaction and pass it to `AuditResource`:
+
+```ts
+await prisma.$transaction(async (transaction) => {
+  const repository = new PrismaAuditLogRepository(transaction, clock, auditKey);
+  await new AuditResource(repository, tenantId).record(event);
+});
+```
+
+Use the same clock and audit key as `PrismaStorageDriver`. The transaction-scoped repository makes
+the host mutation and audit append roll back together. See
+[Custom domain audit](../examples/46-custom-domain-audit.md) for a complete example.
+
 ## Installation
 
 Prisma is an optional peer dependency. Install it in your application:

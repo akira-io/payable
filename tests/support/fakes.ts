@@ -107,6 +107,7 @@ export class InMemoryAuditLogRepository implements AuditLogRepository {
     const hash = await auditEntryHash(previousHash, sequence, createdAt.toISOString(), data);
     const entry: AuditLog = {
       id: `audit_${this.sequence}`,
+      sequence,
       createdAt,
       previousHash,
       hash,
@@ -125,6 +126,33 @@ export class InMemoryAuditLogRepository implements AuditLogRepository {
         return false;
       }
       if (query.correlationId && entry.correlationId !== query.correlationId) {
+        return false;
+      }
+      if (query.actions && !query.actions.includes(entry.action)) {
+        return false;
+      }
+      if (query.resourceTypes && !query.resourceTypes.includes(entry.resourceType)) {
+        return false;
+      }
+      if (query.resourceIds && !query.resourceIds.includes(entry.resourceId)) {
+        return false;
+      }
+      if (query.correlationIds && !query.correlationIds.includes(entry.correlationId)) {
+        return false;
+      }
+      if (query.actorTypes && !query.actorTypes.includes(entry.actorType ?? '')) {
+        return false;
+      }
+      if (query.actorIds && !query.actorIds.includes(entry.actorId ?? '')) {
+        return false;
+      }
+      if (query.createdAfter && entry.createdAt < query.createdAfter) {
+        return false;
+      }
+      if (query.createdBefore && entry.createdAt >= query.createdBefore) {
+        return false;
+      }
+      if (query.beforeSequence && (entry.sequence ?? 0) >= query.beforeSequence) {
         return false;
       }
       if (query.tenantId !== undefined && (entry.tenantId ?? null) !== (query.tenantId ?? null)) {
