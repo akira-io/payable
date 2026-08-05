@@ -3,6 +3,22 @@
 Persistence is provider-agnostic and pluggable through the `StorageDriver` contract. The shipped
 implementation is `KnexStorageDriver`, which works against any SQL database Knex supports.
 
+## Transaction-scoped audit events
+
+`KnexAuditLogRepository` is exported for host applications that need to include their own domain
+mutation and an immutable audit entry in the same Knex transaction:
+
+```ts
+await knex.transaction(async (transaction) => {
+  const repository = new KnexAuditLogRepository(transaction, clock, auditKey);
+  await new AuditResource(repository, tenantId).record(event);
+});
+```
+
+Use the same clock and audit key as `KnexStorageDriver`. Passing the transaction rather than the root
+Knex client ensures a thrown error rolls back both the host mutation and audit append. See
+[Custom domain audit](../examples/46-custom-domain-audit.md) for a complete example.
+
 ## The `StorageDriver` contract
 
 Source: `src/domain/contracts/storage-driver.contract.ts`.

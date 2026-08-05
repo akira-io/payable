@@ -9,6 +9,10 @@ Bridge Fastify requests to the `Payable` facade and `PayableError` instances to 
 plugin sets a Fastify error handler and registers the webhook routes inside an isolated scope so it
 can swap the content-type parser without affecting the rest of the application.
 
+The plugin does not register a generic audit-write route. Authenticate and authorize host domain
+operations in the application, then call `payable.audit(tenantId)` directly. See
+[Custom domain audit](../examples/46-custom-domain-audit.md).
+
 ## API
 
 ```ts

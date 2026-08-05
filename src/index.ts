@@ -83,6 +83,12 @@ export {
   WebhookEventResource,
 } from './application/builders';
 export {
+  type AuditPage,
+  type AuditPageQuery,
+  type AuditRecordInput,
+  AuditResource,
+} from './application/builders/audit-resource';
+export {
   type ProcessTreasuryWebhookInput,
   ProcessTreasuryWebhookPipeline,
 } from './application/pipelines/treasury-webhooks/process-treasury-webhook.pipeline';
@@ -237,6 +243,7 @@ export {
 export { SyncQueueDriver } from './infrastructure/queue/sync/sync-queue-driver';
 export { KnexStorageDriver } from './infrastructure/storage/knex/knex-storage-driver';
 export { migrate } from './infrastructure/storage/knex/migrations/migrate';
+export { KnexAuditLogRepository } from './infrastructure/storage/knex/repositories/knex-audit-log.repository';
 export { KnexIdempotencyRepository } from './infrastructure/storage/knex/repositories/knex-idempotency.repository';
 export { IssuingProviderRegistry } from './issuing-provider-registry';
 export { MarketplaceProviderRegistry } from './marketplace-provider-registry';

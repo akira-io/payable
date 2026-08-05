@@ -24,6 +24,7 @@ import {
   type ReceiveWebhookResult,
 } from './application/actions/webhooks/receive-webhook.action';
 import { ReplayWebhookAction } from './application/actions/webhooks/replay-webhook.action';
+import { AuditResource } from './application/builders/audit-resource';
 import type { Billable } from './application/builders/billable';
 import { CustomerContext } from './application/builders/customer-context';
 import { CustomerResource } from './application/builders/customer-resource';
@@ -226,6 +227,20 @@ export class Payable extends ProviderRegistries {
 
   payments(tenantId?: string | null, options?: ListOptions): Promise<Payment[]> {
     return new ListAllPaymentsQuery(this.factory.billing(undefined, tenantId)).run(options);
+  }
+
+  audit(tenantId?: string | null): AuditResource {
+    if (!this.resolved.storage) {
+      throw new PayableError('Audit logs require a storage driver', {
+        code: 'AUDIT_LOG_STORAGE_REQUIRED',
+      });
+    }
+    if (this.resolved.tenantEnabled && (tenantId === undefined || tenantId === null)) {
+      throw new PayableError('A tenant id is required when tenancy is enabled', {
+        code: 'TENANT_REQUIRED',
+      });
+    }
+    return new AuditResource(this.resolved.storage.auditLogs, tenantId ?? null);
   }
 
   auditLogs(tenantId?: string | null): ListAuditLogsQuery {

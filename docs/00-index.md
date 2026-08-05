@@ -80,6 +80,7 @@ tree.
 43. [examples/43-revolut-merchant-checkout.md](examples/43-revolut-merchant-checkout.md) - Revolut Merchant amount checkout and hosted payment redirect.
 44. [examples/44-mcp-server.md](examples/44-mcp-server.md) - A policy-restricted Payable MCP server for AI clients.
 45. [examples/45-catalog-lifecycle.md](examples/45-catalog-lifecycle.md) - Portable product and price reads, pagination, archival, and reactivation.
+46. [examples/46-custom-domain-audit.md](examples/46-custom-domain-audit.md) - Tenant-bound custom domain events, cursor pagination, retention, and transaction composition.
 
 ---
 

@@ -98,6 +98,33 @@ driver is configured - the outbox needs a persistent repository.
 
 ## Immutable audit log
 
+Payable exposes the immutable chain through `payable.audit(tenantId)`. The tenant-bound resource can
+record host-defined domain events, list stable cursor pages, and verify the chain:
+
+```ts
+const audit = payable.audit('tenant-a');
+await audit.record({
+  action: 'settings.provider.changed',
+  resourceType: 'provider-setting',
+  resourceId: 'provider_1',
+  correlationId: 'request_1',
+  actorType: 'user',
+  actorId: 'user_1',
+});
+const page = await audit.list({ limit: 50, createdAfter: retentionCutoff });
+await audit.verify();
+```
+
+The host application owns authorization, event labels, and the `createdAfter` retention cutoff.
+Payable owns append-only persistence, tenant isolation, filtering, cursor pagination, and chain
+verification. The older `payable.auditLogs(tenantId).run(query)` array reader remains supported.
+
+`record()` is not a distributed transaction. To commit a host mutation and its audit event together,
+construct `AuditResource` over a transaction-scoped Prisma or Knex audit repository. Full examples
+are in [Custom domain audit](../examples/46-custom-domain-audit.md).
+
+Do not record secrets, provider credentials, payment instrument data, or unrestricted request bodies.
+
 `AuditService` (`src/infrastructure/audit/audit-service.ts`) records an append-only trail of who did
 what to which resource.
 
