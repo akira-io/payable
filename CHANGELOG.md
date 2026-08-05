@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta5](https://github.com/akira-io/payable/compare/v1.0.0-beta4...v1.0.0-beta5) (2026-08-05)
+
+### Bug Fixes
+
+- **release:** Prevent tag command injection ([776af31](https://github.com/akira-io/payable/commit/776af318a39151efd986a776adb922daa358367c))
+- **release:** Publish prereleases under beta tag ([9602fb9](https://github.com/akira-io/payable/commit/9602fb980cebeb61ff63b6b519fe20dc2b794bd6))
+
+
+### Features
+
+- **audit:** Expose generic audit resource ([15e0600](https://github.com/akira-io/payable/commit/15e06007592cbb606a46b0e462a6f64e30c10156))
+
 ## [1.0.0-beta4](https://github.com/akira-io/payable/compare/v1.0.0-beta3...v1.0.0-beta4) (2026-08-03)
 
 ### Bug Fixes
