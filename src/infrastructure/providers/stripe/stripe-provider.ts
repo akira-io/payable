@@ -16,6 +16,7 @@ import type {
   ProviderWebhookEndpointManagementCapable,
   ResumeSubscriptionInput,
 } from '../../../domain/contracts/payment-provider.contract';
+import type { SubscriptionOperationCapabilitiesProvider } from '../../../domain/contracts/subscription-operation-capabilities-provider.contract';
 import type { BillingPortalDTO, BillingPortalInput } from '../../../domain/dtos/billing-portal.dto';
 import type { ChargeInput, ChargeResultDTO } from '../../../domain/dtos/charge.dto';
 import type {
@@ -66,6 +67,7 @@ import { StripePaymentMethodSetup } from './stripe-payment-method-setup';
 import { StripePaymentMethods } from './stripe-payment-methods';
 import { StripePayments } from './stripe-payments';
 import { StripePayouts } from './stripe-payouts';
+import { stripeSubscriptionOperationCapabilities } from './stripe-subscription-operation-capabilities';
 import { StripeSubscriptions } from './stripe-subscriptions';
 import { StripeWebhookEndpoints } from './stripe-webhook-endpoints';
 import { StripeWebhooks } from './stripe-webhooks';
@@ -90,6 +92,7 @@ export class StripeProvider
     PaymentWebhookCapable,
     PayoutCapable,
     ProviderWebhookEndpointManagementCapable,
+    SubscriptionOperationCapabilitiesProvider,
     CatalogReadCapable,
     CatalogLifecycleCapable
 {
@@ -142,6 +145,10 @@ export class StripeProvider
 
   capabilities() {
     return stripeCapabilities();
+  }
+
+  subscriptionOperationCapabilities() {
+    return stripeSubscriptionOperationCapabilities();
   }
 
   createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {

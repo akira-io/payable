@@ -1,4 +1,6 @@
 import type { PaymentProvider } from './domain/contracts/payment-provider.contract';
+import { resolveSubscriptionOperationCapabilities } from './domain/contracts/subscription-operation-capabilities-provider.contract';
+import type { SubscriptionOperationCapabilities } from './domain/dtos/subscription-operation-capabilities.dto';
 import { ProviderNotFoundError } from './domain/errors/provider-not-found.error';
 
 export class ProviderRegistry {
@@ -22,5 +24,9 @@ export class ProviderRegistry {
 
   names(): string[] {
     return [...this.providers.keys()];
+  }
+
+  subscriptionOperationCapabilities(name: string): SubscriptionOperationCapabilities {
+    return resolveSubscriptionOperationCapabilities(this.get(name));
   }
 }

@@ -21,6 +21,10 @@ import { assertAuthorized } from '../../policies/assert-authorized';
 import type { AuthorizationContext } from '../../policies/authorization-context';
 import { FindSubscriptionQuery } from '../../queries/subscriptions/find-subscription.query';
 import { assertCapableProvider } from '../../services/provider-capabilities/assert-provider-capability';
+import {
+  assertSubscriptionOperation,
+  type SubscriptionOperation,
+} from '../../services/provider-capabilities/assert-subscription-operation';
 
 export type ManagedSubscription = Subscription & { providerSubscriptionId: string };
 
@@ -70,14 +74,16 @@ export abstract class SubscriptionAction {
     });
   }
 
-  protected subscriptionProvider(): PaymentProvider & SubscriptionManagementCapable {
+  protected subscriptionProvider(
+    operation: SubscriptionOperation,
+  ): PaymentProvider & SubscriptionManagementCapable {
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'subscriptions', isSubscriptionManagementCapable);
+    assertSubscriptionOperation(provider, operation);
     return provider;
   }
 
   protected async resolve(billable: Billable, name: string): Promise<ManagedSubscription> {
-    this.subscriptionProvider();
     this.storage();
     const subscription = await new FindSubscriptionQuery(this.deps).run(billable, name);
     if (!subscription?.providerSubscriptionId) {

@@ -4,6 +4,7 @@ import type {
   RedirectCallbackCapable,
   RedirectCallbackResult,
 } from '../../../domain/contracts/payment-provider.contract';
+import type { SubscriptionOperationCapabilitiesProvider } from '../../../domain/contracts/subscription-operation-capabilities-provider.contract';
 import type { ProviderCapabilities } from '../../../domain/dtos/capabilities.dto';
 import type {
   CheckoutSessionDTO,
@@ -11,6 +12,7 @@ import type {
 } from '../../../domain/dtos/checkout.dto';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.dto';
+import { NO_SUBSCRIPTION_OPERATIONS } from '../../../domain/dtos/subscription-operation-capabilities.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import { sispDecimal } from './sisp-amounts';
@@ -21,7 +23,9 @@ import type { SispCallbackPayload, SispClient, SispHttpRequestInfo } from './sis
 
 export type SispProviderOptions = SispConfig;
 
-export class SispProvider implements PaymentProvider, RedirectCallbackCapable {
+export class SispProvider
+  implements PaymentProvider, RedirectCallbackCapable, SubscriptionOperationCapabilitiesProvider
+{
   readonly name = 'sisp';
   private client?: SispClient;
 
@@ -42,6 +46,10 @@ export class SispProvider implements PaymentProvider, RedirectCallbackCapable {
 
   capabilities(): ProviderCapabilities {
     return new Set(['checkout']);
+  }
+
+  subscriptionOperationCapabilities() {
+    return NO_SUBSCRIPTION_OPERATIONS;
   }
 
   async createCheckoutSession(

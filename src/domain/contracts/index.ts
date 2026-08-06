@@ -139,6 +139,11 @@ export type {
   NewSubscriptionItem,
   SubscriptionItemRepository,
 } from './subscription-item-repository.contract';
+export type { SubscriptionOperationCapabilitiesProvider } from './subscription-operation-capabilities-provider.contract';
+export {
+  isSubscriptionOperationCapabilitiesProvider,
+  resolveSubscriptionOperationCapabilities,
+} from './subscription-operation-capabilities-provider.contract';
 export type { NewSubscription, SubscriptionRepository } from './subscription-repository.contract';
 export type {
   TaxCalculationCapable,

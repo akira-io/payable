@@ -25,8 +25,9 @@ export class UpdateSubscriptionQuantityAction extends SubscriptionAction {
       'update subscription quantity',
     );
     this.assertQuantity(quantity);
+    const provider = this.subscriptionProvider('changeQuantity');
     const subscription = await this.resolve(billable, name);
-    const dto = await this.subscriptionProvider().updateSubscription(
+    const dto = await provider.updateSubscription(
       {
         providerSubscriptionId: subscription.providerSubscriptionId,
         priceId: subscription.priceId ?? undefined,

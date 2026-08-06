@@ -2,6 +2,7 @@ import type {
   PaymentProvider,
   PaymentWebhookReconciliation,
 } from '../../src/domain/contracts/payment-provider.contract';
+import type { SubscriptionOperationCapabilitiesProvider } from '../../src/domain/contracts/subscription-operation-capabilities-provider.contract';
 import type {
   BillingPortalDTO,
   BillingPortalInput,
@@ -39,6 +40,10 @@ import type {
   SubscriptionDTO,
   UpdateSubscriptionInput,
 } from '../../src/domain/dtos/subscription.dto';
+import {
+  defineSubscriptionOperationCapabilities,
+  NO_SUBSCRIPTION_OPERATIONS,
+} from '../../src/domain/dtos/subscription-operation-capabilities.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../src/domain/dtos/webhook.dto';
 import { Money } from '../../src/domain/value-objects/money';
 import { FakeCatalog } from './fake-catalog';
@@ -46,7 +51,10 @@ import { FakeCatalog } from './fake-catalog';
 const PERIOD_END = new Date('2026-07-22T00:00:00.000Z');
 const TRIAL_END = new Date('2026-07-06T00:00:00.000Z');
 
-export class FakeProvider extends FakeCatalog implements PaymentProvider {
+export class FakeProvider
+  extends FakeCatalog
+  implements PaymentProvider, SubscriptionOperationCapabilitiesProvider
+{
   readonly name = 'stripe';
   createCustomerCalls = 0;
   lastCustomerCtx?: OperationContext;
@@ -93,6 +101,27 @@ export class FakeProvider extends FakeCatalog implements PaymentProvider {
 
   capabilities(): ProviderCapabilities {
     return new Set(this.supportedCapabilities);
+  }
+
+  subscriptionOperationCapabilities() {
+    return defineSubscriptionOperationCapabilities({
+      ...NO_SUBSCRIPTION_OPERATIONS,
+      create: { checkout: true, direct: true },
+      changePrice: {
+        ...NO_SUBSCRIPTION_OPERATIONS.changePrice,
+        effectiveTimings: ['immediate'],
+      },
+      changeQuantity: {
+        ...NO_SUBSCRIPTION_OPERATIONS.changeQuantity,
+        effectiveTimings: ['immediate'],
+      },
+      cancel: { immediately: true, atPeriodEnd: true },
+      resume: {
+        ...NO_SUBSCRIPTION_OPERATIONS.resume,
+        pendingCancellation: true,
+        pausedSubscription: true,
+      },
+    });
   }
 
   async createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
