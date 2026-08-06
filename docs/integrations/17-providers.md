@@ -195,7 +195,7 @@ snapshot and its policy arrays are immutable.
 | Price change timing | immediate | immediate | no | next renewal |
 | Price change proration | next invoice | immediate | no | no |
 | Price change payment failure | apply change | prevent change | no | no |
-| Quantity change | immediate | no | no | no |
+| Quantity change | immediate | immediate | no | no |
 | Preview change | no | no | no | no |
 | Cancel immediately | yes | yes | no | yes |
 | Cancel at period end | yes | yes | no | no |

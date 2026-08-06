@@ -145,6 +145,12 @@ describe('subscription operation capabilities', () => {
           prorationPolicies: ['prorateImmediately'],
           paymentFailurePolicies: ['preventChange'],
         },
+        changeQuantity: {
+          preview: false,
+          effectiveTimings: ['immediate'],
+          prorationPolicies: ['prorateImmediately'],
+          paymentFailurePolicies: ['preventChange'],
+        },
         cancel: { immediately: true, atPeriodEnd: true },
         resume: {
           ...NO_OPERATIONS.resume,
