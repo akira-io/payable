@@ -28,6 +28,61 @@ stripeBinding?.providerCustomerId; // e.g. cus_...
 paddleBinding?.providerCustomerId; // e.g. ctm_...
 ```
 
+## List logical customers
+
+`payable.customers(providerName?, tenantId?).list()` reads Payable's canonical customer storage. It
+does not call a payment provider, inspect provider capabilities, or require provider credentials.
+This differs from provider-native customer endpoints such as
+[Stripe's customer list](https://docs.stripe.com/api/customers/list) and
+[Paddle's customer list](https://developer.paddle.com/api-reference/customers/list-customers/),
+which query customers held by one provider account.
+
+```ts
+const page = await payable.customers(undefined, tenantId).list({
+  limit: 25,
+  email: '@example.com',
+  name: 'ada',
+});
+
+for (const customer of page.items) {
+  customer.id;
+}
+
+const nextPage = page.nextCursor
+  ? await payable.customers(undefined, tenantId).list({
+      limit: 25,
+      cursor: page.nextCursor,
+      email: '@example.com',
+      name: 'ada',
+    })
+  : null;
+```
+
+Pages contain `{ items, nextCursor, hasMore }`. The default limit is 25 and the maximum is 100.
+Ordering is deterministic by creation time and logical customer ID, newest first. Treat
+`nextCursor` as opaque and pass it back unchanged. Newer customers created between requests do not
+shift the continuation boundary. Repeat the same filters on every page request.
+
+Filters use these local semantics:
+
+- `id` is an exact logical customer ID.
+- `billableType` and `billableId` are exact values and may be combined for a billable lookup.
+- `email` and `name` are case-insensitive substring searches.
+- `find(id)` retrieves one logical customer by exact ID. `get(billable)` retrieves one by billable
+  type and ID.
+
+Bindings are excluded by default. Set `includeBindings: true` to add only `provider` and
+`providerCustomerId` for each binding. Provider configuration and credentials are never returned.
+
+```ts
+const pageWithBindings = await payable.customers(undefined, tenantId).list({
+  includeBindings: true,
+});
+```
+
+When tenancy is enabled, pass the tenant ID when constructing the customer resource. Every customer
+filter, cursor page, exact lookup, and binding query stays inside that tenant partition.
+
 ## Migrating from beta3
 
 This changes the public `Customer` shape. Code that read `customer.provider` or

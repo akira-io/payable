@@ -10,8 +10,8 @@ Repositories persist and read the [entities](05-domain-model.md). Each defines a
 
 | Contract | Key methods | Notes |
 | --- | --- | --- |
-| `CustomerRepository` | `create`, `update`, `findById`, `findByBillable` | Persists provider-neutral customers and looks them up by billable identity. |
-| `CustomerProviderBindingRepository` | `create`, `findByCustomerAndProvider`, `findByProviderId` | Maps a logical customer to each registered provider account; provider lookups are tenant-scoped through the owning customer. |
+| `CustomerRepository` | `create`, `update`, `findById`, `findByBillable`, `list` | Persists provider-neutral customers and supports tenant-scoped logical collection queries. |
+| `CustomerProviderBindingRepository` | `create`, `findByCustomerAndProvider`, `findByProviderId`, `listByCustomerIds` | Maps a logical customer to each registered provider account; every lookup is tenant-scoped through the owning customer. |
 | `SubscriptionRepository` | `create`, `update`, `findById`, `findByName`, `findByProviderId`, `listByCustomer`, `list` | List methods accept `ListOptions` (cursor pagination). |
 | `SubscriptionItemRepository` | `create`, `createMany`, `updatePrimary`, `listBySubscription` | `updatePrimary` patches the primary line via `SubscriptionItemPatch`. |
 | `PaymentRepository` | `create`, `update`, `findById`, `findByIdForUpdate`, `findByProviderId`, `listByCustomer`, `list` | `findByIdForUpdate` takes a row lock for safe concurrent refund accounting. |
@@ -73,6 +73,10 @@ export interface CustomerRepository {
     billableId: string,
     tenantId?: string | null,
   ): Promise<Customer | null>;
+  list?(
+    query: CustomerListQuery,
+    tenantId: string | null,
+  ): Promise<CustomerListResult>;
 }
 
 export interface CustomerProviderBindingRepository {
@@ -87,8 +91,23 @@ export interface CustomerProviderBindingRepository {
     providerCustomerId: string,
     tenantId: string | null,
   ): Promise<CustomerProviderBinding | null>;
+  listByCustomerIds?(
+    customerIds: readonly string[],
+    tenantId: string | null,
+  ): Promise<CustomerProviderBinding[]>;
 }
 ```
+
+`CustomerListQuery` combines exact `id`, `billableType`, and `billableId` filters with
+case-insensitive substring `email` and `name` filters. Its cursor is the exclusive
+`(createdAt, id)` boundary decoded by `CustomerResource`. Repositories order both fields descending,
+fetch one row beyond the bounded page, and return `{ items, hasMore }`. `CustomerResource` converts
+that result to the provider-neutral `{ items, nextCursor, hasMore }` contract.
+
+The list methods are optional so existing custom storage drivers remain source-compatible. The
+bundled Knex and Prisma drivers implement both methods. Calling `CustomerResource.list()` against a
+custom driver without collection support returns `CUSTOMER_LIST_UNSUPPORTED`; requesting bindings
+without batch binding support returns `CUSTOMER_BINDING_LIST_UNSUPPORTED`.
 
 ### Catalog repositories
 

@@ -26,7 +26,12 @@ export type {
   CustomerProviderBindingRepository,
   NewCustomerProviderBinding,
 } from './customer-provider-binding-repository.contract';
-export type { CustomerRepository, NewCustomer } from './customer-repository.contract';
+export type {
+  CustomerListQuery,
+  CustomerListResult,
+  CustomerRepository,
+  NewCustomer,
+} from './customer-repository.contract';
 export type { Encryption } from './encryption.contract';
 export type { EventBus, EventListener } from './event-bus.contract';
 export type {
