@@ -1,10 +1,10 @@
 import type { ListOptions } from '../../../domain/contracts/list-options.contract';
 import type { Subscription } from '../../../domain/entities/subscription.entity';
 import type { Billable } from '../../builders/billable';
-import type { BillingDependencies } from '../../builders/billing-dependencies';
+import type { LocalDependencies } from '../../builders/local-dependencies';
 
 export class ListSubscriptionsQuery {
-  constructor(private readonly deps: BillingDependencies) {}
+  constructor(private readonly deps: LocalDependencies) {}
 
   async run(billable: Billable, options?: ListOptions): Promise<Subscription[]> {
     const { storage } = this.deps;

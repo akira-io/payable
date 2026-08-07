@@ -30,8 +30,32 @@ describe('createPayable', () => {
     expect(() => payable.providers().get('paddle')).toThrow(ProviderNotFoundError);
   });
 
-  it('requires at least one provider', () => {
-    expect(() => createPayable({ providers: {} })).toThrow(TypeError);
+  it('allows providers to be omitted', () => {
+    const payable = createPayable({});
+
+    expect(payable.providers().names()).toEqual([]);
+  });
+
+  it('allows an empty provider registry', () => {
+    const payable = createPayable({ providers: {} });
+
+    expect(payable.providers().names()).toEqual([]);
+  });
+
+  it('fails provider-bound access with a coded error when no provider is registered', () => {
+    const payable = createPayable({});
+
+    expect(() => payable.customer({ billableType: 'User', billableId: '1' })).toThrowError(
+      expect.objectContaining({ code: 'PROVIDER_NOT_FOUND' }),
+    );
+  });
+
+  it('reports the missing provider before a missing tenant for provider-bound access', () => {
+    const payable = createPayable({ tenant: { enabled: true } });
+
+    expect(() => payable.customer({ billableType: 'User', billableId: '1' })).toThrowError(
+      expect.objectContaining({ code: 'PROVIDER_NOT_FOUND' }),
+    );
   });
 
   it('rejects an invalid idempotency strategy', () => {

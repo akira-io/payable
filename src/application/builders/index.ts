@@ -19,6 +19,7 @@ export {
   type ListCustomersInput,
 } from './customer-resource';
 export { InvoiceResource } from './invoice-resource';
+export type { LocalDependencies } from './local-dependencies';
 export { LocalSubscriptionResource } from './local-subscription-resource';
 export { PriceResource } from './price-resource';
 export { ProductResource } from './product-resource';

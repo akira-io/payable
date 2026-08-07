@@ -99,10 +99,13 @@ const db = knex({ client: 'pg', connection: process.env.DATABASE_URL });
 await migrate(db); // creates tables and applies additive column migrations; safe to run repeatedly
 
 const payable = createPayable({
-  providers: { stripe: /* … */ },
   storage: new KnexStorageDriver(db),
 });
 ```
+
+This storage-only configuration supports canonical local reads. Register a payment provider for
+checkout, charges, refunds, synchronization, billing portals, and provider webhooks. Provider-bound
+operations fail with code `PROVIDER_NOT_FOUND` when no provider is configured.
 
 On a Prisma stack, use the `@akira-io/payable/prisma` driver instead. Prisma owns the schema and
 migrations: copy the bundled models with the `payable-prisma` CLI, then run your own migration.
@@ -112,7 +115,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaStorageDriver } from '@akira-io/payable/prisma';
 
 const storage = new PrismaStorageDriver(new PrismaClient());
-const payable = createPayable({ providers: { stripe: /* … */ }, storage });
+const payable = createPayable({ storage });
 ```
 
 ```sh

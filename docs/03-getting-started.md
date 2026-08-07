@@ -33,8 +33,22 @@ All optional peers are marked optional, so package managers do not require them 
 
 ## Minimal example
 
-`createPayable` requires at least one payment provider; `resolveConfig` throws
-`TypeError('Payable requires at least one payment provider')` if `providers` is empty.
+`createPayable` can run without a payment provider. This storage-only mode supports canonical local
+reads while provider-bound operations remain unavailable.
+
+```ts
+import { createPayable, KnexStorageDriver } from '@akira-io/payable';
+
+const payable = createPayable({
+  storage: new KnexStorageDriver(db),
+});
+
+const subscriptions = await payable.subscriptions();
+const payments = await payable.payments();
+```
+
+Register a provider when the application needs checkout, charges, refunds, provider sync, billing
+portals, or provider webhooks:
 
 ```ts
 import { createPayable, Money, StripeProvider } from '@akira-io/payable';
@@ -55,6 +69,10 @@ With only providers supplied, the resolved defaults are: `SyncQueueDriver` for t
 `SystemClock` for the clock, `NullLogger` for the logger, `InMemoryEventBus` for events, and
 idempotency `enabled: true` with strategy `auto`. Storage and encryption remain undefined, which
 disables features that require them (see [04-configuration.md](04-configuration.md)).
+
+When no provider is registered, a provider-bound operation throws `ProviderNotFoundError` with code
+`PROVIDER_NOT_FOUND` before it calls storage or an external API. Payable does not install or infer a
+mock provider.
 
 ## Full example with storage, queue, and events
 

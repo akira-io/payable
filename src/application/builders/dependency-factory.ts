@@ -7,6 +7,7 @@ import { IdempotencyService } from '../services/idempotency/idempotency-service'
 import { SubscriptionChangePreviewStore } from '../services/subscriptions/subscription-change-preview-store';
 import type { BillingDependencies } from './billing-dependencies';
 import { CustomerResource } from './customer-resource';
+import type { LocalDependencies } from './local-dependencies';
 import { LocalSubscriptionResource } from './local-subscription-resource';
 import type { TreasuryWebhookDependencies } from './treasury-webhook-dependencies';
 import type { WebhookDependencies } from './webhook-dependencies';
@@ -18,19 +19,13 @@ export class DependencyFactory {
     private readonly treasuryRegistry: TreasuryProviderRegistry,
   ) {}
 
-  billing(providerName?: string, tenantId?: string | null): BillingDependencies {
-    const name = providerName ?? this.registry.names()[0];
-    if (!name) {
-      throw new ProviderNotFoundError(providerName ?? 'default');
-    }
+  local(tenantId?: string | null): LocalDependencies {
     this.assertTenant(tenantId);
     const configuredIdempotency = this.configuredIdempotencyService();
     const subscriptionChangePreviews = this.resolved.idempotency.store
       ? new SubscriptionChangePreviewStore(this.resolved.idempotency.store, this.resolved.clock)
       : undefined;
     return {
-      provider: this.registry.get(name),
-      providerName: name,
       clock: this.resolved.clock,
       storage: this.resolved.storage,
       tenantId: tenantId ?? null,
@@ -40,15 +35,31 @@ export class DependencyFactory {
       catalogIdempotency: configuredIdempotency,
       subscriptionChangeIdempotency: configuredIdempotency,
       subscriptionChangePreviews,
+      audit: this.resolved.storage?.auditLogs,
+      events: this.resolved.events,
       logger: this.resolved.logger,
     };
   }
 
+  billing(providerName?: string, tenantId?: string | null): BillingDependencies {
+    const name = providerName ?? this.registry.names()[0];
+    if (!name) {
+      throw new ProviderNotFoundError(providerName ?? 'default');
+    }
+    const provider = this.registry.get(name);
+    const local = this.local(tenantId);
+    return {
+      ...local,
+      provider,
+      providerName: name,
+    };
+  }
+
   customerResource(providerName?: string, tenantId?: string | null): CustomerResource {
-    this.assertTenant(tenantId);
+    const local = this.local(tenantId);
     return new CustomerResource({
-      storage: this.resolved.storage,
-      tenantId: tenantId ?? null,
+      storage: local.storage,
+      tenantId: local.tenantId ?? null,
       resolveBillingDependencies: () => this.billing(providerName, tenantId),
     });
   }

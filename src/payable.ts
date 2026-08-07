@@ -223,7 +223,7 @@ export class Payable extends ProviderRegistries {
   }
 
   subscriptions(tenantId?: string | null, options?: ListOptions): Promise<Subscription[]> {
-    return new ListAllSubscriptionsQuery(this.factory.billing(undefined, tenantId)).run(options);
+    return new ListAllSubscriptionsQuery(this.factory.local(tenantId)).run(options);
   }
 
   subscription(localId: string, tenantId?: string | null): LocalSubscriptionResource {
@@ -231,7 +231,7 @@ export class Payable extends ProviderRegistries {
   }
 
   payments(tenantId?: string | null, options?: ListOptions): Promise<Payment[]> {
-    return new ListAllPaymentsQuery(this.factory.billing(undefined, tenantId)).run(options);
+    return new ListAllPaymentsQuery(this.factory.local(tenantId)).run(options);
   }
 
   audit(tenantId?: string | null): AuditResource {
