@@ -124,6 +124,37 @@ The local ID is the administrative identity. Treat provider subscription IDs as 
 The existing `payable.customer(billable, provider, tenantId).subscription(name)` API remains
 available for billable-scoped application flows.
 
+### Identity boundaries
+
+A provider-neutral customer is the tenant-scoped logical identity stored by Payable. One logical
+customer can have bindings to multiple providers without creating duplicate local customers. A
+subscription belongs to that logical customer and keeps three identity layers separate:
+
+- The local subscription ID is the portable, tenant-scoped identifier used by application code.
+- The provider subscription ID identifies the remote subscription handled by an adapter.
+- The provider subscription-item ID identifies one remote line item when a provider requires it.
+
+Provider identifiers are not portable across adapters. Tenant filtering applies before a local ID
+is resolved, so a caller cannot use an ID from another tenant to discover whether it exists. That
+lookup returns `SUBSCRIPTION_NOT_FOUND`.
+
+### Historical prices and explicit migration
+
+Archiving a catalog price prevents new selection; it does not rewrite an existing subscription.
+Each subscriber remains attached to the historical price recorded on its subscription until an
+explicit successful migration changes the relevant item. Creating a replacement price or marking it
+as the catalog default also leaves existing subscriptions unchanged.
+
+Use `previewChange()` and `applyChange()` when the subscriber must approve the amount, effective
+date, or proration before migration. A direct `swap()` is also explicit, but should be reserved for
+flows where a separate approval preview is unnecessary. In both cases, local state changes only
+after the provider confirms the mutation. `SUBSCRIPTION_CHANGE_PREVIEW_STALE` protects the preview
+flow when the current item set changes between preview and apply.
+
+A next-renewal migration keeps the historical price in the current local items until the provider
+applies the scheduled change. A later provider webhook or reconciliation updates the effective
+items. An audit entry may record the proposed price, but it is not the current price before then.
+
 ### Preview and apply a change
 
 Use the two-step flow when a customer must approve the monetary result before a change is applied.
@@ -216,6 +247,15 @@ The old shorthand calls `swap(priceId)` and `updateQuantity(quantity)` no longer
 policies implicitly. They fail with `SUBSCRIPTION_CHANGE_POLICY_REQUIRED`. Replace them with the
 options forms shown above. This makes billing timing and payment-failure behavior reviewable in code
 and prevents a provider default from changing application behavior.
+
+Older integrations may expose only the coarse `subscriptions` capability. Keep that check for
+compatibility, but use `subscriptionOperationCapabilities(providerName)` to decide which controls and
+policies an application can offer. The granular descriptor is the authoritative contract for each
+operation.
+
+Legacy subscription-item rows may exist where the provider item ID is null. They remain readable,
+but an exact mutation that requires a stable remote item mapping must fail until an unambiguous
+provider webhook snapshot backfills the identifier. Payable never guesses the first provider item.
 
 Provider references used by the built-in mappings:
 

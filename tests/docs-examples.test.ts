@@ -257,4 +257,20 @@ describe('documentation examples stay executable', () => {
     expect(paddleBinding?.providerCustomerId).toBe('ctm_paddle');
     await db.destroy();
   });
+
+  it('links the advanced subscription operations example from the index and adjacent guides', () => {
+    const index = readFileSync('docs/00-index.md', 'utf8');
+    const subscriptions = readFileSync('docs/examples/37-subscriptions.md', 'utf8');
+    const customAudit = readFileSync('docs/examples/46-custom-domain-audit.md', 'utf8');
+    const advancedOperations = readFileSync('docs/examples/47-subscription-operations.md', 'utf8');
+
+    expect(index).toContain('examples/47-subscription-operations.md');
+    expect(subscriptions).toContain('(47-subscription-operations.md)');
+    expect(customAudit).toContain(
+      '[Next: Advanced Subscription Operations](47-subscription-operations.md)',
+    );
+    expect(advancedOperations).toContain(
+      '[Previous: Custom Domain Audit](46-custom-domain-audit.md)',
+    );
+  });
 });

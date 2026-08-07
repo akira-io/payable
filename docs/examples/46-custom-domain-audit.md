@@ -141,3 +141,7 @@ and authorize the host operation before invoking `record()`.
 
 Do not record secrets, provider credentials, payment instrument data, or unrestricted request bodies.
 Store only the minimal before/after state and metadata needed to explain the domain transition.
+
+---
+
+[Previous: Catalog Lifecycle](45-catalog-lifecycle.md) | [Index](../00-index.md) | [Next: Advanced Subscription Operations](47-subscription-operations.md)

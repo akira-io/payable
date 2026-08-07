@@ -150,6 +150,8 @@ public preview and is intentionally outside this stable adapter contract.
 
 Official Stripe subscription references:
 
+- [Preview an invoice](https://docs.stripe.com/api/invoices/create_preview)
+- [Update a subscription](https://docs.stripe.com/api/subscriptions/update)
 - [Pause payment collection](https://docs.stripe.com/billing/subscriptions/pause-payment)
 - [Pause a subscription in public preview](https://docs.stripe.com/billing/subscriptions/pause)
 

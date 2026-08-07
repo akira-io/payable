@@ -1,9 +1,10 @@
-# SISP (Cabo Verde / vinti4)
+# SISP (Cabo Verde · vinti4)
 
 SISP (Sistema de Pagamentos de Cabo Verde) is the Cabo Verde national payment gateway, also known as
-**vinti4**. It is fundamentally different from Stripe and Paddle: there is no customers API, no
-product/price catalog, no subscriptions, no billing portal, and no asynchronous signed webhook. A
-payment is a one-time, browser-driven, hosted 3D Secure flow:
+**vinti4**. The current Payable adapter implements the browser-driven hosted payment contract shown
+in the official [vinti4 technical example](https://www.vinti4.cv/documentation.aspx?id=585). It does
+not declare customer, catalog, subscription, billing-portal, or asynchronous-webhook capabilities.
+A payment uses this flow:
 
 1. The merchant builds a SHA-512-signed HTML form and the **browser auto-POSTs** it to the vinti4
    hosted page (`https://mc.vinti4net.cv/Client_VbV_v2/biz_vbv_clientdata.jsp`).

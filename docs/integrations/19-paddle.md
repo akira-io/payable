@@ -94,6 +94,8 @@ and resume requests never clear a scheduled change implicitly.
 
 Official Paddle subscription references:
 
+- [Preview a subscription update](https://developer.paddle.com/api-reference/subscriptions/preview-subscription-update/)
+- [Subscription proration](https://developer.paddle.com/concepts/subscriptions/proration/)
 - [Pause a subscription](https://developer.paddle.com/api-reference/subscriptions/pause-subscription/)
 - [Resume a paused subscription](https://developer.paddle.com/api-reference/subscriptions/resume-subscription/)
 - [Update a subscription](https://developer.paddle.com/api-reference/subscriptions/update-subscription/)

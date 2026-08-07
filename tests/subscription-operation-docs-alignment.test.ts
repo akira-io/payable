@@ -22,6 +22,19 @@ const providers = {
   Revolut: new RevolutProvider({ secretKey: 'revolut-key', webhookSecret: 'revolut-webhook' }),
 } satisfies Record<string, PaymentProvider>;
 
+const providerDocumentationSources = {
+  'docs/integrations/18-stripe.md': [
+    'https://docs.stripe.com/api/invoices/create_preview',
+    'https://docs.stripe.com/api/subscriptions/update',
+  ],
+  'docs/integrations/19-paddle.md': [
+    'https://developer.paddle.com/api-reference/subscriptions/preview-subscription-update/',
+    'https://developer.paddle.com/concepts/subscriptions/proration/',
+  ],
+  'docs/integrations/20-sisp.md': ['https://www.vinti4.cv/documentation.aspx?id=585'],
+  'docs/integrations/21-revolut.md': ['https://developer.revolut.com/docs/api/merchant'],
+} as const;
+
 const timingLabels: Record<SubscriptionEffectiveTiming, string> = {
   immediate: 'immediate',
   nextRenewal: 'next renewal',
@@ -148,6 +161,16 @@ describe('subscription operation documentation', () => {
       );
       for (const [label, ...cells] of rows) {
         expect(cells[index], `${label} on ${name}`).toBe(expectedOperations[label ?? '']);
+      }
+    }
+  });
+
+  it('links provider-specific claims to official documentation', () => {
+    for (const [path, sources] of Object.entries(providerDocumentationSources)) {
+      const documentation = readFileSync(path, 'utf8');
+
+      for (const source of sources) {
+        expect(documentation, `${path} must link ${source}`).toContain(source);
       }
     }
   });
