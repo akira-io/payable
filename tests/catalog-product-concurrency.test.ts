@@ -48,8 +48,8 @@ describe('product mutation concurrency', () => {
     const update = { providerProductId: 'prod_fake', name: 'Concurrent target' };
 
     await Promise.all([
-      payable.products('registered', 'tenant-a').update(update),
-      payable.products('registered', 'tenant-a').update(update),
+      payable.providerCatalog('registered', 'tenant-a').products.update(update),
+      payable.providerCatalog('registered', 'tenant-a').products.update(update),
     ]);
 
     await expectOneTransition();
@@ -63,11 +63,11 @@ describe('product mutation concurrency', () => {
 
     const outcomes = await Promise.allSettled([
       payable
-        .products('registered', 'tenant-a')
-        .update({ providerProductId: 'prod_fake', name: 'Target A' }),
+        .providerCatalog('registered', 'tenant-a')
+        .products.update({ providerProductId: 'prod_fake', name: 'Target A' }),
       payable
-        .products('registered', 'tenant-a')
-        .update({ providerProductId: 'prod_fake', name: 'Target B' }),
+        .providerCatalog('registered', 'tenant-a')
+        .products.update({ providerProductId: 'prod_fake', name: 'Target B' }),
     ]);
 
     expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(1);

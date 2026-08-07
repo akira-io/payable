@@ -37,7 +37,7 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const query = parseBody(catalogListQuerySchema, req.query);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      res.status(200).json(await payable.products(undefined, tenantId).list(query));
+      res.status(200).json(await payable.providerCatalog(undefined, tenantId).products.list(query));
     }),
   );
 
@@ -46,7 +46,9 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const { id } = parseBody(catalogIdParamSchema, req.params);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      res.status(200).json(await payable.products(undefined, tenantId).retrieve(id));
+      res
+        .status(200)
+        .json(await payable.providerCatalog(undefined, tenantId).products.retrieve(id));
     }),
   );
 
@@ -59,8 +61,8 @@ export function registerCatalogRoutes(
         .status(200)
         .json(
           await payable
-            .products(undefined, tenantId)
-            .activate(id, mutationOptionsFor(req, options)),
+            .providerCatalog(undefined, tenantId)
+            .products.activate(id, mutationOptionsFor(req, options)),
         );
     }),
   );
@@ -73,7 +75,9 @@ export function registerCatalogRoutes(
       res
         .status(200)
         .json(
-          await payable.products(undefined, tenantId).archive(id, mutationOptionsFor(req, options)),
+          await payable
+            .providerCatalog(undefined, tenantId)
+            .products.archive(id, mutationOptionsFor(req, options)),
         );
     }),
   );
@@ -85,8 +89,8 @@ export function registerCatalogRoutes(
       const body = parseBody(productBodySchema, req.body);
       const tenantId = options.resolveTenant?.(req) ?? null;
       const product = await payable
-        .products(undefined, tenantId)
-        .create(body, mutationOptionsFor(req, options));
+        .providerCatalog(undefined, tenantId)
+        .products.create(body, mutationOptionsFor(req, options));
       res.status(201).json(product);
     }),
   );
@@ -98,8 +102,8 @@ export function registerCatalogRoutes(
       const body = parseBody(productUpdateBodySchema, req.body);
       const tenantId = options.resolveTenant?.(req) ?? null;
       const product = await payable
-        .products(undefined, tenantId)
-        .update(body, mutationOptionsFor(req, options));
+        .providerCatalog(undefined, tenantId)
+        .products.update(body, mutationOptionsFor(req, options));
       res.status(200).json(product);
     }),
   );
@@ -110,7 +114,7 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const body = parseBody(priceBodySchema, req.body);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      const price = await payable.prices(undefined, tenantId).create(
+      const price = await payable.providerCatalog(undefined, tenantId).prices.create(
         {
           providerProductId: body.providerProductId,
           unitAmount: parseMoneyInput(body.amount),
@@ -129,7 +133,7 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const query = parseBody(priceListQuerySchema, req.query);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      res.status(200).json(await payable.prices(undefined, tenantId).list(query));
+      res.status(200).json(await payable.providerCatalog(undefined, tenantId).prices.list(query));
     }),
   );
 
@@ -138,7 +142,7 @@ export function registerCatalogRoutes(
     asyncHandler(async (req, res) => {
       const { id } = parseBody(catalogIdParamSchema, req.params);
       const tenantId = options.resolveTenant?.(req) ?? null;
-      res.status(200).json(await payable.prices(undefined, tenantId).retrieve(id));
+      res.status(200).json(await payable.providerCatalog(undefined, tenantId).prices.retrieve(id));
     }),
   );
 
@@ -150,7 +154,9 @@ export function registerCatalogRoutes(
       res
         .status(200)
         .json(
-          await payable.prices(undefined, tenantId).activate(id, mutationOptionsFor(req, options)),
+          await payable
+            .providerCatalog(undefined, tenantId)
+            .prices.activate(id, mutationOptionsFor(req, options)),
         );
     }),
   );
@@ -163,7 +169,9 @@ export function registerCatalogRoutes(
       res
         .status(200)
         .json(
-          await payable.prices(undefined, tenantId).archive(id, mutationOptionsFor(req, options)),
+          await payable
+            .providerCatalog(undefined, tenantId)
+            .prices.archive(id, mutationOptionsFor(req, options)),
         );
     }),
   );

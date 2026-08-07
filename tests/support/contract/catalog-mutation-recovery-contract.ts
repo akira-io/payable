@@ -17,7 +17,7 @@ export function registerCatalogMutationRecoveryContract(context: ContractContext
       providers: { registered: new FakeProvider() },
       storage: withLostTransactionAcknowledgement(storage, lostAcknowledgement),
       clock,
-    }).products('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').products;
 
     await expect(products.create({ name: 'Pro' })).resolves.toMatchObject({
       providerProductId: 'prod_fake',
@@ -50,7 +50,7 @@ export function registerCatalogMutationRecoveryContract(context: ContractContext
       providers: { registered: new FakeProvider() },
       storage: concurrentStorage,
       clock,
-    }).products('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').products;
 
     await expect(products.create({ name: 'Pro' })).resolves.toMatchObject({
       providerProductId: 'prod_fake',
@@ -80,7 +80,7 @@ export function registerCatalogMutationRecoveryContract(context: ContractContext
       providers: { registered: new FakeProvider() },
       storage: withProductCasLoss(storage, reads, { ...durable, name: 'Stale state' }),
       clock,
-    }).products('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').products;
 
     await expect(
       products.update({ providerProductId: 'prod_fake', name: 'Converged target' }),
@@ -107,7 +107,7 @@ export function registerCatalogMutationRecoveryContract(context: ContractContext
       providers: { registered: new FakeProvider() },
       storage: withProductCasLoss(storage, reads),
       clock,
-    }).products('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').products;
 
     const failure = products
       .update({ providerProductId: 'prod_fake', name: 'Divergent target' })

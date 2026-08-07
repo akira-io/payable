@@ -140,25 +140,27 @@ export class PayableReadController {
   @Get('products')
   listProducts(@Req() request: PayableHttpRequest, @Query() query: unknown) {
     const input = parseBody(catalogListQuerySchema, query);
-    return this.payable.products(undefined, this.tenantOf(request)).list(input);
+    return this.payable.providerCatalog(undefined, this.tenantOf(request)).products.list(input);
   }
 
   @Get('products/:id')
   getProduct(@Req() request: PayableHttpRequest, @Param('id') id: string) {
     const productId = parseBody(catalogIdParamSchema, { id }).id;
-    return this.payable.products(undefined, this.tenantOf(request)).retrieve(productId);
+    return this.payable
+      .providerCatalog(undefined, this.tenantOf(request))
+      .products.retrieve(productId);
   }
 
   @Get('prices')
   listPrices(@Req() request: PayableHttpRequest, @Query() query: unknown) {
     const input = parseBody(priceListQuerySchema, query);
-    return this.payable.prices(undefined, this.tenantOf(request)).list(input);
+    return this.payable.providerCatalog(undefined, this.tenantOf(request)).prices.list(input);
   }
 
   @Get('prices/:id')
   getPrice(@Req() request: PayableHttpRequest, @Param('id') id: string) {
     const priceId = parseBody(catalogIdParamSchema, { id }).id;
-    return this.payable.prices(undefined, this.tenantOf(request)).retrieve(priceId);
+    return this.payable.providerCatalog(undefined, this.tenantOf(request)).prices.retrieve(priceId);
   }
 
   private tenantOf(request: PayableHttpRequest): string | null {

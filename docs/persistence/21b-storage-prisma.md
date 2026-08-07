@@ -71,9 +71,9 @@ model PayablePayment {
 }
 ```
 
-See `prisma/schema.prisma` for the full set of fifteen models (customers, products, prices,
-subscriptions, subscription items, invoices, payments, refunds, webhook events, webhook endpoints,
-webhook endpoint events, webhook deliveries, audit logs, outbox events, idempotency keys).
+See `prisma/schema.prisma` for the full model set. It includes canonical products, canonical prices,
+product-provider bindings, and price-provider bindings alongside the legacy provider-first catalog and
+the remaining billing, webhook, audit, outbox, and idempotency models.
 
 ## Automated schema sync
 
@@ -114,6 +114,15 @@ bunx prisma migrate deploy   # production
 Because the physical schema matches the Knex migrations, an existing Payable database created with the
 Knex `migrate()` is compatible with the Prisma models (introspect with `prisma db pull` if you adopt
 Prisma on top of an existing Payable install).
+
+### Canonical local catalog migration
+
+The four canonical catalog models are additive. Generate a Prisma migration that creates
+`payable_canonical_products`, `payable_canonical_prices`,
+`payable_product_provider_bindings`, and `payable_price_provider_bindings`. Keep the composite
+tenant-key foreign keys and unique constraints emitted by the reference schema. Do not copy legacy
+provider catalog rows into these tables in this migration; legacy backfill and contract changes are a
+separate migration stage.
 
 ### Catalog tenant-key migration
 

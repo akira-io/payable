@@ -82,8 +82,6 @@ export {
   type ListWebhookEventsInput,
   type LocalDependencies,
   LocalSubscriptionResource,
-  PriceResource,
-  ProductResource,
   RedirectCheckoutBuilder,
   type RedirectCheckoutRequest,
   RefundResource,
@@ -135,6 +133,7 @@ export {
   type WebhookDeliveryOptions,
   WebhookDeliveryService,
 } from './application/services/webhook-delivery/webhook-delivery-service';
+export * from './catalog';
 export { createPayable } from './create-payable';
 export * from './domain/contracts';
 export * from './domain/dtos';

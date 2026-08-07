@@ -73,7 +73,7 @@ describe('price mutation persistence', () => {
     const productId = await seedLocalProduct();
     const payable = payableWithStorage();
 
-    const price = await payable.prices('registered', 'tenant-a').create(
+    const price = await payable.providerCatalog('registered', 'tenant-a').prices.create(
       {
         providerProductId: 'prod_fake',
         unitAmount: Money.of(12900, 'USD'),
@@ -154,7 +154,7 @@ describe('price mutation persistence', () => {
     const payable = payableWithStorage();
 
     await expect(
-      payable.prices('registered', 'tenant-a').create({
+      payable.providerCatalog('registered', 'tenant-a').prices.create({
         providerProductId: 'prod_missing',
         unitAmount: Money.of(12900, 'USD'),
       }),
@@ -169,7 +169,7 @@ describe('price mutation persistence', () => {
   it('persists archive and activate states with matching transitions', async () => {
     await seedLocalProduct();
     const payable = payableWithStorage();
-    const prices = payable.prices('registered', 'tenant-a');
+    const prices = payable.providerCatalog('registered', 'tenant-a').prices;
     await prices.create({ providerProductId: 'prod_fake', unitAmount: Money.of(12900, 'USD') });
 
     await prices.archive('price_fake');
@@ -195,7 +195,9 @@ describe('price mutation persistence', () => {
     const productId = await seedLocalProduct();
     const payable = payableWithStorage();
 
-    const restored = await payable.prices('registered', 'tenant-a').archive('price_fake');
+    const restored = await payable
+      .providerCatalog('registered', 'tenant-a')
+      .prices.archive('price_fake');
 
     expect(restored.active).toBe(false);
     await expect(
@@ -206,7 +208,7 @@ describe('price mutation persistence', () => {
 
   it('does not duplicate transitions for identical provider state', async () => {
     await seedLocalProduct();
-    const prices = payableWithStorage().prices('registered', 'tenant-a');
+    const prices = payableWithStorage().providerCatalog('registered', 'tenant-a').prices;
     const input = { providerProductId: 'prod_fake', unitAmount: Money.of(12900, 'USD') };
 
     await prices.create(input);
@@ -222,7 +224,7 @@ describe('price mutation persistence', () => {
     const payable = payableWithStorage();
 
     await expect(
-      payable.prices('registered', 'tenant-a').create({
+      payable.providerCatalog('registered', 'tenant-a').prices.create({
         providerProductId: 'prod_fake',
         unitAmount: Money.of(12900, 'USD'),
       }),
@@ -235,7 +237,7 @@ describe('price mutation persistence', () => {
 
   it('keeps all price mutations provider-only without storage', async () => {
     const payable = createPayable({ providers: { registered: provider } });
-    const prices = payable.prices('registered', 'tenant-a');
+    const prices = payable.providerCatalog('registered', 'tenant-a').prices;
 
     const created = await prices.create({
       providerProductId: 'prod_missing',

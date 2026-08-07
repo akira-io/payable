@@ -1,0 +1,41 @@
+import { describe, expect, it } from 'vitest';
+import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
+import { createTestDb } from './support/knex';
+
+const APPLIED_BEFORE_CANONICAL_CATALOG = [
+  '001-billing-tables',
+  '002-system-tables',
+  '003-alter-existing-tables',
+  '004-widen-endpoint-secret',
+  '005-webhook-occurred-at',
+  '006-subscription-provider-synced-at',
+  '007-post-ledger-schema-convergence',
+  '008-customer-provider-bindings',
+  '009-catalog-tenant-keys',
+  '010-subscription-lifecycle-metadata',
+] as const;
+
+describe('canonical catalog migration', () => {
+  it('adds canonical tables to a database with all earlier ledger steps applied', async () => {
+    const database = createTestDb();
+    await database.schema.createTable('payable_migrations', (table) => {
+      table.string('name').primary();
+      table.timestamp('applied_at').notNullable();
+    });
+    await database('payable_migrations').insert(
+      APPLIED_BEFORE_CANONICAL_CATALOG.map((name) => ({
+        name,
+        applied_at: new Date('2026-08-07T00:00:00.000Z').toISOString(),
+      })),
+    );
+
+    await migrate(database);
+
+    await expect(database.schema.hasTable('payable_canonical_products')).resolves.toBe(true);
+    await expect(database.schema.hasTable('payable_canonical_prices')).resolves.toBe(true);
+    await expect(database.schema.hasTable('payable_product_provider_bindings')).resolves.toBe(true);
+    await expect(database.schema.hasTable('payable_price_provider_bindings')).resolves.toBe(true);
+
+    await database.destroy();
+  });
+});

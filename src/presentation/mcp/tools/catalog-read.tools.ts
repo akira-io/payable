@@ -29,8 +29,8 @@ export function registerCatalogReadTools(
       (args) =>
         respond(() =>
           payable
-            .products(providerFrom(args, options), tenantFrom(args, options))
-            .retrieve(args.id),
+            .providerCatalog(providerFrom(args, options), tenantFrom(args, options))
+            .products.retrieve(args.id),
         ),
     );
   }
@@ -44,11 +44,13 @@ export function registerCatalogReadTools(
       },
       (args) =>
         respond(() =>
-          payable.products(providerFrom(args, options), tenantFrom(args, options)).list({
-            limit: args.limit,
-            cursor: args.cursor,
-            active: args.active,
-          }),
+          payable
+            .providerCatalog(providerFrom(args, options), tenantFrom(args, options))
+            .products.list({
+              limit: args.limit,
+              cursor: args.cursor,
+              active: args.active,
+            }),
         ),
     );
   }
@@ -62,7 +64,9 @@ export function registerCatalogReadTools(
       },
       (args) =>
         respond(() =>
-          payable.prices(providerFrom(args, options), tenantFrom(args, options)).retrieve(args.id),
+          payable
+            .providerCatalog(providerFrom(args, options), tenantFrom(args, options))
+            .prices.retrieve(args.id),
         ),
     );
   }
@@ -81,12 +85,14 @@ export function registerCatalogReadTools(
       },
       (args) =>
         respond(() =>
-          payable.prices(providerFrom(args, options), tenantFrom(args, options)).list({
-            limit: args.limit,
-            cursor: args.cursor,
-            active: args.active,
-            providerProductId: args.providerProductId,
-          }),
+          payable
+            .providerCatalog(providerFrom(args, options), tenantFrom(args, options))
+            .prices.list({
+              limit: args.limit,
+              cursor: args.cursor,
+              active: args.active,
+              providerProductId: args.providerProductId,
+            }),
         ),
     );
   }

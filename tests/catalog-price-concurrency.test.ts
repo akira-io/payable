@@ -72,7 +72,7 @@ describe('price mutation concurrency', () => {
   }
 
   it('emits one transition when concurrent lifecycle responses converge', async () => {
-    const prices = payableForConcurrentReads().prices('registered', 'tenant-a');
+    const prices = payableForConcurrentReads().providerCatalog('registered', 'tenant-a').prices;
 
     await Promise.all([prices.archive('price_fake'), prices.archive('price_fake')]);
 
@@ -83,10 +83,10 @@ describe('price mutation concurrency', () => {
   });
 
   it('rejects a divergent loser without emitting a stale transition', async () => {
-    const prices = payableForConcurrentReads(new DivergentPriceProvider()).prices(
+    const prices = payableForConcurrentReads(new DivergentPriceProvider()).providerCatalog(
       'registered',
       'tenant-a',
-    );
+    ).prices;
 
     const outcomes = await Promise.allSettled([
       prices.activate('price_fake'),

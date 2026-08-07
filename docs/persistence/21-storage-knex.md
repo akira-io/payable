@@ -25,6 +25,10 @@ Source: `src/domain/contracts/storage-driver.contract.ts`.
 
 ```ts
 export interface Repositories {
+  readonly canonicalProducts?: CanonicalProductRepository;
+  readonly canonicalPrices?: CanonicalPriceRepository;
+  readonly productProviderBindings?: ProductProviderBindingRepository;
+  readonly priceProviderBindings?: PriceProviderBindingRepository;
   readonly customers: CustomerRepository;
   readonly products: ProductRepository;
   readonly prices: PriceRepository;
@@ -43,8 +47,10 @@ export interface StorageDriver extends Repositories {
 }
 ```
 
-A `StorageDriver` is the eleven aggregate repositories plus a `transaction` method that runs a unit of
-work with a transactional copy of those same repositories.
+A `StorageDriver` exposes aggregate repositories plus a `transaction` method that runs a unit of work
+with a transactional copy of those same repositories. Canonical catalog repositories are optional for
+third-party driver compatibility; `products()` and `prices()` return a storage-required error when a
+driver does not implement them.
 
 ## `KnexStorageDriver`
 
@@ -118,6 +124,21 @@ aggregates.
 | `payable_payments` | `customer_id`, `provider`, `provider_payment_id`, `status`, `currency`, `amount`, `refunded_amount`, `reference` | unique `(provider, provider_payment_id)`; index `customer_id` |
 | `payable_refunds` | `payment_id`, `provider`, `provider_refund_id`, `status`, `currency`, `amount`, `reason` | unique `(provider, provider_refund_id)`; index `payment_id` |
 
+### Canonical local catalog schema
+
+Source: `src/infrastructure/storage/knex/migrations/canonical-catalog-schema.ts`. Migration step
+`011-canonical-local-catalog` creates these tables without changing legacy provider-first rows.
+
+| Table | Purpose | Notable constraints |
+| --- | --- | --- |
+| `payable_canonical_products` | Provider-neutral products with stable local IDs | tenant-key consistency; deterministic tenant pagination index |
+| `payable_canonical_prices` | Immutable local billing terms and mutable lifecycle state | same-tenant product foreign key; tenant-scoped lookup-key uniqueness; deterministic product pagination index |
+| `payable_product_provider_bindings` | Product identity for one registered provider account | same-tenant product foreign key; one binding per product and provider account; unique remote product ID per tenant and account |
+| `payable_price_provider_bindings` | Price identity for one registered provider account | same-tenant price foreign key; one binding per price and provider account; unique remote price ID per tenant and account |
+
+Local CRUD writes only canonical tables. Provider synchronization creates or updates bindings in a
+separate operation.
+
 #### Referential integrity
 
 The split between hard foreign keys and plain indexed columns is deliberate, not an oversight:
@@ -164,6 +185,10 @@ export async function migrate(knex: Knex): Promise<void> {
       addCustomerProviderBindings(knex),
     );
     await runStep(knex, '009-catalog-tenant-keys', () => addCatalogTenantKeys(knex));
+    await runStep(knex, '010-subscription-lifecycle-metadata', () =>
+      addSubscriptionLifecycleMetadata(knex),
+    );
+    await runStep(knex, '011-canonical-local-catalog', () => addCanonicalCatalogTables(knex));
   });
 }
 ```
@@ -178,7 +203,7 @@ All steps run inside `withMigrationLock`, which serializes concurrent migrators:
 Each step is recorded through a migration ledger via `runStep`, so a completed step is skipped on a
 re-run. The first four steps establish the original schema; steps `005` through `007` add webhook
 timestamps, subscription sync timestamps, and post-ledger convergence. The customer identity
-migration is step `008`:
+migration is step `008`. Step `011` adds the canonical catalog without rewriting legacy rows:
 
 1. **Create billing tables** (`001-billing-tables`) - each via `createIfMissing`
    (`create-if-missing.ts`), which checks `knex.schema.hasTable(name)` and only creates the table
@@ -207,6 +232,9 @@ migration is step `008`:
   index; then remove the legacy global index.
   The product index is `payable_products_tenant_provider_product_unique`. The price index is
   `payable_prices_tenant_provider_price_unique`.
+- **Canonical local catalog** (`011-canonical-local-catalog`) - creates provider-neutral product and
+  price tables plus their provider-binding tables. The step is additive and safe for databases whose
+  earlier ledger entries are already applied.
 
 Step `009-catalog-tenant-keys` is fail-closed. The mismatch-driven batches revisit rows inserted below
 an earlier batch boundary. The consistency check validates existing rows when it is added and rejects
@@ -230,7 +258,8 @@ await migrate(db);
 ## Repositories
 
 There is one Knex repository per aggregate, under
-`src/infrastructure/storage/knex/repositories/`: `knex-customer`, `knex-product`, `knex-price`,
+`src/infrastructure/storage/knex/repositories/`: canonical product, canonical price, both canonical
+provider-binding repositories, `knex-customer`, legacy `knex-product`, legacy `knex-price`,
 `knex-subscription`, `knex-subscription-item`, `knex-invoice`, `knex-payment`, `knex-refund`,
 `knex-webhook-event`, `knex-audit-log`, `knex-outbox-event`, plus `knex-idempotency`.
 

@@ -171,8 +171,7 @@ describe('mcp catalog tools', () => {
     },
   ])('$name through catalog tools', async ({ options, tenantId, expectedTenantId }) => {
     const { client, payable } = await connect(options);
-    const productsResource = vi.spyOn(payable, 'products');
-    const pricesResource = vi.spyOn(payable, 'prices');
+    const providerCatalog = vi.spyOn(payable, 'providerCatalog');
     const tenantArgument = tenantId === undefined ? {} : { tenantId };
 
     const product = (await client.callTool({
@@ -184,8 +183,9 @@ describe('mcp catalog tools', () => {
       arguments: { provider: 'paddle', id: 'price_fake', ...tenantArgument },
     })) as CallToolResult;
 
-    expect(productsResource).toHaveBeenCalledWith('paddle', expectedTenantId);
-    expect(pricesResource).toHaveBeenCalledWith('paddle', expectedTenantId);
+    expect(providerCatalog).toHaveBeenCalledTimes(2);
+    expect(providerCatalog).toHaveBeenNthCalledWith(1, 'paddle', expectedTenantId);
+    expect(providerCatalog).toHaveBeenNthCalledWith(2, 'paddle', expectedTenantId);
     if (expectedTenantId === undefined) {
       expect(parse(product)).toMatchObject({ error: 'TENANT_REQUIRED' });
       expect(parse(price)).toMatchObject({ error: 'TENANT_REQUIRED' });

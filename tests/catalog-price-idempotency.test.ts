@@ -89,10 +89,10 @@ describe('price mutation idempotency', () => {
 
   it('replays all price mutations without repeating provider work and revives Money', async () => {
     const provider = new PriceIdempotencyProvider();
-    const prices = payableFor({ stripe: provider }, new InMemoryIdempotencyStore()).prices(
+    const prices = payableFor({ stripe: provider }, new InMemoryIdempotencyStore()).providerCatalog(
       'stripe',
       'tenant-a',
-    );
+    ).prices;
 
     const created = await prices.create(priceInput, { idempotencyKey: 'create-1' });
     const replay = await prices.create(priceInput, { idempotencyKey: 'create-1' });
@@ -124,10 +124,10 @@ describe('price mutation idempotency', () => {
 
   it('rejects a changed create request that reuses a key', async () => {
     const provider = new PriceIdempotencyProvider();
-    const prices = payableFor({ stripe: provider }, new InMemoryIdempotencyStore()).prices(
+    const prices = payableFor({ stripe: provider }, new InMemoryIdempotencyStore()).providerCatalog(
       'stripe',
       'tenant-a',
-    );
+    ).prices;
 
     await prices.create(priceInput, { idempotencyKey: 'conflict' });
     await expect(
@@ -141,10 +141,10 @@ describe('price mutation idempotency', () => {
 
   it('runs identical create requests again when their keys differ', async () => {
     const provider = new PriceIdempotencyProvider();
-    const prices = payableFor({ stripe: provider }, new InMemoryIdempotencyStore()).prices(
+    const prices = payableFor({ stripe: provider }, new InMemoryIdempotencyStore()).providerCatalog(
       'stripe',
       'tenant-a',
-    );
+    ).prices;
 
     await prices.create(priceInput, { idempotencyKey: 'create-a' });
     await prices.create(priceInput, { idempotencyKey: 'create-b' });
@@ -157,10 +157,18 @@ describe('price mutation idempotency', () => {
     const paddle = new PriceIdempotencyProvider();
     const payable = payableFor({ stripe, paddle }, new InMemoryIdempotencyStore());
 
-    await payable.prices('stripe', 'tenant-a').create(priceInput, { idempotencyKey: 'same' });
-    await payable.prices('stripe', 'tenant-b').create(priceInput, { idempotencyKey: 'same' });
-    await payable.prices('paddle', 'tenant-a').create(priceInput, { idempotencyKey: 'same' });
-    await payable.prices('stripe', 'tenant-a').archive('price_1', { idempotencyKey: 'same' });
+    await payable
+      .providerCatalog('stripe', 'tenant-a')
+      .prices.create(priceInput, { idempotencyKey: 'same' });
+    await payable
+      .providerCatalog('stripe', 'tenant-b')
+      .prices.create(priceInput, { idempotencyKey: 'same' });
+    await payable
+      .providerCatalog('paddle', 'tenant-a')
+      .prices.create(priceInput, { idempotencyKey: 'same' });
+    await payable
+      .providerCatalog('stripe', 'tenant-a')
+      .prices.archive('price_1', { idempotencyKey: 'same' });
 
     expect(stripe.createCalls).toBe(2);
     expect(paddle.createCalls).toBe(1);
@@ -175,10 +183,10 @@ describe('price mutation idempotency', () => {
 
   it('allows only one provider call for concurrent equal creates', async () => {
     const provider = new PriceIdempotencyProvider();
-    const prices = payableFor({ stripe: provider }, new InMemoryIdempotencyStore()).prices(
+    const prices = payableFor({ stripe: provider }, new InMemoryIdempotencyStore()).providerCatalog(
       'stripe',
       'tenant-a',
-    );
+    ).prices;
 
     const outcomes = await Promise.allSettled([
       prices.create(priceInput, { idempotencyKey: 'concurrent' }),
@@ -196,10 +204,10 @@ describe('price mutation idempotency', () => {
   it('checks authorization before reading idempotency state', async () => {
     const provider = new PriceIdempotencyProvider();
     const store = new TrackingIdempotencyStore();
-    const prices = payableFor({ stripe: provider }, store, undefined, true).prices(
+    const prices = payableFor({ stripe: provider }, store, undefined, true).providerCatalog(
       'stripe',
       'tenant-a',
-    );
+    ).prices;
 
     await expect(
       prices.create(priceInput, {
@@ -236,10 +244,11 @@ describe('price mutation idempotency', () => {
       },
     };
     const provider = new PriceIdempotencyProvider();
-    const prices = payableFor({ stripe: provider }, new InMemoryIdempotencyStore(), storage).prices(
-      'stripe',
-      'tenant-a',
-    );
+    const prices = payableFor(
+      { stripe: provider },
+      new InMemoryIdempotencyStore(),
+      storage,
+    ).providerCatalog('stripe', 'tenant-a').prices;
 
     await prices.create(priceInput, { idempotencyKey: 'durable' });
     await prices.create(priceInput, { idempotencyKey: 'durable' });
@@ -265,7 +274,10 @@ describe('price mutation idempotency', () => {
       active: true,
       metadata: null,
     });
-    const prices = payableFor({ stripe: provider }, store, storage).prices('stripe', 'tenant-a');
+    const prices = payableFor({ stripe: provider }, store, storage).providerCatalog(
+      'stripe',
+      'tenant-a',
+    ).prices;
 
     await expect(
       prices.create(priceInput, { idempotencyKey: 'persistence-failure' }),

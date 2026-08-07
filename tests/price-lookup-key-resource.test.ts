@@ -82,7 +82,7 @@ class LookupKeyProvider extends FakeProvider {
 }
 
 function prices(provider: FakeProvider) {
-  return createPayable({ providers: { stripe: provider } }).prices();
+  return createPayable({ providers: { stripe: provider } }).providerCatalog().prices;
 }
 
 function createInput(overrides: Partial<CreatePriceInput> = {}): CreatePriceInput {

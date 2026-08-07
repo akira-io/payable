@@ -23,7 +23,7 @@ export function registerCatalogMutationPersistenceContract(context: ContractCont
       providers: { registered: provider },
       storage,
       clock,
-    }).products('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').products;
 
     await products.create({ name: 'Pro' });
     await products.update({ providerProductId: 'prod_fake', name: 'Pro 2' });
@@ -81,7 +81,7 @@ export function registerCatalogMutationPersistenceContract(context: ContractCont
       providers: { registered: provider },
       storage,
       clock,
-    }).prices('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').prices;
 
     await prices.create({
       providerProductId: 'prod_shared',
@@ -118,7 +118,7 @@ export function registerCatalogMutationPersistenceContract(context: ContractCont
       providers: { registered: provider },
       storage,
       clock,
-    }).products('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').products;
 
     await products.create({ name: 'Pro' });
     await products.create({ name: 'Pro' });
@@ -139,11 +139,11 @@ export function registerCatalogMutationPersistenceContract(context: ContractCont
     });
 
     await payable
-      .prices('registered', 'tenant-a')
-      .create({ providerProductId: 'prod_shared', unitAmount: Money.of(9900, 'USD') });
+      .providerCatalog('registered', 'tenant-a')
+      .prices.create({ providerProductId: 'prod_shared', unitAmount: Money.of(9900, 'USD') });
     await payable
-      .prices('registered', 'tenant-b')
-      .create({ providerProductId: 'prod_shared', unitAmount: Money.of(9900, 'USD') });
+      .providerCatalog('registered', 'tenant-b')
+      .prices.create({ providerProductId: 'prod_shared', unitAmount: Money.of(9900, 'USD') });
 
     const priceA = await storage.prices.findByProviderId('registered', 'price_fake', 'tenant-a');
     const priceB = await storage.prices.findByProviderId('registered', 'price_fake', 'tenant-b');
@@ -159,7 +159,7 @@ export function registerCatalogMutationPersistenceContract(context: ContractCont
       providers: { registered: new FakeProvider() },
       storage: withOutboxFailure(storage, persistenceCause),
       clock,
-    }).products('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').products;
 
     await expect(products.create({ name: 'Pro' })).rejects.toMatchObject({
       code: 'CATALOG_PERSISTENCE_FAILED',

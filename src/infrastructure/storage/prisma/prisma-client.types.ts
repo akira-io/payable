@@ -1,6 +1,30 @@
+import type {
+  PrismaCanonicalPriceRow,
+  PrismaCanonicalProductRow,
+  PrismaPriceProviderBindingRow,
+  PrismaProductProviderBindingRow,
+} from './prisma-canonical-catalog-row.types';
 import type { PrismaSubscriptionRow } from './prisma-subscription-row.types';
+import type {
+  PrismaWebhookDeliveryRow,
+  PrismaWebhookEndpointEventRow,
+  PrismaWebhookEndpointRow,
+  PrismaWebhookEventRow,
+} from './prisma-webhook-row.types';
 
+export type {
+  PrismaCanonicalPriceRow,
+  PrismaCanonicalProductRow,
+  PrismaPriceProviderBindingRow,
+  PrismaProductProviderBindingRow,
+} from './prisma-canonical-catalog-row.types';
 export type { PrismaSubscriptionRow } from './prisma-subscription-row.types';
+export type {
+  PrismaWebhookDeliveryRow,
+  PrismaWebhookEndpointEventRow,
+  PrismaWebhookEndpointRow,
+  PrismaWebhookEventRow,
+} from './prisma-webhook-row.types';
 
 export interface PrismaCustomerRow {
   id: string;
@@ -113,59 +137,6 @@ export interface PrismaRefundRow {
   updatedAt: Date;
 }
 
-export interface PrismaWebhookEventRow {
-  id: string;
-  tenantId: string;
-  provider: string;
-  providerEventId: string;
-  type: string;
-  normalizedType: string | null;
-  payload: string;
-  signature: string | null;
-  data: string;
-  headers: string;
-  status: string;
-  correlationId: string;
-  occurredAt: Date | null;
-  receivedAt: Date;
-  processedAt: Date | null;
-  claimedUntil: Date | null;
-  claimToken: string | null;
-}
-
-export interface PrismaWebhookEndpointRow {
-  id: string;
-  tenantId: string | null;
-  url: string;
-  events: string;
-  secret: string | null;
-  status: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface PrismaWebhookEndpointEventRow {
-  endpointId: string;
-  eventType: string;
-}
-
-export interface PrismaWebhookDeliveryRow {
-  id: string;
-  tenantId: string | null;
-  tenantKey?: string;
-  endpointId: string;
-  eventId: string | null;
-  eventType: string;
-  payload: string;
-  status: string;
-  attempts: number;
-  responseCode: number | null;
-  responseBody: string | null;
-  nextRetryAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 export interface PrismaAuditLogRow {
   id: string;
   tenantId: string;
@@ -264,6 +235,10 @@ export interface PrismaModelDelegates {
   payableCustomerProviderBinding: PrismaDelegate<PrismaCustomerProviderBindingRow>;
   payableProduct: PrismaDelegate<PrismaProductRow>;
   payablePrice: PrismaDelegate<PrismaPriceRow>;
+  payableCanonicalProduct: PrismaDelegate<PrismaCanonicalProductRow>;
+  payableCanonicalPrice: PrismaDelegate<PrismaCanonicalPriceRow>;
+  payableProductProviderBinding: PrismaDelegate<PrismaProductProviderBindingRow>;
+  payablePriceProviderBinding: PrismaDelegate<PrismaPriceProviderBindingRow>;
   payableSubscription: PrismaDelegate<PrismaSubscriptionRow>;
   payableSubscriptionItem: PrismaDelegate<PrismaSubscriptionItemRow>;
   payableInvoice: PrismaDelegate<PrismaInvoiceRow>;

@@ -41,13 +41,15 @@ export async function registerCatalogRoutes(
   scope.get('/products', async (request, reply) => {
     const query = parseBody(catalogListQuerySchema, request.query);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    reply.status(200).send(await payable.products(undefined, tenantId).list(query));
+    reply.status(200).send(await payable.providerCatalog(undefined, tenantId).products.list(query));
   });
 
   scope.get('/products/:id', async (request, reply) => {
     const { id } = parseBody(catalogIdParamSchema, request.params);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    reply.status(200).send(await payable.products(undefined, tenantId).retrieve(id));
+    reply
+      .status(200)
+      .send(await payable.providerCatalog(undefined, tenantId).products.retrieve(id));
   });
 
   scope.post('/products/:id/activate', writeOptions, async (request, reply) => {
@@ -57,8 +59,8 @@ export async function registerCatalogRoutes(
       .status(200)
       .send(
         await payable
-          .products(undefined, tenantId)
-          .activate(id, mutationOptionsFor(request, options)),
+          .providerCatalog(undefined, tenantId)
+          .products.activate(id, mutationOptionsFor(request, options)),
       );
   });
 
@@ -69,8 +71,8 @@ export async function registerCatalogRoutes(
       .status(200)
       .send(
         await payable
-          .products(undefined, tenantId)
-          .archive(id, mutationOptionsFor(request, options)),
+          .providerCatalog(undefined, tenantId)
+          .products.archive(id, mutationOptionsFor(request, options)),
       );
   });
 
@@ -81,8 +83,8 @@ export async function registerCatalogRoutes(
       .status(201)
       .send(
         await payable
-          .products(undefined, tenantId)
-          .create(body, mutationOptionsFor(request, options)),
+          .providerCatalog(undefined, tenantId)
+          .products.create(body, mutationOptionsFor(request, options)),
       );
   });
 
@@ -93,15 +95,15 @@ export async function registerCatalogRoutes(
       .status(200)
       .send(
         await payable
-          .products(undefined, tenantId)
-          .update(body, mutationOptionsFor(request, options)),
+          .providerCatalog(undefined, tenantId)
+          .products.update(body, mutationOptionsFor(request, options)),
       );
   });
 
   scope.post('/prices', writeOptions, async (request, reply) => {
     const body = parseBody(priceBodySchema, request.body);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    const price = await payable.prices(undefined, tenantId).create(
+    const price = await payable.providerCatalog(undefined, tenantId).prices.create(
       {
         providerProductId: body.providerProductId,
         unitAmount: parseMoneyInput(body.amount),
@@ -117,13 +119,13 @@ export async function registerCatalogRoutes(
   scope.get('/prices', async (request, reply) => {
     const query = parseBody(priceListQuerySchema, request.query);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    reply.status(200).send(await payable.prices(undefined, tenantId).list(query));
+    reply.status(200).send(await payable.providerCatalog(undefined, tenantId).prices.list(query));
   });
 
   scope.get('/prices/:id', async (request, reply) => {
     const { id } = parseBody(catalogIdParamSchema, request.params);
     const tenantId = options.resolveTenant?.(request) ?? null;
-    reply.status(200).send(await payable.prices(undefined, tenantId).retrieve(id));
+    reply.status(200).send(await payable.providerCatalog(undefined, tenantId).prices.retrieve(id));
   });
 
   scope.post('/prices/:id/activate', writeOptions, async (request, reply) => {
@@ -133,8 +135,8 @@ export async function registerCatalogRoutes(
       .status(200)
       .send(
         await payable
-          .prices(undefined, tenantId)
-          .activate(id, mutationOptionsFor(request, options)),
+          .providerCatalog(undefined, tenantId)
+          .prices.activate(id, mutationOptionsFor(request, options)),
       );
   });
 
@@ -144,7 +146,9 @@ export async function registerCatalogRoutes(
     reply
       .status(200)
       .send(
-        await payable.prices(undefined, tenantId).archive(id, mutationOptionsFor(request, options)),
+        await payable
+          .providerCatalog(undefined, tenantId)
+          .prices.archive(id, mutationOptionsFor(request, options)),
       );
   });
 }

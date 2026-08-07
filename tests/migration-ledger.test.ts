@@ -23,6 +23,7 @@ describe('migration ledger', () => {
       '008-customer-provider-bindings',
       '009-catalog-tenant-keys',
       '010-subscription-lifecycle-metadata',
+      '011-canonical-local-catalog',
     ]);
     await db.destroy();
   });

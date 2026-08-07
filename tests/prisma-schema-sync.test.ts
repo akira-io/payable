@@ -26,6 +26,18 @@ function subscriptionModelLines(path: string): string[] {
     .filter(Boolean);
 }
 
+function modelLines(path: string, modelName: string): string[] {
+  const schema = readFileSync(path, 'utf8');
+  const model = schema.match(new RegExp(`model ${modelName} \\{([\\s\\S]*?)\\n\\}`))?.[1];
+  if (!model) {
+    throw new Error(`${modelName} model is missing from ${path}`);
+  }
+  return model
+    .split('\n')
+    .map((line) => line.trim().replace(/\s+/g, ' '))
+    .filter(Boolean);
+}
+
 describe('prisma schema sync', () => {
   it('reads bundled models without datasource or generator blocks', () => {
     const models = readPayableModels();
@@ -55,5 +67,20 @@ describe('prisma schema sync', () => {
     const canonicalModel = subscriptionModelLines(canonicalPath);
 
     expect(copyPaths.map(subscriptionModelLines)).toEqual([canonicalModel, canonicalModel]);
+  });
+
+  it.each([
+    'PayableCanonicalProduct',
+    'PayableCanonicalPrice',
+    'PayableProductProviderBinding',
+    'PayablePriceProviderBinding',
+  ])('keeps %s aligned across all schema copies', (modelName) => {
+    const [canonicalPath, ...copyPaths] = SUBSCRIPTION_SCHEMA_PATHS;
+    const canonicalModel = modelLines(canonicalPath, modelName);
+
+    expect(copyPaths.map((path) => modelLines(path, modelName))).toEqual([
+      canonicalModel,
+      canonicalModel,
+    ]);
   });
 });

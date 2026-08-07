@@ -58,7 +58,7 @@ describe('catalog persistence recovery', () => {
     const products = createPayable({
       providers: { registered: provider },
       storage: failingStorage,
-    }).products('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').products;
 
     const failure = products.create({ name: 'Pro' }).catch((error: unknown) => error);
 
@@ -97,7 +97,7 @@ describe('catalog persistence recovery', () => {
     const products = createPayable({
       providers: { registered: provider },
       storage: lostAcknowledgementStorage,
-    }).products('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').products;
 
     await expect(products.create({ name: 'Pro' })).resolves.toMatchObject({
       providerProductId: 'prod_fake',
@@ -120,7 +120,7 @@ describe('catalog persistence recovery', () => {
     const products = createPayable({
       providers: { registered: provider },
       storage: failWrite(storage, persistenceCause),
-    }).products('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').products;
 
     await expect(products.create({ name: 'Pro' })).rejects.toMatchObject({
       code: 'CATALOG_PERSISTENCE_FAILED',
@@ -139,7 +139,7 @@ describe('catalog persistence recovery', () => {
     const prices = createPayable({
       providers: { registered: provider },
       storage,
-    }).prices('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').prices;
 
     const failure = prices.archive('price_fake').catch((error: unknown) => error);
 

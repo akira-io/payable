@@ -56,7 +56,7 @@ describe('product mutation persistence', () => {
   it('persists a created product with one audit and outbox transition', async () => {
     const payable = payableWithStorage();
 
-    const product = await payable.products('registered', 'tenant-a').create(
+    const product = await payable.providerCatalog('registered', 'tenant-a').products.create(
       {
         name: 'Pro',
         description: 'Monthly product',
@@ -131,14 +131,16 @@ describe('product mutation persistence', () => {
 
   it('updates the existing local product and records an update transition', async () => {
     const payable = payableWithStorage();
-    const created = await payable.products('registered', 'tenant-a').create({ name: 'Pro' });
+    const created = await payable
+      .providerCatalog('registered', 'tenant-a')
+      .products.create({ name: 'Pro' });
     const localBefore = await storage.products.findByProviderId(
       'registered',
       created.providerProductId,
       'tenant-a',
     );
 
-    await payable.products('registered', 'tenant-a').update(
+    await payable.providerCatalog('registered', 'tenant-a').products.update(
       {
         providerProductId: created.providerProductId,
         name: 'Pro v2',
@@ -217,13 +219,13 @@ describe('product mutation persistence', () => {
 
   it('persists archive and activate states with their matching transitions', async () => {
     const payable = payableWithStorage();
-    await payable.products('registered', 'tenant-a').create({ name: 'Pro' });
+    await payable.providerCatalog('registered', 'tenant-a').products.create({ name: 'Pro' });
 
-    await payable.products('registered', 'tenant-a').archive('prod_fake');
+    await payable.providerCatalog('registered', 'tenant-a').products.archive('prod_fake');
     expect(
       await storage.products.findByProviderId('registered', 'prod_fake', 'tenant-a'),
     ).toMatchObject({ active: false });
-    await payable.products('registered', 'tenant-a').activate('prod_fake');
+    await payable.providerCatalog('registered', 'tenant-a').products.activate('prod_fake');
     expect(
       await storage.products.findByProviderId('registered', 'prod_fake', 'tenant-a'),
     ).toMatchObject({ active: true });
@@ -237,7 +239,7 @@ describe('product mutation persistence', () => {
 
   it('does not duplicate transitions for an identical provider state', async () => {
     const payable = payableWithStorage();
-    const products = payable.products('registered', 'tenant-a');
+    const products = payable.providerCatalog('registered', 'tenant-a').products;
 
     await products.create({ name: 'Pro', metadata: { tier: 'pro' } });
     await products.create({ name: 'Pro', metadata: { tier: 'pro' } });
@@ -251,7 +253,7 @@ describe('product mutation persistence', () => {
     const payable = payableWithStorage();
 
     await expect(
-      payable.products('registered', 'tenant-a').create({ name: 'Pro' }),
+      payable.providerCatalog('registered', 'tenant-a').products.create({ name: 'Pro' }),
     ).rejects.toThrow('provider unavailable');
 
     for (const table of [
@@ -266,7 +268,7 @@ describe('product mutation persistence', () => {
 
   it('keeps all product mutations provider-only without storage', async () => {
     const payable = createPayable({ providers: { registered: provider } });
-    const products = payable.products('registered', 'tenant-a');
+    const products = payable.providerCatalog('registered', 'tenant-a').products;
 
     const created = await products.create({ name: 'Pro' });
     const updated = await products.update({

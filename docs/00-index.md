@@ -79,7 +79,7 @@ tree.
 42. [examples/42-sisp-redirect-checkout.md](examples/42-sisp-redirect-checkout.md) - vinti4 redirect checkout and callback reconciliation.
 43. [examples/43-revolut-merchant-checkout.md](examples/43-revolut-merchant-checkout.md) - Revolut Merchant amount checkout and hosted payment redirect.
 44. [examples/44-mcp-server.md](examples/44-mcp-server.md) - A policy-restricted Payable MCP server for AI clients.
-45. [examples/45-catalog-lifecycle.md](examples/45-catalog-lifecycle.md) - Portable product and price reads, pagination, archival, and reactivation.
+45. [examples/45-catalog-lifecycle.md](examples/45-catalog-lifecycle.md) - Canonical local catalog and explicit provider catalog lifecycle.
 46. [examples/46-custom-domain-audit.md](examples/46-custom-domain-audit.md) - Tenant-bound custom domain events, cursor pagination, retention, and transaction composition.
 47. [examples/47-subscription-operations.md](examples/47-subscription-operations.md) - Provider-gated price migration, failed-payment, pause, resume, and unsupported-operation flows.
 

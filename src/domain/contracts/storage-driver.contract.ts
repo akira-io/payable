@@ -1,11 +1,15 @@
 import type { AuditLogRepository } from './audit-log-repository.contract';
+import type { CanonicalPriceRepository } from './canonical-price-repository.contract';
+import type { CanonicalProductRepository } from './canonical-product-repository.contract';
 import type { CustomerProviderBindingRepository } from './customer-provider-binding-repository.contract';
 import type { CustomerRepository } from './customer-repository.contract';
 import type { Encryption } from './encryption.contract';
 import type { InvoiceRepository } from './invoice-repository.contract';
 import type { OutboxEventRepository } from './outbox-event-repository.contract';
 import type { PaymentRepository } from './payment-repository.contract';
+import type { PriceProviderBindingRepository } from './price-provider-binding-repository.contract';
 import type { PriceRepository } from './price-repository.contract';
+import type { ProductProviderBindingRepository } from './product-provider-binding-repository.contract';
 import type { ProductRepository } from './product-repository.contract';
 import type { RefundRepository } from './refund-repository.contract';
 import type { SubscriptionItemRepository } from './subscription-item-repository.contract';
@@ -15,10 +19,14 @@ import type { WebhookEndpointRepository } from './webhook-endpoint-repository.co
 import type { WebhookEventRepository } from './webhook-event-repository.contract';
 
 export interface Repositories {
+  readonly canonicalPrices?: CanonicalPriceRepository;
+  readonly canonicalProducts?: CanonicalProductRepository;
   readonly customers: CustomerRepository;
   readonly customerProviderBindings: CustomerProviderBindingRepository;
   readonly products: ProductRepository;
   readonly prices: PriceRepository;
+  readonly priceProviderBindings?: PriceProviderBindingRepository;
+  readonly productProviderBindings?: ProductProviderBindingRepository;
   readonly subscriptions: SubscriptionRepository;
   readonly subscriptionItems: SubscriptionItemRepository;
   readonly invoices: InvoiceRepository;

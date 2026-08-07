@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type {
   AuthorizationConfig,
   AuthorizationContext,
+  CreateCanonicalPriceInput,
+  CreateCanonicalProductInput,
   CreateMarketplaceTransferReversalInput,
   CreatePaymentMethodSetupInput,
   MarketplaceTransferReversalCapable,
@@ -37,6 +39,9 @@ describe('public API surface', () => {
     expect(typeof payable.RevolutBusinessAccountingProvider).toBe('function');
     expect(typeof payable.KnexStorageDriver).toBe('function');
     expect(typeof payable.AuditResource).toBe('function');
+    expect(typeof payable.CanonicalProductResource).toBe('function');
+    expect(typeof payable.CanonicalPriceResource).toBe('function');
+    expect(typeof payable.ProviderCatalogResource).toBe('function');
     expect(typeof payable.KnexAuditLogRepository).toBe('function');
     expect(typeof payable.CatalogPersistenceError).toBe('function');
     expect(typeof payable.ok).toBe('function');
@@ -95,6 +100,21 @@ describe('public API surface', () => {
     expect(typeof payable.isPausedSubscriptionResumeCapable).toBe('function');
     expect(typeof payable.isSubscriptionPaymentCollectionCapable).toBe('function');
     expect(typeof payable.isScheduledSubscriptionChangeCapable).toBe('function');
+  });
+
+  it('exports canonical catalog input types', () => {
+    const product = {
+      name: 'Pro',
+    } satisfies CreateCanonicalProductInput;
+    const price = {
+      productId: 'product-1',
+      unitAmount: payable.Money.of(2900, 'EUR'),
+      type: 'recurring',
+      interval: 'month',
+    } satisfies CreateCanonicalPriceInput;
+
+    expect(product.name).toBe('Pro');
+    expect(price.productId).toBe('product-1');
   });
 
   it('exports AuthorizationContext on the public surface', () => {

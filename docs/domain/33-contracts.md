@@ -17,8 +17,12 @@ Repositories persist and read the [entities](05-domain-model.md). Each defines a
 | `PaymentRepository` | `create`, `update`, `findById`, `findByIdForUpdate`, `findByProviderId`, `listByCustomer`, `list` | `findByIdForUpdate` takes a row lock for safe concurrent refund accounting. |
 | `RefundRepository` | `create`, `update`, `findById`, `findByProviderId`, `listByPayment` | Scoped to a payment via `listByPayment`. |
 | `InvoiceRepository` | `create`, `update`, `findById`, `findByProviderId`, `listByCustomer` | |
-| `ProductRepository` | `create`, `update`, `findById`, `findByProviderId` | Reads and updates require an explicit tenant partition. |
-| `PriceRepository` | `create`, `update`, `findById`, `findByProviderId`, `listByProduct` | Reads and updates require an explicit tenant partition. |
+| `CanonicalProductRepository` | `create`, `update`, `findById`, `list` | Provider-neutral products with tenant-scoped deterministic pagination. |
+| `CanonicalPriceRepository` | `create`, `update`, `findById`, `findByLookupKey`, `list` | Provider-neutral prices with immutable billing terms and tenant-scoped lookup keys. |
+| `ProductProviderBindingRepository` | `create`, binding lookups, `listByProductId` | Maps one canonical product to independent registered provider accounts. |
+| `PriceProviderBindingRepository` | `create`, binding lookups, `listByPriceId` | Maps one canonical price to independent registered provider accounts. |
+| `ProductRepository` | `create`, `update`, `findById`, `findByProviderId` | Legacy provider-first compatibility storage. |
+| `PriceRepository` | `create`, `update`, `findById`, `findByProviderId`, `listByProduct` | Legacy provider-first compatibility storage. |
 | `WebhookEventRepository` | `create`, `list`, `findById`, `findByProviderEvent`, `claim`, `markStatus` | `claim` returns a claim token for exactly-once processing; `findByProviderEvent` backs idempotent receipt. |
 | `WebhookEndpointRepository` | `create`, `findById`, `list`, `listEnabledForEvent`, `setStatus` | `listEnabledForEvent` resolves delivery targets for a normalized event type. |
 | `WebhookDeliveryRepository` | `record`, `listForEvent` | Append-only delivery log. |
@@ -111,11 +115,19 @@ without batch binding support returns `CUSTOMER_BINDING_LIST_UNSUPPORTED`.
 
 ### Catalog repositories
 
-Products and prices are partitioned by tenant. Pass a tenant id for a tenant-owned catalog, or
-`null` for the tenantless partition. Catalog creates require `tenantId` in their input and reject an
-omitted value at runtime. An update cannot move a record between partitions because `ProductPatch`
-and `PricePatch` exclude `tenantId` and the storage adapters discard tenant fields from runtime
-patches.
+Canonical products and prices are partitioned by tenant. Pass a tenant id for a tenant-owned catalog,
+or `null` for the tenantless partition. Their stable local IDs do not contain a provider identity.
+Provider product and price IDs live in separate binding repositories keyed by tenant, canonical
+resource, and registered provider account name.
+
+`CanonicalPricePatch` exposes only description, lookup key, and active state. Amount, currency,
+billing type, interval, and interval count are not update fields. Lookup-key transfer runs in one
+storage transaction. Both bundled drivers enforce tenant-scoped uniqueness and same-tenant foreign
+keys for prices and provider bindings.
+
+`ProductRepository` and `PriceRepository` remain as the provider-first compatibility persistence
+path used by `providerCatalog()`. Their creates require `tenantId` in the input and their patches
+cannot move records between tenant partitions.
 
 ```ts
 export interface ProductRepository {
@@ -164,7 +176,7 @@ contracts. Cache and lock contracts remain available for direct composition outs
 
 | Contract | Key methods | Implementations in this repo |
 | --- | --- | --- |
-| `StorageDriver` (extends `Repositories`) | `transaction<T>(work: (repos) => Promise<T>)` plus all repository accessors | `KnexStorageDriver` |
+| `StorageDriver` (extends `Repositories`) | `transaction<T>(work: (repos) => Promise<T>)` plus all repository accessors | `KnexStorageDriver`, `PrismaStorageDriver` |
 | `QueueDriver` | `dispatch<T>(job)`, `process<T>(name, handler)` | `SyncQueueDriver`, `BullMQQueueDriver` |
 | `CacheDriver` | `get`, `set`, `delete`, `has` | `MemoryCacheDriver` (public, working); `RedisCacheDriver` (internal, unusable) |
 | `LockDriver` | `acquire(key, ttlMs)`, `withLock(key, ttlMs, work)` | `MemoryLockDriver` (public, working); `RedisLockDriver` (internal, unusable) |

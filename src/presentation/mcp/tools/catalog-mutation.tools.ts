@@ -39,15 +39,17 @@ export function registerCatalogTools(
       (args) =>
         respond(() => {
           const authorization = resolveCatalogAccess('product_create', args, options);
-          return payable.products(providerFrom(args, options), tenantFrom(args, options)).create(
-            {
-              name: args.name,
-              description: args.description,
-              active: args.active,
-              metadata: args.metadata,
-            },
-            { authorization, idempotencyKey: args.idempotencyKey },
-          );
+          return payable
+            .providerCatalog(providerFrom(args, options), tenantFrom(args, options))
+            .products.create(
+              {
+                name: args.name,
+                description: args.description,
+                active: args.active,
+                metadata: args.metadata,
+              },
+              { authorization, idempotencyKey: args.idempotencyKey },
+            );
         }),
     );
   }
@@ -70,15 +72,17 @@ export function registerCatalogTools(
       (args) =>
         respond(() => {
           const authorization = resolveCatalogAccess('product_update', args, options);
-          return payable.products(providerFrom(args, options), tenantFrom(args, options)).update(
-            {
-              providerProductId: args.providerProductId,
-              name: args.name,
-              description: args.description,
-              active: args.active,
-            },
-            { authorization, idempotencyKey: args.idempotencyKey },
-          );
+          return payable
+            .providerCatalog(providerFrom(args, options), tenantFrom(args, options))
+            .products.update(
+              {
+                providerProductId: args.providerProductId,
+                name: args.name,
+                description: args.description,
+                active: args.active,
+              },
+              { authorization, idempotencyKey: args.idempotencyKey },
+            );
         }),
     );
   }
@@ -102,16 +106,18 @@ export function registerCatalogTools(
       (args) =>
         respond(() => {
           const authorization = resolveCatalogAccess('price_create', args, options);
-          return payable.prices(providerFrom(args, options), tenantFrom(args, options)).create(
-            {
-              providerProductId: args.providerProductId,
-              unitAmount: toMoney(args.unitAmount),
-              interval: args.interval,
-              intervalCount: args.intervalCount,
-              description: args.description,
-            },
-            { authorization, idempotencyKey: args.idempotencyKey },
-          );
+          return payable
+            .providerCatalog(providerFrom(args, options), tenantFrom(args, options))
+            .prices.create(
+              {
+                providerProductId: args.providerProductId,
+                unitAmount: toMoney(args.unitAmount),
+                interval: args.interval,
+                intervalCount: args.intervalCount,
+                description: args.description,
+              },
+              { authorization, idempotencyKey: args.idempotencyKey },
+            );
         }),
     );
   }

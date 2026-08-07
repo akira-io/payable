@@ -50,7 +50,7 @@ export function registerCatalogCasCompatibilityContract(ctx: ContractContext): v
       clock: harness.clock,
     });
 
-    await payable.prices('stripe', 'tenant-a').archive('price_legacy_currency');
+    await payable.providerCatalog('stripe', 'tenant-a').prices.archive('price_legacy_currency');
 
     await expect(harness.storage.prices.findById(price.id, 'tenant-a')).resolves.toMatchObject({
       currency: 'USD',

@@ -55,26 +55,28 @@ const mutations: MutationCase[] = [
     action: 'product.create',
     label: 'create product',
     capability: 'catalog',
-    run: (payable, options) => payable.products().create({ name: 'Pro' }, options),
+    run: (payable, options) => payable.providerCatalog().products.create({ name: 'Pro' }, options),
   },
   {
     action: 'product.update',
     label: 'update product',
     capability: 'catalog',
     run: (payable, options) =>
-      payable.products().update({ providerProductId: 'prod_fake', name: 'Pro v2' }, options),
+      payable
+        .providerCatalog()
+        .products.update({ providerProductId: 'prod_fake', name: 'Pro v2' }, options),
   },
   {
     action: 'product.activate',
     label: 'activate product',
     capability: 'catalogLifecycle',
-    run: (payable, options) => payable.products().activate('prod_fake', options),
+    run: (payable, options) => payable.providerCatalog().products.activate('prod_fake', options),
   },
   {
     action: 'product.archive',
     label: 'archive product',
     capability: 'catalogLifecycle',
-    run: (payable, options) => payable.products().archive('prod_fake', options),
+    run: (payable, options) => payable.providerCatalog().products.archive('prod_fake', options),
   },
   {
     action: 'price.create',
@@ -82,20 +84,23 @@ const mutations: MutationCase[] = [
     capability: 'catalog',
     run: (payable, options) =>
       payable
-        .prices()
-        .create({ providerProductId: 'prod_fake', unitAmount: Money.of(9900, 'USD') }, options),
+        .providerCatalog()
+        .prices.create(
+          { providerProductId: 'prod_fake', unitAmount: Money.of(9900, 'USD') },
+          options,
+        ),
   },
   {
     action: 'price.activate',
     label: 'activate price',
     capability: 'catalogLifecycle',
-    run: (payable, options) => payable.prices().activate('price_fake', options),
+    run: (payable, options) => payable.providerCatalog().prices.activate('price_fake', options),
   },
   {
     action: 'price.archive',
     label: 'archive price',
     capability: 'catalogLifecycle',
-    run: (payable, options) => payable.prices().archive('price_fake', options),
+    run: (payable, options) => payable.providerCatalog().prices.archive('price_fake', options),
   },
   {
     action: 'price.lookup-key.transfer',
@@ -103,8 +108,8 @@ const mutations: MutationCase[] = [
     capability: 'priceLookupKeys',
     run: (payable, options) =>
       payable
-        .prices()
-        .transferLookupKey({ providerPriceId: 'price_fake', lookupKey: 'monthly' }, options),
+        .providerCatalog()
+        .prices.transferLookupKey({ providerPriceId: 'price_fake', lookupKey: 'monthly' }, options),
   },
 ];
 

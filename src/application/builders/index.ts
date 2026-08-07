@@ -6,6 +6,17 @@ export {
 } from './audit-resource';
 export type { Billable } from './billable';
 export type { BillingDependencies } from './billing-dependencies';
+export {
+  CanonicalPriceResource,
+  type CreateCanonicalPriceInput,
+  type ListCanonicalPricesInput,
+  type UpdateCanonicalPriceInput,
+} from './canonical-price-resource';
+export {
+  CanonicalProductResource,
+  type CreateCanonicalProductInput,
+  type UpdateCanonicalProductInput,
+} from './canonical-product-resource';
 export type { CatalogMutationOptions } from './catalog-mutation-options';
 export type { ChargeRequest } from './charge-request';
 export { CheckoutBuilder, type CheckoutRequest } from './checkout-builder';
@@ -23,6 +34,7 @@ export type { LocalDependencies } from './local-dependencies';
 export { LocalSubscriptionResource } from './local-subscription-resource';
 export { PriceResource } from './price-resource';
 export { ProductResource } from './product-resource';
+export { ProviderCatalogResource } from './provider-catalog-resource';
 export {
   RedirectCheckoutBuilder,
   type RedirectCheckoutRequest,

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
+import { Money } from '../src/domain/value-objects/money';
 import { NodeEncryptionDriver } from '../src/infrastructure/encryption/node-encryption-driver';
 import type { PrismaClientLike } from '../src/infrastructure/storage/prisma';
 import { PrismaStorageDriver } from '../src/infrastructure/storage/prisma';
@@ -139,5 +140,54 @@ describe('prisma subscription lifecycle metadata', () => {
       paymentCollectionPauseBehavior: 'keepAsDraft',
       paymentCollectionResumesAt: new Date('2026-09-15T00:00:00.000Z'),
     });
+  });
+});
+
+describe('prisma canonical local catalog', () => {
+  it('persists provider-neutral products and prices', async () => {
+    const payable = createPayable({ storage });
+    const product = await payable.products().create({ name: 'Canonical Pro' });
+    const price = await payable.prices().create({
+      productId: product.id,
+      unitAmount: Money.of(2900, 'EUR'),
+      type: 'recurring',
+      interval: 'month',
+      lookupKey: 'canonical_pro_monthly',
+    });
+
+    await expect(payable.products().retrieve(product.id)).resolves.toEqual(product);
+    await expect(payable.prices().retrieve(price.id)).resolves.toEqual(price);
+  });
+
+  it('paginates equal timestamps and persists independent provider bindings', async () => {
+    const payable = createPayable({ storage, tenant: { enabled: true } });
+    const products = payable.products('prisma-canonical-tenant');
+    const first = await products.create({ name: 'Starter' });
+    const second = await products.create({ name: 'Pro' });
+    const firstPage = await products.list({ limit: 1 });
+    const secondPage = await products.list({
+      limit: 1,
+      cursor: firstPage.nextCursor ?? undefined,
+    });
+
+    await storage.productProviderBindings.create({
+      tenantId: 'prisma-canonical-tenant',
+      productId: first.id,
+      provider: 'stripe-primary',
+      providerProductId: 'prod_prisma_primary',
+    });
+    await storage.productProviderBindings.create({
+      tenantId: 'prisma-canonical-tenant',
+      productId: first.id,
+      provider: 'stripe-secondary',
+      providerProductId: 'prod_prisma_secondary',
+    });
+
+    expect([...firstPage.data, ...secondPage.data].map(({ id }) => id).sort()).toEqual(
+      [first.id, second.id].sort(),
+    );
+    await expect(
+      storage.productProviderBindings.listByProductId(first.id, 'prisma-canonical-tenant'),
+    ).resolves.toHaveLength(2);
   });
 });

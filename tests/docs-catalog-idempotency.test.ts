@@ -25,7 +25,7 @@ describe('catalog idempotency documentation', () => {
     expect(featureDocumentation).toContain('CatalogMutationOptions');
     expect(featureDocumentation).toContain('idempotencyKey?: string');
     expect(featureDocumentation).toContain(
-      "payable.products('stripe-primary', 'tenant-acme').create",
+      "payable.providerCatalog('stripe-primary', 'tenant-acme').products.create",
     );
     expect(featureDocumentation).toContain("{ idempotencyKey: 'catalog-product-pro-v1' }");
     expect(featureDocumentation).toContain('tenant scope');

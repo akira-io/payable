@@ -58,17 +58,17 @@ cap it at `MAX_LIST_LIMIT = 100` (`src/presentation/mcp/schemas.ts`).
 | `audit_logs_query` | read | `payable.auditLogs(tenantId).run(filter)` |
 | `webhooks_list` | read | `payable.webhookEvents(tenantId).list(filter)` |
 | `webhook_get` | read | `payable.webhookEvents(tenantId).get(id)` |
-| `product_get` | read | `payable.products().retrieve(id)` |
-| `products_list` | read | `payable.products().list({ limit, cursor, active })` |
-| `price_get` | read | `payable.prices().retrieve(id)` |
-| `prices_list` | read | `payable.prices().list({ limit, cursor, active, providerProductId })` |
-| `product_create` | mutate | `payable.products().create(...)` |
-| `product_update` | mutate | `payable.products().update(...)` |
-| `product_activate` | mutate | `payable.products().activate(id)` |
-| `product_archive` | mutate | `payable.products().archive(id)` |
-| `price_create` | mutate | `payable.prices().create(...)` |
-| `price_activate` | mutate | `payable.prices().activate(id)` |
-| `price_archive` | mutate | `payable.prices().archive(id)` |
+| `product_get` | read | `payable.providerCatalog().products.retrieve(id)` |
+| `products_list` | read | `payable.providerCatalog().products.list({ limit, cursor, active })` |
+| `price_get` | read | `payable.providerCatalog().prices.retrieve(id)` |
+| `prices_list` | read | `payable.providerCatalog().prices.list({ limit, cursor, active, providerProductId })` |
+| `product_create` | mutate | `payable.providerCatalog().products.create(...)` |
+| `product_update` | mutate | `payable.providerCatalog().products.update(...)` |
+| `product_activate` | mutate | `payable.providerCatalog().products.activate(id)` |
+| `product_archive` | mutate | `payable.providerCatalog().products.archive(id)` |
+| `price_create` | mutate | `payable.providerCatalog().prices.create(...)` |
+| `price_activate` | mutate | `payable.providerCatalog().prices.activate(id)` |
+| `price_archive` | mutate | `payable.providerCatalog().prices.archive(id)` |
 | `subscription_create` | mutate | subscription builder |
 | `subscription_cancel` | mutate | `subscription(name).cancel(...)` |
 | `subscription_cancel_now` | mutate | `subscription(name).cancelNow(...)` |
