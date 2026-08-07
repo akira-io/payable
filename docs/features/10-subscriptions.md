@@ -120,6 +120,13 @@ Both operations require an idempotency store. The provider is called before loca
 If apply fails at the provider, Payable keeps the local subscription unchanged. A token cannot be
 used for a different tenant or changed request.
 
+Before the first apply attempt, Payable rejects the token with
+`SUBSCRIPTION_CHANGE_PREVIEW_STALE` if the current local item set no longer matches the preview.
+Immediate changes update the local items after provider success. Changes scheduled for the next
+renewal keep the current local items. Provider integrations that expose effective item data can
+update them later through webhook reconciliation. The apply audit entry records the proposed items
+without presenting them as current state.
+
 ### Swap
 
 `SwapSubscriptionAction` resolves one tenant-scoped local item, calls the provider with its mapped

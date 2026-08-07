@@ -4,6 +4,7 @@ import type { OperationContext } from '../src/domain/dtos/common.dto';
 import type {
   ProviderSubscriptionChangeInput,
   ProviderSubscriptionChangePreview,
+  SubscriptionChangePreview,
 } from '../src/domain/dtos/subscription-change.dto';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
@@ -14,9 +15,18 @@ import { createTestDb } from './support/knex';
 
 const billable = { billableType: 'User', billableId: 'preview-user', email: 'user@example.com' };
 
+function previewItemId(preview: SubscriptionChangePreview): string {
+  const item = preview.currentItems[0];
+  if (!item) {
+    throw new Error('Expected one current subscription item');
+  }
+  return item.itemId;
+}
+
 class SubscriptionChangeProvider extends FakeProvider {
   lastPreview?: ProviderSubscriptionChangeInput;
   lastApply?: ProviderSubscriptionChangeInput;
+  applyCalls = 0;
   applyError?: Error;
 
   override subscriptionOperationCapabilities() {
@@ -52,6 +62,7 @@ class SubscriptionChangeProvider extends FakeProvider {
   }
 
   async applySubscriptionChange(input: ProviderSubscriptionChangeInput, context: OperationContext) {
+    this.applyCalls += 1;
     this.lastApply = input;
     if (this.applyError) {
       throw this.applyError;
@@ -81,16 +92,17 @@ describe('subscription change preview and apply', () => {
     await migrate(database);
     const clock = new FakeClock(new Date('2026-08-07T10:00:00.000Z'));
     const provider = new SubscriptionChangeProvider();
+    const storage = new KnexStorageDriver(database, clock);
     const payable = createPayable({
       providers: { stripe: provider },
-      storage: new KnexStorageDriver(database, clock),
+      storage,
       clock,
       idempotency: { store: new KnexIdempotencyRepository(database, clock) },
       tenant: { enabled: true },
     });
     const customer = payable.customer(billable, undefined, tenantId);
     await customer.newSubscription('default').price('price_old').create();
-    return { payable, provider, clock, subscription: customer.subscription('default') };
+    return { payable, provider, clock, storage, subscription: customer.subscription('default') };
   }
 
   it('binds apply to the exact stored preview and audits both operations', async () => {
@@ -138,6 +150,90 @@ describe('subscription change preview and apply', () => {
       }),
     ).rejects.toThrow('provider rejected');
     expect((await subscription.get())?.priceId).toBe('price_old');
+  });
+
+  it('replays an applied immediate preview without reapplying at the provider', async () => {
+    const { provider, subscription } = await setup();
+    const preview = await subscription.previewChange({
+      priceId: 'price_new',
+      effectiveTiming: 'immediate',
+      prorationPolicy: 'prorateImmediately',
+      paymentFailurePolicy: 'preventChange',
+      idempotencyKey: 'preview-immediate-replay',
+    });
+    await subscription.applyChange({
+      previewToken: preview.previewToken,
+      idempotencyKey: 'apply-immediate-replay-1',
+    });
+
+    const replayed = await subscription.applyChange({
+      previewToken: preview.previewToken,
+      idempotencyKey: 'apply-immediate-replay-2',
+    });
+
+    expect(replayed.priceId).toBe('price_new');
+    expect(provider.applyCalls).toBe(1);
+  });
+
+  it.each([
+    [
+      'price',
+      async (storage: KnexStorageDriver, preview: SubscriptionChangePreview) =>
+        storage.subscriptionItems.updateById(
+          preview.subscriptionId,
+          previewItemId(preview),
+          { priceId: 'price_drifted' },
+          'tenant_a',
+        ),
+    ],
+    [
+      'quantity',
+      async (storage: KnexStorageDriver, preview: SubscriptionChangePreview) =>
+        storage.subscriptionItems.updateById(
+          preview.subscriptionId,
+          previewItemId(preview),
+          { quantity: 7 },
+          'tenant_a',
+        ),
+    ],
+    [
+      'provider item identity',
+      async (storage: KnexStorageDriver, preview: SubscriptionChangePreview) =>
+        storage.subscriptionItems.updateById(
+          preview.subscriptionId,
+          previewItemId(preview),
+          { providerItemId: 'provider_item_drifted' },
+          'tenant_a',
+        ),
+    ],
+    [
+      'membership',
+      async (storage: KnexStorageDriver, preview: SubscriptionChangePreview) =>
+        storage.subscriptionItems.create({
+          subscriptionId: preview.subscriptionId,
+          priceId: 'price_extra',
+          providerItemId: 'provider_item_extra',
+          quantity: 1,
+        }),
+    ],
+  ])('rejects a stale preview after local %s drift before provider apply', async (_kind, drift) => {
+    const { provider, storage, subscription } = await setup();
+    const preview = await subscription.previewChange({
+      priceId: 'price_new',
+      effectiveTiming: 'immediate',
+      prorationPolicy: 'prorateImmediately',
+      paymentFailurePolicy: 'preventChange',
+      idempotencyKey: `preview-drift-${_kind}`,
+    });
+    await drift(storage, preview);
+
+    await expect(
+      subscription.applyChange({
+        previewToken: preview.previewToken,
+        idempotencyKey: `apply-drift-${_kind}`,
+      }),
+    ).rejects.toMatchObject({ code: 'SUBSCRIPTION_CHANGE_PREVIEW_STALE' });
+    expect(provider.lastApply).toBeUndefined();
   });
 
   it('keeps preview tokens tenant scoped and expires them', async () => {

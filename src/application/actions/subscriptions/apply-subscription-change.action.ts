@@ -1,5 +1,6 @@
 import type {
   ApplySubscriptionChangeInput,
+  SubscriptionChangeItem,
   SubscriptionChangePreview,
 } from '../../../domain/dtos/subscription-change.dto';
 import type { Subscription } from '../../../domain/entities/subscription.entity';
@@ -57,6 +58,7 @@ export class ApplySubscriptionChangeAction extends SubscriptionAction {
       tenantId,
       failurePolicy: 'reconciliation-required',
       run: async () => {
+        await this.assertCurrentItemsMatchPreview(subscription, preview);
         const providerInput = {
           providerSubscriptionId: subscription.providerSubscriptionId,
           currentItems: preview.currentItems,
@@ -84,25 +86,31 @@ export class ApplySubscriptionChangeAction extends SubscriptionAction {
     authorization?: AuthorizationContext,
   ): Promise<Subscription> {
     return this.storage().transaction(async (repositories) => {
-      for (const proposedItem of preview.proposedItems) {
-        const currentItem = preview.currentItems.find(
-          (candidate) => candidate.itemId === proposedItem.itemId,
-        );
-        if (
-          !currentItem ||
-          (currentItem.priceId === proposedItem.priceId &&
-            currentItem.quantity === proposedItem.quantity)
-        ) {
-          continue;
+      const appliesImmediately = preview.effectiveTiming === 'immediate';
+      if (appliesImmediately) {
+        for (const proposedItem of preview.proposedItems) {
+          const currentItem = preview.currentItems.find(
+            (candidate) => candidate.itemId === proposedItem.itemId,
+          );
+          if (
+            !currentItem ||
+            (currentItem.priceId === proposedItem.priceId &&
+              currentItem.quantity === proposedItem.quantity)
+          ) {
+            continue;
+          }
+          await repositories.subscriptionItems.updateById(
+            subscription.id,
+            proposedItem.itemId,
+            { priceId: proposedItem.priceId, quantity: proposedItem.quantity },
+            this.deps.tenantId ?? null,
+          );
         }
-        await repositories.subscriptionItems.updateById(
-          subscription.id,
-          proposedItem.itemId,
-          { priceId: proposedItem.priceId, quantity: proposedItem.quantity },
-          this.deps.tenantId ?? null,
-        );
       }
-      const singleItem = preview.proposedItems.length === 1 ? preview.proposedItems[0] : undefined;
+      const singleItem =
+        appliesImmediately && preview.proposedItems.length === 1
+          ? preview.proposedItems[0]
+          : undefined;
       const updated = await repositories.subscriptions.update(
         subscription.id,
         {
@@ -115,7 +123,14 @@ export class ApplySubscriptionChangeAction extends SubscriptionAction {
         action: 'subscription.change_applied',
         subscriptionId: subscription.id,
         before: { items: preview.currentItems },
-        after: { items: preview.proposedItems, previewToken: preview.previewToken },
+        after: appliesImmediately
+          ? { items: preview.proposedItems, previewToken: preview.previewToken }
+          : {
+              items: preview.currentItems,
+              proposedItems: preview.proposedItems,
+              effectiveTiming: preview.effectiveTiming,
+              previewToken: preview.previewToken,
+            },
         authorization,
       });
       return updated;
@@ -130,6 +145,28 @@ export class ApplySubscriptionChangeAction extends SubscriptionAction {
       return currentItem?.priceId !== proposedItem.priceId;
     });
     return priceChanged ? 'changePrice' : 'changeQuantity';
+  }
+
+  private async assertCurrentItemsMatchPreview(
+    subscription: Awaited<ReturnType<SubscriptionAction['resolve']>>,
+    preview: SubscriptionChangePreview,
+  ): Promise<void> {
+    const currentItems = await this.storage().subscriptionItems.listBySubscription(
+      subscription.id,
+      this.deps.tenantId ?? null,
+    );
+    const canonicalCurrentItems = currentItems.map((item) => ({
+      itemId: item.id,
+      providerItemId: item.providerItemId,
+      priceId: item.priceId,
+      quantity: item.quantity,
+    }));
+    if (!sameSubscriptionItems(canonicalCurrentItems, preview.currentItems)) {
+      throw new SubscriptionChangePreviewError(
+        'Subscription items changed after preview calculation',
+        'SUBSCRIPTION_CHANGE_PREVIEW_STALE',
+      );
+    }
   }
 
   private changeIdempotency() {
@@ -151,4 +188,22 @@ export class ApplySubscriptionChangeAction extends SubscriptionAction {
     }
     return this.deps.subscriptionChangePreviews;
   }
+}
+
+function sameSubscriptionItems(
+  currentItems: readonly SubscriptionChangeItem[],
+  previewItems: readonly SubscriptionChangeItem[],
+): boolean {
+  if (currentItems.length !== previewItems.length) {
+    return false;
+  }
+  const currentById = new Map(currentItems.map((item) => [item.itemId, item]));
+  return previewItems.every((previewItem) => {
+    const currentItem = currentById.get(previewItem.itemId);
+    return (
+      currentItem?.providerItemId === previewItem.providerItemId &&
+      currentItem.priceId === previewItem.priceId &&
+      currentItem.quantity === previewItem.quantity
+    );
+  });
 }
