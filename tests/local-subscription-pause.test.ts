@@ -86,6 +86,57 @@ describe('subscription pause', () => {
     await database.destroy();
   });
 
+  it('pauses a trialing subscription', async () => {
+    const database = createTestDb();
+    await migrate(database);
+    const provider = new PausingProvider();
+    const storage = new KnexStorageDriver(database, new FakeClock());
+    const payable = createPayable({ providers: { stripe: provider }, storage });
+    const { subscription } = await storeSubscription(storage, {
+      billableId: 'team_1',
+      provider: 'stripe',
+      providerSubscriptionId: 'sub_1',
+      status: 'trialing',
+    });
+
+    const paused = await payable.subscription(subscription.id).pause();
+
+    expect(paused.status).toBe('paused');
+    expect(provider.pauseCalls).toBe(1);
+    await database.destroy();
+  });
+
+  it.each([
+    'past_due',
+    'unpaid',
+  ] as const)('rejects pause from %s before provider or local mutation', async (status) => {
+    const database = createTestDb();
+    await migrate(database);
+    const provider = new PausingProvider();
+    const storage = new KnexStorageDriver(database, new FakeClock());
+    const payable = createPayable({ providers: { stripe: provider }, storage });
+    const { subscription } = await storeSubscription(storage, {
+      billableId: 'team_1',
+      provider: 'stripe',
+      providerSubscriptionId: 'sub_1',
+      status,
+    });
+
+    await expect(payable.subscription(subscription.id).pause()).rejects.toMatchObject({
+      code: 'INVALID_STATE_TRANSITION',
+      context: { machine: 'subscription', from: status, transition: 'pause' },
+    });
+    const persisted = await payable.subscription(subscription.id).retrieve();
+    const auditLogs = await payable
+      .auditLogs()
+      .run({ resourceType: 'subscription', resourceId: subscription.id });
+
+    expect(provider.pauseCalls).toBe(0);
+    expect(persisted.status).toBe(status);
+    expect(auditLogs).toEqual([]);
+    await database.destroy();
+  });
+
   it('rejects an unadvertised pause before calling the provider', async () => {
     const database = createTestDb();
     await migrate(database);

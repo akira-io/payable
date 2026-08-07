@@ -4,6 +4,7 @@ import {
 } from '../../../domain/contracts/pause-subscription-provider.contract';
 import type { PaymentProvider } from '../../../domain/contracts/payment-provider.contract';
 import type { Subscription } from '../../../domain/entities/subscription.entity';
+import { SubscriptionStateMachine } from '../../../domain/states/subscription-state-machine';
 import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
 import type { AuthorizationContext } from '../../policies/authorization-context';
@@ -32,6 +33,7 @@ export class PauseSubscriptionAction extends SubscriptionAction {
     );
     const provider = this.pauseProvider();
     const subscription = await this.resolve(billable, name);
+    new SubscriptionStateMachine(subscription.status).pause();
     const providerSubscription = await provider.pauseSubscription(
       { providerSubscriptionId: subscription.providerSubscriptionId },
       this.context('pause', subscription.providerSubscriptionId),
