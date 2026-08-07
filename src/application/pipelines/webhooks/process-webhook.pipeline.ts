@@ -143,7 +143,9 @@ export class ProcessWebhookPipeline {
   ): Promise<void> {
     const { provider, providerName } = this.deps;
     assertCapableProvider(provider, 'webhooks', isWebhookCapable);
-    const dto = provider.reconcileSubscription(verified);
+    const dto = provider.reconcileSubscriptionAsync
+      ? await provider.reconcileSubscriptionAsync(verified)
+      : provider.reconcileSubscription(verified);
     if (!dto) {
       return;
     }
@@ -163,6 +165,7 @@ export class ProcessWebhookPipeline {
     ) {
       return;
     }
+    let singleItemPatch: Pick<NewSubscription, 'priceId' | 'quantity'> | null = null;
     if (dto.items) {
       const localItems = await repos.subscriptionItems.listBySubscription(local.id, tenantId);
       const reconciliations = reconcileProviderSubscriptionItems(localItems, dto.items);
@@ -178,6 +181,18 @@ export class ProcessWebhookPipeline {
           tenantId,
         );
       }
+      const [singleProviderItem] = dto.items;
+      if (
+        localItems.length === 1 &&
+        dto.items.length === 1 &&
+        reconciliations.length === 1 &&
+        singleProviderItem
+      ) {
+        singleItemPatch = {
+          priceId: singleProviderItem.priceId,
+          quantity: singleProviderItem.quantity,
+        };
+      }
     }
     const reconciliation = reconcileSubscriptionStatus(local.status, dto.status);
     if (!reconciliation.applied) {
@@ -191,6 +206,7 @@ export class ProcessWebhookPipeline {
       dto.scheduledResumeAt === null;
     const patch: Partial<NewSubscription> = {
       status,
+      ...(singleItemPatch ?? {}),
       currentPeriodEnd: dto.currentPeriodEnd,
       trialEndsAt: dto.trialEndsAt,
       ...(providerOccurredAt ? { providerSyncedAt: providerOccurredAt } : {}),

@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
 import {
@@ -62,6 +63,13 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: { 'content-type': 'application/json' },
   });
+}
+
+function webhookSignature(payload: string, timestamp: string): string {
+  const value = createHmac('sha256', 'revolut-webhook')
+    .update(`v1.${timestamp}.${payload}`)
+    .digest('hex');
+  return `v1=${value}`;
 }
 
 describe('Revolut scheduled subscription changes', () => {
@@ -158,5 +166,79 @@ describe('Revolut scheduled subscription changes', () => {
     expect(swapped.priceId).toBe('price_old');
     expect(scheduledChanges).toBe(1);
     expect(items).toMatchObject([{ priceId: 'price_old', quantity: 1 }]);
+  });
+
+  it('reconciles the effective Revolut plan variation after a scheduled swap', async () => {
+    const database = createTestDb();
+    databases.push(database);
+    await migrate(database);
+    const clock = new FakeClock(new Date('2026-08-07T10:00:00.000Z'));
+    const storage = new KnexStorageDriver(database, clock);
+    let remotePriceId = 'price_old';
+    const fetch: NonNullable<RevolutProviderOptions['fetch']> = async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      if (path === '/api/customers') {
+        return jsonResponse(
+          {
+            id: 'customer_revolut',
+            email: billable.email,
+            full_name: null,
+            created_at: '2026-08-07T10:00:00Z',
+            updated_at: '2026-08-07T10:00:00Z',
+            payment_methods: [],
+          },
+          201,
+        );
+      }
+      if (path === '/api/subscriptions' && init?.method === 'POST') {
+        return jsonResponse(revolutSubscription(remotePriceId), 201);
+      }
+      if (path.endsWith('/change-plan')) {
+        return new Response(null, { status: 204 });
+      }
+      return jsonResponse(revolutSubscription(remotePriceId));
+    };
+    const payable = createPayable({
+      providers: {
+        revolut: new RevolutProvider({
+          secretKey: 'revolut-secret',
+          webhookSecret: 'revolut-webhook',
+          environment: 'sandbox',
+          fetch,
+        }),
+      },
+      storage,
+      clock,
+      tenant: { enabled: true },
+    });
+    const customer = payable.customer(billable, 'revolut', 'tenant_revolut');
+    const subscription = await customer.newSubscription('default').price('price_old').create();
+    await customer.subscription('default').swap({
+      priceId: 'price_new',
+      effectiveTiming: 'nextRenewal',
+      prorationPolicy: 'none',
+      paymentFailurePolicy: 'applyChange',
+    });
+    remotePriceId = 'price_new';
+    const payload = JSON.stringify({
+      event: 'SUBSCRIPTION_OVERDUE',
+      subscription_id: 'subscription_revolut',
+    });
+    const timestamp = String(Date.now());
+
+    await payable.receiveWebhook({
+      payload,
+      signature: webhookSignature(payload, timestamp),
+      headers: { 'Revolut-Request-Timestamp': timestamp },
+      tenantId: 'tenant_revolut',
+    });
+
+    const reloaded = await storage.subscriptions.findById(subscription.id, 'tenant_revolut');
+    const items = await storage.subscriptionItems.listBySubscription(
+      subscription.id,
+      'tenant_revolut',
+    );
+    expect(reloaded?.priceId).toBe('price_new');
+    expect(items).toMatchObject([{ priceId: 'price_new', quantity: 1 }]);
   });
 });

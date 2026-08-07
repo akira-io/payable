@@ -82,6 +82,7 @@ export interface SubscriptionManagementCapable {
 export interface WebhookCapable {
   verifyWebhook(input: WebhookVerificationInput): Promise<VerifiedWebhook>;
   reconcileSubscription(verified: VerifiedWebhook): SubscriptionDTO | null;
+  reconcileSubscriptionAsync?(verified: VerifiedWebhook): Promise<SubscriptionDTO | null>;
 }
 
 export interface BillingPortalCapable {

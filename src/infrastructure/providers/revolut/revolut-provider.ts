@@ -289,8 +289,9 @@ export class RevolutProvider
       data: payload,
     };
   }
-  reconcileSubscription(verified: VerifiedWebhook): SubscriptionDTO | null {
-    return reconcileRevolutSubscriptionWebhook(verified);
+  readonly reconcileSubscription = reconcileRevolutSubscriptionWebhook;
+  reconcileSubscriptionAsync(verified: VerifiedWebhook): Promise<SubscriptionDTO | null> {
+    return this.subscriptions.reconcileWebhook(verified);
   }
   reconcilePayment(verified: VerifiedWebhook): PaymentWebhookReconciliation | null {
     return reconcileRevolutPaymentWebhook(verified);
