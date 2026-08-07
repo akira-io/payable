@@ -82,11 +82,6 @@ export type {
   OutboxStatus,
 } from './outbox-event-repository.contract';
 export type {
-  PauseSubscriptionCapable,
-  PauseSubscriptionInput,
-} from './pause-subscription-provider.contract';
-export { isPauseSubscriptionCapable } from './pause-subscription-provider.contract';
-export type {
   BillingPortalCapable,
   CatalogCapable,
   CatalogLifecycleCapable,
@@ -140,10 +135,29 @@ export type { NewProduct, ProductPatch, ProductRepository } from './product-repo
 export type { JobHandler, QueueDriver, QueueJob } from './queue-driver.contract';
 export type { NewRefund, RefundRepository } from './refund-repository.contract';
 export type { Repositories, StorageDriver } from './storage-driver.contract';
+export type { SubscriptionChangeCapable } from './subscription-change-provider.contract';
+export { isSubscriptionChangeCapable } from './subscription-change-provider.contract';
 export type {
   NewSubscriptionItem,
   SubscriptionItemRepository,
 } from './subscription-item-repository.contract';
+export type {
+  CancelScheduledSubscriptionChangeInput,
+  PausedSubscriptionResumeCapable,
+  PausePaymentCollectionInput,
+  PauseSubscriptionInput,
+  ResumePausedSubscriptionInput,
+  ResumePaymentCollectionInput,
+  ScheduledSubscriptionChangeCapable,
+  SubscriptionPauseCapable,
+  SubscriptionPaymentCollectionCapable,
+} from './subscription-lifecycle-provider.contract';
+export {
+  isPausedSubscriptionResumeCapable,
+  isScheduledSubscriptionChangeCapable,
+  isSubscriptionPauseCapable,
+  isSubscriptionPaymentCollectionCapable,
+} from './subscription-lifecycle-provider.contract';
 export type { SubscriptionOperationCapabilitiesProvider } from './subscription-operation-capabilities-provider.contract';
 export {
   isSubscriptionOperationCapabilitiesProvider,

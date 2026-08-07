@@ -10,6 +10,12 @@ import {
 } from '../src/infrastructure/providers/revolut/revolut-provider';
 
 const ctx = { correlationId: 'corr-1', idempotencyKey: 'idem-1' };
+const changePolicies = {
+  effectiveTiming: 'nextRenewal' as const,
+  prorationPolicy: 'none' as const,
+  paymentFailurePolicy: 'applyChange' as const,
+  calculatedAt: new Date('2026-08-07T10:00:00.000Z'),
+};
 
 interface RecordedRequest {
   url: string;
@@ -158,7 +164,7 @@ describe('RevolutProvider subscriptions', () => {
     const { fetch, calls } = fakeFetch({ status: 204 }, { status: 200, body: subscription() });
 
     const dto = await provider(fetch).updateSubscription(
-      { providerSubscriptionId: 'sub_1', priceId: 'plan_var_2' },
+      { providerSubscriptionId: 'sub_1', priceId: 'plan_var_2', ...changePolicies },
       ctx,
     );
 

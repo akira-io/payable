@@ -7,8 +7,15 @@ import type {
   Repositories,
   StorageDriver,
 } from '../../../domain/contracts/storage-driver.contract';
+import {
+  isSubscriptionChangeCapable,
+  type SubscriptionChangeCapable,
+} from '../../../domain/contracts/subscription-change-provider.contract';
+import type { NewSubscription } from '../../../domain/contracts/subscription-repository.contract';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
+import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import type { Subscription } from '../../../domain/entities/subscription.entity';
+import type { SubscriptionItem } from '../../../domain/entities/subscription-item.entity';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { SubscriptionNotFoundError } from '../../../domain/errors/subscription-not-found.error';
 import { reconcileSubscriptionStatus } from '../../../domain/states/subscription-state-machine';
@@ -27,6 +34,10 @@ import {
 } from '../../services/provider-capabilities/assert-subscription-operation';
 
 export type ManagedSubscription = Subscription & { providerSubscriptionId: string };
+export interface SelectedSubscriptionItem {
+  selectedItem: SubscriptionItem;
+  items: SubscriptionItem[];
+}
 
 export abstract class SubscriptionAction {
   constructor(protected readonly deps: BillingDependencies) {}
@@ -83,6 +94,15 @@ export abstract class SubscriptionAction {
     return provider;
   }
 
+  protected subscriptionChangeProvider(
+    operation: SubscriptionOperation,
+  ): PaymentProvider & SubscriptionChangeCapable {
+    const provider = this.deps.provider;
+    assertCapableProvider(provider, 'subscriptions', isSubscriptionChangeCapable);
+    assertSubscriptionOperation(provider, operation);
+    return provider;
+  }
+
   protected async resolve(billable: Billable, name: string): Promise<ManagedSubscription> {
     this.storage();
     const subscription = await new FindSubscriptionQuery(this.deps).run(billable, name);
@@ -97,6 +117,68 @@ export abstract class SubscriptionAction {
     providerStatus: SubscriptionStatus,
   ): SubscriptionStatus {
     return reconcileSubscriptionStatus(current, providerStatus).status;
+  }
+
+  protected lifecyclePatch(
+    subscription: Subscription,
+    dto: SubscriptionDTO,
+  ): Partial<NewSubscription> {
+    return {
+      status: this.reconcileStatus(subscription.status, dto.status),
+      ...(dto.scheduledChangeAction !== undefined
+        ? { scheduledChangeAction: dto.scheduledChangeAction }
+        : {}),
+      ...(dto.scheduledChangeEffectiveAt !== undefined
+        ? { scheduledChangeEffectiveAt: dto.scheduledChangeEffectiveAt }
+        : {}),
+      ...(dto.scheduledResumeAt !== undefined ? { scheduledResumeAt: dto.scheduledResumeAt } : {}),
+      ...(dto.resumeBillingPolicy !== undefined
+        ? { resumeBillingPolicy: dto.resumeBillingPolicy }
+        : {}),
+      ...(dto.paymentCollectionPauseBehavior !== undefined
+        ? { paymentCollectionPauseBehavior: dto.paymentCollectionPauseBehavior }
+        : {}),
+      ...(dto.paymentCollectionResumesAt !== undefined
+        ? { paymentCollectionResumesAt: dto.paymentCollectionResumesAt }
+        : {}),
+    };
+  }
+
+  protected lifecycleSnapshot(subscription: Subscription): Record<string, unknown> {
+    return {
+      status: subscription.status,
+      scheduledChangeAction: subscription.scheduledChangeAction,
+      scheduledChangeEffectiveAt: subscription.scheduledChangeEffectiveAt,
+      scheduledResumeAt: subscription.scheduledResumeAt,
+      resumeBillingPolicy: subscription.resumeBillingPolicy,
+      paymentCollectionPauseBehavior: subscription.paymentCollectionPauseBehavior,
+      paymentCollectionResumesAt: subscription.paymentCollectionResumesAt,
+    };
+  }
+
+  protected async selectItem(
+    subscription: ManagedSubscription,
+    itemId?: string,
+  ): Promise<SelectedSubscriptionItem> {
+    const items = await this.storage().subscriptionItems.listBySubscription(
+      subscription.id,
+      this.deps.tenantId ?? null,
+    );
+    if (itemId === undefined && items.length !== 1) {
+      throw new PayableError('Subscription item selection is ambiguous', {
+        code: 'SUBSCRIPTION_ITEM_AMBIGUOUS',
+        context: { subscriptionId: subscription.id, itemCount: items.length },
+      });
+    }
+    const selectedItem =
+      itemId === undefined ? items[0] : items.find((candidate) => candidate.id === itemId);
+    if (!selectedItem) {
+      throw new PayableError(`Subscription item ${itemId ?? ''} was not found`, {
+        code: 'SUBSCRIPTION_ITEM_NOT_FOUND',
+        context: { subscriptionId: subscription.id, itemId: itemId ?? null },
+      });
+    }
+    return { selectedItem, items };
   }
 
   protected assertQuantity(quantity: number): void {

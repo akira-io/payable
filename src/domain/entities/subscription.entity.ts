@@ -1,3 +1,7 @@
+import type {
+  SubscriptionPaymentCollectionBehavior,
+  SubscriptionResumeBillingPolicy,
+} from '../dtos/subscription-operation-capabilities.dto';
 import type { SubscriptionStatus } from '../value-objects/subscription-status';
 import type { TenantScoped, Timestamps } from './common';
 
@@ -15,4 +19,10 @@ export interface Subscription extends TenantScoped, Timestamps {
   readonly currentPeriodStart: Date | null;
   readonly currentPeriodEnd: Date | null;
   readonly providerSyncedAt?: Date | null;
+  readonly scheduledChangeAction: 'pause' | 'resume' | null;
+  readonly scheduledChangeEffectiveAt: Date | null;
+  readonly scheduledResumeAt: Date | null;
+  readonly resumeBillingPolicy: SubscriptionResumeBillingPolicy | null;
+  readonly paymentCollectionPauseBehavior: SubscriptionPaymentCollectionBehavior | null;
+  readonly paymentCollectionResumesAt: Date | null;
 }

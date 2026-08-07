@@ -17,6 +17,7 @@ import {
 } from './support/subscription-capability-providers';
 
 const NO_OPERATIONS = {
+  itemIdentity: 'none',
   create: { checkout: false, direct: false },
   changePrice: {
     preview: false,
@@ -32,17 +33,20 @@ const NO_OPERATIONS = {
   },
   cancel: { immediately: false, atPeriodEnd: false },
   pause: {
-    effectiveTimings: [],
-    scheduledResume: false,
-    resumeBillingPolicies: [],
+    subscription: {
+      effectiveTimings: [],
+      scheduledResume: false,
+      resumeBillingPolicies: [],
+    },
+    paymentCollection: { behaviors: [], scheduledResume: false },
   },
   resume: {
     pendingCancellation: false,
-    pausedSubscription: false,
-    scheduled: false,
-    billingPolicies: [],
+    pausedSubscription: { effectiveTimings: [], billingPolicies: [] },
+    paymentCollection: false,
   },
-};
+  scheduledChange: { cancel: false },
+} as const;
 
 describe('subscription operation capabilities', () => {
   it('exports a serializable immutable empty descriptor', () => {
@@ -113,23 +117,32 @@ describe('subscription operation capabilities', () => {
       new StripeProvider({ secretKey: 'stripe-secret', webhookSecret: 'stripe-webhook' }),
       {
         ...NO_OPERATIONS,
+        itemIdentity: 'stable',
         create: { checkout: true, direct: true },
         changePrice: {
-          preview: false,
+          preview: true,
           effectiveTimings: ['immediate'],
-          prorationPolicies: ['prorateAtNextRenewal'],
-          paymentFailurePolicies: ['applyChange'],
+          prorationPolicies: ['prorateImmediately', 'prorateAtNextRenewal', 'none'],
+          paymentFailurePolicies: ['preventChange', 'applyChange'],
         },
         changeQuantity: {
-          preview: false,
+          preview: true,
           effectiveTimings: ['immediate'],
-          prorationPolicies: ['prorateAtNextRenewal'],
-          paymentFailurePolicies: ['applyChange'],
+          prorationPolicies: ['prorateImmediately', 'prorateAtNextRenewal', 'none'],
+          paymentFailurePolicies: ['preventChange', 'applyChange'],
         },
         cancel: { immediately: true, atPeriodEnd: true },
+        pause: {
+          ...NO_OPERATIONS.pause,
+          paymentCollection: {
+            behaviors: ['keepAsDraft', 'markUncollectible', 'void'],
+            scheduledResume: true,
+          },
+        },
         resume: {
           ...NO_OPERATIONS.resume,
           pendingCancellation: true,
+          paymentCollection: true,
         },
       },
     ],
@@ -138,25 +151,49 @@ describe('subscription operation capabilities', () => {
       new PaddleProvider({ apiKey: 'paddle-key', webhookSecret: 'paddle-webhook' }),
       {
         ...NO_OPERATIONS,
+        itemIdentity: 'price',
         create: { checkout: true, direct: false },
         changePrice: {
-          preview: false,
+          preview: true,
           effectiveTimings: ['immediate'],
-          prorationPolicies: ['prorateImmediately'],
-          paymentFailurePolicies: ['preventChange'],
+          prorationPolicies: [
+            'prorateImmediately',
+            'prorateAtNextRenewal',
+            'chargeFullImmediately',
+            'chargeFullAtNextRenewal',
+            'none',
+          ],
+          paymentFailurePolicies: ['preventChange', 'applyChange'],
         },
         changeQuantity: {
-          preview: false,
+          preview: true,
           effectiveTimings: ['immediate'],
-          prorationPolicies: ['prorateImmediately'],
-          paymentFailurePolicies: ['preventChange'],
+          prorationPolicies: [
+            'prorateImmediately',
+            'prorateAtNextRenewal',
+            'chargeFullImmediately',
+            'chargeFullAtNextRenewal',
+            'none',
+          ],
+          paymentFailurePolicies: ['preventChange', 'applyChange'],
         },
         cancel: { immediately: true, atPeriodEnd: true },
+        pause: {
+          ...NO_OPERATIONS.pause,
+          subscription: {
+            effectiveTimings: ['immediate', 'nextRenewal'],
+            scheduledResume: true,
+            resumeBillingPolicies: ['startNewBillingPeriod', 'continueExistingBillingPeriod'],
+          },
+        },
         resume: {
           ...NO_OPERATIONS.resume,
-          pausedSubscription: true,
-          billingPolicies: ['startNewBillingPeriod'],
+          pausedSubscription: {
+            effectiveTimings: ['immediate', 'scheduled'],
+            billingPolicies: ['startNewBillingPeriod', 'continueExistingBillingPeriod'],
+          },
         },
+        scheduledChange: { cancel: true },
       },
     ],
     [
@@ -166,8 +203,10 @@ describe('subscription operation capabilities', () => {
         ...NO_OPERATIONS,
         create: { checkout: true, direct: true },
         changePrice: {
-          ...NO_OPERATIONS.changePrice,
+          preview: true,
           effectiveTimings: ['nextRenewal'],
+          prorationPolicies: ['none'],
+          paymentFailurePolicies: ['applyChange'],
         },
         cancel: { immediately: true, atPeriodEnd: false },
       },
@@ -191,7 +230,10 @@ describe('subscription operation capabilities', () => {
         resume: {
           ...NO_OPERATIONS.resume,
           pendingCancellation: true,
-          pausedSubscription: true,
+          pausedSubscription: {
+            effectiveTimings: ['immediate'],
+            billingPolicies: ['startNewBillingPeriod'],
+          },
         },
       },
     ],

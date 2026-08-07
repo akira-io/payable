@@ -179,6 +179,7 @@ const operations = payable
   .subscriptionOperationCapabilities('stripe');
 
 operations.create.direct;
+operations.itemIdentity;
 operations.changePrice.effectiveTimings;
 operations.cancel.atPeriodEnd;
 ```
@@ -188,24 +189,40 @@ Change capabilities list supported effective timings, proration policies, and pa
 policies. Pause and resume capabilities list scheduling and billing-cycle behavior. The returned
 snapshot and its policy arrays are immutable.
 
+`itemIdentity` is `stable` for Stripe, `price` for Paddle, and `none` for providers that do not expose
+addressable subscription items. This lets consumers require an explicit local item and avoid assuming
+that the first provider item is primary.
+
 | Subscription operation | Stripe | Paddle | SISP | Revolut |
 | --- | --- | --- | --- | --- |
 | Hosted checkout creation | yes | yes | no | yes |
 | Direct creation | yes | no | no | yes |
 | Price change timing | immediate | immediate | no | next renewal |
-| Price change proration | next invoice | immediate | no | no |
-| Price change payment failure | apply change | prevent change | no | no |
+| Price change proration | immediate, next invoice, none | immediate, next invoice, full charge immediately, full charge at next renewal, none | no | none |
+| Price change payment failure | prevent change, apply change | prevent change, apply change | no | apply change |
 | Quantity change | immediate | immediate | no | no |
-| Preview change | no | no | no | no |
+| Preview change | yes | yes | no | yes |
 | Cancel immediately | yes | yes | no | yes |
 | Cancel at period end | yes | yes | no | no |
-| Pause | no | no | no | no |
+| Pause subscription timing | no | immediate, next renewal | no | no |
+| Pause scheduled resume | no | yes | no | no |
+| Pause resume billing policy | no | new billing period, existing billing period | no | no |
+| Pause payment collection | keep as draft, mark uncollectible, void | no | no | no |
+| Payment collection scheduled resume | yes | no | no | no |
 | Resume pending cancellation | yes | no | no | no |
-| Resume paused subscription | no | yes, new billing period | no | no |
+| Resume paused subscription timing | no | immediate, scheduled | no | no |
+| Resume paused subscription billing | no | new billing period, existing billing period | no | no |
+| Resume payment collection | yes | no | no | no |
+| Cancel scheduled change | no | yes | no | no |
 
 This matrix describes the current Payable adapters, not every feature offered by the external
-providers. For example, Paddle offers pause operations, but the Payable adapter does not expose them
-yet and therefore reports them as unsupported.
+providers. Lifecycle pause and payment-collection pause are deliberately separate operations. Stripe
+payment-collection pause leaves the subscription lifecycle status unchanged; Paddle lifecycle pause
+changes the subscription state. SISP and Revolut advertise neither operation.
+
+Stripe and Paddle return provider-calculated monetary previews. Revolut has no monetary change-plan
+preview endpoint, so Payable returns a structural next-renewal preview with unknown amounts as
+`null`. Apply always reuses the exact stored preview input and provider calculation timestamp.
 
 Built-in providers publish explicit descriptors. A custom provider can add the optional method
 without changing its existing `capabilities()` implementation. For legacy providers that do not

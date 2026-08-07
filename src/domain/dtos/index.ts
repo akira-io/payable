@@ -117,12 +117,26 @@ export type {
   CancelSubscriptionInput,
   CreateSubscriptionInput,
   SubscriptionDTO,
+  SubscriptionProviderItemDTO,
   UpdateSubscriptionInput,
 } from './subscription.dto';
 export type {
+  ApplySubscriptionChangeInput,
+  PreviewSubscriptionChangeInput,
+  ProviderSubscriptionChangeInput,
+  ProviderSubscriptionChangePreview,
+  SubscriptionChangeItem,
+  SubscriptionChangeMoney,
+  SubscriptionChangePolicies,
+  SubscriptionChangePreview,
+  SubscriptionChangeRenewal,
+} from './subscription-change.dto';
+export type {
   SubscriptionChangeCapabilities,
   SubscriptionEffectiveTiming,
+  SubscriptionItemIdentity,
   SubscriptionOperationCapabilities,
+  SubscriptionPaymentCollectionBehavior,
   SubscriptionPaymentFailurePolicy,
   SubscriptionProrationPolicy,
   SubscriptionResumeBillingPolicy,
@@ -131,6 +145,16 @@ export {
   defineSubscriptionOperationCapabilities,
   NO_SUBSCRIPTION_OPERATIONS,
 } from './subscription-operation-capabilities.dto';
+export type {
+  PausePaymentCollectionPolicy,
+  PauseSubscriptionPolicy,
+  ResumePausedSubscriptionPolicy,
+} from './subscription-pause-policy.dto';
+export {
+  validatePausePaymentCollectionPolicy,
+  validatePauseSubscriptionPolicy,
+  validateResumePausedSubscriptionPolicy,
+} from './subscription-pause-policy.dto';
 export type {
   CalculateTaxInput,
   CommitTaxTransactionInput,

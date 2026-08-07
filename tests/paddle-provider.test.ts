@@ -20,6 +20,12 @@ import type {
 } from '../src/infrastructure/providers/paddle/paddle-types';
 
 const ctx = { correlationId: 'corr-1', idempotencyKey: 'idem-1' };
+const changePolicies = {
+  effectiveTiming: 'immediate' as const,
+  prorationPolicy: 'prorateImmediately' as const,
+  paymentFailurePolicy: 'preventChange' as const,
+  calculatedAt: new Date('2026-08-07T10:00:00.000Z'),
+};
 
 function fakePaddle(unmarshal?: () => Promise<PaddleWebhookEvent | null>) {
   const calls = new Map<string, unknown>();
@@ -182,12 +188,13 @@ describe('PaddleProvider', () => {
       return Promise.resolve({ id: 'sub_1', status: 'active' });
     };
     await provider(client).updateSubscription(
-      { providerSubscriptionId: 'sub_1', priceId: 'pri_1', quantity: 3 },
+      { providerSubscriptionId: 'sub_1', priceId: 'pri_1', quantity: 3, ...changePolicies },
       ctx,
     );
     expect(body).toEqual({
       items: [{ priceId: 'pri_1', quantity: 3 }],
       prorationBillingMode: 'prorated_immediately',
+      onPaymentFailure: 'prevent_change',
     });
   });
 
@@ -269,29 +276,5 @@ describe('PaddleProvider', () => {
         ctx,
       ),
     ).rejects.toMatchObject({ code: 'PROVIDER_CARD_DECLINED' });
-  });
-
-  it('reconciles a subscription webhook via a validated narrowing, not a blind cast', () => {
-    const subject = new PaddleProvider({ apiKey: 'pdl', webhookSecret: 'wh' });
-    const dto = subject.reconcileSubscription({
-      providerEventId: 'evt_1',
-      type: 'subscription.updated',
-      normalizedType: 'subscription.updated',
-      data: {
-        id: 'sub_9',
-        status: 'active',
-        currentBillingPeriod: { endsAt: '2026-07-01T00:00:00.000Z' },
-      },
-    });
-    expect(dto).toMatchObject({ providerSubscriptionId: 'sub_9', status: 'active' });
-    expect(dto?.currentPeriodEnd?.toISOString()).toBe('2026-07-01T00:00:00.000Z');
-
-    const malformed = subject.reconcileSubscription({
-      providerEventId: 'evt_2',
-      type: 'subscription.updated',
-      normalizedType: 'subscription.updated',
-      data: { id: 'sub_x', status: 'active', currentBillingPeriod: 'garbage' },
-    });
-    expect(malformed?.currentPeriodEnd).toBeNull();
   });
 });

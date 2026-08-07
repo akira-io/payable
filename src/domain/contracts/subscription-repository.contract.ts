@@ -1,7 +1,19 @@
 import type { Subscription } from '../entities/subscription.entity';
 import type { ListOptions } from './list-options.contract';
 
-export type NewSubscription = Omit<Subscription, 'id' | 'createdAt' | 'updatedAt'>;
+type LifecycleMetadataKey =
+  | 'scheduledChangeAction'
+  | 'scheduledChangeEffectiveAt'
+  | 'scheduledResumeAt'
+  | 'resumeBillingPolicy'
+  | 'paymentCollectionPauseBehavior'
+  | 'paymentCollectionResumesAt';
+
+export type NewSubscription = Omit<
+  Subscription,
+  'id' | 'createdAt' | 'updatedAt' | LifecycleMetadataKey
+> &
+  Partial<Pick<Subscription, LifecycleMetadataKey>>;
 
 export interface SubscriptionRepository {
   create(data: NewSubscription): Promise<Subscription>;

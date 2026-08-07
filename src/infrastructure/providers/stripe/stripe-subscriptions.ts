@@ -1,5 +1,9 @@
 import type Stripe from 'stripe';
 import type { ResumeSubscriptionInput } from '../../../domain/contracts/payment-provider.contract';
+import type {
+  PausePaymentCollectionInput,
+  ResumePaymentCollectionInput,
+} from '../../../domain/contracts/subscription-lifecycle-provider.contract';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type {
   CancelSubscriptionInput,
@@ -8,8 +12,11 @@ import type {
   UpdateSubscriptionInput,
 } from '../../../domain/dtos/subscription.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
+import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
+import { requireSubscriptionChangePolicies } from '../../../domain/validation/subscription-change-policies';
 import { withStripeErrors } from './stripe-errors';
 import { toSubscriptionDTO } from './stripe-mappers';
+import { stripePaymentFailurePolicy, stripeProrationPolicy } from './stripe-subscription-changes';
 
 export class StripeSubscriptions {
   constructor(private readonly client: () => Promise<Stripe>) {}
@@ -40,17 +47,25 @@ export class StripeSubscriptions {
     const stripe = await this.client();
     const params: Stripe.SubscriptionUpdateParams = {};
     if (input.priceId !== undefined || input.quantity !== undefined) {
-      const current = await withStripeErrors(() =>
-        stripe.subscriptions.retrieve(input.providerSubscriptionId),
-      );
-      const itemId = current.items.data[0]?.id;
-      if (!itemId) {
+      if (!input.providerItemId) {
         throw new PayableError(
-          `Stripe subscription ${input.providerSubscriptionId} has no item to update`,
+          `Stripe subscription ${input.providerSubscriptionId} has no mapped item to update`,
           { code: 'PROVIDER_SUBSCRIPTION_ITEM_MISSING' },
         );
       }
-      params.items = [{ id: itemId, price: input.priceId, quantity: input.quantity }];
+      params.items = [{ id: input.providerItemId, price: input.priceId, quantity: input.quantity }];
+      const policies = requireSubscriptionChangePolicies(input);
+      if (policies.effectiveTiming !== 'immediate') {
+        throw new ProviderCapabilityNotSupportedError(
+          'stripe',
+          `subscriptions.change.${policies.effectiveTiming}`,
+        );
+      }
+      params.proration_behavior = stripeProrationPolicy(policies.prorationPolicy);
+      params.payment_behavior = stripePaymentFailurePolicy(policies.paymentFailurePolicy);
+      if (policies.prorationPolicy !== 'none') {
+        params.proration_date = Math.floor(policies.calculatedAt.getTime() / 1_000);
+      }
     }
     const subscription = await withStripeErrors(() =>
       stripe.subscriptions.update(input.providerSubscriptionId, params, {
@@ -86,6 +101,48 @@ export class StripeSubscriptions {
       stripe.subscriptions.update(
         input.providerSubscriptionId,
         { cancel_at_period_end: false },
+        { idempotencyKey: ctx.idempotencyKey },
+      ),
+    );
+    return toSubscriptionDTO(subscription);
+  }
+
+  async pausePaymentCollection(
+    input: PausePaymentCollectionInput,
+    ctx: OperationContext,
+  ): Promise<SubscriptionDTO> {
+    const stripe = await this.client();
+    const behavior = {
+      keepAsDraft: 'keep_as_draft',
+      markUncollectible: 'mark_uncollectible',
+      void: 'void',
+    } as const;
+    const subscription = await withStripeErrors(() =>
+      stripe.subscriptions.update(
+        input.providerSubscriptionId,
+        {
+          pause_collection: {
+            behavior: behavior[input.behavior],
+            ...(input.resumesAt
+              ? { resumes_at: Math.floor(input.resumesAt.getTime() / 1000) }
+              : {}),
+          },
+        },
+        { idempotencyKey: ctx.idempotencyKey },
+      ),
+    );
+    return toSubscriptionDTO(subscription);
+  }
+
+  async resumePaymentCollection(
+    input: ResumePaymentCollectionInput,
+    ctx: OperationContext,
+  ): Promise<SubscriptionDTO> {
+    const stripe = await this.client();
+    const subscription = await withStripeErrors(() =>
+      stripe.subscriptions.update(
+        input.providerSubscriptionId,
+        { pause_collection: '' },
         { idempotencyKey: ctx.idempotencyKey },
       ),
     );

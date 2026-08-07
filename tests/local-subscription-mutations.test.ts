@@ -9,6 +9,12 @@ import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
 import { storeSubscription } from './support/local-subscription';
 
+const changePolicies = {
+  effectiveTiming: 'immediate' as const,
+  prorationPolicy: 'prorateImmediately' as const,
+  paymentFailurePolicy: 'preventChange' as const,
+};
+
 async function setupMutation() {
   const database = createTestDb();
   await migrate(database);
@@ -58,7 +64,7 @@ describe('local subscription mutations', () => {
     });
 
     const resource = payable.subscription(paddleSubscription.id);
-    const updated = await resource.swap('price_new');
+    const updated = await resource.swap({ priceId: 'price_new', ...changePolicies });
 
     expect(updated).toMatchObject({ id: paddleSubscription.id, priceId: 'price_new' });
     expect(paddle.lastSubscriptionUpdate).toMatchObject({
@@ -77,7 +83,7 @@ describe('local subscription mutations', () => {
     const { database, payable, subscription } = await setupMutation();
     const resource = payable.subscription(subscription.id);
 
-    const updated = await resource.updateQuantity(4);
+    const updated = await resource.updateQuantity({ quantity: 4, ...changePolicies });
 
     expect(updated).toMatchObject({ id: subscription.id, quantity: 4 });
     expect(updated).not.toBe(subscription);
@@ -138,7 +144,11 @@ describe('local subscription mutations', () => {
     const resource = payable.subscription(subscription.id);
 
     await expect(
-      resource.swap('price_new', { actorId: 'admin_1', allowed: false }),
+      resource.swap({
+        priceId: 'price_new',
+        ...changePolicies,
+        authorization: { actorId: 'admin_1', allowed: false },
+      }),
     ).rejects.toMatchObject({ code: 'AUTHORIZATION_DENIED' });
     expect(provider.lastSubscriptionUpdate).toBeUndefined();
     await expect(storage.subscriptions.findById(subscription.id)).resolves.toMatchObject({
@@ -152,7 +162,7 @@ describe('local subscription mutations', () => {
     await storage.subscriptions.update(subscription.id, { status: 'canceled' });
     const resource = payable.subscription(subscription.id);
 
-    const updated = await resource.updateQuantity(2);
+    const updated = await resource.updateQuantity({ quantity: 2, ...changePolicies });
 
     expect(updated).toMatchObject({ id: subscription.id, status: 'canceled', quantity: 2 });
     await database.destroy();
@@ -175,9 +185,9 @@ describe('local subscription mutations', () => {
       clock,
     });
 
-    await expect(payable.subscription(subscription.id).updateQuantity(8)).rejects.toThrow(
-      'audit unavailable',
-    );
+    await expect(
+      payable.subscription(subscription.id).updateQuantity({ quantity: 8, ...changePolicies }),
+    ).rejects.toThrow('audit unavailable');
     await expect(storage.subscriptions.findById(subscription.id)).resolves.toMatchObject({
       quantity: 1,
     });

@@ -85,7 +85,17 @@ export function registerSubscriptionTools(
         inputSchema: {
           billable: billableObject,
           name: z.string().min(1),
+          itemId: z.string().min(1).optional(),
           priceId: z.string().min(1),
+          effectiveTiming: z.enum(['immediate', 'nextRenewal', 'scheduled']),
+          prorationPolicy: z.enum([
+            'prorateImmediately',
+            'prorateAtNextRenewal',
+            'chargeFullImmediately',
+            'chargeFullAtNextRenewal',
+            'none',
+          ]),
+          paymentFailurePolicy: z.enum(['preventChange', 'applyChange']),
           ...providerShape,
           ...tenantShape,
         },
@@ -95,7 +105,14 @@ export function registerSubscriptionTools(
           payable
             .customer(args.billable, providerFrom(args, options), tenantFrom(args, options))
             .subscription(args.name)
-            .swap(args.priceId, authorizeTool('subscription_swap', args, options)),
+            .swap({
+              priceId: args.priceId,
+              itemId: args.itemId,
+              effectiveTiming: args.effectiveTiming,
+              prorationPolicy: args.prorationPolicy,
+              paymentFailurePolicy: args.paymentFailurePolicy,
+              authorization: authorizeTool('subscription_swap', args, options),
+            }),
         ),
     );
   }
@@ -108,7 +125,17 @@ export function registerSubscriptionTools(
         inputSchema: {
           billable: billableObject,
           name: z.string().min(1),
+          itemId: z.string().min(1).optional(),
           quantity: z.number().int().positive(),
+          effectiveTiming: z.enum(['immediate', 'nextRenewal', 'scheduled']),
+          prorationPolicy: z.enum([
+            'prorateImmediately',
+            'prorateAtNextRenewal',
+            'chargeFullImmediately',
+            'chargeFullAtNextRenewal',
+            'none',
+          ]),
+          paymentFailurePolicy: z.enum(['preventChange', 'applyChange']),
           ...providerShape,
           ...tenantShape,
         },
@@ -118,10 +145,14 @@ export function registerSubscriptionTools(
           payable
             .customer(args.billable, providerFrom(args, options), tenantFrom(args, options))
             .subscription(args.name)
-            .updateQuantity(
-              args.quantity,
-              authorizeTool('subscription_update_quantity', args, options),
-            ),
+            .updateQuantity({
+              quantity: args.quantity,
+              itemId: args.itemId,
+              effectiveTiming: args.effectiveTiming,
+              prorationPolicy: args.prorationPolicy,
+              paymentFailurePolicy: args.paymentFailurePolicy,
+              authorization: authorizeTool('subscription_update_quantity', args, options),
+            }),
         ),
     );
   }

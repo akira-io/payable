@@ -1,71 +1,40 @@
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
-import type { OperationContext } from '../src/domain/dtos/common.dto';
-import type { SubscriptionDTO } from '../src/domain/dtos/subscription.dto';
 import { defineSubscriptionOperationCapabilities } from '../src/domain/dtos/subscription-operation-capabilities.dto';
-import { isPauseSubscriptionCapable, type PauseSubscriptionCapable } from '../src/index';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { FakeClock } from '../src/support/clock/fake-clock';
-import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
 import { storeSubscription } from './support/local-subscription';
+import { SubscriptionLifecycleProvider } from './support/subscription-lifecycle-provider';
 
-class PausingProvider extends FakeProvider {
-  pauseCalls = 0;
-  lastPauseContext?: OperationContext;
+const pausePolicy = {
+  effectiveTiming: 'immediate' as const,
+  resumeAt: null,
+  resumeBillingPolicy: 'startNewBillingPeriod' as const,
+};
 
+class UnadvertisedPauseProvider extends SubscriptionLifecycleProvider {
   override subscriptionOperationCapabilities() {
+    const capabilities = super.subscriptionOperationCapabilities();
     return defineSubscriptionOperationCapabilities({
-      ...super.subscriptionOperationCapabilities(),
+      ...capabilities,
       pause: {
-        effectiveTimings: ['immediate'],
-        scheduledResume: false,
-        resumeBillingPolicies: [],
-      },
-    });
-  }
-
-  pauseSubscription(
-    input: { providerSubscriptionId: string },
-    context: OperationContext,
-  ): Promise<SubscriptionDTO> {
-    this.pauseCalls += 1;
-    this.lastPauseContext = context;
-    return Promise.resolve({
-      providerSubscriptionId: input.providerSubscriptionId,
-      status: 'paused',
-      currentPeriodEnd: null,
-      trialEndsAt: null,
-    });
-  }
-}
-
-class UnadvertisedPauseProvider extends PausingProvider {
-  override subscriptionOperationCapabilities() {
-    return defineSubscriptionOperationCapabilities({
-      ...super.subscriptionOperationCapabilities(),
-      pause: {
-        effectiveTimings: [],
-        scheduledResume: false,
-        resumeBillingPolicies: [],
+        ...capabilities.pause,
+        subscription: {
+          ...capabilities.pause.subscription,
+          effectiveTimings: [],
+        },
       },
     });
   }
 }
 
 describe('subscription pause', () => {
-  it('exports the optional pause runtime contract', () => {
-    const provider: PausingProvider & PauseSubscriptionCapable = new PausingProvider();
-
-    expect(isPauseSubscriptionCapable(provider)).toBe(true);
-    expect(isPauseSubscriptionCapable(new FakeProvider())).toBe(false);
-  });
-
-  it('pauses through the local id with audit and operation idempotency context', async () => {
+  it('pauses through the local id with the full lifecycle policy and audit', async () => {
     const database = createTestDb();
     await migrate(database);
-    const provider = new PausingProvider();
+    const provider = new SubscriptionLifecycleProvider();
     const storage = new KnexStorageDriver(database, new FakeClock());
     const payable = createPayable({ providers: { stripe: provider }, storage });
     const { subscription } = await storeSubscription(storage, {
@@ -74,14 +43,13 @@ describe('subscription pause', () => {
       providerSubscriptionId: 'sub_1',
     });
 
-    const paused = await payable.subscription(subscription.id).pause();
+    const paused = await payable.subscription(subscription.id).pauseSubscription(pausePolicy);
     const auditLogs = await payable
       .auditLogs()
       .run({ resourceType: 'subscription', resourceId: subscription.id });
 
     expect(paused).toMatchObject({ id: subscription.id, status: 'paused' });
     expect(provider.pauseCalls).toBe(1);
-    expect(provider.lastPauseContext?.idempotencyKey).toContain('subscription:pause::stripe:sub_1');
     expect(auditLogs).toContainEqual(expect.objectContaining({ action: 'subscription.paused' }));
     await database.destroy();
   });
@@ -89,7 +57,7 @@ describe('subscription pause', () => {
   it('pauses a trialing subscription', async () => {
     const database = createTestDb();
     await migrate(database);
-    const provider = new PausingProvider();
+    const provider = new SubscriptionLifecycleProvider();
     const storage = new KnexStorageDriver(database, new FakeClock());
     const payable = createPayable({ providers: { stripe: provider }, storage });
     const { subscription } = await storeSubscription(storage, {
@@ -99,10 +67,32 @@ describe('subscription pause', () => {
       status: 'trialing',
     });
 
-    const paused = await payable.subscription(subscription.id).pause();
+    const paused = await payable.subscription(subscription.id).pauseSubscription(pausePolicy);
 
     expect(paused.status).toBe('paused');
     expect(provider.pauseCalls).toBe(1);
+    await database.destroy();
+  });
+
+  it('resumes a paused subscription through the local id with a lifecycle policy', async () => {
+    const database = createTestDb();
+    await migrate(database);
+    const provider = new SubscriptionLifecycleProvider();
+    const storage = new KnexStorageDriver(database, new FakeClock());
+    const payable = createPayable({ providers: { stripe: provider }, storage });
+    const { subscription } = await storeSubscription(storage, {
+      billableId: 'team_1',
+      provider: 'stripe',
+      providerSubscriptionId: 'sub_1',
+      status: 'paused',
+    });
+
+    const resumed = await payable.subscription(subscription.id).resumePausedSubscription({
+      effectiveTiming: 'immediate',
+      billingPolicy: 'startNewBillingPeriod',
+    });
+
+    expect(resumed).toMatchObject({ id: subscription.id, status: 'active' });
     await database.destroy();
   });
 
@@ -112,7 +102,7 @@ describe('subscription pause', () => {
   ] as const)('rejects pause from %s before provider or local mutation', async (status) => {
     const database = createTestDb();
     await migrate(database);
-    const provider = new PausingProvider();
+    const provider = new SubscriptionLifecycleProvider();
     const storage = new KnexStorageDriver(database, new FakeClock());
     const payable = createPayable({ providers: { stripe: provider }, storage });
     const { subscription } = await storeSubscription(storage, {
@@ -122,7 +112,9 @@ describe('subscription pause', () => {
       status,
     });
 
-    await expect(payable.subscription(subscription.id).pause()).rejects.toMatchObject({
+    await expect(
+      payable.subscription(subscription.id).pauseSubscription(pausePolicy),
+    ).rejects.toMatchObject({
       code: 'INVALID_STATE_TRANSITION',
       context: { machine: 'subscription', from: status, transition: 'pause' },
     });
@@ -153,7 +145,7 @@ describe('subscription pause', () => {
       payable
         .customer({ billableType: customer.billableType, billableId: customer.billableId })
         .subscription('default')
-        .pause(),
+        .pauseSubscription(pausePolicy),
     ).rejects.toMatchObject({
       code: 'PROVIDER_CAPABILITY_NOT_SUPPORTED',
       context: { capability: 'subscriptions.pause' },

@@ -6,23 +6,32 @@ import {
 export function stripeSubscriptionOperationCapabilities() {
   return defineSubscriptionOperationCapabilities({
     ...NO_SUBSCRIPTION_OPERATIONS,
+    itemIdentity: 'stable',
     create: { checkout: true, direct: true },
     changePrice: {
-      preview: false,
+      preview: true,
       effectiveTimings: ['immediate'],
-      prorationPolicies: ['prorateAtNextRenewal'],
-      paymentFailurePolicies: ['applyChange'],
+      prorationPolicies: ['prorateImmediately', 'prorateAtNextRenewal', 'none'],
+      paymentFailurePolicies: ['preventChange', 'applyChange'],
     },
     changeQuantity: {
-      preview: false,
+      preview: true,
       effectiveTimings: ['immediate'],
-      prorationPolicies: ['prorateAtNextRenewal'],
-      paymentFailurePolicies: ['applyChange'],
+      prorationPolicies: ['prorateImmediately', 'prorateAtNextRenewal', 'none'],
+      paymentFailurePolicies: ['preventChange', 'applyChange'],
     },
     cancel: { immediately: true, atPeriodEnd: true },
+    pause: {
+      ...NO_SUBSCRIPTION_OPERATIONS.pause,
+      paymentCollection: {
+        behaviors: ['keepAsDraft', 'markUncollectible', 'void'],
+        scheduledResume: true,
+      },
+    },
     resume: {
       ...NO_SUBSCRIPTION_OPERATIONS.resume,
       pendingCancellation: true,
+      paymentCollection: true,
     },
   });
 }

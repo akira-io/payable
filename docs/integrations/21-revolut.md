@@ -288,6 +288,11 @@ and maps the response to `SubscriptionDTO`.
 `resumeSubscription` throws `ProviderCapabilityNotSupportedError` because the Merchant API does not
 provide a resume endpoint.
 
+The Revolut Merchant subscription API does not document lifecycle pause, lifecycle resume, payment
+collection pause, or scheduled-change cancellation endpoints. The Payable descriptor advertises all
+of these as unsupported, and the application rejects them before a Revolut request is attempted. See
+the official [Revolut Merchant API subscription operations](https://developer.revolut.com/docs/api/merchant).
+
 ## Refunds
 
 Revolut refunds use `POST /api/orders/{order_id}/refund` and require amount/currency:

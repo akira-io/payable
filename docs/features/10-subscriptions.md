@@ -83,10 +83,9 @@ provider-hosted page instead of creating it directly - see [09-checkout.md](09-c
 ## Managing a subscription
 
 `SubscriptionManager.get()` returns the stored subscription (`Subscription | null`) by name via
-`FindSubscriptionQuery`, without touching the provider. The mutating operations each accept either a
-positional argument or an options object: `swap(priceId, authorization?)` or `swap({ priceId,
-authorization })`, and `updateQuantity(quantity, authorization?)` or `updateQuantity({ quantity,
-authorization })`.
+`FindSubscriptionQuery`, without touching the provider. Price and quantity changes require explicit
+effective-timing, proration, and payment-failure policies. Options without `itemId` target the only
+local item. Multi-item subscriptions require the local item ID and reject ambiguous mutations.
 
 `SubscriptionManager` wraps one action per operation. They all extend `SubscriptionAction`, which:
 
@@ -104,8 +103,12 @@ Use the local subscription ID returned by list operations for administrative wor
 const subscription = payable.subscription(localSubscriptionId, tenantId);
 
 const current = await subscription.retrieve();
-await subscription.swap('price_business');
-await subscription.updateQuantity(5);
+await subscription.swap({
+  priceId: 'price_business',
+  effectiveTiming: 'immediate',
+  prorationPolicy: 'prorateImmediately',
+  paymentFailurePolicy: 'preventChange',
+});
 await subscription.cancel();
 ```
 
@@ -114,24 +117,57 @@ and provider subscription ID from storage. Mutations route to the provider store
 subscription, then return the refreshed local record. When tenancy is enabled, `tenantId` is
 required. An ID from another tenant returns `SUBSCRIPTION_NOT_FOUND`.
 
-The resource exposes `swap`, `updateQuantity`, `cancel`, `cancelNow`, `pause`, and `resume`. Each
-method accepts the same authorization context as its billable-scoped counterpart.
+The resource exposes the same change-preview, lifecycle, collection, cancellation, and item mutation
+operations as its billable-scoped counterpart. Each method accepts the same authorization context.
 
 The local ID is the administrative identity. Treat provider subscription IDs as integration details.
 The existing `payable.customer(billable, provider, tenantId).subscription(name)` API remains
 available for billable-scoped application flows.
 
-### Swap - `subscription(name).swap(priceId)`
+### Preview and apply a change
 
-`SwapSubscriptionAction` calls `provider.updateSubscription({ providerSubscriptionId, priceId })`,
-then updates the local `priceId` and `status`, and updates the primary subscription item's price.
-Use to move a customer between plans.
+Use the two-step flow when a customer must approve the monetary result before a change is applied.
+The preview token is tenant-scoped, expires after 15 minutes, and is bound to the exact items,
+policies, provider, subscription, and calculation timestamp that were previewed.
 
-### Update quantity - `subscription(name).updateQuantity(qty)`
+```ts
+const preview = await manager.previewChange({
+  priceId: 'price_business',
+  effectiveTiming: 'immediate',
+  prorationPolicy: 'prorateImmediately',
+  paymentFailurePolicy: 'preventChange',
+  idempotencyKey: 'preview-order-42',
+});
 
-`UpdateSubscriptionQuantityAction` calls `provider.updateSubscription({ providerSubscriptionId, quantity })`,
-then updates the local `quantity` and `status` and the primary item's quantity. The idempotency key
-includes the quantity as a discriminator, so each distinct quantity gets its own key.
+await manager.applyChange({
+  previewToken: preview.previewToken,
+  idempotencyKey: 'apply-order-42',
+});
+```
+
+Both operations require an idempotency store. The provider is called before local state is mutated.
+If apply fails at the provider, Payable keeps the local subscription unchanged. A token cannot be
+used for a different tenant or changed request.
+
+Before the first apply attempt, Payable rejects the token with
+`SUBSCRIPTION_CHANGE_PREVIEW_STALE` if the current local item set no longer matches the preview.
+Immediate changes update the local items after provider success. Changes scheduled for the next
+renewal keep the current local items. Provider integrations that expose effective item data can
+update them later through webhook reconciliation. The apply audit entry records the proposed items
+without presenting them as current state.
+
+### Swap
+
+`SwapSubscriptionAction` resolves one tenant-scoped local item, calls the provider with its mapped
+identity and the complete local item list, then updates that exact local item. Stripe requires a
+stable provider item mapping. Paddle uses the complete list so non-targeted items remain attached.
+
+### Update quantity
+
+`UpdateSubscriptionQuantityAction` resolves and updates the same explicit item boundary as `swap`.
+The idempotency key includes the quantity as a discriminator, so each distinct quantity gets its own
+key. Existing rows with null provider mappings are backfilled by unambiguous provider webhook item
+snapshots; Stripe rejects a mutation until that stable mapping exists.
 
 ### Cancel (grace period) - `subscription(name).cancel()`
 
@@ -153,22 +189,87 @@ canceled-now subscription has `status: 'canceled'` and `endsAt` equal to the cur
 grace (still within its period); clearing `endsAt` takes it back off the grace period. Resuming a
 grace-period subscription sets `endsAt` back to `null`.
 
-### Pause - `subscription(name).pause()`
-
-`PauseSubscriptionAction` calls an adapter's optional `pauseSubscription` operation, reconciles the
-returned status through the subscription state machine, and writes the local update with its audit
-record in one transaction. The adapter must implement the runtime method and advertise a supported
-pause timing. The local-ID resource exposes the same operation as `payable.subscription(id).pause()`.
-
 ```ts
 const manager = payable.customer(billable).subscription('default');
 
-const current = await manager.get();         // Subscription | null, no provider call
-await manager.swap('price_business');        // or swap({ priceId, authorization })
-await manager.updateQuantity(3);             // or updateQuantity({ quantity, authorization })
+const current = await manager.get(); // Subscription | null, no provider call
+await manager.swap({
+  priceId: 'price_business',
+  effectiveTiming: 'immediate',
+  prorationPolicy: 'prorateImmediately',
+  paymentFailurePolicy: 'preventChange',
+});
+await manager.updateQuantity({
+  quantity: 3,
+  effectiveTiming: 'immediate',
+  prorationPolicy: 'prorateImmediately',
+  paymentFailurePolicy: 'preventChange',
+});
 await manager.cancel();      // ends at period end (grace period)
 await manager.resume();      // clears endsAt
 await manager.cancelNow();   // ends immediately
+```
+
+### Migration from implicit policies
+
+The old shorthand calls `swap(priceId)` and `updateQuantity(quantity)` no longer select provider
+policies implicitly. They fail with `SUBSCRIPTION_CHANGE_POLICY_REQUIRED`. Replace them with the
+options forms shown above. This makes billing timing and payment-failure behavior reviewable in code
+and prevents a provider default from changing application behavior.
+
+Provider references used by the built-in mappings:
+
+- [Stripe invoice preview](https://docs.stripe.com/api/invoices/create_preview) and [subscription update](https://docs.stripe.com/api/subscriptions/update)
+- [Paddle subscription preview](https://developer.paddle.com/api-reference/subscriptions/preview-subscription-update/) and [subscription update](https://developer.paddle.com/api-reference/subscriptions/update-subscription/)
+- [Paddle proration](https://developer.paddle.com/concepts/subscriptions/proration/)
+- [Revolut Merchant API](https://developer.revolut.com/docs/api/merchant)
+
+Revolut exposes a scheduled plan change but no monetary preview endpoint. Its preview is structural:
+the immediate adjustment is zero for a next-renewal change, while unknown future amounts and
+currencies are returned as `null` with an explicit provider limitation.
+
+### Pause and resume policies
+
+`resume()` only reverses a pending period-end cancellation. Pausing a subscription lifecycle and
+pausing payment collection are different operations with separate methods and capability checks:
+
+```ts
+await manager.pauseSubscription({
+  effectiveTiming: 'nextRenewal',
+  resumeAt: new Date('2027-01-15T00:00:00Z'),
+  resumeBillingPolicy: 'startNewBillingPeriod',
+});
+
+await manager.resumePausedSubscription({
+  effectiveTiming: 'immediate',
+  billingPolicy: 'continueExistingBillingPeriod',
+});
+
+await manager.pausePaymentCollection({
+  behavior: 'keepAsDraft',
+  resumesAt: null,
+});
+await manager.resumePaymentCollection();
+```
+
+Dates must be valid future `Date` values. `resumeAt: null` and `resumesAt: null` mean an indefinite
+pause. Provider support is asserted against the complete policy before any provider request. A
+provider that supports only one pause model cannot accidentally receive the other.
+
+Paddle exposes lifecycle pause and resume. Stripe exposes payment-collection pause and resume; the
+Stripe subscription lifecycle status does not become `paused`. SISP and Revolut currently expose
+neither. See the provider matrix for the exact supported timings, behaviors, and billing-period
+policies.
+
+Scheduled lifecycle metadata is stored on the subscription as
+`scheduledChangeAction`, `scheduledChangeEffectiveAt`, `scheduledResumeAt`, and
+`resumeBillingPolicy`. Payment-collection metadata is stored separately as
+`paymentCollectionPauseBehavior` and `paymentCollectionResumesAt`. Provider webhooks reconcile these
+fields. For providers that support it, `cancelScheduledSubscriptionChange()` removes the current
+scheduled lifecycle change before a replacement policy is submitted:
+
+```ts
+await manager.cancelScheduledSubscriptionChange();
 ```
 
 ## Cancel vs cancel-now vs resume
@@ -215,7 +316,8 @@ Every subscription operation enforces a policy through `assertAuthorized`, gated
 | `create` | `CanCreateSubscriptionPolicy` (asserted in `SubscriptionBuilder.create()`) |
 | `swap`, `updateQuantity` | `CanUpdateSubscriptionPolicy` |
 | `cancel`, `cancelNow` | `CanCancelSubscriptionPolicy` |
-| `resume` | `CanResumeSubscriptionPolicy` |
+| `resume`, `resumePausedSubscription`, `resumePaymentCollection` | `CanResumeSubscriptionPolicy` |
+| `pauseSubscription`, `pausePaymentCollection`, `cancelScheduledSubscriptionChange` | `CanUpdateSubscriptionPolicy` |
 
 Each policy authorizes against an `AuthorizationContext` (`allowed === true` and a non-empty
 `actorId`), supplied via the operation's `authorization` argument. When authorization is disabled the
@@ -230,6 +332,11 @@ assertion is skipped, so integrators that do not opt in see no behavior change.
   `ProviderCapabilityNotSupportedError` before customer synchronization or provider calls. The error
   context contains a stable capability such as `subscriptions.create.direct` or
   `subscriptions.cancel.at-period-end`.
+- **Pause policy is invalid or unsupported.** Invalid dates fail with a stable policy error. A
+  provider-policy mismatch fails with `ProviderCapabilityNotSupportedError` before local mutation or
+  a provider request.
+- **Provider request fails.** The stored lifecycle metadata and audit log remain unchanged. A later
+  provider webhook is still authoritative and reconciles any provider-side state that was applied.
 - **Provider not direct-subscription capable on create.** `CreateSubscriptionAction` throws before any
   provider call.
 - **Unknown subscription name.** `resolve()` throws `SubscriptionNotFoundError`.

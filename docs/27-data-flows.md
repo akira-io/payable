@@ -41,7 +41,8 @@ Concrete bindings:
 - Checkout: `registerCheckoutRoutes` -> `payable.customer(...).newSubscription(...).price(...)`
   builder -> `.checkout({ successUrl, cancelUrl })` -> `CheckoutSessionDTO`. Status 201.
 - Subscription management: `payable.customer(billable).subscription(name)[action]()` where action
-  is `cancel`, `cancelNow`, `resume`, or `swap(price)`. Status 200.
+  is `cancel`, `cancelNow`, `resume`, `previewChange(input)`, or `applyChange(input)`. Legacy
+  `swap` and `updateQuantity` calls require explicit policy options. Status 200.
 - Refund (Express only): `payable.refund({ paymentId, amount?, reason? })` ->
   `RefundPaymentAction` (`src/payable.ts`). Status 201.
 

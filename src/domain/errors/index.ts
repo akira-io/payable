@@ -24,6 +24,10 @@ export { PriceNotFoundError } from './price-not-found.error';
 export { ProductNotFoundError } from './product-not-found.error';
 export { ProviderCapabilityNotSupportedError } from './provider-capability-not-supported.error';
 export { ProviderNotFoundError } from './provider-not-found.error';
+export {
+  SubscriptionChangePreviewError,
+  type SubscriptionChangePreviewErrorCode,
+} from './subscription-change-preview.error';
 export { SubscriptionNotFoundError } from './subscription-not-found.error';
 export { TaxProviderNotFoundError } from './tax-provider-not-found.error';
 export { TerminalProviderNotFoundError } from './terminal-provider-not-found.error';

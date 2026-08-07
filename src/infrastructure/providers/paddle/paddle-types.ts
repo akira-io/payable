@@ -42,10 +42,27 @@ export interface PaddleSubscriptionEntity {
   status: string;
   currentBillingPeriod?: { endsAt: string | null } | null;
   items?: ReadonlyArray<{
+    price?: { id?: string } | null;
+    quantity?: number;
     trialDates?: { endsAt?: string | null } | null;
     trial_dates?: { ends_at?: string | null } | null;
   }> | null;
   trialEndsAt?: string | null;
+  scheduledChange?: {
+    action: string;
+    effectiveAt: string;
+    resumeAt: string | null;
+  } | null;
+}
+
+export interface PaddleSubscriptionPreview {
+  updateSummary?: {
+    result: { action: 'charge' | 'credit'; amount: string; currencyCode: string };
+  } | null;
+  nextTransaction?: {
+    details: { totals: { total: string; currencyCode: string } };
+    billingPeriod: { startsAt: string };
+  } | null;
 }
 
 export interface PaddleAdjustment {
@@ -115,15 +132,39 @@ export interface PaddleClient {
     }): Promise<PaddleTransaction>;
   };
   subscriptions: {
+    previewUpdate(
+      id: string,
+      body: {
+        items: { priceId: string; quantity: number }[];
+        prorationBillingMode: string;
+        onPaymentFailure: string;
+      },
+    ): Promise<PaddleSubscriptionPreview>;
     update(
       id: string,
       body: {
         items?: { priceId: string; quantity: number }[];
         prorationBillingMode?: string;
+        onPaymentFailure?: string;
+        scheduledChange?: null;
       },
     ): Promise<PaddleSubscriptionEntity>;
     cancel(id: string, body?: { effectiveFrom?: string }): Promise<PaddleSubscriptionEntity>;
-    resume(id: string, body: { effectiveFrom: string }): Promise<PaddleSubscriptionEntity>;
+    pause(
+      id: string,
+      body: {
+        effectiveFrom: 'immediately' | 'next_billing_period';
+        resumeAt: string | null;
+        onResume: 'start_new_billing_period' | 'continue_existing_billing_period';
+      },
+    ): Promise<PaddleSubscriptionEntity>;
+    resume(
+      id: string,
+      body: {
+        effectiveFrom: 'immediately' | string;
+        onResume?: 'start_new_billing_period' | 'continue_existing_billing_period';
+      },
+    ): Promise<PaddleSubscriptionEntity>;
   };
   adjustments: {
     create(body: {

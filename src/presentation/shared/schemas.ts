@@ -88,8 +88,21 @@ export const priceBodySchema = z.object({
 
 export const manageSubscriptionBodySchema = z.object({ billable: billableSchema });
 
-export const swapSubscriptionBodySchema = z.object({
+export const subscriptionChangePoliciesSchema = z.object({
+  effectiveTiming: z.enum(['immediate', 'nextRenewal', 'scheduled']),
+  prorationPolicy: z.enum([
+    'prorateImmediately',
+    'prorateAtNextRenewal',
+    'chargeFullImmediately',
+    'chargeFullAtNextRenewal',
+    'none',
+  ]),
+  paymentFailurePolicy: z.enum(['preventChange', 'applyChange']),
+});
+
+export const swapSubscriptionBodySchema = subscriptionChangePoliciesSchema.extend({
   billable: billableSchema,
+  itemId: z.string().min(1).optional(),
   price: z.string().min(1),
 });
 

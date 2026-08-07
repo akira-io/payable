@@ -70,6 +70,12 @@ describe('local subscription resource', () => {
       providerSubscriptionId: 'sub_1',
     });
     await expect(resource.get()).resolves.toMatchObject({ id: subscription.id });
+    expect(resource.previewChange).toBeTypeOf('function');
+    expect(resource.applyChange).toBeTypeOf('function');
+    expect(resource.pauseSubscription).toBeTypeOf('function');
+    expect(resource.resumePausedSubscription).toBeTypeOf('function');
+    expect(resource.pausePaymentCollection).toBeTypeOf('function');
+    expect(resource.resumePaymentCollection).toBeTypeOf('function');
     await database.destroy();
   });
 

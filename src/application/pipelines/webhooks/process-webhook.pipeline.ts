@@ -11,6 +11,7 @@ import { PaymentStateMachine } from '../../../domain/states/payment-state-machin
 import { reconcileSubscriptionStatus } from '../../../domain/states/subscription-state-machine';
 import type { WebhookDependencies } from '../../builders/webhook-dependencies';
 import { assertCapableProvider } from '../../services/provider-capabilities/assert-provider-capability';
+import { reconcileProviderSubscriptionItems } from '../../services/subscriptions/reconcile-provider-subscription-items';
 
 export interface ProcessWebhookInput {
   verified: VerifiedWebhook;
@@ -162,17 +163,56 @@ export class ProcessWebhookPipeline {
     ) {
       return;
     }
+    if (dto.items) {
+      const localItems = await repos.subscriptionItems.listBySubscription(local.id, tenantId);
+      const reconciliations = reconcileProviderSubscriptionItems(localItems, dto.items);
+      for (const itemReconciliation of reconciliations) {
+        await repos.subscriptionItems.updateById(
+          local.id,
+          itemReconciliation.itemId,
+          {
+            providerItemId: itemReconciliation.providerItemId,
+            priceId: itemReconciliation.priceId,
+            quantity: itemReconciliation.quantity,
+          },
+          tenantId,
+        );
+      }
+    }
     const reconciliation = reconcileSubscriptionStatus(local.status, dto.status);
     if (!reconciliation.applied) {
       return;
     }
     const status = reconciliation.status;
+    const completedScheduledLifecycleChange =
+      status === 'active' &&
+      dto.scheduledChangeAction === null &&
+      dto.scheduledChangeEffectiveAt === null &&
+      dto.scheduledResumeAt === null;
     const patch: Partial<NewSubscription> = {
       status,
       currentPeriodEnd: dto.currentPeriodEnd,
       trialEndsAt: dto.trialEndsAt,
       ...(providerOccurredAt ? { providerSyncedAt: providerOccurredAt } : {}),
       ...(status === 'canceled' ? { endsAt: dto.currentPeriodEnd ?? occurredAt } : {}),
+      ...(dto.scheduledChangeAction !== undefined
+        ? { scheduledChangeAction: dto.scheduledChangeAction }
+        : {}),
+      ...(dto.scheduledChangeEffectiveAt !== undefined
+        ? { scheduledChangeEffectiveAt: dto.scheduledChangeEffectiveAt }
+        : {}),
+      ...(dto.scheduledResumeAt !== undefined ? { scheduledResumeAt: dto.scheduledResumeAt } : {}),
+      ...(dto.resumeBillingPolicy !== undefined
+        ? { resumeBillingPolicy: dto.resumeBillingPolicy }
+        : completedScheduledLifecycleChange
+          ? { resumeBillingPolicy: null }
+          : {}),
+      ...(dto.paymentCollectionPauseBehavior !== undefined
+        ? { paymentCollectionPauseBehavior: dto.paymentCollectionPauseBehavior }
+        : {}),
+      ...(dto.paymentCollectionResumesAt !== undefined
+        ? { paymentCollectionResumesAt: dto.paymentCollectionResumesAt }
+        : {}),
     };
     await repos.subscriptions.update(local.id, patch, tenantId);
   }

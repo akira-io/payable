@@ -1,4 +1,6 @@
+import type { SubscriptionChangePolicies } from '../../../domain/dtos/subscription-change.dto';
 import type { Subscription } from '../../../domain/entities/subscription.entity';
+import { SubscriptionChangePreviewError } from '../../../domain/errors/subscription-change-preview.error';
 import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
 import type { AuthorizationContext } from '../../policies/authorization-context';
@@ -18,6 +20,8 @@ export class UpdateSubscriptionQuantityAction extends SubscriptionAction {
     name: string,
     quantity: number,
     authorization?: AuthorizationContext,
+    itemId?: string,
+    policies?: SubscriptionChangePolicies,
   ): Promise<Subscription> {
     this.authorize(
       (context) => this.policy.authorize(context),
@@ -25,32 +29,53 @@ export class UpdateSubscriptionQuantityAction extends SubscriptionAction {
       'update subscription quantity',
     );
     this.assertQuantity(quantity);
+    if (!policies) {
+      throw new SubscriptionChangePreviewError(
+        'Subscription changes require explicit policies',
+        'SUBSCRIPTION_CHANGE_POLICY_REQUIRED',
+      );
+    }
     const provider = this.subscriptionProvider('changeQuantity');
     const subscription = await this.resolve(billable, name);
+    const selection = await this.selectItem(subscription, itemId);
+    const providerItems = selection.items.map((subscriptionItem) => ({
+      priceId: subscriptionItem.priceId,
+      quantity:
+        subscriptionItem.id === selection.selectedItem.id ? quantity : subscriptionItem.quantity,
+    }));
     const dto = await provider.updateSubscription(
       {
         providerSubscriptionId: subscription.providerSubscriptionId,
-        priceId: subscription.priceId ?? undefined,
+        priceId: selection.selectedItem.priceId,
         quantity,
+        providerItemId: selection.selectedItem.providerItemId,
+        items: providerItems,
+        ...policies,
+        calculatedAt: this.deps.clock.now(),
       },
       this.context('quantity', subscription.providerSubscriptionId, String(quantity), true),
     );
     return this.storage().transaction(async (repos) => {
+      const patch = {
+        ...(selection.items.length === 1 ? { quantity } : {}),
+        status: this.reconcileStatus(subscription.status, dto.status),
+      };
       const updated = await repos.subscriptions.update(
         subscription.id,
-        { quantity, status: this.reconcileStatus(subscription.status, dto.status) },
+        patch,
         this.deps.tenantId ?? null,
       );
-      await repos.subscriptionItems.updatePrimary(
+      await repos.subscriptionItems.updateById(
         subscription.id,
+        selection.selectedItem.id,
         { quantity },
         this.deps.tenantId ?? null,
       );
       await this.auditWith(repos, {
         action: 'subscription.quantity_updated',
         subscriptionId: subscription.id,
-        before: { quantity: subscription.quantity, status: subscription.status },
-        after: { quantity: updated.quantity, status: updated.status },
+        before: { itemId: selection.selectedItem.id, quantity: selection.selectedItem.quantity },
+        after: { itemId: selection.selectedItem.id, quantity },
         authorization,
       });
       return updated;

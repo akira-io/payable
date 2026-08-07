@@ -3,6 +3,7 @@ import type { Logger } from '../../domain/contracts/logger.contract';
 import type { PaymentProvider } from '../../domain/contracts/payment-provider.contract';
 import type { StorageDriver } from '../../domain/contracts/storage-driver.contract';
 import type { IdempotencyService } from '../services/idempotency/idempotency-service';
+import type { SubscriptionChangePreviewStore } from '../services/subscriptions/subscription-change-preview-store';
 
 export interface BillingDependencies {
   provider: PaymentProvider;
@@ -13,5 +14,7 @@ export interface BillingDependencies {
   authorizationEnabled?: boolean;
   idempotency?: IdempotencyService;
   catalogIdempotency?: IdempotencyService;
+  subscriptionChangeIdempotency?: IdempotencyService;
+  subscriptionChangePreviews?: SubscriptionChangePreviewStore;
   logger?: Logger;
 }

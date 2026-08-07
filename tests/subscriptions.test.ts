@@ -13,6 +13,11 @@ import { createTestDb } from './support/knex';
 
 const billable = { billableType: 'User', billableId: '1', email: 'user@example.com', name: 'User' };
 const ctx = { correlationId: 'corr-1', idempotencyKey: 'idem-sub' };
+const changePolicies = {
+  effectiveTiming: 'immediate' as const,
+  prorationPolicy: 'prorateImmediately' as const,
+  paymentFailurePolicy: 'preventChange' as const,
+};
 
 describe('StripeProvider.createSubscription', () => {
   it('maps the subscription and forwards the idempotency key', async () => {
@@ -57,7 +62,15 @@ describe('StripeProvider.createSubscription', () => {
     const provider = new StripeProvider({ secretKey: 'sk', webhookSecret: 'wh' }, stripe);
 
     await expect(
-      provider.updateSubscription({ providerSubscriptionId: 'sub_1', priceId: 'price_x' }, ctx),
+      provider.updateSubscription(
+        {
+          providerSubscriptionId: 'sub_1',
+          priceId: 'price_x',
+          calculatedAt: new Date(),
+          ...changePolicies,
+        },
+        ctx,
+      ),
     ).rejects.toMatchObject({ code: 'PROVIDER_SUBSCRIPTION_ITEM_MISSING' });
   });
 });
@@ -86,22 +99,22 @@ describe('subscription lifecycle', () => {
     expect(provider.createdSubscriptions).toBe(1);
     expect(onTrial(created, clock.now())).toBe(true);
 
-    const swapped = await subscriptionOf().swap('price_business');
+    const swapped = await subscriptionOf().swap({ priceId: 'price_business', ...changePolicies });
     expect(swapped.priceId).toBe('price_business');
     expect(provider.lastSubscriptionUpdate?.priceId).toBe('price_business');
     expect(provider.lastSubscriptionUpdateCtx?.idempotencyKey).toContain(':price_business');
 
-    const quantity = await subscriptionOf().updateQuantity(3);
+    const quantity = await subscriptionOf().updateQuantity({ quantity: 3, ...changePolicies });
     expect(quantity.quantity).toBe(3);
     const keyAtThree = provider.lastSubscriptionUpdateCtx?.idempotencyKey;
     expect(keyAtThree).toContain('subscription:quantity:');
     expect(keyAtThree).toContain(':3:');
 
-    await subscriptionOf().updateQuantity(5);
+    await subscriptionOf().updateQuantity({ quantity: 5, ...changePolicies });
     const keyAtFive = provider.lastSubscriptionUpdateCtx?.idempotencyKey;
     expect(keyAtFive).not.toBe(keyAtThree);
 
-    await subscriptionOf().updateQuantity(3);
+    await subscriptionOf().updateQuantity({ quantity: 3, ...changePolicies });
     expect(provider.lastSubscriptionUpdateCtx?.idempotencyKey).not.toBe(keyAtThree);
 
     const canceled = await subscriptionOf().cancel();
@@ -196,7 +209,10 @@ describe('subscription lifecycle', () => {
       .price('price_pro')
       .quantity(3)
       .create();
-    await payable.customer(billable).subscription('default').swap('price_business');
+    await payable
+      .customer(billable)
+      .subscription('default')
+      .swap({ priceId: 'price_business', ...changePolicies });
 
     expect(provider.lastSubscriptionUpdate?.quantity).toBe(3);
     await db.destroy();
@@ -214,13 +230,13 @@ describe('subscription lifecycle', () => {
     const swapped = await payable
       .customer(billable)
       .subscription('default')
-      .swap({ priceId: 'price_business' });
+      .swap({ priceId: 'price_business', ...changePolicies });
     expect(swapped.priceId).toBe('price_business');
 
     const updated = await payable
       .customer(billable)
       .subscription('default')
-      .updateQuantity({ quantity: 4 });
+      .updateQuantity({ quantity: 4, ...changePolicies });
     expect(updated.quantity).toBe(4);
     await db.destroy();
   });
@@ -232,13 +248,13 @@ describe('subscription lifecycle', () => {
     const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
     const sub = payable.customer(billable).subscription('default');
 
-    await expect(sub.updateQuantity(0)).rejects.toMatchObject({
+    await expect(sub.updateQuantity({ quantity: 0, ...changePolicies })).rejects.toMatchObject({
       code: 'SUBSCRIPTION_INVALID_QUANTITY',
     });
-    await expect(sub.updateQuantity(-2)).rejects.toMatchObject({
+    await expect(sub.updateQuantity({ quantity: -2, ...changePolicies })).rejects.toMatchObject({
       code: 'SUBSCRIPTION_INVALID_QUANTITY',
     });
-    await expect(sub.updateQuantity(1.5)).rejects.toMatchObject({
+    await expect(sub.updateQuantity({ quantity: 1.5, ...changePolicies })).rejects.toMatchObject({
       code: 'SUBSCRIPTION_INVALID_QUANTITY',
     });
     await db.destroy();

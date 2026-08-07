@@ -4,6 +4,7 @@ import type { ProviderRegistry } from '../../provider-registry';
 import type { ResolvedConfig } from '../../support/config/payable-config';
 import type { TreasuryProviderRegistry } from '../../treasury-provider-registry';
 import { IdempotencyService } from '../services/idempotency/idempotency-service';
+import { SubscriptionChangePreviewStore } from '../services/subscriptions/subscription-change-preview-store';
 import type { BillingDependencies } from './billing-dependencies';
 import { LocalSubscriptionResource } from './local-subscription-resource';
 import type { TreasuryWebhookDependencies } from './treasury-webhook-dependencies';
@@ -23,6 +24,9 @@ export class DependencyFactory {
     }
     this.assertTenant(tenantId);
     const configuredIdempotency = this.configuredIdempotencyService();
+    const subscriptionChangePreviews = this.resolved.idempotency.store
+      ? new SubscriptionChangePreviewStore(this.resolved.idempotency.store, this.resolved.clock)
+      : undefined;
     return {
       provider: this.registry.get(name),
       providerName: name,
@@ -33,6 +37,8 @@ export class DependencyFactory {
       idempotency:
         this.resolved.idempotency.strategy === 'manual' ? undefined : configuredIdempotency,
       catalogIdempotency: configuredIdempotency,
+      subscriptionChangeIdempotency: configuredIdempotency,
+      subscriptionChangePreviews,
       logger: this.resolved.logger,
     };
   }

@@ -4,6 +4,7 @@ export type NewSubscriptionItem = Omit<SubscriptionItem, 'id' | 'createdAt' | 'u
 
 export interface SubscriptionItemPatch {
   priceId?: string;
+  providerItemId?: string | null;
   quantity?: number;
 }
 
@@ -12,6 +13,12 @@ export interface SubscriptionItemRepository {
   createMany(data: NewSubscriptionItem[]): Promise<void>;
   updatePrimary(
     subscriptionId: string,
+    patch: SubscriptionItemPatch,
+    tenantId?: string | null,
+  ): Promise<void>;
+  updateById(
+    subscriptionId: string,
+    itemId: string,
     patch: SubscriptionItemPatch,
     tenantId?: string | null,
   ): Promise<void>;

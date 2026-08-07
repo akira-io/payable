@@ -1,4 +1,14 @@
 import type { StorageDriver } from '../../domain/contracts/storage-driver.contract';
+import type {
+  ApplySubscriptionChangeInput,
+  PreviewSubscriptionChangeInput,
+  SubscriptionChangePreview,
+} from '../../domain/dtos/subscription-change.dto';
+import type {
+  PausePaymentCollectionPolicy,
+  PauseSubscriptionPolicy,
+  ResumePausedSubscriptionPolicy,
+} from '../../domain/dtos/subscription-pause-policy.dto';
 import type { Subscription } from '../../domain/entities/subscription.entity';
 import type { AuthorizationContext } from '../policies/authorization-context';
 import { resolveLocalSubscription } from '../services/subscriptions/resolve-local-subscription';
@@ -26,33 +36,32 @@ export class LocalSubscriptionResource {
     return this.retrieve();
   }
 
-  swap(priceId: string, authorization?: AuthorizationContext): Promise<Subscription>;
-  swap(options: SwapOptions): Promise<Subscription>;
-  async swap(
-    priceIdOrOptions: string | SwapOptions,
+  async previewChange(
+    input: PreviewSubscriptionChangeInput,
+    authorization?: AuthorizationContext,
+  ): Promise<SubscriptionChangePreview> {
+    const manager = await this.manager();
+    return manager.previewChange(input, authorization);
+  }
+
+  async applyChange(
+    input: ApplySubscriptionChangeInput,
     authorization?: AuthorizationContext,
   ): Promise<Subscription> {
     const manager = await this.manager();
-    if (typeof priceIdOrOptions === 'string') {
-      await manager.swap(priceIdOrOptions, authorization);
-    } else {
-      await manager.swap(priceIdOrOptions);
-    }
+    await manager.applyChange(input, authorization);
     return this.retrieve();
   }
 
-  updateQuantity(quantity: number, authorization?: AuthorizationContext): Promise<Subscription>;
-  updateQuantity(options: UpdateQuantityOptions): Promise<Subscription>;
-  async updateQuantity(
-    quantityOrOptions: number | UpdateQuantityOptions,
-    authorization?: AuthorizationContext,
-  ): Promise<Subscription> {
+  async swap(options: SwapOptions): Promise<Subscription> {
     const manager = await this.manager();
-    if (typeof quantityOrOptions === 'number') {
-      await manager.updateQuantity(quantityOrOptions, authorization);
-    } else {
-      await manager.updateQuantity(quantityOrOptions);
-    }
+    await manager.swap(options);
+    return this.retrieve();
+  }
+
+  async updateQuantity(options: UpdateQuantityOptions): Promise<Subscription> {
+    const manager = await this.manager();
+    await manager.updateQuantity(options);
     return this.retrieve();
   }
 
@@ -68,9 +77,44 @@ export class LocalSubscriptionResource {
     return this.retrieve();
   }
 
-  async pause(authorization?: AuthorizationContext): Promise<Subscription> {
+  async pauseSubscription(
+    policy: PauseSubscriptionPolicy,
+    authorization?: AuthorizationContext,
+  ): Promise<Subscription> {
     const manager = await this.manager();
-    await manager.pause(authorization);
+    await manager.pauseSubscription(policy, authorization);
+    return this.retrieve();
+  }
+
+  async resumePausedSubscription(
+    policy: ResumePausedSubscriptionPolicy,
+    authorization?: AuthorizationContext,
+  ): Promise<Subscription> {
+    const manager = await this.manager();
+    await manager.resumePausedSubscription(policy, authorization);
+    return this.retrieve();
+  }
+
+  async pausePaymentCollection(
+    policy: PausePaymentCollectionPolicy,
+    authorization?: AuthorizationContext,
+  ): Promise<Subscription> {
+    const manager = await this.manager();
+    await manager.pausePaymentCollection(policy, authorization);
+    return this.retrieve();
+  }
+
+  async resumePaymentCollection(authorization?: AuthorizationContext): Promise<Subscription> {
+    const manager = await this.manager();
+    await manager.resumePaymentCollection(authorization);
+    return this.retrieve();
+  }
+
+  async cancelScheduledSubscriptionChange(
+    authorization?: AuthorizationContext,
+  ): Promise<Subscription> {
+    const manager = await this.manager();
+    await manager.cancelScheduledSubscriptionChange(authorization);
     return this.retrieve();
   }
 

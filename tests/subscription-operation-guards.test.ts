@@ -11,6 +11,11 @@ import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
 
 const billable = { billableType: 'User', billableId: '1', email: 'user@example.com', name: 'User' };
+const changePolicies = {
+  effectiveTiming: 'immediate' as const,
+  prorationPolicy: 'prorateImmediately' as const,
+  paymentFailurePolicy: 'preventChange' as const,
+};
 
 describe('subscription operation guards', () => {
   it('rejects direct creation before syncing a customer or calling the provider', async () => {
@@ -95,7 +100,10 @@ describe('subscription operation guards', () => {
     provider.operationsEnabled = false;
 
     await expect(
-      payable.customer(billable).subscription('default').swap('price_business'),
+      payable
+        .customer(billable)
+        .subscription('default')
+        .swap({ priceId: 'price_business', ...changePolicies }),
     ).rejects.toMatchObject({
       code: 'PROVIDER_CAPABILITY_NOT_SUPPORTED',
       context: { capability: 'subscriptions.change-price' },

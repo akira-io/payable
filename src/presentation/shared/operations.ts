@@ -60,10 +60,14 @@ export function runSwapSubscription(
   tenantId: string | null,
   authorization?: AuthorizationContext,
 ): Promise<Subscription> {
-  return payable
-    .customer(body.billable, undefined, tenantId)
-    .subscription(name)
-    .swap(body.price, authorization);
+  return payable.customer(body.billable, undefined, tenantId).subscription(name).swap({
+    priceId: body.price,
+    itemId: body.itemId,
+    effectiveTiming: body.effectiveTiming,
+    prorationPolicy: body.prorationPolicy,
+    paymentFailurePolicy: body.paymentFailurePolicy,
+    authorization,
+  });
 }
 
 export function runRefund(

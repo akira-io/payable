@@ -9,7 +9,10 @@ export function revolutSubscriptionOperationCapabilities() {
     create: { checkout: true, direct: true },
     changePrice: {
       ...NO_SUBSCRIPTION_OPERATIONS.changePrice,
+      preview: true,
       effectiveTimings: ['nextRenewal'],
+      prorationPolicies: ['none'],
+      paymentFailurePolicies: ['applyChange'],
     },
     cancel: { immediately: true, atPeriodEnd: false },
   });

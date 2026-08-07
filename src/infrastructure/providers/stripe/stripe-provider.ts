@@ -16,6 +16,7 @@ import type {
   ProviderWebhookEndpointManagementCapable,
   ResumeSubscriptionInput,
 } from '../../../domain/contracts/payment-provider.contract';
+import type { SubscriptionPaymentCollectionCapable } from '../../../domain/contracts/subscription-lifecycle-provider.contract';
 import type { SubscriptionOperationCapabilitiesProvider } from '../../../domain/contracts/subscription-operation-capabilities-provider.contract';
 import type { BillingPortalDTO, BillingPortalInput } from '../../../domain/dtos/billing-portal.dto';
 import type { ChargeInput, ChargeResultDTO } from '../../../domain/dtos/charge.dto';
@@ -67,6 +68,7 @@ import { StripePaymentMethodSetup } from './stripe-payment-method-setup';
 import { StripePaymentMethods } from './stripe-payment-methods';
 import { StripePayments } from './stripe-payments';
 import { StripePayouts } from './stripe-payouts';
+import { StripeSubscriptionChanges } from './stripe-subscription-changes';
 import { stripeSubscriptionOperationCapabilities } from './stripe-subscription-operation-capabilities';
 import { StripeSubscriptions } from './stripe-subscriptions';
 import { StripeWebhookEndpoints } from './stripe-webhook-endpoints';
@@ -93,6 +95,7 @@ export class StripeProvider
     PayoutCapable,
     ProviderWebhookEndpointManagementCapable,
     SubscriptionOperationCapabilitiesProvider,
+    SubscriptionPaymentCollectionCapable,
     CatalogReadCapable,
     CatalogLifecycleCapable
 {
@@ -100,6 +103,17 @@ export class StripeProvider
   private client?: Stripe;
   private readonly webhooks: StripeWebhooks;
   private readonly subscriptions = new StripeSubscriptions(() => this.stripe());
+  private readonly subscriptionChanges = new StripeSubscriptionChanges(() => this.stripe());
+  readonly previewSubscriptionChange = this.subscriptionChanges.preview.bind(
+    this.subscriptionChanges,
+  );
+  readonly applySubscriptionChange = this.subscriptionChanges.apply.bind(this.subscriptionChanges);
+  readonly pausePaymentCollection = this.subscriptions.pausePaymentCollection.bind(
+    this.subscriptions,
+  );
+  readonly resumePaymentCollection = this.subscriptions.resumePaymentCollection.bind(
+    this.subscriptions,
+  );
   private readonly invoices = new StripeInvoices(() => this.stripe());
   private readonly catalog = new StripeCatalog(() => this.stripe());
   readonly createProduct = this.catalog.createProduct.bind(this.catalog);

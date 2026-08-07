@@ -47,5 +47,11 @@ export async function storeSubscription(
     currentPeriodStart: null,
     currentPeriodEnd: null,
   });
+  await storage.subscriptionItems.create({
+    subscriptionId: subscription.id,
+    priceId: options.priceId ?? 'price_old',
+    providerItemId: null,
+    quantity: subscription.quantity,
+  });
   return { customer, subscription };
 }

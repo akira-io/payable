@@ -1,5 +1,10 @@
 import type { Logger } from '../../../domain/contracts/logger.contract';
 import type { PaymentProvider } from '../../../domain/contracts/payment-provider.contract';
+import type {
+  PausedSubscriptionResumeCapable,
+  ScheduledSubscriptionChangeCapable,
+  SubscriptionPauseCapable,
+} from '../../../domain/contracts/subscription-lifecycle-provider.contract';
 import type { SubscriptionOperationCapabilitiesProvider } from '../../../domain/contracts/subscription-operation-capabilities-provider.contract';
 import type { BillingPortalDTO, BillingPortalInput } from '../../../domain/dtos/billing-portal.dto';
 import type { ProviderCapabilities } from '../../../domain/dtos/capabilities.dto';
@@ -22,6 +27,7 @@ import type {
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
+import { requireSubscriptionChangePolicies } from '../../../domain/validation/subscription-change-policies';
 import { assertSubscriptionPayload } from '../webhook-subscription-payload';
 import { PaddleCatalog } from './paddle-catalog';
 import { buildPaddleClientOptions } from './paddle-client-options';
@@ -34,6 +40,8 @@ import {
   toRefundResultDTO,
   toSubscriptionDTO,
 } from './paddle-mappers';
+import { PaddleSubscriptionChanges, paddleProrationPolicy } from './paddle-subscription-changes';
+import { PaddleSubscriptionLifecycle } from './paddle-subscription-lifecycle';
 import { paddleSubscriptionOperationCapabilities } from './paddle-subscription-operation-capabilities';
 import type { PaddleClient } from './paddle-types';
 import { PaddleWebhookVerifier } from './paddle-webhook-verifier';
@@ -45,11 +53,30 @@ export interface PaddleProviderOptions {
   logger?: Logger;
 }
 
-export class PaddleProvider implements PaymentProvider, SubscriptionOperationCapabilitiesProvider {
+export class PaddleProvider
+  implements
+    PaymentProvider,
+    SubscriptionOperationCapabilitiesProvider,
+    SubscriptionPauseCapable,
+    PausedSubscriptionResumeCapable,
+    ScheduledSubscriptionChangeCapable
+{
   readonly name = 'paddle';
   private readonly catalog: PaddleCatalog;
   private readonly normalizer: PaddleEventNormalizer;
   private readonly verifier: PaddleWebhookVerifier;
+  private readonly subscriptionChanges = new PaddleSubscriptionChanges(() => this.paddle());
+  private readonly subscriptionLifecycle = new PaddleSubscriptionLifecycle(() => this.paddle());
+  readonly previewSubscriptionChange = this.subscriptionChanges.preview.bind(
+    this.subscriptionChanges,
+  );
+  readonly applySubscriptionChange = this.subscriptionChanges.apply.bind(this.subscriptionChanges);
+  readonly pauseSubscription = this.subscriptionLifecycle.pause.bind(this.subscriptionLifecycle);
+  readonly resumePausedSubscription = this.subscriptionLifecycle.resume.bind(
+    this.subscriptionLifecycle,
+  );
+  readonly cancelScheduledSubscriptionChange =
+    this.subscriptionLifecycle.cancelScheduledChange.bind(this.subscriptionLifecycle);
   readonly createProduct: PaddleCatalog['createProduct'];
   readonly updateProduct: PaddleCatalog['updateProduct'];
   readonly createPrice: PaddleCatalog['createPrice'];
@@ -150,11 +177,23 @@ export class PaddleProvider implements PaymentProvider, SubscriptionOperationCap
       );
     }
     const paddle = await this.paddle();
-    const items = [{ priceId: input.priceId, quantity: input.quantity ?? 1 }];
+    const policies = requireSubscriptionChangePolicies(input);
+    if (policies.effectiveTiming !== 'immediate') {
+      throw new ProviderCapabilityNotSupportedError(
+        'paddle',
+        `subscriptions.change.${policies.effectiveTiming}`,
+      );
+    }
+    const items =
+      input.items && input.items.length > 0
+        ? input.items
+        : [{ priceId: input.priceId, quantity: input.quantity ?? 1 }];
     const subscription = await withPaddleErrors(() =>
       paddle.subscriptions.update(input.providerSubscriptionId, {
         items,
-        prorationBillingMode: 'prorated_immediately',
+        prorationBillingMode: paddleProrationPolicy(policies.prorationPolicy),
+        onPaymentFailure:
+          policies.paymentFailurePolicy === 'preventChange' ? 'prevent_change' : 'apply_change',
       }),
     );
     return toSubscriptionDTO(subscription);

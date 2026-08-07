@@ -1,4 +1,8 @@
 import type { NewSubscription } from '../../../../domain/contracts/subscription-repository.contract';
+import type {
+  SubscriptionPaymentCollectionBehavior,
+  SubscriptionResumeBillingPolicy,
+} from '../../../../domain/dtos/subscription-operation-capabilities.dto';
 import type { Subscription } from '../../../../domain/entities/subscription.entity';
 import type { SubscriptionStatus } from '../../../../domain/value-objects/subscription-status';
 import type { PrismaSubscriptionRow } from '../prisma-client.types';
@@ -19,6 +23,14 @@ export function subscriptionToEntity(row: PrismaSubscriptionRow): Subscription {
     currentPeriodStart: row.currentPeriodStart ?? null,
     currentPeriodEnd: row.currentPeriodEnd ?? null,
     providerSyncedAt: row.providerSyncedAt ?? null,
+    scheduledChangeAction: (row.scheduledChangeAction as 'pause' | 'resume' | null) ?? null,
+    scheduledChangeEffectiveAt: row.scheduledChangeEffectiveAt ?? null,
+    scheduledResumeAt: row.scheduledResumeAt ?? null,
+    resumeBillingPolicy:
+      (row.resumeBillingPolicy as SubscriptionResumeBillingPolicy | null) ?? null,
+    paymentCollectionPauseBehavior:
+      (row.paymentCollectionPauseBehavior as SubscriptionPaymentCollectionBehavior | null) ?? null,
+    paymentCollectionResumesAt: row.paymentCollectionResumesAt ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -39,5 +51,11 @@ export function subscriptionToRow(data: Partial<NewSubscription>): Record<string
     currentPeriodStart: data.currentPeriodStart,
     currentPeriodEnd: data.currentPeriodEnd,
     providerSyncedAt: data.providerSyncedAt,
+    scheduledChangeAction: data.scheduledChangeAction,
+    scheduledChangeEffectiveAt: data.scheduledChangeEffectiveAt,
+    scheduledResumeAt: data.scheduledResumeAt,
+    resumeBillingPolicy: data.resumeBillingPolicy,
+    paymentCollectionPauseBehavior: data.paymentCollectionPauseBehavior,
+    paymentCollectionResumesAt: data.paymentCollectionResumesAt,
   };
 }
