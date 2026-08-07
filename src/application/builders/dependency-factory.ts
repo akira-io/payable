@@ -5,6 +5,7 @@ import type { ResolvedConfig } from '../../support/config/payable-config';
 import type { TreasuryProviderRegistry } from '../../treasury-provider-registry';
 import { IdempotencyService } from '../services/idempotency/idempotency-service';
 import type { BillingDependencies } from './billing-dependencies';
+import { LocalSubscriptionResource } from './local-subscription-resource';
 import type { TreasuryWebhookDependencies } from './treasury-webhook-dependencies';
 import type { WebhookDependencies } from './webhook-dependencies';
 
@@ -34,6 +35,19 @@ export class DependencyFactory {
       catalogIdempotency: configuredIdempotency,
       logger: this.resolved.logger,
     };
+  }
+
+  localSubscription(localId: string, tenantId?: string | null): LocalSubscriptionResource {
+    this.assertTenant(tenantId);
+    const storage = this.resolved.storage;
+    if (!storage) {
+      throw new PayableError('Subscription management requires a storage driver', {
+        code: 'SUBSCRIPTION_STORAGE_REQUIRED',
+      });
+    }
+    return new LocalSubscriptionResource(storage, localId, tenantId ?? null, (providerName) =>
+      this.billing(providerName, tenantId),
+    );
   }
 
   webhook(providerName?: string): WebhookDependencies {
@@ -74,7 +88,7 @@ export class DependencyFactory {
     };
   }
 
-  private assertTenant(tenantId?: string | null): void {
+  assertTenant(tenantId?: string | null): void {
     if (this.resolved.tenantEnabled && (tenantId === undefined || tenantId === null)) {
       throw new PayableError('A tenant id is required when tenancy is enabled', {
         code: 'TENANT_REQUIRED',

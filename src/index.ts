@@ -28,6 +28,7 @@ export {
   CreateSubscriptionAction,
   type CreateSubscriptionInputData,
 } from './application/actions/subscriptions/create-subscription.action';
+export { PauseSubscriptionAction } from './application/actions/subscriptions/pause-subscription.action';
 export { ResumeSubscriptionAction } from './application/actions/subscriptions/resume-subscription.action';
 export { SwapSubscriptionAction } from './application/actions/subscriptions/swap-subscription.action';
 export { UpdateSubscriptionQuantityAction } from './application/actions/subscriptions/update-subscription-quantity.action';
@@ -69,6 +70,7 @@ export {
   CustomerResource,
   InvoiceResource,
   type ListWebhookEventsInput,
+  LocalSubscriptionResource,
   PriceResource,
   ProductResource,
   RedirectCheckoutBuilder,

@@ -12,6 +12,7 @@ export { CheckoutBuilder, type CheckoutRequest } from './checkout-builder';
 export { CustomerContext } from './customer-context';
 export { type CustomerChanges, CustomerResource } from './customer-resource';
 export { InvoiceResource } from './invoice-resource';
+export { LocalSubscriptionResource } from './local-subscription-resource';
 export { PriceResource } from './price-resource';
 export { ProductResource } from './product-resource';
 export {

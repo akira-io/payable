@@ -1,6 +1,7 @@
 import type { Subscription } from '../../domain/entities/subscription.entity';
 import { CancelSubscriptionAction } from '../actions/subscriptions/cancel-subscription.action';
 import { CancelSubscriptionNowAction } from '../actions/subscriptions/cancel-subscription-now.action';
+import { PauseSubscriptionAction } from '../actions/subscriptions/pause-subscription.action';
 import { ResumeSubscriptionAction } from '../actions/subscriptions/resume-subscription.action';
 import { SwapSubscriptionAction } from '../actions/subscriptions/swap-subscription.action';
 import { UpdateSubscriptionQuantityAction } from '../actions/subscriptions/update-subscription-quantity.action';
@@ -58,6 +59,10 @@ export class SubscriptionManager {
       this.name,
       authorization,
     );
+  }
+
+  pause(authorization?: AuthorizationContext): Promise<Subscription> {
+    return new PauseSubscriptionAction(this.deps).handle(this.billable, this.name, authorization);
   }
 
   resume(authorization?: AuthorizationContext): Promise<Subscription> {

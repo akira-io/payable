@@ -82,6 +82,11 @@ export type {
   OutboxStatus,
 } from './outbox-event-repository.contract';
 export type {
+  PauseSubscriptionCapable,
+  PauseSubscriptionInput,
+} from './pause-subscription-provider.contract';
+export { isPauseSubscriptionCapable } from './pause-subscription-provider.contract';
+export type {
   BillingPortalCapable,
   CatalogCapable,
   CatalogLifecycleCapable,

@@ -96,6 +96,31 @@ authorization })`.
 - builds a deterministic idempotency key per operation
   (`subscription:${operation}:${providerName}:${providerSubscriptionId}[:discriminator]`).
 
+### Manage by local ID
+
+Use the local subscription ID returned by list operations for administrative workflows:
+
+```ts
+const subscription = payable.subscription(localSubscriptionId, tenantId);
+
+const current = await subscription.retrieve();
+await subscription.swap('price_business');
+await subscription.updateQuantity(5);
+await subscription.cancel();
+```
+
+`get()` is an alias for `retrieve()`. The resource resolves the owning customer, provider binding,
+and provider subscription ID from storage. Mutations route to the provider stored on the local
+subscription, then return the refreshed local record. When tenancy is enabled, `tenantId` is
+required. An ID from another tenant returns `SUBSCRIPTION_NOT_FOUND`.
+
+The resource exposes `swap`, `updateQuantity`, `cancel`, `cancelNow`, `pause`, and `resume`. Each
+method accepts the same authorization context as its billable-scoped counterpart.
+
+The local ID is the administrative identity. Treat provider subscription IDs as integration details.
+The existing `payable.customer(billable, provider, tenantId).subscription(name)` API remains
+available for billable-scoped application flows.
+
 ### Swap - `subscription(name).swap(priceId)`
 
 `SwapSubscriptionAction` calls `provider.updateSubscription({ providerSubscriptionId, priceId })`,
@@ -127,6 +152,13 @@ canceled-now subscription has `status: 'canceled'` and `endsAt` equal to the cur
 `status` and clears `endsAt = null`. Resuming is meaningful for a subscription that was canceled with
 grace (still within its period); clearing `endsAt` takes it back off the grace period. Resuming a
 grace-period subscription sets `endsAt` back to `null`.
+
+### Pause - `subscription(name).pause()`
+
+`PauseSubscriptionAction` calls an adapter's optional `pauseSubscription` operation, reconciles the
+returned status through the subscription state machine, and writes the local update with its audit
+record in one transaction. The adapter must implement the runtime method and advertise a supported
+pause timing. The local-ID resource exposes the same operation as `payable.subscription(id).pause()`.
 
 ```ts
 const manager = payable.customer(billable).subscription('default');
