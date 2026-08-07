@@ -52,6 +52,7 @@ import type {
 } from '../../../domain/dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
+import { revolutCapabilities } from './revolut-capabilities';
 import { RevolutClient } from './revolut-client';
 import { RevolutCustomers } from './revolut-customers';
 import { RevolutDisputes } from './revolut-disputes';
@@ -61,6 +62,7 @@ import { RevolutPaymentMethodSetup } from './revolut-payment-method-setup';
 import { RevolutPaymentMethods } from './revolut-payment-methods';
 import { reconcileRevolutPaymentWebhook } from './revolut-payment-webhook-reconciliation';
 import { RevolutPayouts } from './revolut-payouts';
+import { revolutSubscriptionOperationCapabilities } from './revolut-subscription-operation-capabilities';
 import { reconcileRevolutSubscriptionWebhook } from './revolut-subscription-webhook-reconciliation';
 import { RevolutSubscriptions } from './revolut-subscriptions';
 import type {
@@ -132,18 +134,10 @@ export class RevolutProvider
     return `RevolutProvider { name: '${this.name}' }`;
   }
   capabilities(): ProviderCapabilities {
-    return new Set([
-      'checkout',
-      'refunds',
-      'webhooks',
-      'customers',
-      'paymentMethods',
-      'paymentMethodSetup',
-      'disputes',
-      'payouts',
-      'webhookEndpointManagement',
-      'subscriptions',
-    ]);
+    return revolutCapabilities();
+  }
+  subscriptionOperationCapabilities() {
+    return revolutSubscriptionOperationCapabilities();
   }
   createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO> {
     return this.customers.create(input, ctx);

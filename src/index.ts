@@ -113,6 +113,10 @@ export {
   type IdempotentExecution,
 } from './application/services/idempotency/idempotency-service';
 export {
+  assertSubscriptionOperation,
+  type SubscriptionOperation,
+} from './application/services/provider-capabilities/assert-subscription-operation';
+export {
   type PinnedFetchInit,
   type WebhookDeliveryOptions,
   WebhookDeliveryService,

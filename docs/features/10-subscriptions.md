@@ -91,7 +91,7 @@ authorization })`.
 `SubscriptionManager` wraps one action per operation. They all extend `SubscriptionAction`, which:
 
 - requires a storage driver (`SUBSCRIPTION_STORAGE_REQUIRED`),
-- asserts the provider's `subscriptions` capability via `assertProviderCapability`,
+- asserts the provider's coarse `subscriptions` capability and the requested granular operation,
 - resolves the local subscription by name (`SubscriptionNotFoundError` if missing or unmapped),
 - builds a deterministic idempotency key per operation
   (`subscription:${operation}:${providerName}:${providerSubscriptionId}[:discriminator]`).
@@ -147,6 +147,21 @@ await manager.cancelNow();   // ends immediately
 | `cancelNow()` | `immediately: true` | `clock.now()` | Ends immediately |
 | `resume()` | `resumeSubscription` | `null` | Restored |
 
+Availability is provider-specific. Inspect it before presenting an operation in an application:
+
+```ts
+const operations = payable
+  .providers()
+  .subscriptionOperationCapabilities('paddle');
+
+if (operations.cancel.atPeriodEnd) {
+  await manager.cancel();
+}
+```
+
+See the [provider subscription operation matrix](../integrations/17-providers.md#subscription-operation-capabilities)
+for the built-in adapters and the policy values returned for price and quantity changes.
+
 ## State helpers
 
 Pure predicates over a stored subscription:
@@ -179,6 +194,10 @@ assertion is skipped, so integrators that do not opt in see no behavior change.
 - **No storage driver.** Any management operation throws `PayableError` (`...requires a storage driver`).
 - **Provider lacks `subscriptions` capability.** `assertProviderCapability` throws
   `ProviderCapabilityNotSupportedError`.
+- **Provider lacks the requested granular operation.** Built-in providers throw
+  `ProviderCapabilityNotSupportedError` before customer synchronization or provider calls. The error
+  context contains a stable capability such as `subscriptions.create.direct` or
+  `subscriptions.cancel.at-period-end`.
 - **Provider not direct-subscription capable on create.** `CreateSubscriptionAction` throws before any
   provider call.
 - **Unknown subscription name.** `resolve()` throws `SubscriptionNotFoundError`.

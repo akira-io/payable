@@ -120,6 +120,18 @@ export type {
   UpdateSubscriptionInput,
 } from './subscription.dto';
 export type {
+  SubscriptionChangeCapabilities,
+  SubscriptionEffectiveTiming,
+  SubscriptionOperationCapabilities,
+  SubscriptionPaymentFailurePolicy,
+  SubscriptionProrationPolicy,
+  SubscriptionResumeBillingPolicy,
+} from './subscription-operation-capabilities.dto';
+export {
+  defineSubscriptionOperationCapabilities,
+  NO_SUBSCRIPTION_OPERATIONS,
+} from './subscription-operation-capabilities.dto';
+export type {
   CalculateTaxInput,
   CommitTaxTransactionInput,
   ReverseTaxTransactionInput,

@@ -23,8 +23,9 @@ export class CancelSubscriptionNowAction extends SubscriptionAction {
       authorization,
       'cancel subscription',
     );
+    const provider = this.subscriptionProvider('cancelImmediately');
     const subscription = await this.resolve(billable, name);
-    const dto = await this.subscriptionProvider().cancelSubscription(
+    const dto = await provider.cancelSubscription(
       { providerSubscriptionId: subscription.providerSubscriptionId, immediately: true },
       this.context('cancel-now', subscription.providerSubscriptionId),
     );

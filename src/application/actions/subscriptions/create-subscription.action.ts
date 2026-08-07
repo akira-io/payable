@@ -7,6 +7,7 @@ import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { Billable } from '../../builders/billable';
 import type { AuthorizationContext } from '../../policies/authorization-context';
+import { assertSubscriptionOperation } from '../../services/provider-capabilities/assert-subscription-operation';
 import { SyncCustomerWithProviderAction } from '../customers/sync-customer-with-provider.action';
 import { SubscriptionAction } from './subscription-action';
 
@@ -27,6 +28,7 @@ export class CreateSubscriptionAction extends SubscriptionAction {
     if (!provider.capabilities().has('subscriptions') || !isDirectSubscriptionCapable(provider)) {
       throw new ProviderCapabilityNotSupportedError(provider.name, 'direct subscription creation');
     }
+    assertSubscriptionOperation(provider, 'createDirect');
     if (input.quantity !== undefined) {
       this.assertQuantity(input.quantity);
     }

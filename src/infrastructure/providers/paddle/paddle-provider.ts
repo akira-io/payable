@@ -1,5 +1,6 @@
 import type { Logger } from '../../../domain/contracts/logger.contract';
 import type { PaymentProvider } from '../../../domain/contracts/payment-provider.contract';
+import type { SubscriptionOperationCapabilitiesProvider } from '../../../domain/contracts/subscription-operation-capabilities-provider.contract';
 import type { BillingPortalDTO, BillingPortalInput } from '../../../domain/dtos/billing-portal.dto';
 import type { ProviderCapabilities } from '../../../domain/dtos/capabilities.dto';
 import type {
@@ -33,6 +34,7 @@ import {
   toRefundResultDTO,
   toSubscriptionDTO,
 } from './paddle-mappers';
+import { paddleSubscriptionOperationCapabilities } from './paddle-subscription-operation-capabilities';
 import type { PaddleClient } from './paddle-types';
 import { PaddleWebhookVerifier } from './paddle-webhook-verifier';
 
@@ -43,7 +45,7 @@ export interface PaddleProviderOptions {
   logger?: Logger;
 }
 
-export class PaddleProvider implements PaymentProvider {
+export class PaddleProvider implements PaymentProvider, SubscriptionOperationCapabilitiesProvider {
   readonly name = 'paddle';
   private readonly catalog: PaddleCatalog;
   private readonly normalizer: PaddleEventNormalizer;
@@ -95,6 +97,10 @@ export class PaddleProvider implements PaymentProvider {
       'catalogRead',
       'catalogLifecycle',
     ]);
+  }
+
+  subscriptionOperationCapabilities() {
+    return paddleSubscriptionOperationCapabilities();
   }
 
   async createCustomer(input: CreateCustomerInput, _ctx: OperationContext): Promise<CustomerDTO> {

@@ -167,6 +167,64 @@ open `string` arm, so a provider may declare custom capabilities the core does n
 example `'x-acme-dunning'`) while the known names keep autocomplete. Adding a new core capability is a
 new union member, not a new required field, so it does not break existing custom providers.
 
+### Subscription operation capabilities
+
+The coarse `subscriptions` capability says that a provider participates in subscription workflows.
+It does not imply that every lifecycle operation or policy is available. Providers can implement the
+optional `SubscriptionOperationCapabilitiesProvider` contract to publish a serializable descriptor:
+
+```ts
+const operations = payable
+  .providers()
+  .subscriptionOperationCapabilities('stripe');
+
+operations.create.direct;
+operations.changePrice.effectiveTimings;
+operations.cancel.atPeriodEnd;
+```
+
+The descriptor separates creation, price changes, quantity changes, cancellation, pause, and resume.
+Change capabilities list supported effective timings, proration policies, and payment-failure
+policies. Pause and resume capabilities list scheduling and billing-cycle behavior. The returned
+snapshot and its policy arrays are immutable.
+
+| Subscription operation | Stripe | Paddle | SISP | Revolut |
+| --- | --- | --- | --- | --- |
+| Hosted checkout creation | yes | yes | no | yes |
+| Direct creation | yes | no | no | yes |
+| Price change timing | immediate | immediate | no | next renewal |
+| Price change proration | next invoice | immediate | no | no |
+| Price change payment failure | apply change | prevent change | no | no |
+| Quantity change | immediate | immediate | no | no |
+| Preview change | no | no | no | no |
+| Cancel immediately | yes | yes | no | yes |
+| Cancel at period end | yes | yes | no | no |
+| Pause | no | no | no | no |
+| Resume pending cancellation | yes | no | no | no |
+| Resume paused subscription | no | yes, new billing period | no | no |
+
+This matrix describes the current Payable adapters, not every feature offered by the external
+providers. For example, Paddle offers pause operations, but the Payable adapter does not expose them
+yet and therefore reports them as unsupported.
+
+Built-in providers publish explicit descriptors. A custom provider can add the optional method
+without changing its existing `capabilities()` implementation. For legacy providers that do not
+implement the method, registry discovery returns a conservative creation-only descriptor inferred
+from the coarse capability and direct-creation interface. Existing legacy operations are not blocked
+by granular assertions, which preserves compatibility while integrations migrate to explicit
+descriptors.
+
+The coarse `subscriptions` value remains supported for family-level discovery and existing guards,
+but it is deprecated as a source for operation-level decisions. Migration is additive: implement
+`subscriptionOperationCapabilities()`, move user-interface and workflow checks to the descriptor,
+then retain `subscriptions` while supporting current Payable releases. No removal release is
+scheduled.
+
+Before a built-in provider call, Payable asserts the requested operation and throws
+`ProviderCapabilityNotSupportedError` with a stable capability name such as
+`subscriptions.change-quantity` or `subscriptions.cancel.at-period-end`. The assertion runs before
+customer synchronization or other provider side effects.
+
 This is distinct from the optional interfaces above. The interfaces answer "does this method exist?";
 `ProviderCapabilities` answers "does the provider claim to support this feature?". The engine guards a
 declared capability with `assertProviderCapability`
@@ -254,6 +312,7 @@ A provider whose set omits a required capability rejects the corresponding opera
 | `get(name)` | Returns the provider, or throws `ProviderNotFoundError` (`PROVIDER_NOT_FOUND`) when absent. |
 | `has(name)` | `true` when a provider is registered under `name`. |
 | `names()` | Registered provider names, in insertion order. |
+| `subscriptionOperationCapabilities(name)` | Returns an immutable granular subscription descriptor or a conservative legacy fallback. |
 
 The registry is built from the resolved config and exposed via `payable.providers()`.
 

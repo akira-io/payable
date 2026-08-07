@@ -4,6 +4,7 @@ import { CreateCheckoutSessionAction } from '../../actions/checkout/create-check
 import { SyncCustomerWithProviderAction } from '../../actions/customers/sync-customer-with-provider.action';
 import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
+import { assertSubscriptionOperation } from '../../services/provider-capabilities/assert-subscription-operation';
 
 export interface CreateCheckoutInput {
   billable: Billable;
@@ -27,6 +28,9 @@ export class CreateCheckoutPipeline {
   }
 
   async handle(input: CreateCheckoutInput): Promise<CheckoutSessionDTO> {
+    if (input.mode === 'subscription') {
+      assertSubscriptionOperation(this.deps.provider, 'createCheckout');
+    }
     const providerCustomerId = await this.syncCustomer.handle(input.billable);
     const key = IdempotencyKey.forCheckout({
       tenantId: this.deps.tenantId ?? null,
