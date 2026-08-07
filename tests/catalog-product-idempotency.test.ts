@@ -100,10 +100,10 @@ describe('product mutation idempotency', () => {
 
   it('replays all four product mutations without repeating provider work', async () => {
     const provider = new ProductIdempotencyProvider();
-    const products = payableFor({ stripe: provider }, new InMemoryIdempotencyStore()).products(
-      'stripe',
-      'tenant-a',
-    );
+    const products = payableFor(
+      { stripe: provider },
+      new InMemoryIdempotencyStore(),
+    ).providerCatalog('stripe', 'tenant-a').products;
 
     const created = await products.create({ name: 'Pro' }, { idempotencyKey: 'create-1' });
     expect(await products.create({ name: 'Pro' }, { idempotencyKey: 'create-1' })).toEqual(created);
@@ -137,10 +137,10 @@ describe('product mutation idempotency', () => {
 
   it('rejects changed create and update requests that reuse a key', async () => {
     const provider = new ProductIdempotencyProvider();
-    const products = payableFor({ stripe: provider }, new InMemoryIdempotencyStore()).products(
-      'stripe',
-      'tenant-a',
-    );
+    const products = payableFor(
+      { stripe: provider },
+      new InMemoryIdempotencyStore(),
+    ).providerCatalog('stripe', 'tenant-a').products;
 
     await products.create({ name: 'Pro' }, { idempotencyKey: 'create-conflict' });
     await expect(
@@ -160,10 +160,10 @@ describe('product mutation idempotency', () => {
 
   it('runs identical create requests again when their keys differ', async () => {
     const provider = new ProductIdempotencyProvider();
-    const products = payableFor({ stripe: provider }, new InMemoryIdempotencyStore()).products(
-      'stripe',
-      'tenant-a',
-    );
+    const products = payableFor(
+      { stripe: provider },
+      new InMemoryIdempotencyStore(),
+    ).providerCatalog('stripe', 'tenant-a').products;
 
     await products.create({ name: 'Pro' }, { idempotencyKey: 'create-a' });
     await products.create({ name: 'Pro' }, { idempotencyKey: 'create-b' });
@@ -176,11 +176,11 @@ describe('product mutation idempotency', () => {
     const payable = payableFor({ stripe: provider }, new InMemoryIdempotencyStore());
 
     await payable
-      .products('stripe', 'tenant-a')
-      .create({ name: 'Pro' }, { idempotencyKey: 'same' });
+      .providerCatalog('stripe', 'tenant-a')
+      .products.create({ name: 'Pro' }, { idempotencyKey: 'same' });
     await payable
-      .products('stripe', 'tenant-b')
-      .create({ name: 'Pro' }, { idempotencyKey: 'same' });
+      .providerCatalog('stripe', 'tenant-b')
+      .products.create({ name: 'Pro' }, { idempotencyKey: 'same' });
 
     expect(provider.createCalls).toBe(2);
     expect(provider.createContexts[0]?.idempotencyKey).not.toBe(
@@ -194,12 +194,14 @@ describe('product mutation idempotency', () => {
     const payable = payableFor({ stripe, paddle }, new InMemoryIdempotencyStore());
 
     await payable
-      .products('stripe', 'tenant-a')
-      .create({ name: 'Pro' }, { idempotencyKey: 'same' });
+      .providerCatalog('stripe', 'tenant-a')
+      .products.create({ name: 'Pro' }, { idempotencyKey: 'same' });
     await payable
-      .products('paddle', 'tenant-a')
-      .create({ name: 'Pro' }, { idempotencyKey: 'same' });
-    await payable.products('stripe', 'tenant-a').archive('prod_1', { idempotencyKey: 'same' });
+      .providerCatalog('paddle', 'tenant-a')
+      .products.create({ name: 'Pro' }, { idempotencyKey: 'same' });
+    await payable
+      .providerCatalog('stripe', 'tenant-a')
+      .products.archive('prod_1', { idempotencyKey: 'same' });
 
     expect(stripe.createCalls).toBe(1);
     expect(paddle.createCalls).toBe(1);
@@ -211,10 +213,10 @@ describe('product mutation idempotency', () => {
 
   it('allows only one provider call for concurrent equal creates', async () => {
     const provider = new ProductIdempotencyProvider();
-    const products = payableFor({ stripe: provider }, new InMemoryIdempotencyStore()).products(
-      'stripe',
-      'tenant-a',
-    );
+    const products = payableFor(
+      { stripe: provider },
+      new InMemoryIdempotencyStore(),
+    ).providerCatalog('stripe', 'tenant-a').products;
 
     const executions = await Promise.allSettled([
       products.create({ name: 'Pro' }, { idempotencyKey: 'concurrent' }),
@@ -232,10 +234,10 @@ describe('product mutation idempotency', () => {
   it('checks authorization before reading idempotency state', async () => {
     const provider = new ProductIdempotencyProvider();
     const store = new TrackingIdempotencyStore();
-    const products = payableFor({ stripe: provider }, store, undefined, true).products(
+    const products = payableFor({ stripe: provider }, store, undefined, true).providerCatalog(
       'stripe',
       'tenant-a',
-    );
+    ).products;
 
     await expect(
       products.create(
@@ -253,10 +255,10 @@ describe('product mutation idempotency', () => {
     const provider = new ProductIdempotencyProvider();
     const store = new InMemoryIdempotencyStore();
     const storage = new FailingCatalogStorage(database, new FakeClock(NOW));
-    const products = payableFor({ stripe: provider }, store, storage).products(
+    const products = payableFor({ stripe: provider }, store, storage).providerCatalog(
       'stripe',
       'tenant-a',
-    );
+    ).products;
 
     await expect(
       products.create({ name: 'Pro' }, { idempotencyKey: 'persistence-failure' }),
@@ -273,10 +275,10 @@ describe('product mutation idempotency', () => {
 
   it('replays the complete product DTO', async () => {
     const provider = new ProductIdempotencyProvider();
-    const products = payableFor({ stripe: provider }, new InMemoryIdempotencyStore()).products(
-      'stripe',
-      'tenant-a',
-    );
+    const products = payableFor(
+      { stripe: provider },
+      new InMemoryIdempotencyStore(),
+    ).providerCatalog('stripe', 'tenant-a').products;
     const input = {
       name: 'Pro',
       description: 'Monthly plan',

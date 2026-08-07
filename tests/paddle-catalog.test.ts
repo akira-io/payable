@@ -153,7 +153,7 @@ describe('Paddle catalog', () => {
     const products = createPayable({
       providers: { paddle },
       idempotency: { store: new InMemoryIdempotencyStore() },
-    }).products('paddle');
+    }).providerCatalog('paddle').products;
     const createInput = { name: 'Pro', description: 'For teams', metadata: { tier: 'pro' } };
     const createdProduct = await products.create(createInput, {
       idempotencyKey: 'product-create-1',

@@ -2,6 +2,7 @@ import type { Knex } from 'knex';
 import { PayableError } from '../../../../domain/errors/payable-error';
 import { alterExistingTables } from './alter-existing-tables';
 import { createBillingTables } from './billing-schema';
+import { addCanonicalCatalogTables } from './canonical-catalog-schema';
 import { addCatalogTenantKeys } from './catalog-tenant-keys';
 import { addCustomerProviderBindings } from './customer-provider-bindings';
 import { runStep } from './migration-ledger';
@@ -99,5 +100,6 @@ export async function migrate(knex: Knex): Promise<void> {
     await runStep(knex, '010-subscription-lifecycle-metadata', () =>
       addSubscriptionLifecycleMetadata(knex),
     );
+    await runStep(knex, '011-canonical-local-catalog', () => addCanonicalCatalogTables(knex));
   });
 }

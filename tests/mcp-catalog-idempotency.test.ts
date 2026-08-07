@@ -132,7 +132,9 @@ describe('MCP catalog idempotency', () => {
     const client = await connect(payable);
     const idempotencyKey = 'in-progress-request';
 
-    const first = payable.products('stripe').create({ name: 'Pro' }, { idempotencyKey });
+    const first = payable
+      .providerCatalog('stripe')
+      .products.create({ name: 'Pro' }, { idempotencyKey });
     await pendingProduct.started;
     const inProgressRequest = client.callTool({
       name: 'product_create',

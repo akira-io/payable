@@ -97,10 +97,14 @@ every customer and payment. The isolation works as follows:
 
 ### Catalog operations
 
-Product identity is `(tenant, provider, providerProductId)`. Price identity is `(tenant, provider,
-providerPriceId)`. `null` is the tenantless partition. Catalog repository methods require an explicit
-tenant argument, so `findById(id, tenantId)` and `listByProduct(productId, tenantId)` do not accept an
-omitted tenant. Pass `null` when the catalog is tenantless.
+Canonical product and price identity is `(tenant, localId)`. Provider identities are separate
+bindings scoped by tenant, canonical resource, and registered provider account name. The same local
+product or price can therefore bind to multiple provider accounts without duplication.
+
+The legacy provider-first compatibility repositories identify products by
+`(tenant, provider, providerProductId)` and prices by `(tenant, provider, providerPriceId)`. `null` is
+the tenantless partition. Repository methods require an explicit tenant argument. Pass `null` when
+the catalog is tenantless.
 
 ```ts
 const product = await storage.products.findByProviderId('stripe', 'prod_pro', 'tenant-a');

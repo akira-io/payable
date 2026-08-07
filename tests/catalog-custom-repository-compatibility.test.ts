@@ -65,8 +65,8 @@ describe('legacy catalog repository compatibility', () => {
     const nativeStorage = new KnexStorageDriver(db, new FakeClock());
     const storage = legacyCatalogStorage(nativeStorage);
     const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
-    const products = payable.products('stripe', 'tenant-a');
-    const prices = payable.prices('stripe', 'tenant-a');
+    const products = payable.providerCatalog('stripe', 'tenant-a').products;
+    const prices = payable.providerCatalog('stripe', 'tenant-a').prices;
     await products.create({ name: 'Pro' });
     await prices.create({ providerProductId: 'prod_fake', unitAmount: Money.of(9900, 'USD') });
 

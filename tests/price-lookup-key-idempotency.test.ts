@@ -75,7 +75,7 @@ function resource(
     idempotency: store ? { store } : undefined,
     storage,
     tenant: { enabled: true },
-  }).prices('stripe', 'tenant-a');
+  }).providerCatalog('stripe', 'tenant-a').prices;
 }
 
 describe('price lookup key transfer idempotency', () => {

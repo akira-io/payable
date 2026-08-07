@@ -1,9 +1,76 @@
 # Catalog Lifecycle
 
-Read products and prices through the same portable API, then archive or reactivate catalog entries
-without deleting provider records.
+Manage a provider-neutral local catalog, or use an explicit provider catalog when the remote payment
+provider owns the product and price records.
 
-## Prerequisites
+## Choose the catalog boundary
+
+`payable.products(tenantId)` and `payable.prices(tenantId)` are local-first. They require storage but
+do not resolve a payment provider, create remote records, or invent provider identifiers. Their IDs
+remain stable when the same product or price is connected to more than one provider account.
+
+```ts
+import { Money } from '@akira-io/payable';
+
+const product = await payable.products('tenant-acme').create({
+  name: 'Pro',
+  description: 'Pro plan',
+});
+
+const price = await payable.prices('tenant-acme').create({
+  productId: product.id,
+  unitAmount: Money.of(2900, 'EUR'),
+  type: 'recurring',
+  interval: 'month',
+  lookupKey: 'pro_monthly',
+});
+```
+
+`product.id` and `price.id` are canonical Payable IDs. A remote Stripe product ID, Paddle product ID,
+or another provider ID belongs in the matching product-provider or price-provider binding. Local CRUD
+does not create those bindings. Provider synchronization is a separate operation.
+
+Local product operations include `create`, `retrieve`, `update`, `list`, `activate`, `archive`, and
+`reactivate`. Local price operations expose the same lifecycle; `update` can change the description,
+while amount, currency, billing type, interval, and interval count remain immutable. Create a
+replacement price when any immutable term changes.
+
+Local lists default to 25 records and cap requests at 100. Product filters support `active`. Price
+filters support `active`, canonical `productId`, `type`, and `lookupKeys`. The opaque cursor orders
+equal timestamps by local ID, so pages are deterministic within one tenant.
+
+```ts
+const firstPage = await payable.prices('tenant-acme').list({
+  productId: product.id,
+  active: true,
+  limit: 25,
+});
+
+const nextPage = firstPage.nextCursor
+  ? await payable.prices('tenant-acme').list({
+      productId: product.id,
+      cursor: firstPage.nextCursor,
+      limit: 25,
+    })
+  : null;
+```
+
+Lookup keys are unique inside one tenant. Transfer a key to a replacement price in one storage
+transaction. The former price keeps its immutable terms and subscriptions can continue to reference
+it.
+
+```ts
+await payable
+  .prices('tenant-acme')
+  .transferLookupKey(replacementPrice.id, 'pro_monthly');
+```
+
+Use `payable.providerCatalog(providerName, tenantId)` for the provider-first compatibility API. This
+path returns provider DTOs and uses provider product or price IDs. Existing Express, Fastify, NestJS,
+and MCP catalog adapters remain on this explicit provider path until their canonical adapter contract
+is introduced.
+
+## Provider catalog prerequisites
 
 - A configured Payable instance
 - A provider that declares `catalogRead` for reads
@@ -22,8 +89,8 @@ context from trusted identity data. A known catalog administrator can use
 
 ```ts
 const authorization = { allowed: true, actorId: 'catalog-admin' };
-await payable.products().archive('prod_123', { authorization });
-await payable.prices().create(
+await payable.providerCatalog().products.archive('prod_123', { authorization });
+await payable.providerCatalog().prices.create(
   {
     providerProductId: 'prod_123',
     unitAmount: Money.of(12900, 'USD'),
@@ -40,17 +107,17 @@ Catalog lists default to active entries, use a page size of 50, and accept limit
 complete. Persist or pass the cursor unchanged. Do not parse it or construct one from an entity ID.
 
 ```ts
-const page = await payable.products().list({ limit: 50 });
+const page = await payable.providerCatalog().products.list({ limit: 50 });
 if (page.nextCursor) {
-  await payable.products().list({ limit: 50, cursor: page.nextCursor });
+  await payable.providerCatalog().products.list({ limit: 50, cursor: page.nextCursor });
 }
 ```
 
 Pass `active: false` to inspect archived products:
 
 ```ts
-const archivedProducts = await payable.products().list({ active: false });
-const product = await payable.products().retrieve('prod_123');
+const archivedProducts = await payable.providerCatalog().products.list({ active: false });
+const product = await payable.providerCatalog().products.retrieve('prod_123');
 ```
 
 `list()` returns `CatalogPage<ProductDTO>`:
@@ -76,18 +143,18 @@ Price lists use the same pagination and active-state rules. Filter by `providerP
 application needs prices for one product.
 
 ```ts
-const archivedPrices = await payable.prices().list({
+const archivedPrices = await payable.providerCatalog().prices.list({
   providerProductId: 'prod_123',
   active: false,
 });
-await payable.prices().archive('price_123');
-await payable.prices().activate('price_123');
+await payable.providerCatalog().prices.archive('price_123');
+await payable.providerCatalog().prices.activate('price_123');
 ```
 
 Retrieve one price when its provider identifier is already known:
 
 ```ts
-const price = await payable.prices().retrieve('price_123');
+const price = await payable.providerCatalog().prices.retrieve('price_123');
 ```
 
 `PriceDTO` keeps money provider-neutral through the `Money` value object:
@@ -111,8 +178,8 @@ Archiving makes a product inactive at the provider. It does not delete the produ
 references.
 
 ```ts
-const archived = await payable.products().archive('prod_123');
-const active = await payable.products().activate('prod_123');
+const archived = await payable.providerCatalog().products.archive('prod_123');
+const active = await payable.providerCatalog().products.activate('prod_123');
 ```
 
 Payable intentionally exposes no portable product or price delete operation. Stripe and Paddle both
@@ -128,14 +195,14 @@ price.
 ```ts
 import { Money } from '@akira-io/payable';
 
-const replacement = await payable.prices().create({
+const replacement = await payable.providerCatalog().prices.create({
   providerProductId: 'prod_123',
   unitAmount: Money.of(12900, 'USD'),
   interval: 'month',
   intervalCount: 1,
 });
 
-await payable.prices().archive('price_123');
+await payable.providerCatalog().prices.archive('price_123');
 ```
 
 Create a new price instead of mutating monetary terms on an existing provider price.
@@ -148,13 +215,13 @@ remain available when it is absent. A lookup key has a maximum of 200 Unicode co
 
 Payable rejects non-string, malformed Unicode, empty, whitespace-only, and over-limit keys with
 `PRICE_LOOKUP_KEY_INVALID`. It also rejects a non-array `lookupKeys` value or a list with more than
-10 keys. After the capability gate, `await payable.prices().list({ lookupKeys: [] })` returns an empty
+10 keys. After the capability gate, `await payable.providerCatalog().prices.list({ lookupKeys: [] })` returns an empty
 page locally and does not call the provider.
 
 ```ts
 import { Money } from '@akira-io/payable';
 
-const price = await payable.prices().create(
+const price = await payable.providerCatalog().prices.create(
   {
     providerProductId: product.providerProductId,
     unitAmount: Money.of(1900, 'USD'),
@@ -168,7 +235,7 @@ const price = await payable.prices().create(
 Create a replacement and transfer the key in the same Stripe request:
 
 ```ts
-const replacement = await payable.prices().create(
+const replacement = await payable.providerCatalog().prices.create(
   {
     providerProductId: product.providerProductId,
     unitAmount: Money.of(2400, 'USD'),
@@ -186,7 +253,7 @@ ends.
 Transfer an existing Stripe lookup key explicitly, then list by key:
 
 ```ts
-await payable.prices().transferLookupKey(
+await payable.providerCatalog().prices.transferLookupKey(
   {
     providerPriceId: replacement.providerPriceId,
     lookupKey: 'standard_monthly',
@@ -194,7 +261,7 @@ await payable.prices().transferLookupKey(
   { idempotencyKey: 'transfer-standard-monthly-v2' },
 );
 
-const page = await payable.prices().list({
+const page = await payable.providerCatalog().prices.list({
   lookupKeys: ['standard_monthly'],
 });
 ```
@@ -212,7 +279,7 @@ its `custom_data` is metadata, not an equivalent alias or atomic-transfer mechan
 Pass a stable caller key as the second argument to each product or price mutation:
 
 ```ts
-await payable.products('stripe-primary', 'tenant-acme').create(
+await payable.providerCatalog('stripe-primary', 'tenant-acme').products.create(
   { name: 'Pro' },
   { idempotencyKey: 'catalog-product-pro-v1' },
 );

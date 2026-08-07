@@ -1,11 +1,15 @@
 import type {
   AuditLogRepository,
+  CanonicalPriceRepository,
+  CanonicalProductRepository,
   CustomerProviderBindingRepository,
   CustomerRepository,
   InvoiceRepository,
   OutboxEventRepository,
   PaymentRepository,
+  PriceProviderBindingRepository,
   PriceRepository,
+  ProductProviderBindingRepository,
   ProductRepository,
   RefundRepository,
   SubscriptionItemRepository,
@@ -23,12 +27,16 @@ import type {
 import { SystemClock } from '../../../support/clock/system-clock';
 import type { PrismaClient, PrismaClientLike } from './prisma-client.types';
 import { PrismaAuditLogRepository } from './repositories/prisma-audit-logs.repository';
+import { PrismaCanonicalPriceRepository } from './repositories/prisma-canonical-prices.repository';
+import { PrismaCanonicalProductRepository } from './repositories/prisma-canonical-products.repository';
 import { PrismaCustomerProviderBindingRepository } from './repositories/prisma-customer-provider-bindings.repository';
 import { PrismaCustomerRepository } from './repositories/prisma-customers.repository';
 import { PrismaInvoiceRepository } from './repositories/prisma-invoices.repository';
 import { PrismaOutboxEventRepository } from './repositories/prisma-outbox.repository';
 import { PrismaPaymentRepository } from './repositories/prisma-payments.repository';
+import { PrismaPriceProviderBindingRepository } from './repositories/prisma-price-provider-bindings.repository';
 import { PrismaPriceRepository } from './repositories/prisma-prices.repository';
+import { PrismaProductProviderBindingRepository } from './repositories/prisma-product-provider-bindings.repository';
 import { PrismaProductRepository } from './repositories/prisma-products.repository';
 import { PrismaRefundRepository } from './repositories/prisma-refunds.repository';
 import { PrismaSubscriptionRepository } from './repositories/prisma-subscriptions.repository';
@@ -44,10 +52,14 @@ function buildRepositories(
   auditKey?: string,
 ): Repositories {
   return {
+    canonicalPrices: new PrismaCanonicalPriceRepository(client, clock),
+    canonicalProducts: new PrismaCanonicalProductRepository(client, clock),
     customers: new PrismaCustomerRepository(client, clock),
     customerProviderBindings: new PrismaCustomerProviderBindingRepository(client, clock),
     products: new PrismaProductRepository(client, clock),
+    productProviderBindings: new PrismaProductProviderBindingRepository(client, clock),
     prices: new PrismaPriceRepository(client, clock),
+    priceProviderBindings: new PrismaPriceProviderBindingRepository(client, clock),
     subscriptions: new PrismaSubscriptionRepository(client, clock),
     subscriptionItems: new PrismaSubscriptionItemRepository(client, clock),
     invoices: new PrismaInvoiceRepository(client, clock),
@@ -62,10 +74,14 @@ function buildRepositories(
 }
 
 export class PrismaStorageDriver implements StorageDriver {
+  canonicalPrices!: CanonicalPriceRepository;
+  canonicalProducts!: CanonicalProductRepository;
   customers!: CustomerRepository;
   customerProviderBindings!: CustomerProviderBindingRepository;
   products!: ProductRepository;
+  productProviderBindings!: ProductProviderBindingRepository;
   prices!: PriceRepository;
+  priceProviderBindings!: PriceProviderBindingRepository;
   subscriptions!: SubscriptionRepository;
   subscriptionItems!: SubscriptionItemRepository;
   invoices!: InvoiceRepository;
@@ -103,10 +119,16 @@ export class PrismaStorageDriver implements StorageDriver {
   }
 
   private assignRepositories(repositories: Repositories): void {
+    this.canonicalPrices = repositories.canonicalPrices as CanonicalPriceRepository;
+    this.canonicalProducts = repositories.canonicalProducts as CanonicalProductRepository;
     this.customers = repositories.customers;
     this.customerProviderBindings = repositories.customerProviderBindings;
     this.products = repositories.products;
+    this.productProviderBindings =
+      repositories.productProviderBindings as ProductProviderBindingRepository;
     this.prices = repositories.prices;
+    this.priceProviderBindings =
+      repositories.priceProviderBindings as PriceProviderBindingRepository;
     this.subscriptions = repositories.subscriptions;
     this.subscriptionItems = repositories.subscriptionItems;
     this.invoices = repositories.invoices;

@@ -180,7 +180,7 @@ interface CatalogMutationOptions {
   idempotencyKey?: string;
 }
 
-await payable.products('stripe-primary', 'tenant-acme').create(
+await payable.providerCatalog('stripe-primary', 'tenant-acme').products.create(
   { name: 'Pro' },
   { idempotencyKey: 'catalog-product-pro-v1' },
 );

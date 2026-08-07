@@ -300,8 +300,8 @@ Known capabilities gate their matching resource operations before Payable calls 
   `customers` capability before calling `createCustomer` or `updateCustomer`. If a stored customer has
   a provider customer id and the provider declares `customers`, update requires the full
   `CustomerCapable` interface instead of silently falling back to local-only changes.
-- **`catalog`** guards `payable.products().create(...)`, `payable.products().update(...)`, and
-  `payable.prices().create(...)`.
+- **`catalog`** guards `payable.providerCatalog().products.create(...)`, `payable.providerCatalog().products.update(...)`, and
+  `payable.providerCatalog().prices.create(...)`.
 - **`catalogRead`** guards product and price `retrieve(...)` and `list(...)` operations.
 - **`catalogLifecycle`** guards product and price `activate(...)` and `archive(...)` operations.
 - **`priceLookupKeys`** guards price creates carrying `lookupKey` or `transferLookupKey: true`, price

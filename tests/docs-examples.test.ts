@@ -42,26 +42,26 @@ async function catalogLifecycleExampleFromDocs() {
   const provider = new FakeProvider();
   provider.productsPage.nextCursor = 'prod_next';
   const payable = createPayable({ providers: { stripe: provider } });
-  const firstPage = await payable.products().list({ limit: 50 });
+  const firstPage = await payable.providerCatalog().products.list({ limit: 50 });
   const firstProductListInput = provider.lastListProducts;
   if (firstPage.nextCursor) {
-    await payable.products().list({ limit: 50, cursor: firstPage.nextCursor });
+    await payable.providerCatalog().products.list({ limit: 50, cursor: firstPage.nextCursor });
   }
   const nextProductListInput = provider.lastListProducts;
-  const product = await payable.products().retrieve('prod_fake');
-  const archivedProduct = await payable.products().archive('prod_fake');
-  const activeProduct = await payable.products().activate('prod_fake');
-  const archivedPrices = await payable.prices().list({
+  const product = await payable.providerCatalog().products.retrieve('prod_fake');
+  const archivedProduct = await payable.providerCatalog().products.archive('prod_fake');
+  const activeProduct = await payable.providerCatalog().products.activate('prod_fake');
+  const archivedPrices = await payable.providerCatalog().prices.list({
     limit: 100,
     cursor: 'price_cursor',
     providerProductId: 'prod_fake',
     active: false,
   });
   const priceListInput = provider.lastListPrices;
-  const price = await payable.prices().retrieve('price_fake');
-  const archivedPrice = await payable.prices().archive('price_fake');
-  const activePrice = await payable.prices().activate('price_fake');
-  const replacementPrice = await payable.prices().create({
+  const price = await payable.providerCatalog().prices.retrieve('price_fake');
+  const archivedPrice = await payable.providerCatalog().prices.archive('price_fake');
+  const activePrice = await payable.providerCatalog().prices.activate('price_fake');
+  const replacementPrice = await payable.providerCatalog().prices.create({
     providerProductId: 'prod_fake',
     unitAmount: Money.of(12900, 'USD'),
     interval: 'month',
@@ -99,8 +99,9 @@ describe('documentation examples stay executable', () => {
     expect(contracts).toContain(
       'findByProviderId(provider: string, providerPriceId: string, tenantId: string | null)',
     );
-    expect(tenancy).toContain('Product identity is `(tenant, provider, providerProductId)`');
+    expect(tenancy).toContain('Canonical product and price identity is `(tenant, localId)`');
     expect(knexStorage).toContain('009-catalog-tenant-keys');
+    expect(knexStorage).toContain('011-canonical-local-catalog');
     expect(knexStorage).toContain('payable_products_tenant_provider_product_unique');
     expect(knexStorage).toContain('payable_prices_tenant_provider_price_unique');
     expect(prismaStorage).toContain("WHERE tenant_key <> COALESCE(tenant_id, '');");

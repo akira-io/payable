@@ -26,24 +26,23 @@ import {
 import { ReplayWebhookAction } from './application/actions/webhooks/replay-webhook.action';
 import { AuditResource } from './application/builders/audit-resource';
 import type { Billable } from './application/builders/billable';
+import { CanonicalPriceResource } from './application/builders/canonical-price-resource';
+import { CanonicalProductResource } from './application/builders/canonical-product-resource';
 import { CustomerContext } from './application/builders/customer-context';
 import type { CustomerResource } from './application/builders/customer-resource';
 import { DependencyFactory } from './application/builders/dependency-factory';
 import { InvoiceResource } from './application/builders/invoice-resource';
 import type { LocalSubscriptionResource } from './application/builders/local-subscription-resource';
-import { PriceResource } from './application/builders/price-resource';
-import { ProductResource } from './application/builders/product-resource';
+import { ProviderCatalogResource } from './application/builders/provider-catalog-resource';
 import { RefundResource } from './application/builders/refund-resource';
 import { WebhookEndpointResource } from './application/builders/webhook-endpoint-resource';
 import { WebhookEventResource } from './application/builders/webhook-event-resource';
-import type { AuthorizationContext } from './application/policies/authorization-context';
 import type { ReplayWebhookContext } from './application/policies/can-replay-webhook.policy';
 import { ListAuditLogsQuery } from './application/queries/audit/list-audit-logs.query';
 import { ListAllPaymentsQuery } from './application/queries/payments/list-all-payments.query';
 import { ListAllSubscriptionsQuery } from './application/queries/subscriptions/list-all-subscriptions.query';
 import {
   DEFAULT_WEBHOOK_DELIVERY_ATTEMPTS,
-  type HostResolver,
   WebhookDeliveryService,
 } from './application/services/webhook-delivery/webhook-delivery-service';
 import type { Clock } from './domain/contracts/clock.contract';
@@ -55,30 +54,16 @@ import type { Payment } from './domain/entities/payment.entity';
 import type { Refund } from './domain/entities/refund.entity';
 import type { Subscription } from './domain/entities/subscription.entity';
 import { PayableError } from './domain/errors/payable-error';
-import type { Money } from './domain/value-objects/money';
 import {
   type OutboxPublishResult,
   OutboxService,
   type OutboxServiceOptions,
 } from './infrastructure/outbox/outbox-service';
+import type { DeliverWebhooksOptions, RefundRequest } from './payable.types';
 import { ProviderRegistries } from './provider-registries';
 import type { ResolvedConfig } from './support/config/payable-config';
 
-export interface RefundRequest {
-  paymentId: string;
-  amount?: Money;
-  reason?: string;
-  reference?: string;
-  authorization?: AuthorizationContext;
-}
-
-export interface DeliverWebhooksOptions {
-  limit?: number;
-  timeoutMs?: number;
-  fetch?: typeof globalThis.fetch;
-  resolveHost?: HostResolver;
-  outbox?: OutboxServiceOptions;
-}
+export type { DeliverWebhooksOptions, RefundRequest } from './payable.types';
 
 export class Payable extends ProviderRegistries {
   private readonly factory: DependencyFactory;
@@ -116,12 +101,16 @@ export class Payable extends ProviderRegistries {
     return this.factory.customerResource(providerName, tenantId);
   }
 
-  products(providerName?: string, tenantId?: string | null): ProductResource {
-    return new ProductResource(this.factory.billing(providerName, tenantId));
+  products(tenantId?: string | null): CanonicalProductResource {
+    return new CanonicalProductResource(this.factory.local(tenantId));
   }
 
-  prices(providerName?: string, tenantId?: string | null): PriceResource {
-    return new PriceResource(this.factory.billing(providerName, tenantId));
+  providerCatalog(providerName?: string, tenantId?: string | null): ProviderCatalogResource {
+    return new ProviderCatalogResource(this.factory.billing(providerName, tenantId));
+  }
+
+  prices(tenantId?: string | null): CanonicalPriceResource {
+    return new CanonicalPriceResource(this.factory.local(tenantId));
   }
 
   refunds(providerName?: string, tenantId?: string | null): RefundResource {

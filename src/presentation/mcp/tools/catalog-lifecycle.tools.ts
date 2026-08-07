@@ -50,12 +50,12 @@ function registerLifecycleTool(
         const provider = providerFrom(args, options);
         const tenant = tenantFrom(args, options);
         if (resource === 'product') {
-          return payable.products(provider, tenant)[action](args.id, {
+          return payable.providerCatalog(provider, tenant).products[action](args.id, {
             authorization,
             idempotencyKey: args.idempotencyKey,
           });
         }
-        return payable.prices(provider, tenant)[action](args.id, {
+        return payable.providerCatalog(provider, tenant).prices[action](args.id, {
           authorization,
           idempotencyKey: args.idempotencyKey,
         });

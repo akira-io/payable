@@ -268,7 +268,18 @@ Relationships: belongs to one `Payment` (required `paymentId`).
 
 Lifecycle: `status` is governed by the [Refund state machine](07-state-machines.md#refund).
 
-## Product
+## Canonical product and provider bindings
+
+`CanonicalProduct` is the provider-neutral sellable product used by `payable.products()`. Its stable
+local ID, tenant, name, description, lifecycle state, and metadata do not depend on a remote provider.
+`ProductProviderBinding` stores one provider account name and remote product ID for that canonical
+product. A product can have multiple bindings.
+
+`CanonicalPrice` belongs to a canonical product and stores amount, currency, one-time or recurring
+type, interval, interval count, description, lookup key, and lifecycle state. Billing terms are
+immutable after creation. `PriceProviderBinding` stores provider account and remote price identity.
+
+## Legacy provider-first product
 
 `src/domain/entities/product.entity.ts`. Extends `TenantScoped`, `Timestamps`.
 
@@ -286,7 +297,7 @@ Purpose: a sellable product that prices attach to.
 
 Relationships: offers many `Price` records (each references `productId`).
 
-## Price
+## Legacy provider-first price
 
 `src/domain/entities/price.entity.ts`. Extends `TenantScoped`, `Timestamps`.
 

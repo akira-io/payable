@@ -13,6 +13,10 @@ import { CONTRACT_BASE_TIME, type StorageHarness } from './storage-contract';
 const SCHEMA = 'tests/prisma/schema.prisma';
 
 const TRUNCATE_ORDER = [
+  'payablePriceProviderBinding',
+  'payableProductProviderBinding',
+  'payableCanonicalPrice',
+  'payableCanonicalProduct',
   'payableWebhookEndpointEvent',
   'payableWebhookDelivery',
   'payableWebhookEndpoint',

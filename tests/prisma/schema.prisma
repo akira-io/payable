@@ -78,6 +78,80 @@ model PayablePrice {
   @@map("payable_prices")
 }
 
+model PayableCanonicalProduct {
+  id               String   @id
+  tenantId         String?  @map("tenant_id")
+  tenantKey        String   @default("") @map("tenant_key")
+  name             String
+  description      String?
+  active           Boolean
+  metadata         String?
+  createdAt        DateTime @map("created_at")
+  updatedAt        DateTime @map("updated_at")
+  prices           PayableCanonicalPrice[]
+  providerBindings PayableProductProviderBinding[]
+
+  @@unique([tenantKey, id])
+  @@index([tenantKey, createdAt, id])
+  @@map("payable_canonical_products")
+}
+
+model PayableCanonicalPrice {
+  id               String   @id
+  tenantId         String?  @map("tenant_id")
+  tenantKey        String   @default("") @map("tenant_key")
+  productId        String   @map("product_id")
+  currency         String
+  unitAmount       BigInt   @map("unit_amount")
+  type             String
+  interval         String?
+  intervalCount    Int?     @map("interval_count")
+  description      String?
+  lookupKey        String?  @map("lookup_key")
+  active           Boolean
+  createdAt        DateTime @map("created_at")
+  updatedAt        DateTime @map("updated_at")
+  product          PayableCanonicalProduct @relation(fields: [tenantKey, productId], references: [tenantKey, id], onDelete: Restrict)
+  providerBindings PayablePriceProviderBinding[]
+
+  @@unique([tenantKey, id])
+  @@unique([tenantKey, lookupKey])
+  @@index([tenantKey, productId, createdAt, id])
+  @@map("payable_canonical_prices")
+}
+
+model PayableProductProviderBinding {
+  id                String   @id
+  tenantId          String?  @map("tenant_id")
+  tenantKey         String   @default("") @map("tenant_key")
+  productId         String   @map("product_id")
+  provider          String
+  providerProductId String   @map("provider_product_id")
+  createdAt         DateTime @map("created_at")
+  updatedAt         DateTime @map("updated_at")
+  product           PayableCanonicalProduct @relation(fields: [tenantKey, productId], references: [tenantKey, id], onDelete: Cascade)
+
+  @@unique([tenantKey, productId, provider])
+  @@unique([tenantKey, provider, providerProductId])
+  @@map("payable_product_provider_bindings")
+}
+
+model PayablePriceProviderBinding {
+  id              String   @id
+  tenantId        String?  @map("tenant_id")
+  tenantKey       String   @default("") @map("tenant_key")
+  priceId         String   @map("price_id")
+  provider        String
+  providerPriceId String   @map("provider_price_id")
+  createdAt       DateTime @map("created_at")
+  updatedAt       DateTime @map("updated_at")
+  price           PayableCanonicalPrice @relation(fields: [tenantKey, priceId], references: [tenantKey, id], onDelete: Cascade)
+
+  @@unique([tenantKey, priceId, provider])
+  @@unique([tenantKey, provider, providerPriceId])
+  @@map("payable_price_provider_bindings")
+}
+
 model PayableSubscription {
   id                     String                    @id
   tenantId               String?                   @map("tenant_id")

@@ -42,7 +42,7 @@ describe('catalog concurrent persistence recovery', () => {
     const products = createPayable({
       providers: { registered: new FakeProvider() },
       storage: concurrentStorage,
-    }).products('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').products;
 
     await expect(products.create({ name: 'Pro' })).resolves.toMatchObject({
       providerProductId: 'prod_fake',
@@ -59,7 +59,7 @@ describe('catalog concurrent persistence recovery', () => {
     const products = createPayable({
       providers: { registered: provider },
       storage,
-    }).products('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').products;
 
     await products.create({ name: 'Pro' });
     await products.create({ name: 'Pro' });
@@ -84,7 +84,7 @@ describe('catalog concurrent persistence recovery', () => {
     const products = createPayable({
       providers: { registered: new FakeProvider() },
       storage: divergentStorage,
-    }).products('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').products;
 
     const failure = products
       .update({ providerProductId: 'prod_fake', name: 'Divergent target' })
@@ -122,7 +122,7 @@ describe('catalog concurrent persistence recovery', () => {
     const products = createPayable({
       providers: { registered: new FakeProvider() },
       storage: concurrentStorage,
-    }).products('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').products;
 
     await expect(
       products.update({ providerProductId: 'prod_fake', name: 'Converged target' }),
@@ -158,7 +158,7 @@ describe('catalog concurrent persistence recovery', () => {
     const prices = createPayable({
       providers: { registered: new FakeProvider() },
       storage: withPriceCasLoss(storage, reads),
-    }).prices('registered', 'tenant-a');
+    }).providerCatalog('registered', 'tenant-a').prices;
 
     await expect(prices.archive('price_fake')).rejects.toMatchObject({
       code: 'CATALOG_PERSISTENCE_FAILED',

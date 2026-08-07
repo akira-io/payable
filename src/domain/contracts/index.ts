@@ -21,6 +21,20 @@ export type {
   NewAuditLog,
 } from './audit-log-repository.contract';
 export type { CacheDriver } from './cache-driver.contract';
+export type {
+  CanonicalPriceListQuery,
+  CanonicalPriceListResult,
+  CanonicalPricePatch,
+  CanonicalPriceRepository,
+  NewCanonicalPrice,
+} from './canonical-price-repository.contract';
+export type {
+  CanonicalProductListQuery,
+  CanonicalProductListResult,
+  CanonicalProductPatch,
+  CanonicalProductRepository,
+  NewCanonicalProduct,
+} from './canonical-product-repository.contract';
 export type { Clock } from './clock.contract';
 export type {
   CustomerProviderBindingRepository,
@@ -135,7 +149,15 @@ export type {
   PaymentRepository,
   RefundedAmountPatch,
 } from './payment-repository.contract';
+export type {
+  NewPriceProviderBinding,
+  PriceProviderBindingRepository,
+} from './price-provider-binding-repository.contract';
 export type { NewPrice, PricePatch, PriceRepository } from './price-repository.contract';
+export type {
+  NewProductProviderBinding,
+  ProductProviderBindingRepository,
+} from './product-provider-binding-repository.contract';
 export type { NewProduct, ProductPatch, ProductRepository } from './product-repository.contract';
 export type { JobHandler, QueueDriver, QueueJob } from './queue-driver.contract';
 export type { NewRefund, RefundRepository } from './refund-repository.contract';
