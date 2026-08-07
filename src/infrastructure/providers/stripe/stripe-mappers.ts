@@ -191,11 +191,14 @@ export function toCheckoutSessionDTO(session: Stripe.Checkout.Session): Checkout
 }
 
 export function toSubscriptionDTO(subscription: Stripe.Subscription): SubscriptionDTO {
+  const pauseCollection = subscription.pause_collection;
   return {
     providerSubscriptionId: subscription.id,
     status: isSubscriptionStatus(subscription.status) ? subscription.status : 'incomplete',
     currentPeriodEnd: fromUnixSeconds(earliestPeriodEnd(subscription)),
     trialEndsAt: fromUnixSeconds(subscription.trial_end),
+    paymentCollectionPauseBehavior: stripePauseBehavior(pauseCollection?.behavior),
+    paymentCollectionResumesAt: fromUnixSeconds(pauseCollection?.resumes_at),
   };
 }
 
@@ -213,12 +216,31 @@ export function toSubscriptionDTOFromWebhook(data: Record<string, unknown>): Sub
     .map((item) => (item as { current_period_end?: unknown }).current_period_end)
     .filter((end): end is number => typeof end === 'number');
   const periodEnd = ends.length > 0 ? Math.min(...ends) : numberOrNull(data.current_period_end);
+  const pauseCollection =
+    typeof data.pause_collection === 'object' && data.pause_collection !== null
+      ? (data.pause_collection as Record<string, unknown>)
+      : null;
   return {
     providerSubscriptionId: String(data.id ?? ''),
     status,
     currentPeriodEnd: fromUnixSeconds(periodEnd),
     trialEndsAt: fromUnixSeconds(numberOrNull(data.trial_end)),
+    paymentCollectionPauseBehavior: stripePauseBehavior(pauseCollection?.behavior),
+    paymentCollectionResumesAt: fromUnixSeconds(numberOrNull(pauseCollection?.resumes_at)),
   };
+}
+
+function stripePauseBehavior(value: unknown) {
+  switch (value) {
+    case 'keep_as_draft':
+      return 'keepAsDraft' as const;
+    case 'mark_uncollectible':
+      return 'markUncollectible' as const;
+    case 'void':
+      return 'void' as const;
+    default:
+      return null;
+  }
 }
 
 function earliestPeriodEnd(subscription: Stripe.Subscription): number | null | undefined {

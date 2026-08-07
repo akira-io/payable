@@ -139,6 +139,23 @@ export type {
   NewSubscriptionItem,
   SubscriptionItemRepository,
 } from './subscription-item-repository.contract';
+export type {
+  CancelScheduledSubscriptionChangeInput,
+  PausedSubscriptionResumeCapable,
+  PausePaymentCollectionInput,
+  PauseSubscriptionInput,
+  ResumePausedSubscriptionInput,
+  ResumePaymentCollectionInput,
+  ScheduledSubscriptionChangeCapable,
+  SubscriptionPauseCapable,
+  SubscriptionPaymentCollectionCapable,
+} from './subscription-lifecycle-provider.contract';
+export {
+  isPausedSubscriptionResumeCapable,
+  isScheduledSubscriptionChangeCapable,
+  isSubscriptionPauseCapable,
+  isSubscriptionPaymentCollectionCapable,
+} from './subscription-lifecycle-provider.contract';
 export type { SubscriptionOperationCapabilitiesProvider } from './subscription-operation-capabilities-provider.contract';
 export {
   isSubscriptionOperationCapabilitiesProvider,

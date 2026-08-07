@@ -32,16 +32,19 @@ const NO_OPERATIONS = {
   },
   cancel: { immediately: false, atPeriodEnd: false },
   pause: {
-    effectiveTimings: [],
-    scheduledResume: false,
-    resumeBillingPolicies: [],
+    subscription: {
+      effectiveTimings: [],
+      scheduledResume: false,
+      resumeBillingPolicies: [],
+    },
+    paymentCollection: { behaviors: [], scheduledResume: false },
   },
   resume: {
     pendingCancellation: false,
-    pausedSubscription: false,
-    scheduled: false,
-    billingPolicies: [],
+    pausedSubscription: { effectiveTimings: [], billingPolicies: [] },
+    paymentCollection: false,
   },
+  scheduledChange: { cancel: false },
 };
 
 describe('subscription operation capabilities', () => {
@@ -127,9 +130,17 @@ describe('subscription operation capabilities', () => {
           paymentFailurePolicies: ['applyChange'],
         },
         cancel: { immediately: true, atPeriodEnd: true },
+        pause: {
+          ...NO_OPERATIONS.pause,
+          paymentCollection: {
+            behaviors: ['keepAsDraft', 'markUncollectible', 'void'],
+            scheduledResume: true,
+          },
+        },
         resume: {
           ...NO_OPERATIONS.resume,
           pendingCancellation: true,
+          paymentCollection: true,
         },
       },
     ],
@@ -152,11 +163,22 @@ describe('subscription operation capabilities', () => {
           paymentFailurePolicies: ['preventChange'],
         },
         cancel: { immediately: true, atPeriodEnd: true },
+        pause: {
+          ...NO_OPERATIONS.pause,
+          subscription: {
+            effectiveTimings: ['immediate', 'nextRenewal'],
+            scheduledResume: true,
+            resumeBillingPolicies: ['startNewBillingPeriod', 'continueExistingBillingPeriod'],
+          },
+        },
         resume: {
           ...NO_OPERATIONS.resume,
-          pausedSubscription: true,
-          billingPolicies: ['startNewBillingPeriod'],
+          pausedSubscription: {
+            effectiveTimings: ['immediate', 'scheduled'],
+            billingPolicies: ['startNewBillingPeriod', 'continueExistingBillingPeriod'],
+          },
         },
+        scheduledChange: { cancel: true },
       },
     ],
     [
@@ -191,7 +213,10 @@ describe('subscription operation capabilities', () => {
         resume: {
           ...NO_OPERATIONS.resume,
           pendingCancellation: true,
-          pausedSubscription: true,
+          pausedSubscription: {
+            effectiveTimings: ['immediate'],
+            billingPolicies: ['startNewBillingPeriod'],
+          },
         },
       },
     ],

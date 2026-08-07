@@ -119,7 +119,10 @@ export class FakeProvider
       resume: {
         ...NO_SUBSCRIPTION_OPERATIONS.resume,
         pendingCancellation: true,
-        pausedSubscription: true,
+        pausedSubscription: {
+          effectiveTimings: ['immediate'],
+          billingPolicies: ['startNewBillingPeriod'],
+        },
       },
     });
   }

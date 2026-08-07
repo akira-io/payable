@@ -1,4 +1,8 @@
 import type { SubscriptionStatus } from '../value-objects/subscription-status';
+import type {
+  SubscriptionPaymentCollectionBehavior,
+  SubscriptionResumeBillingPolicy,
+} from './subscription-operation-capabilities.dto';
 
 export interface SubscriptionLineItem {
   priceId: string;
@@ -30,4 +34,10 @@ export interface SubscriptionDTO {
   status: SubscriptionStatus;
   currentPeriodEnd: Date | null;
   trialEndsAt: Date | null;
+  scheduledChangeAction?: 'pause' | 'resume' | null;
+  scheduledChangeEffectiveAt?: Date | null;
+  scheduledResumeAt?: Date | null;
+  resumeBillingPolicy?: SubscriptionResumeBillingPolicy | null;
+  paymentCollectionPauseBehavior?: SubscriptionPaymentCollectionBehavior | null;
+  paymentCollectionResumesAt?: Date | null;
 }

@@ -93,6 +93,12 @@ model PayableSubscription {
   endsAt                 DateTime?                 @map("ends_at")
   currentPeriodStart     DateTime?                 @map("current_period_start")
   currentPeriodEnd       DateTime?                 @map("current_period_end")
+  scheduledChangeAction  String?                   @map("scheduled_change_action")
+  scheduledChangeEffectiveAt DateTime?             @map("scheduled_change_effective_at")
+  scheduledResumeAt      DateTime?                 @map("scheduled_resume_at")
+  resumeBillingPolicy    String?                   @map("resume_billing_policy")
+  paymentCollectionPauseBehavior String?           @map("payment_collection_pause_behavior")
+  paymentCollectionResumesAt DateTime?             @map("payment_collection_resumes_at")
   createdAt              DateTime                  @map("created_at")
   updatedAt              DateTime                  @map("updated_at")
   items                  PayableSubscriptionItem[]

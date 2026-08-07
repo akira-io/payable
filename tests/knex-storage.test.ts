@@ -172,10 +172,22 @@ describe('KnexStorageDriver catalog', () => {
       endsAt: null,
       currentPeriodStart: null,
       currentPeriodEnd: null,
+      scheduledChangeAction: 'pause',
+      scheduledChangeEffectiveAt: new Date('2026-07-01T00:00:00.000Z'),
+      scheduledResumeAt: new Date('2026-08-01T00:00:00.000Z'),
+      resumeBillingPolicy: 'continueExistingBillingPeriod',
+      paymentCollectionPauseBehavior: 'void',
+      paymentCollectionResumesAt: new Date('2026-09-01T00:00:00.000Z'),
     });
-    expect((await storage.subscriptions.findByName(customer.id, 'default'))?.id).toBe(
-      subscription.id,
-    );
+    expect(await storage.subscriptions.findByName(customer.id, 'default')).toMatchObject({
+      id: subscription.id,
+      scheduledChangeAction: 'pause',
+      scheduledChangeEffectiveAt: new Date('2026-07-01T00:00:00.000Z'),
+      scheduledResumeAt: new Date('2026-08-01T00:00:00.000Z'),
+      resumeBillingPolicy: 'continueExistingBillingPeriod',
+      paymentCollectionPauseBehavior: 'void',
+      paymentCollectionResumesAt: new Date('2026-09-01T00:00:00.000Z'),
+    });
     expect(await storage.subscriptions.listByCustomer(customer.id)).toHaveLength(1);
   });
 

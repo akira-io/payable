@@ -123,6 +123,7 @@ export type {
   SubscriptionChangeCapabilities,
   SubscriptionEffectiveTiming,
   SubscriptionOperationCapabilities,
+  SubscriptionPaymentCollectionBehavior,
   SubscriptionPaymentFailurePolicy,
   SubscriptionProrationPolicy,
   SubscriptionResumeBillingPolicy,
@@ -131,6 +132,16 @@ export {
   defineSubscriptionOperationCapabilities,
   NO_SUBSCRIPTION_OPERATIONS,
 } from './subscription-operation-capabilities.dto';
+export type {
+  PausePaymentCollectionPolicy,
+  PauseSubscriptionPolicy,
+  ResumePausedSubscriptionPolicy,
+} from './subscription-pause-policy.dto';
+export {
+  validatePausePaymentCollectionPolicy,
+  validatePauseSubscriptionPolicy,
+  validateResumePausedSubscriptionPolicy,
+} from './subscription-pause-policy.dto';
 export type {
   CalculateTaxInput,
   CommitTaxTransactionInput,

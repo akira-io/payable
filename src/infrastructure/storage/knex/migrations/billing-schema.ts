@@ -79,6 +79,12 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.timestamp('current_period_start', { useTz: true }).nullable();
     table.timestamp('current_period_end', { useTz: true }).nullable();
     table.timestamp('provider_synced_at', { useTz: true }).nullable();
+    table.string('scheduled_change_action').nullable();
+    table.timestamp('scheduled_change_effective_at', { useTz: true }).nullable();
+    table.timestamp('scheduled_resume_at', { useTz: true }).nullable();
+    table.string('resume_billing_policy').nullable();
+    table.string('payment_collection_pause_behavior').nullable();
+    table.timestamp('payment_collection_resumes_at', { useTz: true }).nullable();
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.timestamp('updated_at', { useTz: true }).notNullable();
     table.unique(['provider', 'provider_subscription_id']);
