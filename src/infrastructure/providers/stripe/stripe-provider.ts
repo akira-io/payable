@@ -68,6 +68,7 @@ import { StripePaymentMethodSetup } from './stripe-payment-method-setup';
 import { StripePaymentMethods } from './stripe-payment-methods';
 import { StripePayments } from './stripe-payments';
 import { StripePayouts } from './stripe-payouts';
+import { StripeSubscriptionChanges } from './stripe-subscription-changes';
 import { stripeSubscriptionOperationCapabilities } from './stripe-subscription-operation-capabilities';
 import { StripeSubscriptions } from './stripe-subscriptions';
 import { StripeWebhookEndpoints } from './stripe-webhook-endpoints';
@@ -102,6 +103,11 @@ export class StripeProvider
   private client?: Stripe;
   private readonly webhooks: StripeWebhooks;
   private readonly subscriptions = new StripeSubscriptions(() => this.stripe());
+  private readonly subscriptionChanges = new StripeSubscriptionChanges(() => this.stripe());
+  readonly previewSubscriptionChange = this.subscriptionChanges.preview.bind(
+    this.subscriptionChanges,
+  );
+  readonly applySubscriptionChange = this.subscriptionChanges.apply.bind(this.subscriptionChanges);
   readonly pausePaymentCollection = this.subscriptions.pausePaymentCollection.bind(
     this.subscriptions,
   );

@@ -12,8 +12,11 @@ import type {
   UpdateSubscriptionInput,
 } from '../../../domain/dtos/subscription.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
+import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
+import { requireSubscriptionChangePolicies } from '../../../domain/validation/subscription-change-policies';
 import { withStripeErrors } from './stripe-errors';
 import { toSubscriptionDTO } from './stripe-mappers';
+import { stripePaymentFailurePolicy, stripeProrationPolicy } from './stripe-subscription-changes';
 
 export class StripeSubscriptions {
   constructor(private readonly client: () => Promise<Stripe>) {}
@@ -51,6 +54,18 @@ export class StripeSubscriptions {
         );
       }
       params.items = [{ id: input.providerItemId, price: input.priceId, quantity: input.quantity }];
+      const policies = requireSubscriptionChangePolicies(input);
+      if (policies.effectiveTiming !== 'immediate') {
+        throw new ProviderCapabilityNotSupportedError(
+          'stripe',
+          `subscriptions.change.${policies.effectiveTiming}`,
+        );
+      }
+      params.proration_behavior = stripeProrationPolicy(policies.prorationPolicy);
+      params.payment_behavior = stripePaymentFailurePolicy(policies.paymentFailurePolicy);
+      if (policies.prorationPolicy !== 'none') {
+        params.proration_date = Math.floor(policies.calculatedAt.getTime() / 1_000);
+      }
     }
     const subscription = await withStripeErrors(() =>
       stripe.subscriptions.update(input.providerSubscriptionId, params, {

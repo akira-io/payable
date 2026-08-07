@@ -27,6 +27,7 @@ import type {
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
+import { requireSubscriptionChangePolicies } from '../../../domain/validation/subscription-change-policies';
 import { assertSubscriptionPayload } from '../webhook-subscription-payload';
 import { PaddleCatalog } from './paddle-catalog';
 import { buildPaddleClientOptions } from './paddle-client-options';
@@ -39,6 +40,7 @@ import {
   toRefundResultDTO,
   toSubscriptionDTO,
 } from './paddle-mappers';
+import { PaddleSubscriptionChanges, paddleProrationPolicy } from './paddle-subscription-changes';
 import { PaddleSubscriptionLifecycle } from './paddle-subscription-lifecycle';
 import { paddleSubscriptionOperationCapabilities } from './paddle-subscription-operation-capabilities';
 import type { PaddleClient } from './paddle-types';
@@ -63,7 +65,12 @@ export class PaddleProvider
   private readonly catalog: PaddleCatalog;
   private readonly normalizer: PaddleEventNormalizer;
   private readonly verifier: PaddleWebhookVerifier;
+  private readonly subscriptionChanges = new PaddleSubscriptionChanges(() => this.paddle());
   private readonly subscriptionLifecycle = new PaddleSubscriptionLifecycle(() => this.paddle());
+  readonly previewSubscriptionChange = this.subscriptionChanges.preview.bind(
+    this.subscriptionChanges,
+  );
+  readonly applySubscriptionChange = this.subscriptionChanges.apply.bind(this.subscriptionChanges);
   readonly pauseSubscription = this.subscriptionLifecycle.pause.bind(this.subscriptionLifecycle);
   readonly resumePausedSubscription = this.subscriptionLifecycle.resume.bind(
     this.subscriptionLifecycle,
@@ -170,6 +177,13 @@ export class PaddleProvider
       );
     }
     const paddle = await this.paddle();
+    const policies = requireSubscriptionChangePolicies(input);
+    if (policies.effectiveTiming !== 'immediate') {
+      throw new ProviderCapabilityNotSupportedError(
+        'paddle',
+        `subscriptions.change.${policies.effectiveTiming}`,
+      );
+    }
     const items =
       input.items && input.items.length > 0
         ? input.items
@@ -177,7 +191,9 @@ export class PaddleProvider
     const subscription = await withPaddleErrors(() =>
       paddle.subscriptions.update(input.providerSubscriptionId, {
         items,
-        prorationBillingMode: 'prorated_immediately',
+        prorationBillingMode: paddleProrationPolicy(policies.prorationPolicy),
+        onPaymentFailure:
+          policies.paymentFailurePolicy === 'preventChange' ? 'prevent_change' : 'apply_change',
       }),
     );
     return toSubscriptionDTO(subscription);

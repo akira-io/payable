@@ -81,6 +81,11 @@ describe('public API surface', () => {
     expect(typeof payable.TerminalProviderRegistry).toBe('function');
     expect(typeof payable.TerminalProviderNotFoundError).toBe('function');
     expect(typeof payable.SubscriptionStateMachine).toBe('function');
+    expect(typeof payable.PreviewSubscriptionChangeAction).toBe('function');
+    expect(typeof payable.ApplySubscriptionChangeAction).toBe('function');
+    expect(typeof payable.SubscriptionChangePreviewStore).toBe('function');
+    expect(typeof payable.SubscriptionChangePreviewError).toBe('function');
+    expect(typeof payable.isSubscriptionChangeCapable).toBe('function');
     expect(typeof payable.PauseSubscriptionAction).toBe('function');
     expect(typeof payable.ResumePausedSubscriptionAction).toBe('function');
     expect(typeof payable.PausePaymentCollectionAction).toBe('function');

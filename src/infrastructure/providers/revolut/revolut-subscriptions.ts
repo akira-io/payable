@@ -10,8 +10,13 @@ import type {
   SubscriptionDTO,
   UpdateSubscriptionInput,
 } from '../../../domain/dtos/subscription.dto';
+import type {
+  ProviderSubscriptionChangeInput,
+  ProviderSubscriptionChangePreview,
+} from '../../../domain/dtos/subscription-change.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
+import { requireSubscriptionChangePolicies } from '../../../domain/validation/subscription-change-policies';
 import { toRevolutCheckoutSessionDTO, toRevolutSubscriptionDTO } from './revolut-mappers';
 import type {
   RevolutOrder,
@@ -68,6 +73,17 @@ export class RevolutSubscriptions {
   async update(input: UpdateSubscriptionInput, _ctx: OperationContext): Promise<SubscriptionDTO> {
     assertSupportedQuantity(input.quantity);
     if (input.priceId) {
+      const policies = requireSubscriptionChangePolicies(input);
+      if (
+        policies.effectiveTiming !== 'nextRenewal' ||
+        policies.prorationPolicy !== 'none' ||
+        policies.paymentFailurePolicy !== 'applyChange'
+      ) {
+        throw new ProviderCapabilityNotSupportedError(
+          'revolut',
+          'subscriptions.change.nextRenewal.none.applyChange',
+        );
+      }
       const body: RevolutSubscriptionChangePlanPayload = {
         plan_variation_id: input.priceId,
         scheduled: 'at_cycle_end',
@@ -78,6 +94,48 @@ export class RevolutSubscriptions {
       );
     }
     return this.retrieve(input.providerSubscriptionId);
+  }
+
+  async previewChange(
+    input: ProviderSubscriptionChangeInput,
+    _context: OperationContext,
+  ): Promise<ProviderSubscriptionChangePreview> {
+    assertRevolutChangePolicies(input);
+    return {
+      immediateAdjustment: { direction: 'none', amount: 0, currency: null },
+      nextRenewal: { amount: null, date: input.renewalDate, currency: null },
+      warnings: [],
+      providerLimitations: [
+        'Revolut Merchant API does not expose monetary previews for cycle-end plan changes.',
+      ],
+    };
+  }
+
+  async applyChange(
+    input: ProviderSubscriptionChangeInput,
+    context: OperationContext,
+  ): Promise<SubscriptionDTO> {
+    assertRevolutChangePolicies(input);
+    const changedItem = input.proposedItems.find((proposedItem) => {
+      const currentItem = input.currentItems.find(
+        (candidate) => candidate.itemId === proposedItem.itemId,
+      );
+      return currentItem?.priceId !== proposedItem.priceId;
+    });
+    if (!changedItem) {
+      throw new ProviderCapabilityNotSupportedError('revolut', 'subscriptions.change-quantity');
+    }
+    return this.update(
+      {
+        providerSubscriptionId: input.providerSubscriptionId,
+        priceId: changedItem.priceId,
+        effectiveTiming: input.effectiveTiming,
+        prorationPolicy: input.prorationPolicy,
+        paymentFailurePolicy: input.paymentFailurePolicy,
+        calculatedAt: input.calculatedAt,
+      },
+      context,
+    );
   }
 
   async cancel(input: CancelSubscriptionInput, _ctx: OperationContext): Promise<SubscriptionDTO> {
@@ -120,6 +178,19 @@ export class RevolutSubscriptions {
       body,
       idempotencyKey: ctx.idempotencyKey,
     });
+  }
+}
+
+function assertRevolutChangePolicies(input: ProviderSubscriptionChangeInput): void {
+  const supported =
+    input.effectiveTiming === 'nextRenewal' &&
+    input.prorationPolicy === 'none' &&
+    input.paymentFailurePolicy === 'applyChange';
+  if (!supported) {
+    throw new ProviderCapabilityNotSupportedError(
+      'revolut',
+      'subscriptions.change.nextRenewal.none.applyChange',
+    );
   }
 }
 

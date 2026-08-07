@@ -7,6 +7,10 @@ import type {
   Repositories,
   StorageDriver,
 } from '../../../domain/contracts/storage-driver.contract';
+import {
+  isSubscriptionChangeCapable,
+  type SubscriptionChangeCapable,
+} from '../../../domain/contracts/subscription-change-provider.contract';
 import type { NewSubscription } from '../../../domain/contracts/subscription-repository.contract';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
@@ -86,6 +90,15 @@ export abstract class SubscriptionAction {
   ): PaymentProvider & SubscriptionManagementCapable {
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'subscriptions', isSubscriptionManagementCapable);
+    assertSubscriptionOperation(provider, operation);
+    return provider;
+  }
+
+  protected subscriptionChangeProvider(
+    operation: SubscriptionOperation,
+  ): PaymentProvider & SubscriptionChangeCapable {
+    const provider = this.deps.provider;
+    assertCapableProvider(provider, 'subscriptions', isSubscriptionChangeCapable);
     assertSubscriptionOperation(provider, operation);
     return provider;
   }

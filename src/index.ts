@@ -22,6 +22,7 @@ export {
   RefundPaymentAction,
   type RefundPaymentActionInput,
 } from './application/actions/refunds/refund-payment.action';
+export { ApplySubscriptionChangeAction } from './application/actions/subscriptions/apply-subscription-change.action';
 export { CancelScheduledSubscriptionChangeAction } from './application/actions/subscriptions/cancel-scheduled-subscription-change.action';
 export { CancelSubscriptionAction } from './application/actions/subscriptions/cancel-subscription.action';
 export { CancelSubscriptionNowAction } from './application/actions/subscriptions/cancel-subscription-now.action';
@@ -31,6 +32,7 @@ export {
 } from './application/actions/subscriptions/create-subscription.action';
 export { PausePaymentCollectionAction } from './application/actions/subscriptions/pause-payment-collection.action';
 export { PauseSubscriptionAction } from './application/actions/subscriptions/pause-subscription.action';
+export { PreviewSubscriptionChangeAction } from './application/actions/subscriptions/preview-subscription-change.action';
 export { ResumePausedSubscriptionAction } from './application/actions/subscriptions/resume-paused-subscription.action';
 export { ResumePaymentCollectionAction } from './application/actions/subscriptions/resume-payment-collection.action';
 export { ResumeSubscriptionAction } from './application/actions/subscriptions/resume-subscription.action';
@@ -125,6 +127,7 @@ export {
   assertSubscriptionOperation,
   type SubscriptionOperation,
 } from './application/services/provider-capabilities/assert-subscription-operation';
+export { SubscriptionChangePreviewStore } from './application/services/subscriptions/subscription-change-preview-store';
 export {
   type PinnedFetchInit,
   type WebhookDeliveryOptions,

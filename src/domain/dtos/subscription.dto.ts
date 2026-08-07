@@ -1,6 +1,9 @@
 import type { SubscriptionStatus } from '../value-objects/subscription-status';
 import type {
+  SubscriptionEffectiveTiming,
   SubscriptionPaymentCollectionBehavior,
+  SubscriptionPaymentFailurePolicy,
+  SubscriptionProrationPolicy,
   SubscriptionResumeBillingPolicy,
 } from './subscription-operation-capabilities.dto';
 
@@ -28,6 +31,10 @@ export interface UpdateSubscriptionInput {
   quantity?: number;
   providerItemId?: string | null;
   items?: SubscriptionLineItem[];
+  effectiveTiming?: SubscriptionEffectiveTiming;
+  prorationPolicy?: SubscriptionProrationPolicy;
+  paymentFailurePolicy?: SubscriptionPaymentFailurePolicy;
+  calculatedAt?: Date;
 }
 
 export interface CancelSubscriptionInput {

@@ -35,8 +35,24 @@ const subscription = await customer
 
 const manager = customer.subscription('default');
 
-await manager.swap('price_business_monthly');
-await manager.updateQuantity(5);
+const preview = await manager.previewChange({
+  priceId: 'price_business_monthly',
+  effectiveTiming: 'immediate',
+  prorationPolicy: 'prorateImmediately',
+  paymentFailurePolicy: 'preventChange',
+  idempotencyKey: 'preview-team-42-business',
+});
+await manager.applyChange({
+  previewToken: preview.previewToken,
+  idempotencyKey: 'apply-team-42-business',
+});
+
+await manager.updateQuantity({
+  quantity: 5,
+  effectiveTiming: 'immediate',
+  prorationPolicy: 'prorateImmediately',
+  paymentFailurePolicy: 'preventChange',
+});
 await manager.cancel();
 await manager.resume();
 
@@ -53,9 +69,9 @@ management operation updates the provider first and then reconciles the local su
 ## Failure behavior
 
 Direct creation fails when the selected provider does not implement the direct-subscription
-capability. Management fails without storage or when the named subscription does not exist. Paddle
-subscriptions must begin through hosted checkout. See [Subscriptions](../features/10-subscriptions.md)
-for provider capability and state details.
+capability. Preview and apply also require an idempotency store. Management fails without storage or
+when the named subscription does not exist. Paddle subscriptions must begin through hosted checkout.
+See [Subscriptions](../features/10-subscriptions.md) for provider capability and state details.
 
 ---
 

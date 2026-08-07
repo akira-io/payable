@@ -55,6 +55,16 @@ export interface PaddleSubscriptionEntity {
   } | null;
 }
 
+export interface PaddleSubscriptionPreview {
+  updateSummary?: {
+    result: { action: 'charge' | 'credit'; amount: string; currencyCode: string };
+  } | null;
+  nextTransaction?: {
+    details: { totals: { total: string; currencyCode: string } };
+    billingPeriod: { startsAt: string };
+  } | null;
+}
+
 export interface PaddleAdjustment {
   id: string;
   status: string;
@@ -122,11 +132,20 @@ export interface PaddleClient {
     }): Promise<PaddleTransaction>;
   };
   subscriptions: {
+    previewUpdate(
+      id: string,
+      body: {
+        items: { priceId: string; quantity: number }[];
+        prorationBillingMode: string;
+        onPaymentFailure: string;
+      },
+    ): Promise<PaddleSubscriptionPreview>;
     update(
       id: string,
       body: {
         items?: { priceId: string; quantity: number }[];
         prorationBillingMode?: string;
+        onPaymentFailure?: string;
         scheduledChange?: null;
       },
     ): Promise<PaddleSubscriptionEntity>;

@@ -83,10 +83,8 @@ provider-hosted page instead of creating it directly - see [09-checkout.md](09-c
 ## Managing a subscription
 
 `SubscriptionManager.get()` returns the stored subscription (`Subscription | null`) by name via
-`FindSubscriptionQuery`, without touching the provider. The mutating operations each accept either a
-positional argument or an options object: `swap(priceId, authorization?)` or `swap({ priceId,
-itemId, authorization })`, and `updateQuantity(quantity, authorization?)` or `updateQuantity({
-quantity, itemId, authorization })`. Positional calls and options without `itemId` target the only
+`FindSubscriptionQuery`, without touching the provider. Price and quantity changes require explicit
+effective-timing, proration, and payment-failure policies. Options without `itemId` target the only
 local item. Multi-item subscriptions require the local item ID and reject ambiguous mutations.
 
 `SubscriptionManager` wraps one action per operation. They all extend `SubscriptionAction`, which:
@@ -97,13 +95,45 @@ local item. Multi-item subscriptions require the local item ID and reject ambigu
 - builds a deterministic idempotency key per operation
   (`subscription:${operation}:${providerName}:${providerSubscriptionId}[:discriminator]`).
 
-### Swap - `subscription(name).swap(priceId)`
+### Preview and apply a change
+
+Use the two-step flow when a customer must approve the monetary result before a change is applied.
+The preview token is tenant-scoped, expires after 15 minutes, and is bound to the exact items,
+policies, provider, subscription, and calculation timestamp that were previewed.
+
+```ts
+const preview = await manager.previewChange({
+  priceId: 'price_business',
+  effectiveTiming: 'immediate',
+  prorationPolicy: 'prorateImmediately',
+  paymentFailurePolicy: 'preventChange',
+  idempotencyKey: 'preview-order-42',
+});
+
+await manager.applyChange({
+  previewToken: preview.previewToken,
+  idempotencyKey: 'apply-order-42',
+});
+```
+
+Both operations require an idempotency store. The provider is called before local state is mutated.
+If apply fails at the provider, Payable keeps the local subscription unchanged. A token cannot be
+used for a different tenant or changed request.
+
+Before the first apply attempt, Payable rejects the token with
+`SUBSCRIPTION_CHANGE_PREVIEW_STALE` if the current local item set no longer matches the preview.
+Immediate changes update the local items after provider success. Changes scheduled for the next
+renewal keep the current local items. Provider integrations that expose effective item data can
+update them later through webhook reconciliation. The apply audit entry records the proposed items
+without presenting them as current state.
+
+### Swap
 
 `SwapSubscriptionAction` resolves one tenant-scoped local item, calls the provider with its mapped
 identity and the complete local item list, then updates that exact local item. Stripe requires a
 stable provider item mapping. Paddle uses the complete list so non-targeted items remain attached.
 
-### Update quantity - `subscription(name).updateQuantity(qty)`
+### Update quantity
 
 `UpdateSubscriptionQuantityAction` resolves and updates the same explicit item boundary as `swap`.
 The idempotency key includes the quantity as a discriminator, so each distinct quantity gets its own
@@ -133,13 +163,43 @@ grace-period subscription sets `endsAt` back to `null`.
 ```ts
 const manager = payable.customer(billable).subscription('default');
 
-const current = await manager.get();         // Subscription | null, no provider call
-await manager.swap('price_business');        // or swap({ priceId, authorization })
-await manager.updateQuantity(3);             // or updateQuantity({ quantity, authorization })
+const current = await manager.get(); // Subscription | null, no provider call
+await manager.swap({
+  priceId: 'price_business',
+  effectiveTiming: 'immediate',
+  prorationPolicy: 'prorateImmediately',
+  paymentFailurePolicy: 'preventChange',
+});
+await manager.updateQuantity({
+  quantity: 3,
+  effectiveTiming: 'immediate',
+  prorationPolicy: 'prorateImmediately',
+  paymentFailurePolicy: 'preventChange',
+});
 await manager.cancel();      // ends at period end (grace period)
 await manager.resume();      // clears endsAt
 await manager.cancelNow();   // ends immediately
 ```
+
+### Migration from implicit policies
+
+The old shorthand calls `swap(priceId)` and `updateQuantity(quantity)` no longer select provider
+policies implicitly. They fail with `SUBSCRIPTION_CHANGE_POLICY_REQUIRED`. Replace them with the
+options forms shown above. This makes billing timing and payment-failure behavior reviewable in code
+and prevents a provider default from changing application behavior.
+
+Provider references used by the built-in mappings:
+
+- [Stripe invoice preview](https://docs.stripe.com/api/invoices/create_preview) and [subscription update](https://docs.stripe.com/api/subscriptions/update)
+- [Paddle subscription preview](https://developer.paddle.com/api-reference/subscriptions/preview-subscription-update/) and [subscription update](https://developer.paddle.com/api-reference/subscriptions/update-subscription/)
+- [Paddle proration](https://developer.paddle.com/concepts/subscriptions/proration/)
+- [Revolut Merchant API](https://developer.revolut.com/docs/api/merchant)
+
+Revolut exposes a scheduled plan change but no monetary preview endpoint. Its preview is structural:
+the immediate adjustment is zero for a next-renewal change, while unknown future amounts and
+currencies are returned as `null` with an explicit provider limitation.
+
+### Pause and resume policies
 
 `resume()` only reverses a pending period-end cancellation. Pausing a subscription lifecycle and
 pausing payment collection are different operations with separate methods and capability checks:

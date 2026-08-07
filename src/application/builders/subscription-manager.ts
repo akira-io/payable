@@ -1,14 +1,22 @@
 import type {
+  ApplySubscriptionChangeInput,
+  PreviewSubscriptionChangeInput,
+  SubscriptionChangePolicies,
+  SubscriptionChangePreview,
+} from '../../domain/dtos/subscription-change.dto';
+import type {
   PausePaymentCollectionPolicy,
   PauseSubscriptionPolicy,
   ResumePausedSubscriptionPolicy,
 } from '../../domain/dtos/subscription-pause-policy.dto';
 import type { Subscription } from '../../domain/entities/subscription.entity';
+import { ApplySubscriptionChangeAction } from '../actions/subscriptions/apply-subscription-change.action';
 import { CancelScheduledSubscriptionChangeAction } from '../actions/subscriptions/cancel-scheduled-subscription-change.action';
 import { CancelSubscriptionAction } from '../actions/subscriptions/cancel-subscription.action';
 import { CancelSubscriptionNowAction } from '../actions/subscriptions/cancel-subscription-now.action';
 import { PausePaymentCollectionAction } from '../actions/subscriptions/pause-payment-collection.action';
 import { PauseSubscriptionAction } from '../actions/subscriptions/pause-subscription.action';
+import { PreviewSubscriptionChangeAction } from '../actions/subscriptions/preview-subscription-change.action';
 import { ResumePausedSubscriptionAction } from '../actions/subscriptions/resume-paused-subscription.action';
 import { ResumePaymentCollectionAction } from '../actions/subscriptions/resume-payment-collection.action';
 import { ResumeSubscriptionAction } from '../actions/subscriptions/resume-subscription.action';
@@ -19,13 +27,13 @@ import { FindSubscriptionQuery } from '../queries/subscriptions/find-subscriptio
 import type { Billable } from './billable';
 import type { BillingDependencies } from './billing-dependencies';
 
-export interface SwapOptions {
+export interface SwapOptions extends SubscriptionChangePolicies {
   priceId: string;
   itemId?: string;
   authorization?: AuthorizationContext;
 }
 
-export interface UpdateQuantityOptions {
+export interface UpdateQuantityOptions extends SubscriptionChangePolicies {
   quantity: number;
   itemId?: string;
   authorization?: AuthorizationContext;
@@ -42,22 +50,50 @@ export class SubscriptionManager {
     return new FindSubscriptionQuery(this.deps).run(this.billable, this.name);
   }
 
-  swap(priceId: string, authorization?: AuthorizationContext): Promise<Subscription>;
+  previewChange(
+    input: PreviewSubscriptionChangeInput,
+    authorization?: AuthorizationContext,
+  ): Promise<SubscriptionChangePreview> {
+    return new PreviewSubscriptionChangeAction(this.deps).handle(
+      this.billable,
+      this.name,
+      input,
+      authorization,
+    );
+  }
+
+  applyChange(
+    input: ApplySubscriptionChangeInput,
+    authorization?: AuthorizationContext,
+  ): Promise<Subscription> {
+    return new ApplySubscriptionChangeAction(this.deps).handle(
+      this.billable,
+      this.name,
+      input,
+      authorization,
+    );
+  }
+
   swap(options: SwapOptions): Promise<Subscription>;
   swap(
     priceIdOrOptions: string | SwapOptions,
     authorization?: AuthorizationContext,
   ): Promise<Subscription> {
-    const options =
-      typeof priceIdOrOptions === 'string'
-        ? { priceId: priceIdOrOptions, authorization }
-        : priceIdOrOptions;
+    if (typeof priceIdOrOptions === 'string') {
+      return new SwapSubscriptionAction(this.deps).handle(
+        this.billable,
+        this.name,
+        priceIdOrOptions,
+        authorization,
+      );
+    }
     return new SwapSubscriptionAction(this.deps).handle(
       this.billable,
       this.name,
-      options.priceId,
-      options.authorization,
-      options.itemId,
+      priceIdOrOptions.priceId,
+      priceIdOrOptions.authorization,
+      priceIdOrOptions.itemId,
+      priceIdOrOptions,
     );
   }
 
@@ -135,16 +171,21 @@ export class SubscriptionManager {
     quantityOrOptions: number | UpdateQuantityOptions,
     authorization?: AuthorizationContext,
   ): Promise<Subscription> {
-    const options =
-      typeof quantityOrOptions === 'number'
-        ? { quantity: quantityOrOptions, authorization }
-        : quantityOrOptions;
+    if (typeof quantityOrOptions === 'number') {
+      return new UpdateSubscriptionQuantityAction(this.deps).handle(
+        this.billable,
+        this.name,
+        quantityOrOptions,
+        authorization,
+      );
+    }
     return new UpdateSubscriptionQuantityAction(this.deps).handle(
       this.billable,
       this.name,
-      options.quantity,
-      options.authorization,
-      options.itemId,
+      quantityOrOptions.quantity,
+      quantityOrOptions.authorization,
+      quantityOrOptions.itemId,
+      quantityOrOptions,
     );
   }
 }

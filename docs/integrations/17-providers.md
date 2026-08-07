@@ -198,10 +198,10 @@ that the first provider item is primary.
 | Hosted checkout creation | yes | yes | no | yes |
 | Direct creation | yes | no | no | yes |
 | Price change timing | immediate | immediate | no | next renewal |
-| Price change proration | next invoice | immediate | no | no |
-| Price change payment failure | apply change | prevent change | no | no |
+| Price change proration | immediate, next invoice, none | immediate, next invoice, full charge immediately, full charge at next renewal, none | no | none |
+| Price change payment failure | prevent change, apply change | prevent change, apply change | no | apply change |
 | Quantity change | immediate | immediate | no | no |
-| Preview change | no | no | no | no |
+| Preview change | yes | yes | no | yes |
 | Cancel immediately | yes | yes | no | yes |
 | Cancel at period end | yes | yes | no | no |
 | Pause subscription timing | no | immediate, next renewal | no | no |
@@ -219,6 +219,10 @@ This matrix describes the current Payable adapters, not every feature offered by
 providers. Lifecycle pause and payment-collection pause are deliberately separate operations. Stripe
 payment-collection pause leaves the subscription lifecycle status unchanged; Paddle lifecycle pause
 changes the subscription state. SISP and Revolut advertise neither operation.
+
+Stripe and Paddle return provider-calculated monetary previews. Revolut has no monetary change-plan
+preview endpoint, so Payable returns a structural next-renewal preview with unknown amounts as
+`null`. Apply always reuses the exact stored preview input and provider calculation timestamp.
 
 Built-in providers publish explicit descriptors. A custom provider can add the optional method
 without changing its existing `capabilities()` implementation. For legacy providers that do not

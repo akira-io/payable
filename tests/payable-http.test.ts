@@ -62,6 +62,9 @@ describe('parseBody', () => {
         billable: { billableType: 'User', billableId: '1', email: 'user@example.com' },
         itemId: 'local_item_1',
         price: 'price_new',
+        effectiveTiming: 'immediate',
+        prorationPolicy: 'prorateImmediately',
+        paymentFailurePolicy: 'preventChange',
       }),
     ).toMatchObject({ itemId: 'local_item_1', price: 'price_new' });
   });

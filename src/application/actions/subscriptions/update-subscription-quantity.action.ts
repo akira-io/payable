@@ -1,4 +1,6 @@
+import type { SubscriptionChangePolicies } from '../../../domain/dtos/subscription-change.dto';
 import type { Subscription } from '../../../domain/entities/subscription.entity';
+import { SubscriptionChangePreviewError } from '../../../domain/errors/subscription-change-preview.error';
 import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
 import type { AuthorizationContext } from '../../policies/authorization-context';
@@ -19,6 +21,7 @@ export class UpdateSubscriptionQuantityAction extends SubscriptionAction {
     quantity: number,
     authorization?: AuthorizationContext,
     itemId?: string,
+    policies?: SubscriptionChangePolicies,
   ): Promise<Subscription> {
     this.authorize(
       (context) => this.policy.authorize(context),
@@ -26,6 +29,12 @@ export class UpdateSubscriptionQuantityAction extends SubscriptionAction {
       'update subscription quantity',
     );
     this.assertQuantity(quantity);
+    if (!policies) {
+      throw new SubscriptionChangePreviewError(
+        'Subscription changes require explicit policies',
+        'SUBSCRIPTION_CHANGE_POLICY_REQUIRED',
+      );
+    }
     const provider = this.subscriptionProvider('changeQuantity');
     const subscription = await this.resolve(billable, name);
     const selection = await this.selectItem(subscription, itemId);
@@ -41,6 +50,8 @@ export class UpdateSubscriptionQuantityAction extends SubscriptionAction {
         quantity,
         providerItemId: selection.selectedItem.providerItemId,
         items: providerItems,
+        ...policies,
+        calculatedAt: this.deps.clock.now(),
       },
       this.context('quantity', subscription.providerSubscriptionId, String(quantity), true),
     );
