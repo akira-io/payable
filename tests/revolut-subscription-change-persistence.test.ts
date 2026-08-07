@@ -121,4 +121,42 @@ describe('Revolut scheduled subscription changes', () => {
     expect(scheduledChanges).toBe(1);
     expect(items).toMatchObject([{ priceId: 'price_old', quantity: 1 }]);
   });
+
+  it('keeps the current local price after a direct next-renewal swap', async () => {
+    const database = createTestDb();
+    databases.push(database);
+    await migrate(database);
+    const clock = new FakeClock(new Date('2026-08-07T10:00:00.000Z'));
+    const storage = new KnexStorageDriver(database, clock);
+    let scheduledChanges = 0;
+    const payable = createPayable({
+      providers: {
+        revolut: new RevolutProvider({
+          secretKey: 'revolut-secret',
+          webhookSecret: 'revolut-webhook',
+          environment: 'sandbox',
+          fetch: revolutFetch(() => {
+            scheduledChanges += 1;
+          }),
+        }),
+      },
+      storage,
+      clock,
+      tenant: { enabled: true },
+    });
+    const customer = payable.customer(billable, 'revolut', 'tenant_revolut');
+    await customer.newSubscription('default').price('price_old').create();
+
+    const swapped = await customer.subscription('default').swap({
+      priceId: 'price_new',
+      effectiveTiming: 'nextRenewal',
+      prorationPolicy: 'none',
+      paymentFailurePolicy: 'applyChange',
+    });
+    const items = await storage.subscriptionItems.listBySubscription(swapped.id, 'tenant_revolut');
+
+    expect(swapped.priceId).toBe('price_old');
+    expect(scheduledChanges).toBe(1);
+    expect(items).toMatchObject([{ priceId: 'price_old', quantity: 1 }]);
+  });
 });

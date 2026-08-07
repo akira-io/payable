@@ -51,8 +51,9 @@ export class SwapSubscriptionAction extends SubscriptionAction {
       this.context('swap', subscription.providerSubscriptionId, priceId, true),
     );
     return this.storage().transaction(async (repos) => {
+      const appliesImmediately = policies.effectiveTiming === 'immediate';
       const patch = {
-        ...(selection.items.length === 1 ? { priceId } : {}),
+        ...(appliesImmediately && selection.items.length === 1 ? { priceId } : {}),
         status: this.reconcileStatus(subscription.status, dto.status),
       };
       const updated = await repos.subscriptions.update(
@@ -60,17 +61,26 @@ export class SwapSubscriptionAction extends SubscriptionAction {
         patch,
         this.deps.tenantId ?? null,
       );
-      await repos.subscriptionItems.updateById(
-        subscription.id,
-        selection.selectedItem.id,
-        { priceId },
-        this.deps.tenantId ?? null,
-      );
+      if (appliesImmediately) {
+        await repos.subscriptionItems.updateById(
+          subscription.id,
+          selection.selectedItem.id,
+          { priceId },
+          this.deps.tenantId ?? null,
+        );
+      }
       await this.auditWith(repos, {
         action: 'subscription.swapped',
         subscriptionId: subscription.id,
         before: { itemId: selection.selectedItem.id, priceId: selection.selectedItem.priceId },
-        after: { itemId: selection.selectedItem.id, priceId },
+        after: appliesImmediately
+          ? { itemId: selection.selectedItem.id, priceId }
+          : {
+              itemId: selection.selectedItem.id,
+              priceId: selection.selectedItem.priceId,
+              proposedPriceId: priceId,
+              effectiveTiming: policies.effectiveTiming,
+            },
         authorization,
       });
       return updated;
