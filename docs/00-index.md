@@ -38,7 +38,7 @@ tree.
 18. [integrations/18-stripe.md](integrations/18-stripe.md) - The Stripe provider, webhook verifier, and normalizer.
     - [integrations/18a-stripe-treasury.md](integrations/18a-stripe-treasury.md) - Stripe Financial Accounts, transactions, and Outbound Transfers through the separate Treasury contract.
 19. [integrations/19-paddle.md](integrations/19-paddle.md) - The Paddle provider, webhook verifier, and normalizer.
-20. [integrations/20-sisp.md](integrations/20-sisp.md) - The SISP (Cabo Verde / vinti4) provider: redirect checkout, callback reconciliation, and the optional `@akira-io/payable/sisp` subpath.
+20. [integrations/20-sisp.md](integrations/20-sisp.md) - The SISP (Cabo Verde · vinti4) provider: redirect checkout, callback reconciliation, and the optional `@akira-io/payable/sisp` subpath.
 21. [integrations/21-revolut.md](integrations/21-revolut.md) - The Revolut Merchant provider: amount checkout, refunds, webhooks, and payment reconciliation.
     - [integrations/21a-revolut-disputes.md](integrations/21a-revolut-disputes.md) - Production-only dispute listing, retrieval, and acceptance.
     - [integrations/21b-revolut-payouts.md](integrations/21b-revolut-payouts.md) - Merchant payout listing, retrieval, and status mapping.
@@ -81,6 +81,7 @@ tree.
 44. [examples/44-mcp-server.md](examples/44-mcp-server.md) - A policy-restricted Payable MCP server for AI clients.
 45. [examples/45-catalog-lifecycle.md](examples/45-catalog-lifecycle.md) - Portable product and price reads, pagination, archival, and reactivation.
 46. [examples/46-custom-domain-audit.md](examples/46-custom-domain-audit.md) - Tenant-bound custom domain events, cursor pagination, retention, and transaction composition.
+47. [examples/47-subscription-operations.md](examples/47-subscription-operations.md) - Provider-gated price migration, failed-payment, pause, resume, and unsupported-operation flows.
 
 ---
 

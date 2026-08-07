@@ -100,6 +100,9 @@ capability. Preview and apply also require an idempotency store. Management fail
 when the named subscription does not exist. Paddle subscriptions must begin through hosted checkout.
 See [Subscriptions](../features/10-subscriptions.md) for provider capability and state details.
 
+For provider-gated upgrade, downgrade, failed-payment, pause, and resume flows, continue with
+[Advanced Subscription Operations](47-subscription-operations.md).
+
 ---
 
 [Previous: Multiple Providers](36-multi-provider.md) | [Index](../00-index.md) | [Next: Charges and Refunds](38-charges-refunds.md)
