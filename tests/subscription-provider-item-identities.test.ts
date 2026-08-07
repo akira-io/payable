@@ -1,5 +1,6 @@
 import type Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
+import { matchProviderSubscriptionItems } from '../src/application/services/subscriptions/match-provider-subscription-items';
 import { toSubscriptionDTO as toPaddleSubscriptionDTO } from '../src/infrastructure/providers/paddle/paddle-mappers';
 import { PaddleProvider } from '../src/infrastructure/providers/paddle/paddle-provider';
 import type {
@@ -12,6 +13,61 @@ import { StripeProvider } from '../src/infrastructure/providers/stripe/stripe-pr
 const context = { correlationId: 'corr-1', idempotencyKey: 'idem-1' };
 
 describe('subscription provider item identities', () => {
+  it('matches duplicate prices by quantity before provider response order', () => {
+    const localItems = [
+      { priceId: 'price_shared', quantity: 1 },
+      { priceId: 'price_shared', quantity: 3 },
+    ];
+
+    expect(
+      matchProviderSubscriptionItems(localItems, [
+        { providerItemId: 'si_three', priceId: 'price_shared', quantity: 3 },
+        { providerItemId: 'si_one', priceId: 'price_shared', quantity: 1 },
+      ]),
+    ).toEqual([
+      { providerItemId: 'si_one', priceId: 'price_shared', quantity: 1 },
+      { providerItemId: 'si_three', priceId: 'price_shared', quantity: 3 },
+    ]);
+  });
+
+  it('deterministically matches indistinguishable duplicate prices with stable identities', () => {
+    const localItems = [
+      { priceId: 'price_shared', quantity: 1 },
+      { priceId: 'price_shared', quantity: 1 },
+    ];
+    const first = matchProviderSubscriptionItems(localItems, [
+      { providerItemId: 'si_z', priceId: 'price_shared', quantity: 1 },
+      { providerItemId: 'si_a', priceId: 'price_shared', quantity: 1 },
+    ]);
+    const reordered = matchProviderSubscriptionItems(localItems, [
+      { providerItemId: 'si_a', priceId: 'price_shared', quantity: 1 },
+      { providerItemId: 'si_z', priceId: 'price_shared', quantity: 1 },
+    ]);
+
+    expect(first).toEqual([
+      { providerItemId: 'si_a', priceId: 'price_shared', quantity: 1 },
+      { providerItemId: 'si_z', priceId: 'price_shared', quantity: 1 },
+    ]);
+    expect(reordered).toEqual(first);
+  });
+
+  it('leaves indistinguishable duplicates unmatched when provider identities are missing', () => {
+    const localItems = [
+      { priceId: 'price_shared', quantity: 1 },
+      { priceId: 'price_shared', quantity: 1 },
+    ];
+
+    expect(
+      matchProviderSubscriptionItems(localItems, [
+        { providerItemId: null, priceId: 'price_shared', quantity: 1 },
+        { providerItemId: null, priceId: 'price_shared', quantity: 1 },
+      ]),
+    ).toEqual([
+      { providerItemId: null, priceId: 'price_shared', quantity: 1 },
+      { providerItemId: null, priceId: 'price_shared', quantity: 1 },
+    ]);
+  });
+
   it('maps stable Stripe item identities without relying on item order', () => {
     const dto = toStripeSubscriptionDTO({
       id: 'sub_items',
