@@ -1,5 +1,10 @@
 import type { Logger } from '../../../domain/contracts/logger.contract';
 import type { PaymentProvider } from '../../../domain/contracts/payment-provider.contract';
+import type {
+  PausedSubscriptionResumeCapable,
+  ScheduledSubscriptionChangeCapable,
+  SubscriptionPauseCapable,
+} from '../../../domain/contracts/subscription-lifecycle-provider.contract';
 import type { SubscriptionOperationCapabilitiesProvider } from '../../../domain/contracts/subscription-operation-capabilities-provider.contract';
 import type { BillingPortalDTO, BillingPortalInput } from '../../../domain/dtos/billing-portal.dto';
 import type { ProviderCapabilities } from '../../../domain/dtos/capabilities.dto';
@@ -34,6 +39,7 @@ import {
   toRefundResultDTO,
   toSubscriptionDTO,
 } from './paddle-mappers';
+import { PaddleSubscriptionLifecycle } from './paddle-subscription-lifecycle';
 import { paddleSubscriptionOperationCapabilities } from './paddle-subscription-operation-capabilities';
 import type { PaddleClient } from './paddle-types';
 import { PaddleWebhookVerifier } from './paddle-webhook-verifier';
@@ -45,11 +51,25 @@ export interface PaddleProviderOptions {
   logger?: Logger;
 }
 
-export class PaddleProvider implements PaymentProvider, SubscriptionOperationCapabilitiesProvider {
+export class PaddleProvider
+  implements
+    PaymentProvider,
+    SubscriptionOperationCapabilitiesProvider,
+    SubscriptionPauseCapable,
+    PausedSubscriptionResumeCapable,
+    ScheduledSubscriptionChangeCapable
+{
   readonly name = 'paddle';
   private readonly catalog: PaddleCatalog;
   private readonly normalizer: PaddleEventNormalizer;
   private readonly verifier: PaddleWebhookVerifier;
+  private readonly subscriptionLifecycle = new PaddleSubscriptionLifecycle(() => this.paddle());
+  readonly pauseSubscription = this.subscriptionLifecycle.pause.bind(this.subscriptionLifecycle);
+  readonly resumePausedSubscription = this.subscriptionLifecycle.resume.bind(
+    this.subscriptionLifecycle,
+  );
+  readonly cancelScheduledSubscriptionChange =
+    this.subscriptionLifecycle.cancelScheduledChange.bind(this.subscriptionLifecycle);
   readonly createProduct: PaddleCatalog['createProduct'];
   readonly updateProduct: PaddleCatalog['updateProduct'];
   readonly createPrice: PaddleCatalog['createPrice'];

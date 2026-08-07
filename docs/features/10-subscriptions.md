@@ -141,6 +141,48 @@ await manager.resume();      // clears endsAt
 await manager.cancelNow();   // ends immediately
 ```
 
+`resume()` only reverses a pending period-end cancellation. Pausing a subscription lifecycle and
+pausing payment collection are different operations with separate methods and capability checks:
+
+```ts
+await manager.pauseSubscription({
+  effectiveTiming: 'nextRenewal',
+  resumeAt: new Date('2027-01-15T00:00:00Z'),
+  resumeBillingPolicy: 'startNewBillingPeriod',
+});
+
+await manager.resumePausedSubscription({
+  effectiveTiming: 'immediate',
+  billingPolicy: 'continueExistingBillingPeriod',
+});
+
+await manager.pausePaymentCollection({
+  behavior: 'keepAsDraft',
+  resumesAt: null,
+});
+await manager.resumePaymentCollection();
+```
+
+Dates must be valid future `Date` values. `resumeAt: null` and `resumesAt: null` mean an indefinite
+pause. Provider support is asserted against the complete policy before any provider request. A
+provider that supports only one pause model cannot accidentally receive the other.
+
+Paddle exposes lifecycle pause and resume. Stripe exposes payment-collection pause and resume; the
+Stripe subscription lifecycle status does not become `paused`. SISP and Revolut currently expose
+neither. See the provider matrix for the exact supported timings, behaviors, and billing-period
+policies.
+
+Scheduled lifecycle metadata is stored on the subscription as
+`scheduledChangeAction`, `scheduledChangeEffectiveAt`, `scheduledResumeAt`, and
+`resumeBillingPolicy`. Payment-collection metadata is stored separately as
+`paymentCollectionPauseBehavior` and `paymentCollectionResumesAt`. Provider webhooks reconcile these
+fields. For providers that support it, `cancelScheduledSubscriptionChange()` removes the current
+scheduled lifecycle change before a replacement policy is submitted:
+
+```ts
+await manager.cancelScheduledSubscriptionChange();
+```
+
 ## Cancel vs cancel-now vs resume
 
 | Operation | Provider call | Local `endsAt` | Customer access |
@@ -185,7 +227,8 @@ Every subscription operation enforces a policy through `assertAuthorized`, gated
 | `create` | `CanCreateSubscriptionPolicy` (asserted in `SubscriptionBuilder.create()`) |
 | `swap`, `updateQuantity` | `CanUpdateSubscriptionPolicy` |
 | `cancel`, `cancelNow` | `CanCancelSubscriptionPolicy` |
-| `resume` | `CanResumeSubscriptionPolicy` |
+| `resume`, `resumePausedSubscription`, `resumePaymentCollection` | `CanResumeSubscriptionPolicy` |
+| `pauseSubscription`, `pausePaymentCollection`, `cancelScheduledSubscriptionChange` | `CanUpdateSubscriptionPolicy` |
 
 Each policy authorizes against an `AuthorizationContext` (`allowed === true` and a non-empty
 `actorId`), supplied via the operation's `authorization` argument. When authorization is disabled the
@@ -200,6 +243,11 @@ assertion is skipped, so integrators that do not opt in see no behavior change.
   `ProviderCapabilityNotSupportedError` before customer synchronization or provider calls. The error
   context contains a stable capability such as `subscriptions.create.direct` or
   `subscriptions.cancel.at-period-end`.
+- **Pause policy is invalid or unsupported.** Invalid dates fail with a stable policy error. A
+  provider-policy mismatch fails with `ProviderCapabilityNotSupportedError` before local mutation or
+  a provider request.
+- **Provider request fails.** The stored lifecycle metadata and audit log remain unchanged. A later
+  provider webhook is still authoritative and reconciles any provider-side state that was applied.
 - **Provider not direct-subscription capable on create.** `CreateSubscriptionAction` throws before any
   provider call.
 - **Unknown subscription name.** `resolve()` throws `SubscriptionNotFoundError`.

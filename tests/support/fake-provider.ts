@@ -51,7 +51,6 @@ import { FakeCatalog } from './fake-catalog';
 
 const PERIOD_END = new Date('2026-07-22T00:00:00.000Z');
 const TRIAL_END = new Date('2026-07-06T00:00:00.000Z');
-
 export class FakeProvider
   extends FakeCatalog
   implements PaymentProvider, SubscriptionOperationCapabilitiesProvider
@@ -96,11 +95,9 @@ export class FakeProvider
     'catalogLifecycle',
     'catalogIdempotency',
   ]);
-
   constructor(private readonly createdCustomerId = 'cus_fake') {
     super();
   }
-
   capabilities(): ProviderCapabilities {
     return new Set(this.supportedCapabilities);
   }
@@ -121,7 +118,10 @@ export class FakeProvider
       resume: {
         ...NO_SUBSCRIPTION_OPERATIONS.resume,
         pendingCancellation: true,
-        pausedSubscription: true,
+        pausedSubscription: {
+          effectiveTimings: ['immediate'],
+          billingPolicies: ['startNewBillingPeriod'],
+        },
       },
     });
   }

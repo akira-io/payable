@@ -1,6 +1,11 @@
 import type { PaymentProvider } from '../../../domain/contracts/payment-provider.contract';
 import { isSubscriptionOperationCapabilitiesProvider } from '../../../domain/contracts/subscription-operation-capabilities-provider.contract';
 import type { SubscriptionOperationCapabilities } from '../../../domain/dtos/subscription-operation-capabilities.dto';
+import type {
+  PausePaymentCollectionPolicy,
+  PauseSubscriptionPolicy,
+  ResumePausedSubscriptionPolicy,
+} from '../../../domain/dtos/subscription-pause-policy.dto';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 
 export type SubscriptionOperation =
@@ -11,7 +16,11 @@ export type SubscriptionOperation =
   | 'cancelImmediately'
   | 'cancelAtPeriodEnd'
   | 'pause'
-  | 'resume';
+  | 'resumePaused'
+  | 'resume'
+  | 'pausePaymentCollection'
+  | 'resumePaymentCollection'
+  | 'cancelScheduledChange';
 
 const SUBSCRIPTION_OPERATION_CAPABILITY_NAMES: Record<SubscriptionOperation, string> = {
   createCheckout: 'subscriptions.create.checkout',
@@ -21,7 +30,11 @@ const SUBSCRIPTION_OPERATION_CAPABILITY_NAMES: Record<SubscriptionOperation, str
   cancelImmediately: 'subscriptions.cancel.immediately',
   cancelAtPeriodEnd: 'subscriptions.cancel.at-period-end',
   pause: 'subscriptions.pause',
+  resumePaused: 'subscriptions.resume.paused-subscription',
   resume: 'subscriptions.resume',
+  pausePaymentCollection: 'subscriptions.pause.payment-collection',
+  resumePaymentCollection: 'subscriptions.resume.payment-collection',
+  cancelScheduledChange: 'subscriptions.scheduled-change.cancel',
 };
 
 export function assertSubscriptionOperation(
@@ -29,6 +42,18 @@ export function assertSubscriptionOperation(
   operation: SubscriptionOperation,
 ): void {
   if (!isSubscriptionOperationCapabilitiesProvider(provider)) {
+    if (
+      operation === 'pause' ||
+      operation === 'resumePaused' ||
+      operation === 'pausePaymentCollection' ||
+      operation === 'resumePaymentCollection' ||
+      operation === 'cancelScheduledChange'
+    ) {
+      throw new ProviderCapabilityNotSupportedError(
+        provider.name,
+        SUBSCRIPTION_OPERATION_CAPABILITY_NAMES[operation],
+      );
+    }
     return;
   }
   const capabilities = provider.subscriptionOperationCapabilities();
@@ -58,12 +83,68 @@ function isSubscriptionOperationSupported(
     case 'cancelAtPeriodEnd':
       return capabilities.cancel.atPeriodEnd;
     case 'pause':
-      return capabilities.pause.effectiveTimings.length > 0;
+      return capabilities.pause.subscription.effectiveTimings.length > 0;
     case 'resume':
-      return (
-        capabilities.resume.pendingCancellation ||
-        capabilities.resume.pausedSubscription ||
-        capabilities.resume.scheduled
-      );
+      return capabilities.resume.pendingCancellation;
+    case 'resumePaused':
+      return capabilities.resume.pausedSubscription.effectiveTimings.length > 0;
+    case 'pausePaymentCollection':
+      return capabilities.pause.paymentCollection.behaviors.length > 0;
+    case 'resumePaymentCollection':
+      return capabilities.resume.paymentCollection;
+    case 'cancelScheduledChange':
+      return capabilities.scheduledChange.cancel;
+  }
+}
+
+function unsupported(provider: PaymentProvider, capability: string): never {
+  throw new ProviderCapabilityNotSupportedError(provider.name, capability);
+}
+
+export function assertPauseSubscriptionPolicySupported(
+  provider: PaymentProvider,
+  policy: PauseSubscriptionPolicy,
+): void {
+  assertSubscriptionOperation(provider, 'pause');
+  if (!isSubscriptionOperationCapabilitiesProvider(provider)) return;
+  const capability = provider.subscriptionOperationCapabilities().pause.subscription;
+  if (!capability.effectiveTimings.includes(policy.effectiveTiming)) {
+    unsupported(provider, `subscriptions.pause.${policy.effectiveTiming}`);
+  }
+  if (!capability.resumeBillingPolicies.includes(policy.resumeBillingPolicy)) {
+    unsupported(provider, `subscriptions.pause.${policy.resumeBillingPolicy}`);
+  }
+  if (policy.resumeAt && !capability.scheduledResume) {
+    unsupported(provider, 'subscriptions.pause.scheduled-resume');
+  }
+}
+
+export function assertResumePausedSubscriptionPolicySupported(
+  provider: PaymentProvider,
+  policy: ResumePausedSubscriptionPolicy,
+): void {
+  assertSubscriptionOperation(provider, 'resumePaused');
+  if (!isSubscriptionOperationCapabilitiesProvider(provider)) return;
+  const capability = provider.subscriptionOperationCapabilities().resume.pausedSubscription;
+  if (!capability.effectiveTimings.includes(policy.effectiveTiming)) {
+    unsupported(provider, `subscriptions.resume.${policy.effectiveTiming}`);
+  }
+  if (!capability.billingPolicies.includes(policy.billingPolicy)) {
+    unsupported(provider, `subscriptions.resume.${policy.billingPolicy}`);
+  }
+}
+
+export function assertPausePaymentCollectionPolicySupported(
+  provider: PaymentProvider,
+  policy: PausePaymentCollectionPolicy,
+): void {
+  assertSubscriptionOperation(provider, 'pausePaymentCollection');
+  if (!isSubscriptionOperationCapabilitiesProvider(provider)) return;
+  const capability = provider.subscriptionOperationCapabilities().pause.paymentCollection;
+  if (!capability.behaviors.includes(policy.behavior)) {
+    unsupported(provider, `subscriptions.pause.payment-collection.${policy.behavior}`);
+  }
+  if (policy.resumesAt && !capability.scheduledResume) {
+    unsupported(provider, 'subscriptions.pause.payment-collection.scheduled-resume');
   }
 }

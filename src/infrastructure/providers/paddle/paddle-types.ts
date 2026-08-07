@@ -48,6 +48,11 @@ export interface PaddleSubscriptionEntity {
     trial_dates?: { ends_at?: string | null } | null;
   }> | null;
   trialEndsAt?: string | null;
+  scheduledChange?: {
+    action: string;
+    effectiveAt: string;
+    resumeAt: string | null;
+  } | null;
 }
 
 export interface PaddleAdjustment {
@@ -122,10 +127,25 @@ export interface PaddleClient {
       body: {
         items?: { priceId: string; quantity: number }[];
         prorationBillingMode?: string;
+        scheduledChange?: null;
       },
     ): Promise<PaddleSubscriptionEntity>;
     cancel(id: string, body?: { effectiveFrom?: string }): Promise<PaddleSubscriptionEntity>;
-    resume(id: string, body: { effectiveFrom: string }): Promise<PaddleSubscriptionEntity>;
+    pause(
+      id: string,
+      body: {
+        effectiveFrom: 'immediately' | 'next_billing_period';
+        resumeAt: string | null;
+        onResume: 'start_new_billing_period' | 'continue_existing_billing_period';
+      },
+    ): Promise<PaddleSubscriptionEntity>;
+    resume(
+      id: string,
+      body: {
+        effectiveFrom: 'immediately' | string;
+        onResume?: 'start_new_billing_period' | 'continue_existing_billing_period';
+      },
+    ): Promise<PaddleSubscriptionEntity>;
   };
   adjustments: {
     create(body: {

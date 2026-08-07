@@ -15,6 +15,8 @@ export type SubscriptionResumeBillingPolicy =
   | 'startNewBillingPeriod'
   | 'continueExistingBillingPeriod';
 
+export type SubscriptionPaymentCollectionBehavior = 'keepAsDraft' | 'markUncollectible' | 'void';
+
 export interface SubscriptionChangeCapabilities {
   readonly preview: boolean;
   readonly effectiveTimings: readonly SubscriptionEffectiveTiming[];
@@ -29,16 +31,25 @@ export interface SubscriptionOperationCapabilities {
   readonly changeQuantity: SubscriptionChangeCapabilities;
   readonly cancel: Readonly<{ immediately: boolean; atPeriodEnd: boolean }>;
   readonly pause: Readonly<{
-    effectiveTimings: readonly SubscriptionEffectiveTiming[];
-    scheduledResume: boolean;
-    resumeBillingPolicies: readonly SubscriptionResumeBillingPolicy[];
+    subscription: Readonly<{
+      effectiveTimings: readonly SubscriptionEffectiveTiming[];
+      scheduledResume: boolean;
+      resumeBillingPolicies: readonly SubscriptionResumeBillingPolicy[];
+    }>;
+    paymentCollection: Readonly<{
+      behaviors: readonly SubscriptionPaymentCollectionBehavior[];
+      scheduledResume: boolean;
+    }>;
   }>;
   readonly resume: Readonly<{
     pendingCancellation: boolean;
-    pausedSubscription: boolean;
-    scheduled: boolean;
-    billingPolicies: readonly SubscriptionResumeBillingPolicy[];
+    pausedSubscription: Readonly<{
+      effectiveTimings: readonly SubscriptionEffectiveTiming[];
+      billingPolicies: readonly SubscriptionResumeBillingPolicy[];
+    }>;
+    paymentCollection: boolean;
   }>;
+  readonly scheduledChange: Readonly<{ cancel: boolean }>;
 }
 
 type SubscriptionOperationCapabilitiesInput = Omit<
@@ -69,16 +80,29 @@ export function defineSubscriptionOperationCapabilities(
     changeQuantity: freezeChangeCapabilities(capabilities.changeQuantity),
     cancel: Object.freeze({ ...capabilities.cancel }),
     pause: Object.freeze({
-      effectiveTimings: Object.freeze([...capabilities.pause.effectiveTimings]),
-      scheduledResume: capabilities.pause.scheduledResume,
-      resumeBillingPolicies: Object.freeze([...capabilities.pause.resumeBillingPolicies]),
+      subscription: Object.freeze({
+        effectiveTimings: Object.freeze([...capabilities.pause.subscription.effectiveTimings]),
+        scheduledResume: capabilities.pause.subscription.scheduledResume,
+        resumeBillingPolicies: Object.freeze([
+          ...capabilities.pause.subscription.resumeBillingPolicies,
+        ]),
+      }),
+      paymentCollection: Object.freeze({
+        behaviors: Object.freeze([...capabilities.pause.paymentCollection.behaviors]),
+        scheduledResume: capabilities.pause.paymentCollection.scheduledResume,
+      }),
     }),
     resume: Object.freeze({
       pendingCancellation: capabilities.resume.pendingCancellation,
-      pausedSubscription: capabilities.resume.pausedSubscription,
-      scheduled: capabilities.resume.scheduled,
-      billingPolicies: Object.freeze([...capabilities.resume.billingPolicies]),
+      pausedSubscription: Object.freeze({
+        effectiveTimings: Object.freeze([
+          ...capabilities.resume.pausedSubscription.effectiveTimings,
+        ]),
+        billingPolicies: Object.freeze([...capabilities.resume.pausedSubscription.billingPolicies]),
+      }),
+      paymentCollection: capabilities.resume.paymentCollection,
     }),
+    scheduledChange: Object.freeze({ ...capabilities.scheduledChange }),
   });
 }
 
@@ -98,11 +122,14 @@ export const NO_SUBSCRIPTION_OPERATIONS = defineSubscriptionOperationCapabilitie
     paymentFailurePolicies: [],
   },
   cancel: { immediately: false, atPeriodEnd: false },
-  pause: { effectiveTimings: [], scheduledResume: false, resumeBillingPolicies: [] },
+  pause: {
+    subscription: { effectiveTimings: [], scheduledResume: false, resumeBillingPolicies: [] },
+    paymentCollection: { behaviors: [], scheduledResume: false },
+  },
   resume: {
     pendingCancellation: false,
-    pausedSubscription: false,
-    scheduled: false,
-    billingPolicies: [],
+    pausedSubscription: { effectiveTimings: [], billingPolicies: [] },
+    paymentCollection: false,
   },
+  scheduledChange: { cancel: false },
 });

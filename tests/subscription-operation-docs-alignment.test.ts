@@ -4,6 +4,7 @@ import type { PaymentProvider } from '../src/domain/contracts/payment-provider.c
 import type {
   SubscriptionEffectiveTiming,
   SubscriptionOperationCapabilities,
+  SubscriptionPaymentCollectionBehavior,
   SubscriptionPaymentFailurePolicy,
   SubscriptionProrationPolicy,
   SubscriptionResumeBillingPolicy,
@@ -45,6 +46,12 @@ const resumeBillingLabels: Record<SubscriptionResumeBillingPolicy, string> = {
   continueExistingBillingPeriod: 'existing billing period',
 };
 
+const paymentCollectionLabels: Record<SubscriptionPaymentCollectionBehavior, string> = {
+  keepAsDraft: 'keep as draft',
+  markUncollectible: 'mark uncollectible',
+  void: 'void',
+};
+
 function formatBooleanSupport(isSupported: boolean): string {
   return isSupported ? 'yes' : 'no';
 }
@@ -61,9 +68,6 @@ function formatCapabilityValues<T extends string>(
 function documentedOperations(
   capabilities: SubscriptionOperationCapabilities,
 ): Record<string, string> {
-  const resumePaused = capabilities.resume.pausedSubscription
-    ? `yes, ${formatCapabilityValues(capabilities.resume.billingPolicies, resumeBillingLabels)}`
-    : 'no';
   return {
     'Hosted checkout creation': formatBooleanSupport(capabilities.create.checkout),
     'Direct creation': formatBooleanSupport(capabilities.create.direct),
@@ -88,9 +92,33 @@ function documentedOperations(
     ),
     'Cancel immediately': formatBooleanSupport(capabilities.cancel.immediately),
     'Cancel at period end': formatBooleanSupport(capabilities.cancel.atPeriodEnd),
-    Pause: formatBooleanSupport(capabilities.pause.effectiveTimings.length > 0),
+    'Pause subscription timing': formatCapabilityValues(
+      capabilities.pause.subscription.effectiveTimings,
+      timingLabels,
+    ),
+    'Pause scheduled resume': formatBooleanSupport(capabilities.pause.subscription.scheduledResume),
+    'Pause resume billing policy': formatCapabilityValues(
+      capabilities.pause.subscription.resumeBillingPolicies,
+      resumeBillingLabels,
+    ),
+    'Pause payment collection': formatCapabilityValues(
+      capabilities.pause.paymentCollection.behaviors,
+      paymentCollectionLabels,
+    ),
+    'Payment collection scheduled resume': formatBooleanSupport(
+      capabilities.pause.paymentCollection.scheduledResume,
+    ),
     'Resume pending cancellation': formatBooleanSupport(capabilities.resume.pendingCancellation),
-    'Resume paused subscription': resumePaused,
+    'Resume paused subscription timing': formatCapabilityValues(
+      capabilities.resume.pausedSubscription.effectiveTimings,
+      timingLabels,
+    ),
+    'Resume paused subscription billing': formatCapabilityValues(
+      capabilities.resume.pausedSubscription.billingPolicies,
+      resumeBillingLabels,
+    ),
+    'Resume payment collection': formatBooleanSupport(capabilities.resume.paymentCollection),
+    'Cancel scheduled change': formatBooleanSupport(capabilities.scheduledChange.cancel),
   };
 }
 

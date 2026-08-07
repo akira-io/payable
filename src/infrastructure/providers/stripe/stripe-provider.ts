@@ -16,6 +16,7 @@ import type {
   ProviderWebhookEndpointManagementCapable,
   ResumeSubscriptionInput,
 } from '../../../domain/contracts/payment-provider.contract';
+import type { SubscriptionPaymentCollectionCapable } from '../../../domain/contracts/subscription-lifecycle-provider.contract';
 import type { SubscriptionOperationCapabilitiesProvider } from '../../../domain/contracts/subscription-operation-capabilities-provider.contract';
 import type { BillingPortalDTO, BillingPortalInput } from '../../../domain/dtos/billing-portal.dto';
 import type { ChargeInput, ChargeResultDTO } from '../../../domain/dtos/charge.dto';
@@ -93,6 +94,7 @@ export class StripeProvider
     PayoutCapable,
     ProviderWebhookEndpointManagementCapable,
     SubscriptionOperationCapabilitiesProvider,
+    SubscriptionPaymentCollectionCapable,
     CatalogReadCapable,
     CatalogLifecycleCapable
 {
@@ -100,6 +102,12 @@ export class StripeProvider
   private client?: Stripe;
   private readonly webhooks: StripeWebhooks;
   private readonly subscriptions = new StripeSubscriptions(() => this.stripe());
+  readonly pausePaymentCollection = this.subscriptions.pausePaymentCollection.bind(
+    this.subscriptions,
+  );
+  readonly resumePaymentCollection = this.subscriptions.resumePaymentCollection.bind(
+    this.subscriptions,
+  );
   private readonly invoices = new StripeInvoices(() => this.stripe());
   private readonly catalog = new StripeCatalog(() => this.stripe());
   readonly createProduct = this.catalog.createProduct.bind(this.catalog);

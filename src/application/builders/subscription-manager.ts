@@ -1,6 +1,16 @@
+import type {
+  PausePaymentCollectionPolicy,
+  PauseSubscriptionPolicy,
+  ResumePausedSubscriptionPolicy,
+} from '../../domain/dtos/subscription-pause-policy.dto';
 import type { Subscription } from '../../domain/entities/subscription.entity';
+import { CancelScheduledSubscriptionChangeAction } from '../actions/subscriptions/cancel-scheduled-subscription-change.action';
 import { CancelSubscriptionAction } from '../actions/subscriptions/cancel-subscription.action';
 import { CancelSubscriptionNowAction } from '../actions/subscriptions/cancel-subscription-now.action';
+import { PausePaymentCollectionAction } from '../actions/subscriptions/pause-payment-collection.action';
+import { PauseSubscriptionAction } from '../actions/subscriptions/pause-subscription.action';
+import { ResumePausedSubscriptionAction } from '../actions/subscriptions/resume-paused-subscription.action';
+import { ResumePaymentCollectionAction } from '../actions/subscriptions/resume-payment-collection.action';
 import { ResumeSubscriptionAction } from '../actions/subscriptions/resume-subscription.action';
 import { SwapSubscriptionAction } from '../actions/subscriptions/swap-subscription.action';
 import { UpdateSubscriptionQuantityAction } from '../actions/subscriptions/update-subscription-quantity.action';
@@ -65,6 +75,58 @@ export class SubscriptionManager {
 
   resume(authorization?: AuthorizationContext): Promise<Subscription> {
     return new ResumeSubscriptionAction(this.deps).handle(this.billable, this.name, authorization);
+  }
+
+  pauseSubscription(
+    policy: PauseSubscriptionPolicy,
+    authorization?: AuthorizationContext,
+  ): Promise<Subscription> {
+    return new PauseSubscriptionAction(this.deps).handle(
+      this.billable,
+      this.name,
+      policy,
+      authorization,
+    );
+  }
+
+  resumePausedSubscription(
+    policy: ResumePausedSubscriptionPolicy,
+    authorization?: AuthorizationContext,
+  ): Promise<Subscription> {
+    return new ResumePausedSubscriptionAction(this.deps).handle(
+      this.billable,
+      this.name,
+      policy,
+      authorization,
+    );
+  }
+
+  pausePaymentCollection(
+    policy: PausePaymentCollectionPolicy,
+    authorization?: AuthorizationContext,
+  ): Promise<Subscription> {
+    return new PausePaymentCollectionAction(this.deps).handle(
+      this.billable,
+      this.name,
+      policy,
+      authorization,
+    );
+  }
+
+  resumePaymentCollection(authorization?: AuthorizationContext): Promise<Subscription> {
+    return new ResumePaymentCollectionAction(this.deps).handle(
+      this.billable,
+      this.name,
+      authorization,
+    );
+  }
+
+  cancelScheduledSubscriptionChange(authorization?: AuthorizationContext): Promise<Subscription> {
+    return new CancelScheduledSubscriptionChangeAction(this.deps).handle(
+      this.billable,
+      this.name,
+      authorization,
+    );
   }
 
   updateQuantity(quantity: number, authorization?: AuthorizationContext): Promise<Subscription>;

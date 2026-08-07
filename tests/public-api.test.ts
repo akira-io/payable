@@ -81,6 +81,15 @@ describe('public API surface', () => {
     expect(typeof payable.TerminalProviderRegistry).toBe('function');
     expect(typeof payable.TerminalProviderNotFoundError).toBe('function');
     expect(typeof payable.SubscriptionStateMachine).toBe('function');
+    expect(typeof payable.PauseSubscriptionAction).toBe('function');
+    expect(typeof payable.ResumePausedSubscriptionAction).toBe('function');
+    expect(typeof payable.PausePaymentCollectionAction).toBe('function');
+    expect(typeof payable.ResumePaymentCollectionAction).toBe('function');
+    expect(typeof payable.CancelScheduledSubscriptionChangeAction).toBe('function');
+    expect(typeof payable.isSubscriptionPauseCapable).toBe('function');
+    expect(typeof payable.isPausedSubscriptionResumeCapable).toBe('function');
+    expect(typeof payable.isSubscriptionPaymentCollectionCapable).toBe('function');
+    expect(typeof payable.isScheduledSubscriptionChangeCapable).toBe('function');
   });
 
   it('exports AuthorizationContext on the public surface', () => {

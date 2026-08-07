@@ -1,5 +1,9 @@
 import type Stripe from 'stripe';
 import type { ResumeSubscriptionInput } from '../../../domain/contracts/payment-provider.contract';
+import type {
+  PausePaymentCollectionInput,
+  ResumePaymentCollectionInput,
+} from '../../../domain/contracts/subscription-lifecycle-provider.contract';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type {
   CancelSubscriptionInput,
@@ -82,6 +86,48 @@ export class StripeSubscriptions {
       stripe.subscriptions.update(
         input.providerSubscriptionId,
         { cancel_at_period_end: false },
+        { idempotencyKey: ctx.idempotencyKey },
+      ),
+    );
+    return toSubscriptionDTO(subscription);
+  }
+
+  async pausePaymentCollection(
+    input: PausePaymentCollectionInput,
+    ctx: OperationContext,
+  ): Promise<SubscriptionDTO> {
+    const stripe = await this.client();
+    const behavior = {
+      keepAsDraft: 'keep_as_draft',
+      markUncollectible: 'mark_uncollectible',
+      void: 'void',
+    } as const;
+    const subscription = await withStripeErrors(() =>
+      stripe.subscriptions.update(
+        input.providerSubscriptionId,
+        {
+          pause_collection: {
+            behavior: behavior[input.behavior],
+            ...(input.resumesAt
+              ? { resumes_at: Math.floor(input.resumesAt.getTime() / 1000) }
+              : {}),
+          },
+        },
+        { idempotencyKey: ctx.idempotencyKey },
+      ),
+    );
+    return toSubscriptionDTO(subscription);
+  }
+
+  async resumePaymentCollection(
+    input: ResumePaymentCollectionInput,
+    ctx: OperationContext,
+  ): Promise<SubscriptionDTO> {
+    const stripe = await this.client();
+    const subscription = await withStripeErrors(() =>
+      stripe.subscriptions.update(
+        input.providerSubscriptionId,
+        { pause_collection: '' },
         { idempotencyKey: ctx.idempotencyKey },
       ),
     );

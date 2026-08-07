@@ -134,10 +134,24 @@ so it shares the provider's single SDK instance.
 | `update` | `subscriptions.update` | Uses the stable provider item ID persisted for the selected local item. Missing mappings fail without selecting `items.data[0]`. |
 | `cancel` | `subscriptions.cancel` or `subscriptions.update` | `immediately: true` cancels now; otherwise sets `cancel_at_period_end: true`. |
 | `resume` | `subscriptions.update` | Clears the pending cancellation with `cancel_at_period_end: false`. |
+| `pausePaymentCollection` | `subscriptions.update` | Sets `pause_collection.behavior` and optional `pause_collection.resumes_at`. |
+| `resumePaymentCollection` | `subscriptions.update` | Unsets `pause_collection`. |
 
 `createSubscription` (from `DirectSubscriptionCapable`) routes to `StripeSubscriptions.create`; the
 contract's `updateSubscription`, `cancelSubscription`, and `resumeSubscription` route to the matching
 methods. Every call forwards `ctx.idempotencyKey` to Stripe's `idempotencyKey` request option.
+
+Stripe's stable `pause_collection` API pauses payment collection, not the subscription lifecycle.
+Invoices continue to be created and the subscription status is unchanged. Payable therefore exposes
+this through `pausePaymentCollection()` and `resumePaymentCollection()` only, with the documented
+`keep_as_draft`, `mark_uncollectible`, and `void` behaviors and optional `resumes_at` timestamp. It
+does not advertise lifecycle `pauseSubscription()` support. Stripe's separate lifecycle-pause API is
+public preview and is intentionally outside this stable adapter contract.
+
+Official Stripe subscription references:
+
+- [Pause payment collection](https://docs.stripe.com/billing/subscriptions/pause-payment)
+- [Pause a subscription in public preview](https://docs.stripe.com/billing/subscriptions/pause)
 
 ## Catalog lifecycle
 
