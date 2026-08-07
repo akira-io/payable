@@ -88,5 +88,20 @@ export function reconcileProviderSubscriptionItems(
     (localGroup) => localGroup.every(({ quantity }) => quantity === localGroup[0]?.quantity),
   );
 
+  const remainingLocalItems = localItems.filter((localItem) =>
+    unmatchedLocalItemIds.has(localItem.id),
+  );
+  const remainingProviderItems = [...unmatchedProviderItems];
+  const [singleLocalItem] = remainingLocalItems;
+  const [singleProviderItem] = remainingProviderItems;
+  if (
+    remainingLocalItems.length === 1 &&
+    remainingProviderItems.length === 1 &&
+    singleLocalItem &&
+    singleProviderItem
+  ) {
+    reconcile(singleLocalItem, singleProviderItem);
+  }
+
   return reconciliations;
 }

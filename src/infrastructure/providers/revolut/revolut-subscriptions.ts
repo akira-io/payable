@@ -14,10 +14,12 @@ import type {
   ProviderSubscriptionChangeInput,
   ProviderSubscriptionChangePreview,
 } from '../../../domain/dtos/subscription-change.dto';
+import type { VerifiedWebhook } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import { requireSubscriptionChangePolicies } from '../../../domain/validation/subscription-change-policies';
 import { toRevolutCheckoutSessionDTO, toRevolutSubscriptionDTO } from './revolut-mappers';
+import { reconcileRevolutSubscriptionWebhook } from './revolut-subscription-webhook-reconciliation';
 import type {
   RevolutOrder,
   RevolutRequest,
@@ -161,12 +163,25 @@ export class RevolutSubscriptions {
     throw new ProviderCapabilityNotSupportedError('revolut', 'subscription resume');
   }
 
-  private async retrieve(providerSubscriptionId: string): Promise<SubscriptionDTO> {
+  async retrieve(providerSubscriptionId: string): Promise<SubscriptionDTO> {
     const subscription = await this.request<RevolutSubscription>(
       `/api/subscriptions/${encodeURIComponent(providerSubscriptionId)}`,
       { method: 'GET' },
     );
     return toRevolutSubscriptionDTO(subscription);
+  }
+
+  async reconcileWebhook(verified: VerifiedWebhook): Promise<SubscriptionDTO | null> {
+    const event = reconcileRevolutSubscriptionWebhook(verified);
+    if (!event) {
+      return null;
+    }
+    const current = await this.retrieve(event.providerSubscriptionId);
+    return {
+      ...event,
+      trialEndsAt: current.trialEndsAt,
+      items: current.items,
+    };
   }
 
   private createRevolutSubscription(

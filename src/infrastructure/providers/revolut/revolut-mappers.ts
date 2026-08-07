@@ -118,6 +118,17 @@ export function toRevolutSubscriptionDTO(subscription: RevolutSubscription): Sub
     status: subscriptionStatus(subscription.state),
     currentPeriodEnd: null,
     trialEndsAt: dateOrNull(subscription.trial_end_date),
+    ...(subscription.plan_variation_id
+      ? {
+          items: [
+            {
+              providerItemId: null,
+              priceId: subscription.plan_variation_id,
+              quantity: 1,
+            },
+          ],
+        }
+      : {}),
   };
 }
 
