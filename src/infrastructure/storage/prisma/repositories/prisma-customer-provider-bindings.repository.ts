@@ -50,4 +50,18 @@ export class PrismaCustomerProviderBindingRepository implements CustomerProvider
     });
     return row ? customerProviderBindingToEntity(row) : null;
   }
+
+  async listByCustomerIds(
+    customerIds: readonly string[],
+    tenantId: string | null,
+  ): Promise<CustomerProviderBinding[]> {
+    if (customerIds.length === 0) {
+      return [];
+    }
+    const rows = await this.client.payableCustomerProviderBinding.findMany({
+      where: { customerId: { in: [...customerIds] }, customer: { tenantId } },
+      orderBy: { provider: 'asc' },
+    });
+    return rows.map((row) => customerProviderBindingToEntity(row));
+  }
 }

@@ -27,7 +27,7 @@ import { ReplayWebhookAction } from './application/actions/webhooks/replay-webho
 import { AuditResource } from './application/builders/audit-resource';
 import type { Billable } from './application/builders/billable';
 import { CustomerContext } from './application/builders/customer-context';
-import { CustomerResource } from './application/builders/customer-resource';
+import type { CustomerResource } from './application/builders/customer-resource';
 import { DependencyFactory } from './application/builders/dependency-factory';
 import { InvoiceResource } from './application/builders/invoice-resource';
 import type { LocalSubscriptionResource } from './application/builders/local-subscription-resource';
@@ -113,7 +113,7 @@ export class Payable extends ProviderRegistries {
   }
 
   customers(providerName?: string, tenantId?: string | null): CustomerResource {
-    return new CustomerResource(this.factory.billing(providerName, tenantId));
+    return this.factory.customerResource(providerName, tenantId);
   }
 
   products(providerName?: string, tenantId?: string | null): ProductResource {

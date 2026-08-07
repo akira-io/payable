@@ -10,7 +10,14 @@ export type { CatalogMutationOptions } from './catalog-mutation-options';
 export type { ChargeRequest } from './charge-request';
 export { CheckoutBuilder, type CheckoutRequest } from './checkout-builder';
 export { CustomerContext } from './customer-context';
-export { type CustomerChanges, CustomerResource } from './customer-resource';
+export {
+  type CustomerBindingMetadata,
+  type CustomerChanges,
+  type CustomerPage,
+  type CustomerPageItem,
+  CustomerResource,
+  type ListCustomersInput,
+} from './customer-resource';
 export { InvoiceResource } from './invoice-resource';
 export { LocalSubscriptionResource } from './local-subscription-resource';
 export { PriceResource } from './price-resource';

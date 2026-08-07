@@ -8,6 +8,7 @@ import { registerCatalogMutationPersistenceContract } from './contract/catalog-m
 import { registerCatalogMutationRecoveryContract } from './contract/catalog-mutation-recovery-contract';
 import type { ContractContext, StorageHarness } from './contract/harness';
 import { registerIdempotencyContract } from './contract/idempotency-contract';
+import { registerLogicalCustomerContract } from './contract/logical-customer-contract';
 import { registerMoneyContract } from './contract/money-contract';
 import { registerRepositoryCompatibilityContract } from './contract/repository-compatibility-contract';
 import { registerSystemContract } from './contract/system-contract';
@@ -41,6 +42,7 @@ export function describeStorageContract(name: string, create: () => Promise<Stor
     registerCatalogCasCompatibilityContract(ctx);
     registerIdempotencyContract(ctx);
     registerMoneyContract(ctx);
+    registerLogicalCustomerContract(ctx);
     registerRepositoryCompatibilityContract(ctx);
     registerSystemContract(ctx);
   });

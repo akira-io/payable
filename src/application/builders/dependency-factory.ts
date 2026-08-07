@@ -6,6 +6,7 @@ import type { TreasuryProviderRegistry } from '../../treasury-provider-registry'
 import { IdempotencyService } from '../services/idempotency/idempotency-service';
 import { SubscriptionChangePreviewStore } from '../services/subscriptions/subscription-change-preview-store';
 import type { BillingDependencies } from './billing-dependencies';
+import { CustomerResource } from './customer-resource';
 import { LocalSubscriptionResource } from './local-subscription-resource';
 import type { TreasuryWebhookDependencies } from './treasury-webhook-dependencies';
 import type { WebhookDependencies } from './webhook-dependencies';
@@ -41,6 +42,15 @@ export class DependencyFactory {
       subscriptionChangePreviews,
       logger: this.resolved.logger,
     };
+  }
+
+  customerResource(providerName?: string, tenantId?: string | null): CustomerResource {
+    this.assertTenant(tenantId);
+    return new CustomerResource({
+      storage: this.resolved.storage,
+      tenantId: tenantId ?? null,
+      resolveBillingDependencies: () => this.billing(providerName, tenantId),
+    });
   }
 
   localSubscription(localId: string, tenantId?: string | null): LocalSubscriptionResource {
@@ -94,7 +104,7 @@ export class DependencyFactory {
     };
   }
 
-  assertTenant(tenantId?: string | null): void {
+  private assertTenant(tenantId?: string | null): void {
     if (this.resolved.tenantEnabled && (tenantId === undefined || tenantId === null)) {
       throw new PayableError('A tenant id is required when tenancy is enabled', {
         code: 'TENANT_REQUIRED',
