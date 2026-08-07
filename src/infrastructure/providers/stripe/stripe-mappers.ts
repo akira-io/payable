@@ -18,6 +18,10 @@ import type { PaymentStatus } from '../../../domain/value-objects/payment-status
 import type { RefundStatus } from '../../../domain/value-objects/refund-status';
 import { isSubscriptionStatus } from '../../../domain/value-objects/subscription-status';
 import { stripeMoney } from './stripe-amounts';
+import {
+  stripeSubscriptionItems,
+  stripeWebhookSubscriptionItems,
+} from './stripe-subscription-item-mappers';
 
 const PAYMENT_STATUS = {
   succeeded: 'succeeded',
@@ -199,6 +203,7 @@ export function toSubscriptionDTO(subscription: Stripe.Subscription): Subscripti
     trialEndsAt: fromUnixSeconds(subscription.trial_end),
     paymentCollectionPauseBehavior: stripePauseBehavior(pauseCollection?.behavior),
     paymentCollectionResumesAt: fromUnixSeconds(pauseCollection?.resumes_at),
+    items: stripeSubscriptionItems(subscription),
   };
 }
 
@@ -227,6 +232,7 @@ export function toSubscriptionDTOFromWebhook(data: Record<string, unknown>): Sub
     trialEndsAt: fromUnixSeconds(numberOrNull(data.trial_end)),
     paymentCollectionPauseBehavior: stripePauseBehavior(pauseCollection?.behavior),
     paymentCollectionResumesAt: fromUnixSeconds(numberOrNull(pauseCollection?.resumes_at)),
+    items: stripeWebhookSubscriptionItems(rawItems),
   };
 }
 

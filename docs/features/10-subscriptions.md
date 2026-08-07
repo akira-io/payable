@@ -85,8 +85,9 @@ provider-hosted page instead of creating it directly - see [09-checkout.md](09-c
 `SubscriptionManager.get()` returns the stored subscription (`Subscription | null`) by name via
 `FindSubscriptionQuery`, without touching the provider. The mutating operations each accept either a
 positional argument or an options object: `swap(priceId, authorization?)` or `swap({ priceId,
-authorization })`, and `updateQuantity(quantity, authorization?)` or `updateQuantity({ quantity,
-authorization })`.
+itemId, authorization })`, and `updateQuantity(quantity, authorization?)` or `updateQuantity({
+quantity, itemId, authorization })`. Positional calls and options without `itemId` target the only
+local item. Multi-item subscriptions require the local item ID and reject ambiguous mutations.
 
 `SubscriptionManager` wraps one action per operation. They all extend `SubscriptionAction`, which:
 
@@ -98,15 +99,16 @@ authorization })`.
 
 ### Swap - `subscription(name).swap(priceId)`
 
-`SwapSubscriptionAction` calls `provider.updateSubscription({ providerSubscriptionId, priceId })`,
-then updates the local `priceId` and `status`, and updates the primary subscription item's price.
-Use to move a customer between plans.
+`SwapSubscriptionAction` resolves one tenant-scoped local item, calls the provider with its mapped
+identity and the complete local item list, then updates that exact local item. Stripe requires a
+stable provider item mapping. Paddle uses the complete list so non-targeted items remain attached.
 
 ### Update quantity - `subscription(name).updateQuantity(qty)`
 
-`UpdateSubscriptionQuantityAction` calls `provider.updateSubscription({ providerSubscriptionId, quantity })`,
-then updates the local `quantity` and `status` and the primary item's quantity. The idempotency key
-includes the quantity as a discriminator, so each distinct quantity gets its own key.
+`UpdateSubscriptionQuantityAction` resolves and updates the same explicit item boundary as `swap`.
+The idempotency key includes the quantity as a discriminator, so each distinct quantity gets its own
+key. Existing rows with null provider mappings are backfilled by unambiguous provider webhook item
+snapshots; Stripe rejects a mutation until that stable mapping exists.
 
 ### Cancel (grace period) - `subscription(name).cancel()`
 

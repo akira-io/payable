@@ -11,6 +11,7 @@ import { PaymentStateMachine } from '../../../domain/states/payment-state-machin
 import { reconcileSubscriptionStatus } from '../../../domain/states/subscription-state-machine';
 import type { WebhookDependencies } from '../../builders/webhook-dependencies';
 import { assertCapableProvider } from '../../services/provider-capabilities/assert-provider-capability';
+import { reconcileProviderSubscriptionItems } from '../../services/subscriptions/reconcile-provider-subscription-items';
 
 export interface ProcessWebhookInput {
   verified: VerifiedWebhook;
@@ -161,6 +162,22 @@ export class ProcessWebhookPipeline {
       providerOccurredAt.getTime() <= local.providerSyncedAt.getTime()
     ) {
       return;
+    }
+    if (dto.items) {
+      const localItems = await repos.subscriptionItems.listBySubscription(local.id, tenantId);
+      const reconciliations = reconcileProviderSubscriptionItems(localItems, dto.items);
+      for (const itemReconciliation of reconciliations) {
+        await repos.subscriptionItems.updateById(
+          local.id,
+          itemReconciliation.itemId,
+          {
+            providerItemId: itemReconciliation.providerItemId,
+            priceId: itemReconciliation.priceId,
+            quantity: itemReconciliation.quantity,
+          },
+          tenantId,
+        );
+      }
     }
     const reconciliation = reconcileSubscriptionStatus(local.status, dto.status);
     if (!reconciliation.applied) {

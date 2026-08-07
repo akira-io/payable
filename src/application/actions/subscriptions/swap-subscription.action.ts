@@ -18,34 +18,48 @@ export class SwapSubscriptionAction extends SubscriptionAction {
     name: string,
     priceId: string,
     authorization?: AuthorizationContext,
+    itemId?: string,
   ): Promise<Subscription> {
     this.authorize((context) => this.policy.authorize(context), authorization, 'swap subscription');
     const provider = this.subscriptionProvider('changePrice');
     const subscription = await this.resolve(billable, name);
+    const selection = await this.selectItem(subscription, itemId);
+    const providerItems = selection.items.map((subscriptionItem) => ({
+      priceId:
+        subscriptionItem.id === selection.selectedItem.id ? priceId : subscriptionItem.priceId,
+      quantity: subscriptionItem.quantity,
+    }));
     const dto = await provider.updateSubscription(
       {
         providerSubscriptionId: subscription.providerSubscriptionId,
         priceId,
-        quantity: subscription.quantity,
+        quantity: selection.selectedItem.quantity,
+        providerItemId: selection.selectedItem.providerItemId,
+        items: providerItems,
       },
       this.context('swap', subscription.providerSubscriptionId, priceId, true),
     );
     return this.storage().transaction(async (repos) => {
+      const patch = {
+        ...(selection.items.length === 1 ? { priceId } : {}),
+        status: this.reconcileStatus(subscription.status, dto.status),
+      };
       const updated = await repos.subscriptions.update(
         subscription.id,
-        { priceId, status: this.reconcileStatus(subscription.status, dto.status) },
+        patch,
         this.deps.tenantId ?? null,
       );
-      await repos.subscriptionItems.updatePrimary(
+      await repos.subscriptionItems.updateById(
         subscription.id,
+        selection.selectedItem.id,
         { priceId },
         this.deps.tenantId ?? null,
       );
       await this.auditWith(repos, {
         action: 'subscription.swapped',
         subscriptionId: subscription.id,
-        before: { priceId: subscription.priceId, status: subscription.status },
-        after: { priceId: updated.priceId, status: updated.status },
+        before: { itemId: selection.selectedItem.id, priceId: selection.selectedItem.priceId },
+        after: { itemId: selection.selectedItem.id, priceId },
         authorization,
       });
       return updated;

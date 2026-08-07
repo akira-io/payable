@@ -170,7 +170,10 @@ export class PaddleProvider
       );
     }
     const paddle = await this.paddle();
-    const items = [{ priceId: input.priceId, quantity: input.quantity ?? 1 }];
+    const items =
+      input.items && input.items.length > 0
+        ? input.items
+        : [{ priceId: input.priceId, quantity: input.quantity ?? 1 }];
     const subscription = await withPaddleErrors(() =>
       paddle.subscriptions.update(input.providerSubscriptionId, {
         items,

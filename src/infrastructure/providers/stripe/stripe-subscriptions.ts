@@ -44,17 +44,13 @@ export class StripeSubscriptions {
     const stripe = await this.client();
     const params: Stripe.SubscriptionUpdateParams = {};
     if (input.priceId !== undefined || input.quantity !== undefined) {
-      const current = await withStripeErrors(() =>
-        stripe.subscriptions.retrieve(input.providerSubscriptionId),
-      );
-      const itemId = current.items.data[0]?.id;
-      if (!itemId) {
+      if (!input.providerItemId) {
         throw new PayableError(
-          `Stripe subscription ${input.providerSubscriptionId} has no item to update`,
+          `Stripe subscription ${input.providerSubscriptionId} has no mapped item to update`,
           { code: 'PROVIDER_SUBSCRIPTION_ITEM_MISSING' },
         );
       }
-      params.items = [{ id: itemId, price: input.priceId, quantity: input.quantity }];
+      params.items = [{ id: input.providerItemId, price: input.priceId, quantity: input.quantity }];
     }
     const subscription = await withStripeErrors(() =>
       stripe.subscriptions.update(input.providerSubscriptionId, params, {

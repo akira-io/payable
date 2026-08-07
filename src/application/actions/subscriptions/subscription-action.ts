@@ -11,6 +11,7 @@ import type { NewSubscription } from '../../../domain/contracts/subscription-rep
 import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import type { Subscription } from '../../../domain/entities/subscription.entity';
+import type { SubscriptionItem } from '../../../domain/entities/subscription-item.entity';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { SubscriptionNotFoundError } from '../../../domain/errors/subscription-not-found.error';
 import { reconcileSubscriptionStatus } from '../../../domain/states/subscription-state-machine';
@@ -29,6 +30,10 @@ import {
 } from '../../services/provider-capabilities/assert-subscription-operation';
 
 export type ManagedSubscription = Subscription & { providerSubscriptionId: string };
+export interface SelectedSubscriptionItem {
+  selectedItem: SubscriptionItem;
+  items: SubscriptionItem[];
+}
 
 export abstract class SubscriptionAction {
   constructor(protected readonly deps: BillingDependencies) {}
@@ -136,6 +141,31 @@ export abstract class SubscriptionAction {
       paymentCollectionPauseBehavior: subscription.paymentCollectionPauseBehavior,
       paymentCollectionResumesAt: subscription.paymentCollectionResumesAt,
     };
+  }
+
+  protected async selectItem(
+    subscription: ManagedSubscription,
+    itemId?: string,
+  ): Promise<SelectedSubscriptionItem> {
+    const items = await this.storage().subscriptionItems.listBySubscription(
+      subscription.id,
+      this.deps.tenantId ?? null,
+    );
+    if (itemId === undefined && items.length !== 1) {
+      throw new PayableError('Subscription item selection is ambiguous', {
+        code: 'SUBSCRIPTION_ITEM_AMBIGUOUS',
+        context: { subscriptionId: subscription.id, itemCount: items.length },
+      });
+    }
+    const selectedItem =
+      itemId === undefined ? items[0] : items.find((candidate) => candidate.id === itemId);
+    if (!selectedItem) {
+      throw new PayableError(`Subscription item ${itemId ?? ''} was not found`, {
+        code: 'SUBSCRIPTION_ITEM_NOT_FOUND',
+        context: { subscriptionId: subscription.id, itemId: itemId ?? null },
+      });
+    }
+    return { selectedItem, items };
   }
 
   protected assertQuantity(quantity: number): void {

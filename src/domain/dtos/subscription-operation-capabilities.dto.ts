@@ -9,6 +9,8 @@ export type SubscriptionProrationPolicy =
 
 export type SubscriptionPaymentFailurePolicy = 'preventChange' | 'applyChange';
 
+export type SubscriptionItemIdentity = 'stable' | 'price' | 'none';
+
 export type SubscriptionResumeBillingPolicy =
   | 'startNewBillingPeriod'
   | 'continueExistingBillingPeriod';
@@ -23,6 +25,7 @@ export interface SubscriptionChangeCapabilities {
 }
 
 export interface SubscriptionOperationCapabilities {
+  readonly itemIdentity: SubscriptionItemIdentity;
   readonly create: Readonly<{ checkout: boolean; direct: boolean }>;
   readonly changePrice: SubscriptionChangeCapabilities;
   readonly changeQuantity: SubscriptionChangeCapabilities;
@@ -49,6 +52,13 @@ export interface SubscriptionOperationCapabilities {
   readonly scheduledChange: Readonly<{ cancel: boolean }>;
 }
 
+type SubscriptionOperationCapabilitiesInput = Omit<
+  SubscriptionOperationCapabilities,
+  'itemIdentity'
+> & {
+  readonly itemIdentity?: SubscriptionItemIdentity;
+};
+
 function freezeChangeCapabilities(
   capabilities: SubscriptionChangeCapabilities,
 ): SubscriptionChangeCapabilities {
@@ -61,9 +71,10 @@ function freezeChangeCapabilities(
 }
 
 export function defineSubscriptionOperationCapabilities(
-  capabilities: SubscriptionOperationCapabilities,
+  capabilities: SubscriptionOperationCapabilitiesInput,
 ): SubscriptionOperationCapabilities {
   return Object.freeze({
+    itemIdentity: capabilities.itemIdentity ?? 'none',
     create: Object.freeze({ ...capabilities.create }),
     changePrice: freezeChangeCapabilities(capabilities.changePrice),
     changeQuantity: freezeChangeCapabilities(capabilities.changeQuantity),
@@ -96,6 +107,7 @@ export function defineSubscriptionOperationCapabilities(
 }
 
 export const NO_SUBSCRIPTION_OPERATIONS = defineSubscriptionOperationCapabilities({
+  itemIdentity: 'none',
   create: { checkout: false, direct: false },
   changePrice: {
     preview: false,

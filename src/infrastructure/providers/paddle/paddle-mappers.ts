@@ -156,6 +156,18 @@ export function toSubscriptionDTO(subscription: PaddleSubscriptionEntity): Subsc
       scheduled?.action === 'pause' || scheduled?.action === 'resume' ? scheduled.action : null,
     scheduledChangeEffectiveAt: scheduled ? new Date(scheduled.effectiveAt) : null,
     scheduledResumeAt: scheduled?.resumeAt ? new Date(scheduled.resumeAt) : null,
+    items: (subscription.items ?? []).flatMap((subscriptionItem) => {
+      if (typeof subscriptionItem.price?.id !== 'string') {
+        return [];
+      }
+      return [
+        {
+          providerItemId: null,
+          priceId: subscriptionItem.price.id,
+          quantity: typeof subscriptionItem.quantity === 'number' ? subscriptionItem.quantity : 1,
+        },
+      ];
+    }),
   };
 }
 

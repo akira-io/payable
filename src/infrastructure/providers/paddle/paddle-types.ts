@@ -42,6 +42,8 @@ export interface PaddleSubscriptionEntity {
   status: string;
   currentBillingPeriod?: { endsAt: string | null } | null;
   items?: ReadonlyArray<{
+    price?: { id?: string } | null;
+    quantity?: number;
     trialDates?: { endsAt?: string | null } | null;
     trial_dates?: { ends_at?: string | null } | null;
   }> | null;

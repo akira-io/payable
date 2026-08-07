@@ -6,6 +6,7 @@ import {
 export function stripeSubscriptionOperationCapabilities() {
   return defineSubscriptionOperationCapabilities({
     ...NO_SUBSCRIPTION_OPERATIONS,
+    itemIdentity: 'stable',
     create: { checkout: true, direct: true },
     changePrice: {
       preview: false,

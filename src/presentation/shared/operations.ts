@@ -63,7 +63,7 @@ export function runSwapSubscription(
   return payable
     .customer(body.billable, undefined, tenantId)
     .subscription(name)
-    .swap(body.price, authorization);
+    .swap({ priceId: body.price, itemId: body.itemId, authorization });
 }
 
 export function runRefund(
