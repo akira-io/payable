@@ -58,6 +58,19 @@ export class KnexCustomerProviderBindingRepository implements CustomerProviderBi
     return row ? this.toEntity(row as Record<string, unknown>) : null;
   }
 
+  async listByCustomerIds(
+    customerIds: readonly string[],
+    tenantId: string | null,
+  ): Promise<CustomerProviderBinding[]> {
+    if (customerIds.length === 0) {
+      return [];
+    }
+    const rows = (await this.scopedQuery(tenantId)
+      .whereIn('binding.customer_id', customerIds)
+      .orderBy('binding.provider', 'asc')) as Record<string, unknown>[];
+    return rows.map((row) => this.toEntity(row));
+  }
+
   private scopedQuery(tenantId: string | null): Knex.QueryBuilder {
     return this.knex(`${TABLE} as binding`)
       .join('payable_customers as customer', 'customer.id', 'binding.customer_id')

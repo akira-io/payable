@@ -1,4 +1,6 @@
 import type {
+  CustomerListQuery,
+  CustomerListResult,
   CustomerRepository,
   NewCustomer,
 } from '../../../../domain/contracts/customer-repository.contract';
@@ -11,6 +13,44 @@ export class KnexCustomerRepository
   implements CustomerRepository
 {
   protected readonly table = 'payable_customers';
+
+  async list(query: CustomerListQuery, tenantId: string | null): Promise<CustomerListResult> {
+    let customers = this.knex(this.table)
+      .whereRaw("COALESCE(tenant_id, '') = ?", [tenantId ?? ''])
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc');
+    if (query.id) {
+      customers = customers.where('id', query.id);
+    }
+    if (query.billableType) {
+      customers = customers.where('billable_type', query.billableType);
+    }
+    if (query.billableId) {
+      customers = customers.where('billable_id', query.billableId);
+    }
+    if (query.email) {
+      customers = customers.whereRaw("LOWER(email) LIKE ? ESCAPE '\\'", [
+        searchPattern(query.email),
+      ]);
+    }
+    if (query.name) {
+      customers = customers.whereRaw("LOWER(name) LIKE ? ESCAPE '\\'", [searchPattern(query.name)]);
+    }
+    if (query.before) {
+      const before = query.before;
+      const createdAt = before.createdAt.toISOString();
+      customers = customers.where((customer) =>
+        customer
+          .where('created_at', '<', createdAt)
+          .orWhere((tie) => tie.where('created_at', createdAt).andWhere('id', '<', before.id)),
+      );
+    }
+    const rows = (await customers.limit(query.limit + 1)) as Record<string, unknown>[];
+    return {
+      items: rows.slice(0, query.limit).map((row) => this.toEntity(row)),
+      hasMore: rows.length > query.limit,
+    };
+  }
 
   async findByBillable(
     billableType: string,
@@ -50,4 +90,9 @@ export class KnexCustomerRepository
       metadata: data.metadata === undefined ? undefined : fromJson(data.metadata),
     };
   }
+}
+
+function searchPattern(search: string): string {
+  const escaped = search.toLocaleLowerCase('en-US').replace(/[\\%_]/gu, '\\$&');
+  return `%${escaped}%`;
 }

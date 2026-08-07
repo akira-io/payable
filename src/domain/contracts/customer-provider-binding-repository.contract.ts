@@ -17,4 +17,8 @@ export interface CustomerProviderBindingRepository {
     providerCustomerId: string,
     tenantId: string | null,
   ): Promise<CustomerProviderBinding | null>;
+  listByCustomerIds?(
+    customerIds: readonly string[],
+    tenantId: string | null,
+  ): Promise<CustomerProviderBinding[]>;
 }

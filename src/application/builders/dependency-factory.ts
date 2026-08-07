@@ -5,6 +5,7 @@ import type { ResolvedConfig } from '../../support/config/payable-config';
 import type { TreasuryProviderRegistry } from '../../treasury-provider-registry';
 import { IdempotencyService } from '../services/idempotency/idempotency-service';
 import type { BillingDependencies } from './billing-dependencies';
+import { CustomerResource } from './customer-resource';
 import type { TreasuryWebhookDependencies } from './treasury-webhook-dependencies';
 import type { WebhookDependencies } from './webhook-dependencies';
 
@@ -34,6 +35,15 @@ export class DependencyFactory {
       catalogIdempotency: configuredIdempotency,
       logger: this.resolved.logger,
     };
+  }
+
+  customerResource(providerName?: string, tenantId?: string | null): CustomerResource {
+    this.assertTenant(tenantId);
+    return new CustomerResource({
+      storage: this.resolved.storage,
+      tenantId: tenantId ?? null,
+      resolveBillingDependencies: () => this.billing(providerName, tenantId),
+    });
   }
 
   webhook(providerName?: string): WebhookDependencies {
