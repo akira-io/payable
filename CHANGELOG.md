@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta6](https://github.com/akira-io/payable/compare/v1.0.0-beta5...v1.0.0-beta6) (2026-08-07)
+
+### Bug Fixes
+
+- **subscriptions:** Advertise Paddle quantity changes ([846805b](https://github.com/akira-io/payable/commit/846805be2454fbd41aca41905ed24225d6b13cae))
+- **subscriptions:** Guard pause state transition ([5050b77](https://github.com/akira-io/payable/commit/5050b7765d776353340d53016de8a2ed6bb98bbe))
+- **subscriptions:** Match duplicate provider items ([9f2b097](https://github.com/akira-io/payable/commit/9f2b0971f8df4df2af76dff372c9f6e91f960534))
+- **subscriptions:** Guard preview application ([f8aec05](https://github.com/akira-io/payable/commit/f8aec05c16119e699402f801bcb95959909c940e))
+- **subscriptions:** Harden pause persistence ([effc994](https://github.com/akira-io/payable/commit/effc994a80a6f92c80144082d905136bc6ad4796))
+- **subscriptions:** Preserve scheduled swap price ([8c039d7](https://github.com/akira-io/payable/commit/8c039d74ace724671479c794172c34a34febc037))
+- **subscriptions:** Reconcile deferred Revolut price ([15d52d2](https://github.com/akira-io/payable/commit/15d52d27fe425d7ee87581ecca10f30ff0cd1f2e))
+
+
+### Features
+
+- **subscriptions:** Expose operation capabilities ([c228c81](https://github.com/akira-io/payable/commit/c228c81a80352399d4bb02239c5378b923bc277b))
+- **subscriptions:** Add local ID resource ([015e204](https://github.com/akira-io/payable/commit/015e204f1157ba8b0153c7f7993d24cad26e71af))
+- **subscriptions:** Target exact provider items ([7ac1051](https://github.com/akira-io/payable/commit/7ac1051d7044a183549a34727d1ed3cdd24a2792))
+- **subscriptions:** Add change previews ([3eb767f](https://github.com/akira-io/payable/commit/3eb767f4b82eb9580905a8cacfdcab3a9fdba8a2))
+- **subscriptions:** Add pause and resume policies ([09ed2c7](https://github.com/akira-io/payable/commit/09ed2c7b6d31e30c30d8be39ad31e453b8e5cd06))
+- **customers:** Add logical customer pagination ([be6918c](https://github.com/akira-io/payable/commit/be6918cdbc4412369f49d4878ed95a75c5230e79))
+
 ## [1.0.0-beta5](https://github.com/akira-io/payable/compare/v1.0.0-beta4...v1.0.0-beta5) (2026-08-05)
 
 ### Bug Fixes
