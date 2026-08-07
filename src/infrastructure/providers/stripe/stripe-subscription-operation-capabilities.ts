@@ -9,16 +9,16 @@ export function stripeSubscriptionOperationCapabilities() {
     itemIdentity: 'stable',
     create: { checkout: true, direct: true },
     changePrice: {
-      preview: false,
+      preview: true,
       effectiveTimings: ['immediate'],
-      prorationPolicies: ['prorateAtNextRenewal'],
-      paymentFailurePolicies: ['applyChange'],
+      prorationPolicies: ['prorateImmediately', 'prorateAtNextRenewal', 'none'],
+      paymentFailurePolicies: ['preventChange', 'applyChange'],
     },
     changeQuantity: {
-      preview: false,
+      preview: true,
       effectiveTimings: ['immediate'],
-      prorationPolicies: ['prorateAtNextRenewal'],
-      paymentFailurePolicies: ['applyChange'],
+      prorationPolicies: ['prorateImmediately', 'prorateAtNextRenewal', 'none'],
+      paymentFailurePolicies: ['preventChange', 'applyChange'],
     },
     cancel: { immediately: true, atPeriodEnd: true },
     resume: {

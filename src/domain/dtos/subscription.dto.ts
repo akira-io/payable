@@ -1,4 +1,9 @@
 import type { SubscriptionStatus } from '../value-objects/subscription-status';
+import type {
+  SubscriptionEffectiveTiming,
+  SubscriptionPaymentFailurePolicy,
+  SubscriptionProrationPolicy,
+} from './subscription-operation-capabilities.dto';
 
 export interface SubscriptionLineItem {
   priceId: string;
@@ -24,6 +29,10 @@ export interface UpdateSubscriptionInput {
   quantity?: number;
   providerItemId?: string | null;
   items?: SubscriptionLineItem[];
+  effectiveTiming?: SubscriptionEffectiveTiming;
+  prorationPolicy?: SubscriptionProrationPolicy;
+  paymentFailurePolicy?: SubscriptionPaymentFailurePolicy;
+  calculatedAt?: Date;
 }
 
 export interface CancelSubscriptionInput {

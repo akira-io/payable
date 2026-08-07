@@ -109,6 +109,8 @@ export class RevolutProvider
   private readonly client: RevolutClient;
   private readonly customers: RevolutCustomers;
   private readonly subscriptions: RevolutSubscriptions;
+  readonly previewSubscriptionChange: RevolutSubscriptions['previewChange'];
+  readonly applySubscriptionChange: RevolutSubscriptions['applyChange'];
   private readonly paymentMethods: RevolutPaymentMethods;
   private readonly paymentMethodSetup: RevolutPaymentMethodSetup;
   private readonly disputes: RevolutDisputes;
@@ -119,6 +121,8 @@ export class RevolutProvider
     const request = this.client.request.bind(this.client);
     this.customers = new RevolutCustomers(request);
     this.subscriptions = new RevolutSubscriptions(request);
+    this.previewSubscriptionChange = this.subscriptions.previewChange.bind(this.subscriptions);
+    this.applySubscriptionChange = this.subscriptions.applyChange.bind(this.subscriptions);
     this.paymentMethods = new RevolutPaymentMethods(request);
     this.paymentMethodSetup = new RevolutPaymentMethodSetup(request);
     this.disputes = new RevolutDisputes(request, this.client.environment);

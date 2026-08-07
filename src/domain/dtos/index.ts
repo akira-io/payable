@@ -121,6 +121,17 @@ export type {
   UpdateSubscriptionInput,
 } from './subscription.dto';
 export type {
+  ApplySubscriptionChangeInput,
+  PreviewSubscriptionChangeInput,
+  ProviderSubscriptionChangeInput,
+  ProviderSubscriptionChangePreview,
+  SubscriptionChangeItem,
+  SubscriptionChangeMoney,
+  SubscriptionChangePolicies,
+  SubscriptionChangePreview,
+  SubscriptionChangeRenewal,
+} from './subscription-change.dto';
+export type {
   SubscriptionChangeCapabilities,
   SubscriptionEffectiveTiming,
   SubscriptionItemIdentity,

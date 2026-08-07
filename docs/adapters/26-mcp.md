@@ -81,6 +81,9 @@ cap it at `MAX_LIST_LIMIT = 100` (`src/presentation/mcp/schemas.ts`).
 | `refund` | money | `payable.refund(...)` |
 | `webhook_replay` | mutate | `payable.replayWebhook(id, context, provider)` |
 
+Subscription swap and quantity tools require `effectiveTiming`, `prorationPolicy`, and
+`paymentFailurePolicy`; adapters do not invent provider defaults.
+
 Catalog list tools return `{ data, nextCursor }`, treat cursors as opaque, default to active entries,
 and accept limits from 1 through 100. `prices_list` also accepts `providerProductId`. MCP exposes
 activation and archival instead of product or price delete tools. Changing price monetary terms

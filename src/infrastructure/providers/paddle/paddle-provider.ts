@@ -19,9 +19,14 @@ import type {
   SubscriptionDTO,
   UpdateSubscriptionInput,
 } from '../../../domain/dtos/subscription.dto';
+import type {
+  ProviderSubscriptionChangeInput,
+  ProviderSubscriptionChangePreview,
+} from '../../../domain/dtos/subscription-change.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
+import { requireSubscriptionChangePolicies } from '../../../domain/validation/subscription-change-policies';
 import { assertSubscriptionPayload } from '../webhook-subscription-payload';
 import { PaddleCatalog } from './paddle-catalog';
 import { buildPaddleClientOptions } from './paddle-client-options';
@@ -34,6 +39,7 @@ import {
   toRefundResultDTO,
   toSubscriptionDTO,
 } from './paddle-mappers';
+import { PaddleSubscriptionChanges, paddleProrationPolicy } from './paddle-subscription-changes';
 import { paddleSubscriptionOperationCapabilities } from './paddle-subscription-operation-capabilities';
 import type { PaddleClient } from './paddle-types';
 import { PaddleWebhookVerifier } from './paddle-webhook-verifier';
@@ -50,6 +56,7 @@ export class PaddleProvider implements PaymentProvider, SubscriptionOperationCap
   private readonly catalog: PaddleCatalog;
   private readonly normalizer: PaddleEventNormalizer;
   private readonly verifier: PaddleWebhookVerifier;
+  private readonly subscriptionChanges: PaddleSubscriptionChanges;
   readonly createProduct: PaddleCatalog['createProduct'];
   readonly updateProduct: PaddleCatalog['updateProduct'];
   readonly createPrice: PaddleCatalog['createPrice'];
@@ -75,6 +82,7 @@ export class PaddleProvider implements PaymentProvider, SubscriptionOperationCap
     this.setPriceActive = this.catalog.setPriceActive.bind(this.catalog);
     this.normalizer = new PaddleEventNormalizer(options.logger);
     this.verifier = new PaddleWebhookVerifier(options.webhookSecret);
+    this.subscriptionChanges = new PaddleSubscriptionChanges(() => this.paddle());
   }
 
   toJSON(): { name: string } {
@@ -150,6 +158,13 @@ export class PaddleProvider implements PaymentProvider, SubscriptionOperationCap
       );
     }
     const paddle = await this.paddle();
+    const policies = requireSubscriptionChangePolicies(input);
+    if (policies.effectiveTiming !== 'immediate') {
+      throw new ProviderCapabilityNotSupportedError(
+        'paddle',
+        `subscriptions.change.${policies.effectiveTiming}`,
+      );
+    }
     const items =
       input.items && input.items.length > 0
         ? input.items
@@ -157,10 +172,26 @@ export class PaddleProvider implements PaymentProvider, SubscriptionOperationCap
     const subscription = await withPaddleErrors(() =>
       paddle.subscriptions.update(input.providerSubscriptionId, {
         items,
-        prorationBillingMode: 'prorated_immediately',
+        prorationBillingMode: paddleProrationPolicy(policies.prorationPolicy),
+        onPaymentFailure:
+          policies.paymentFailurePolicy === 'preventChange' ? 'prevent_change' : 'apply_change',
       }),
     );
     return toSubscriptionDTO(subscription);
+  }
+
+  previewSubscriptionChange(
+    input: ProviderSubscriptionChangeInput,
+    ctx: OperationContext,
+  ): Promise<ProviderSubscriptionChangePreview> {
+    return this.subscriptionChanges.preview(input, ctx);
+  }
+
+  applySubscriptionChange(
+    input: ProviderSubscriptionChangeInput,
+    ctx: OperationContext,
+  ): Promise<SubscriptionDTO> {
+    return this.subscriptionChanges.apply(input, ctx);
   }
 
   async cancelSubscription(

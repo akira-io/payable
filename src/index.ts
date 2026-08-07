@@ -22,12 +22,14 @@ export {
   RefundPaymentAction,
   type RefundPaymentActionInput,
 } from './application/actions/refunds/refund-payment.action';
+export { ApplySubscriptionChangeAction } from './application/actions/subscriptions/apply-subscription-change.action';
 export { CancelSubscriptionAction } from './application/actions/subscriptions/cancel-subscription.action';
 export { CancelSubscriptionNowAction } from './application/actions/subscriptions/cancel-subscription-now.action';
 export {
   CreateSubscriptionAction,
   type CreateSubscriptionInputData,
 } from './application/actions/subscriptions/create-subscription.action';
+export { PreviewSubscriptionChangeAction } from './application/actions/subscriptions/preview-subscription-change.action';
 export { ResumeSubscriptionAction } from './application/actions/subscriptions/resume-subscription.action';
 export { SwapSubscriptionAction } from './application/actions/subscriptions/swap-subscription.action';
 export { UpdateSubscriptionQuantityAction } from './application/actions/subscriptions/update-subscription-quantity.action';
@@ -116,6 +118,7 @@ export {
   assertSubscriptionOperation,
   type SubscriptionOperation,
 } from './application/services/provider-capabilities/assert-subscription-operation';
+export { SubscriptionChangePreviewStore } from './application/services/subscriptions/subscription-change-preview-store';
 export {
   type PinnedFetchInit,
   type WebhookDeliveryOptions,

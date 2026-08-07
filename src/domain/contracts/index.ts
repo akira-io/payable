@@ -135,6 +135,8 @@ export type { NewProduct, ProductPatch, ProductRepository } from './product-repo
 export type { JobHandler, QueueDriver, QueueJob } from './queue-driver.contract';
 export type { NewRefund, RefundRepository } from './refund-repository.contract';
 export type { Repositories, StorageDriver } from './storage-driver.contract';
+export type { SubscriptionChangeCapable } from './subscription-change-provider.contract';
+export { isSubscriptionChangeCapable } from './subscription-change-provider.contract';
 export type {
   NewSubscriptionItem,
   SubscriptionItemRepository,

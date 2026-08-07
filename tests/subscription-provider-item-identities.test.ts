@@ -11,6 +11,12 @@ import { toSubscriptionDTO as toStripeSubscriptionDTO } from '../src/infrastruct
 import { StripeProvider } from '../src/infrastructure/providers/stripe/stripe-provider';
 
 const context = { correlationId: 'corr-1', idempotencyKey: 'idem-1' };
+const changePolicies = {
+  effectiveTiming: 'immediate' as const,
+  prorationPolicy: 'prorateImmediately' as const,
+  paymentFailurePolicy: 'preventChange' as const,
+  calculatedAt: new Date('2026-08-07T10:00:00.000Z'),
+};
 
 describe('subscription provider item identities', () => {
   it('matches duplicate prices by quantity before provider response order', () => {
@@ -126,6 +132,7 @@ describe('subscription provider item identities', () => {
         providerItemId: 'si_target',
         priceId: 'price_x',
         quantity: 3,
+        ...changePolicies,
       },
       context,
     );
@@ -158,6 +165,7 @@ describe('subscription provider item identities', () => {
           { priceId: 'pri_new', quantity: 4 },
           { priceId: 'pri_meter', quantity: 9 },
         ],
+        ...changePolicies,
       },
       context,
     );
@@ -169,6 +177,7 @@ describe('subscription provider item identities', () => {
         { priceId: 'pri_meter', quantity: 9 },
       ],
       prorationBillingMode: 'prorated_immediately',
+      onPaymentFailure: 'prevent_change',
     });
   });
 });

@@ -8,6 +8,11 @@ import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
 
 const billable = { billableType: 'User', billableId: '1', email: 'user@example.com', name: 'User' };
+const changePolicies = {
+  effectiveTiming: 'immediate' as const,
+  prorationPolicy: 'prorateImmediately' as const,
+  paymentFailurePolicy: 'preventChange' as const,
+};
 
 describe('subscription storage', () => {
   it('writes an audit log atomically when swapping a plan', async () => {
@@ -21,7 +26,10 @@ describe('subscription storage', () => {
       .price('price_pro')
       .create();
 
-    await payable.customer(billable).subscription('default').swap('price_business');
+    await payable
+      .customer(billable)
+      .subscription('default')
+      .swap({ priceId: 'price_business', ...changePolicies });
 
     const logs = await storage.auditLogs.list({
       resourceType: 'subscription',
