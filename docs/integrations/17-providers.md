@@ -204,13 +204,21 @@ that the first provider item is primary.
 | Preview change | yes | yes | no | yes |
 | Cancel immediately | yes | yes | no | yes |
 | Cancel at period end | yes | yes | no | no |
-| Pause | no | no | no | no |
+| Pause subscription timing | no | immediate, next renewal | no | no |
+| Pause scheduled resume | no | yes | no | no |
+| Pause resume billing policy | no | new billing period, existing billing period | no | no |
+| Pause payment collection | keep as draft, mark uncollectible, void | no | no | no |
+| Payment collection scheduled resume | yes | no | no | no |
 | Resume pending cancellation | yes | no | no | no |
-| Resume paused subscription | no | yes, new billing period | no | no |
+| Resume paused subscription timing | no | immediate, scheduled | no | no |
+| Resume paused subscription billing | no | new billing period, existing billing period | no | no |
+| Resume payment collection | yes | no | no | no |
+| Cancel scheduled change | no | yes | no | no |
 
 This matrix describes the current Payable adapters, not every feature offered by the external
-providers. For example, Paddle offers pause operations, but the Payable adapter does not expose them
-yet and therefore reports them as unsupported.
+providers. Lifecycle pause and payment-collection pause are deliberately separate operations. Stripe
+payment-collection pause leaves the subscription lifecycle status unchanged; Paddle lifecycle pause
+changes the subscription state. SISP and Revolut advertise neither operation.
 
 Stripe and Paddle return provider-calculated monetary previews. Revolut has no monetary change-plan
 preview endpoint, so Payable returns a structural next-renewal preview with unknown amounts as

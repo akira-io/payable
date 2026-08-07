@@ -86,6 +86,15 @@ describe('public API surface', () => {
     expect(typeof payable.SubscriptionChangePreviewStore).toBe('function');
     expect(typeof payable.SubscriptionChangePreviewError).toBe('function');
     expect(typeof payable.isSubscriptionChangeCapable).toBe('function');
+    expect(typeof payable.PauseSubscriptionAction).toBe('function');
+    expect(typeof payable.ResumePausedSubscriptionAction).toBe('function');
+    expect(typeof payable.PausePaymentCollectionAction).toBe('function');
+    expect(typeof payable.ResumePaymentCollectionAction).toBe('function');
+    expect(typeof payable.CancelScheduledSubscriptionChangeAction).toBe('function');
+    expect(typeof payable.isSubscriptionPauseCapable).toBe('function');
+    expect(typeof payable.isPausedSubscriptionResumeCapable).toBe('function');
+    expect(typeof payable.isSubscriptionPaymentCollectionCapable).toBe('function');
+    expect(typeof payable.isScheduledSubscriptionChangeCapable).toBe('function');
   });
 
   it('exports AuthorizationContext on the public surface', () => {

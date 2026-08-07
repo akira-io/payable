@@ -1,3 +1,7 @@
+import type { PrismaSubscriptionRow } from './prisma-subscription-row.types';
+
+export type { PrismaSubscriptionRow } from './prisma-subscription-row.types';
+
 export interface PrismaCustomerRow {
   id: string;
   tenantId: string | null;
@@ -46,25 +50,6 @@ export interface PrismaPriceRow {
   interval: string | null;
   intervalCount: number | null;
   active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface PrismaSubscriptionRow {
-  id: string;
-  tenantId: string | null;
-  customerId: string;
-  name: string;
-  provider: string;
-  providerSubscriptionId: string | null;
-  status: string;
-  priceId: string | null;
-  quantity: number;
-  trialEndsAt: Date | null;
-  endsAt: Date | null;
-  currentPeriodStart: Date | null;
-  currentPeriodEnd: Date | null;
-  providerSyncedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

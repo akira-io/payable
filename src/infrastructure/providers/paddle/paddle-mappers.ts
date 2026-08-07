@@ -104,11 +104,27 @@ export function toPaddleSubscriptionEntity(
     typeof period === 'object' && period !== null && 'endsAt' in period
       ? (period as { endsAt?: unknown }).endsAt
       : null;
+  const rawScheduledChange = data.scheduledChange ?? data.scheduled_change;
+  const scheduledChange =
+    typeof rawScheduledChange === 'object' && rawScheduledChange !== null
+      ? (rawScheduledChange as Record<string, unknown>)
+      : null;
+  const action = scheduledChange?.action;
+  const effectiveAt = scheduledChange?.effectiveAt ?? scheduledChange?.effective_at;
+  const resumeAt = scheduledChange?.resumeAt ?? scheduledChange?.resume_at;
   return {
     id: data.id as string,
     status: data.status as string,
     currentBillingPeriod: { endsAt: typeof endsAt === 'string' ? endsAt : null },
     items: Array.isArray(data.items) ? (data.items as PaddleSubscriptionEntity['items']) : null,
+    scheduledChange:
+      (action === 'pause' || action === 'resume') && typeof effectiveAt === 'string'
+        ? {
+            action,
+            effectiveAt,
+            resumeAt: typeof resumeAt === 'string' ? resumeAt : null,
+          }
+        : null,
   };
 }
 
@@ -130,11 +146,16 @@ export function toSubscriptionDTO(subscription: PaddleSubscriptionEntity): Subsc
   const endsAt = subscription.currentBillingPeriod?.endsAt ?? null;
   const periodEnd = endsAt ? new Date(endsAt) : null;
   const trialEnd = readTrialEndsAt(subscription);
+  const scheduled = subscription.scheduledChange;
   return {
     providerSubscriptionId: subscription.id,
     status,
     currentPeriodEnd: periodEnd,
     trialEndsAt: trialEnd ? new Date(trialEnd) : null,
+    scheduledChangeAction:
+      scheduled?.action === 'pause' || scheduled?.action === 'resume' ? scheduled.action : null,
+    scheduledChangeEffectiveAt: scheduled ? new Date(scheduled.effectiveAt) : null,
+    scheduledResumeAt: scheduled?.resumeAt ? new Date(scheduled.resumeAt) : null,
     items: (subscription.items ?? []).flatMap((subscriptionItem) => {
       if (typeof subscriptionItem.price?.id !== 'string') {
         return [];

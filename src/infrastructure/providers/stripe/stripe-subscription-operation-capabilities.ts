@@ -21,9 +21,17 @@ export function stripeSubscriptionOperationCapabilities() {
       paymentFailurePolicies: ['preventChange', 'applyChange'],
     },
     cancel: { immediately: true, atPeriodEnd: true },
+    pause: {
+      ...NO_SUBSCRIPTION_OPERATIONS.pause,
+      paymentCollection: {
+        behaviors: ['keepAsDraft', 'markUncollectible', 'void'],
+        scheduledResume: true,
+      },
+    },
     resume: {
       ...NO_SUBSCRIPTION_OPERATIONS.resume,
       pendingCancellation: true,
+      paymentCollection: true,
     },
   });
 }

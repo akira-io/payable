@@ -1,5 +1,10 @@
 import type { Logger } from '../../../domain/contracts/logger.contract';
 import type { PaymentProvider } from '../../../domain/contracts/payment-provider.contract';
+import type {
+  PausedSubscriptionResumeCapable,
+  ScheduledSubscriptionChangeCapable,
+  SubscriptionPauseCapable,
+} from '../../../domain/contracts/subscription-lifecycle-provider.contract';
 import type { SubscriptionOperationCapabilitiesProvider } from '../../../domain/contracts/subscription-operation-capabilities-provider.contract';
 import type { BillingPortalDTO, BillingPortalInput } from '../../../domain/dtos/billing-portal.dto';
 import type { ProviderCapabilities } from '../../../domain/dtos/capabilities.dto';
@@ -19,10 +24,6 @@ import type {
   SubscriptionDTO,
   UpdateSubscriptionInput,
 } from '../../../domain/dtos/subscription.dto';
-import type {
-  ProviderSubscriptionChangeInput,
-  ProviderSubscriptionChangePreview,
-} from '../../../domain/dtos/subscription-change.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
@@ -40,6 +41,7 @@ import {
   toSubscriptionDTO,
 } from './paddle-mappers';
 import { PaddleSubscriptionChanges, paddleProrationPolicy } from './paddle-subscription-changes';
+import { PaddleSubscriptionLifecycle } from './paddle-subscription-lifecycle';
 import { paddleSubscriptionOperationCapabilities } from './paddle-subscription-operation-capabilities';
 import type { PaddleClient } from './paddle-types';
 import { PaddleWebhookVerifier } from './paddle-webhook-verifier';
@@ -51,12 +53,30 @@ export interface PaddleProviderOptions {
   logger?: Logger;
 }
 
-export class PaddleProvider implements PaymentProvider, SubscriptionOperationCapabilitiesProvider {
+export class PaddleProvider
+  implements
+    PaymentProvider,
+    SubscriptionOperationCapabilitiesProvider,
+    SubscriptionPauseCapable,
+    PausedSubscriptionResumeCapable,
+    ScheduledSubscriptionChangeCapable
+{
   readonly name = 'paddle';
   private readonly catalog: PaddleCatalog;
   private readonly normalizer: PaddleEventNormalizer;
   private readonly verifier: PaddleWebhookVerifier;
-  private readonly subscriptionChanges: PaddleSubscriptionChanges;
+  private readonly subscriptionChanges = new PaddleSubscriptionChanges(() => this.paddle());
+  private readonly subscriptionLifecycle = new PaddleSubscriptionLifecycle(() => this.paddle());
+  readonly previewSubscriptionChange = this.subscriptionChanges.preview.bind(
+    this.subscriptionChanges,
+  );
+  readonly applySubscriptionChange = this.subscriptionChanges.apply.bind(this.subscriptionChanges);
+  readonly pauseSubscription = this.subscriptionLifecycle.pause.bind(this.subscriptionLifecycle);
+  readonly resumePausedSubscription = this.subscriptionLifecycle.resume.bind(
+    this.subscriptionLifecycle,
+  );
+  readonly cancelScheduledSubscriptionChange =
+    this.subscriptionLifecycle.cancelScheduledChange.bind(this.subscriptionLifecycle);
   readonly createProduct: PaddleCatalog['createProduct'];
   readonly updateProduct: PaddleCatalog['updateProduct'];
   readonly createPrice: PaddleCatalog['createPrice'];
@@ -82,7 +102,6 @@ export class PaddleProvider implements PaymentProvider, SubscriptionOperationCap
     this.setPriceActive = this.catalog.setPriceActive.bind(this.catalog);
     this.normalizer = new PaddleEventNormalizer(options.logger);
     this.verifier = new PaddleWebhookVerifier(options.webhookSecret);
-    this.subscriptionChanges = new PaddleSubscriptionChanges(() => this.paddle());
   }
 
   toJSON(): { name: string } {
@@ -178,20 +197,6 @@ export class PaddleProvider implements PaymentProvider, SubscriptionOperationCap
       }),
     );
     return toSubscriptionDTO(subscription);
-  }
-
-  previewSubscriptionChange(
-    input: ProviderSubscriptionChangeInput,
-    ctx: OperationContext,
-  ): Promise<ProviderSubscriptionChangePreview> {
-    return this.subscriptionChanges.preview(input, ctx);
-  }
-
-  applySubscriptionChange(
-    input: ProviderSubscriptionChangeInput,
-    ctx: OperationContext,
-  ): Promise<SubscriptionDTO> {
-    return this.subscriptionChanges.apply(input, ctx);
   }
 
   async cancelSubscription(

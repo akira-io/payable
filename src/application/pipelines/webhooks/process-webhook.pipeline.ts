@@ -184,12 +184,35 @@ export class ProcessWebhookPipeline {
       return;
     }
     const status = reconciliation.status;
+    const completedScheduledLifecycleChange =
+      status === 'active' &&
+      dto.scheduledChangeAction === null &&
+      dto.scheduledChangeEffectiveAt === null &&
+      dto.scheduledResumeAt === null;
     const patch: Partial<NewSubscription> = {
       status,
       currentPeriodEnd: dto.currentPeriodEnd,
       trialEndsAt: dto.trialEndsAt,
       ...(providerOccurredAt ? { providerSyncedAt: providerOccurredAt } : {}),
       ...(status === 'canceled' ? { endsAt: dto.currentPeriodEnd ?? occurredAt } : {}),
+      ...(dto.scheduledChangeAction !== undefined
+        ? { scheduledChangeAction: dto.scheduledChangeAction }
+        : {}),
+      ...(dto.scheduledChangeEffectiveAt !== undefined
+        ? { scheduledChangeEffectiveAt: dto.scheduledChangeEffectiveAt }
+        : {}),
+      ...(dto.scheduledResumeAt !== undefined ? { scheduledResumeAt: dto.scheduledResumeAt } : {}),
+      ...(dto.resumeBillingPolicy !== undefined
+        ? { resumeBillingPolicy: dto.resumeBillingPolicy }
+        : completedScheduledLifecycleChange
+          ? { resumeBillingPolicy: null }
+          : {}),
+      ...(dto.paymentCollectionPauseBehavior !== undefined
+        ? { paymentCollectionPauseBehavior: dto.paymentCollectionPauseBehavior }
+        : {}),
+      ...(dto.paymentCollectionResumesAt !== undefined
+        ? { paymentCollectionResumesAt: dto.paymentCollectionResumesAt }
+        : {}),
     };
     await repos.subscriptions.update(local.id, patch, tenantId);
   }

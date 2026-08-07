@@ -3,6 +3,10 @@ import type {
   NewSubscription,
   SubscriptionRepository,
 } from '../../../../domain/contracts/subscription-repository.contract';
+import type {
+  SubscriptionPaymentCollectionBehavior,
+  SubscriptionResumeBillingPolicy,
+} from '../../../../domain/dtos/subscription-operation-capabilities.dto';
 import type { Subscription } from '../../../../domain/entities/subscription.entity';
 import type { SubscriptionStatus } from '../../../../domain/value-objects/subscription-status';
 import { KnexRepository } from '../knex-repository';
@@ -60,6 +64,15 @@ export class KnexSubscriptionRepository
       currentPeriodStart: toNullableDate(row.current_period_start),
       currentPeriodEnd: toNullableDate(row.current_period_end),
       providerSyncedAt: toNullableDate(row.provider_synced_at),
+      scheduledChangeAction: (row.scheduled_change_action as 'pause' | 'resume' | null) ?? null,
+      scheduledChangeEffectiveAt: toNullableDate(row.scheduled_change_effective_at),
+      scheduledResumeAt: toNullableDate(row.scheduled_resume_at),
+      resumeBillingPolicy:
+        (row.resume_billing_policy as SubscriptionResumeBillingPolicy | null) ?? null,
+      paymentCollectionPauseBehavior:
+        (row.payment_collection_pause_behavior as SubscriptionPaymentCollectionBehavior | null) ??
+        null,
+      paymentCollectionResumesAt: toNullableDate(row.payment_collection_resumes_at),
       createdAt: toDate(row.created_at),
       updatedAt: toDate(row.updated_at),
     };
@@ -80,6 +93,12 @@ export class KnexSubscriptionRepository
       current_period_start: fromDate(data.currentPeriodStart),
       current_period_end: fromDate(data.currentPeriodEnd),
       provider_synced_at: fromDate(data.providerSyncedAt),
+      scheduled_change_action: data.scheduledChangeAction,
+      scheduled_change_effective_at: fromDate(data.scheduledChangeEffectiveAt),
+      scheduled_resume_at: fromDate(data.scheduledResumeAt),
+      resume_billing_policy: data.resumeBillingPolicy,
+      payment_collection_pause_behavior: data.paymentCollectionPauseBehavior,
+      payment_collection_resumes_at: fromDate(data.paymentCollectionResumesAt),
     };
   }
 }

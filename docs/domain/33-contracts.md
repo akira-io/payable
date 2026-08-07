@@ -197,6 +197,10 @@ export interface PaymentProvider {
 | `CatalogLifecycleCapable` | `setProductActive`, `setPriceActive` | `isCatalogLifecycleCapable` |
 | `PriceLookupKeyCapable` | keyed `createPrice`, keyed `listPrices`, `transferPriceLookupKey` | `isPriceLookupKeyCapable` |
 | `SubscriptionManagementCapable` | `updateSubscription`, `cancelSubscription`, `resumeSubscription` | `isSubscriptionManagementCapable` |
+| `SubscriptionPauseCapable` | `pauseSubscription` | `isSubscriptionPauseCapable` |
+| `PausedSubscriptionResumeCapable` | `resumePausedSubscription` | `isPausedSubscriptionResumeCapable` |
+| `SubscriptionPaymentCollectionCapable` | `pausePaymentCollection`, `resumePaymentCollection` | `isSubscriptionPaymentCollectionCapable` |
+| `ScheduledSubscriptionChangeCapable` | `cancelScheduledSubscriptionChange` | `isScheduledSubscriptionChangeCapable` |
 | `DirectSubscriptionCapable` | `createSubscription` | `isDirectSubscriptionCapable` |
 | `ChargeCapable` | `charge` | `isChargeCapable` |
 | `InvoiceCapable` | `listInvoices`, `downloadInvoicePdf` | `isInvoiceCapable` |
@@ -207,6 +211,12 @@ export interface PaymentProvider {
 | `RedirectCallbackCapable` | `verifyCallback`, `handleRedirectCallback` | `isRedirectCallbackCapable` |
 
 Implementations: `StripeProvider` (charge, direct subscription, invoice, and more), `PaddleProvider`, and `SispProvider` (redirect-callback based). See [Providers](../integrations/17-providers.md) for the capability matrix.
+
+The lifecycle interfaces are intentionally narrow. A provider may implement lifecycle pause without
+payment-collection pause, or the inverse. The serializable subscription-operation descriptor then
+declares the precise timings, collection behaviors, scheduled-resume support, and resume billing
+policies accepted by that implementation. Callers must check both the interface and the descriptor;
+the application actions enforce both before invoking the provider.
 
 ### Catalog provider contracts
 

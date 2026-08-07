@@ -106,3 +106,38 @@ describe('prisma encryption at rest', () => {
     expect(event?.data).toEqual({ email: 'event@example.com' });
   });
 });
+
+describe('prisma subscription lifecycle metadata', () => {
+  it('writes and reads lifecycle scheduling fields through the storage driver', async () => {
+    const created = await storage.subscriptions.create({
+      tenantId: null,
+      customerId: 'prisma-lifecycle-customer',
+      name: 'prisma-lifecycle-subscription',
+      provider: 'paddle',
+      providerSubscriptionId: 'sub_prisma_lifecycle',
+      status: 'active',
+      priceId: 'price_prisma_lifecycle',
+      quantity: 1,
+      trialEndsAt: null,
+      endsAt: null,
+      currentPeriodStart: new Date('2026-08-01T00:00:00.000Z'),
+      currentPeriodEnd: new Date('2026-09-01T00:00:00.000Z'),
+      providerSyncedAt: new Date('2026-08-07T10:00:00.000Z'),
+      scheduledChangeAction: 'pause',
+      scheduledChangeEffectiveAt: new Date('2026-09-01T00:00:00.000Z'),
+      scheduledResumeAt: new Date('2026-10-01T00:00:00.000Z'),
+      resumeBillingPolicy: 'continueExistingBillingPeriod',
+      paymentCollectionPauseBehavior: 'keepAsDraft',
+      paymentCollectionResumesAt: new Date('2026-09-15T00:00:00.000Z'),
+    });
+
+    expect(await storage.subscriptions.findById(created.id)).toMatchObject({
+      scheduledChangeAction: 'pause',
+      scheduledChangeEffectiveAt: new Date('2026-09-01T00:00:00.000Z'),
+      scheduledResumeAt: new Date('2026-10-01T00:00:00.000Z'),
+      resumeBillingPolicy: 'continueExistingBillingPeriod',
+      paymentCollectionPauseBehavior: 'keepAsDraft',
+      paymentCollectionResumesAt: new Date('2026-09-15T00:00:00.000Z'),
+    });
+  });
+});

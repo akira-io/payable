@@ -1,8 +1,9 @@
 # Paddle Provider
 
 `PaddleProvider` (`src/infrastructure/providers/paddle/paddle-provider.ts`) implements the base
-`PaymentProvider` contract. Unlike Stripe, it implements **none** of the optional interfaces
-(`ChargeCapable`, `DirectSubscriptionCapable`, `InvoiceCapable`). Its registry `name` is `'paddle'`.
+`PaymentProvider` contract. It implements catalog, subscription-management, lifecycle-pause, webhook,
+customer, and billing-portal capability interfaces, but not `ChargeCapable`,
+`DirectSubscriptionCapable`, or `InvoiceCapable`. Its registry `name` is `'paddle'`.
 
 ## Construction and options
 
@@ -64,6 +65,39 @@ are:
   scenarios). `meteredBilling` is absent, the same as Stripe.
 - **No `priceLookupKeys`.** Paddle does not implement `PriceLookupKeyCapable`; keyed price creation,
   lookup-key list filtering, and atomic lookup-key transfer are unavailable.
+
+## Subscription lifecycle pause and resume
+
+`PaddleProvider` implements `SubscriptionPauseCapable`, `PausedSubscriptionResumeCapable`, and
+`ScheduledSubscriptionChangeCapable`. Payable sends every policy field explicitly instead of relying
+on Paddle defaults:
+
+| Payable policy | Paddle request |
+| --- | --- |
+| pause `effectiveTiming: 'immediate'` | `effective_from: 'immediately'` |
+| pause `effectiveTiming: 'nextRenewal'` | `effective_from: 'next_billing_period'` |
+| `resumeAt: Date` / `null` | RFC 3339 `resume_at` / `null` |
+| `startNewBillingPeriod` | `on_resume: 'start_new_billing_period'` |
+| `continueExistingBillingPeriod` | `on_resume: 'continue_existing_billing_period'` |
+| immediate resume | `effective_from: 'immediately'` |
+| scheduled resume | RFC 3339 `effective_from` |
+
+An immediate pause maps the returned status to `paused`. A next-renewal pause remains active until
+Paddle applies its `scheduled_change`. A scheduled resume remains paused until its effective date.
+The mapper persists `scheduled_change.action`, `effective_at`, and `resume_at`; webhook reconciliation
+updates the same normalized fields.
+
+Removing a scheduled change is a separate explicit operation:
+`cancelScheduledSubscriptionChange()` updates the subscription with `scheduled_change: null`.
+Replacement workflows must cancel the existing change and then submit the new policy. Normal pause
+and resume requests never clear a scheduled change implicitly.
+
+Official Paddle subscription references:
+
+- [Pause a subscription](https://developer.paddle.com/api-reference/subscriptions/pause-subscription/)
+- [Resume a paused subscription](https://developer.paddle.com/api-reference/subscriptions/resume-subscription/)
+- [Update a subscription](https://developer.paddle.com/api-reference/subscriptions/update-subscription/)
+- [Pause subscription workflows](https://developer.paddle.com/build/subscriptions/pause-subscriptions/)
 
 ## Catalog lifecycle
 
