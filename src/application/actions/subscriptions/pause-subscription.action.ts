@@ -8,6 +8,7 @@ import {
   validatePauseSubscriptionResumeBoundary,
 } from '../../../domain/dtos/subscription-pause-policy.dto';
 import type { Subscription } from '../../../domain/entities/subscription.entity';
+import { SubscriptionStateMachine } from '../../../domain/states/subscription-state-machine';
 import type { Billable } from '../../builders/billable';
 import type { AuthorizationContext } from '../../policies/authorization-context';
 import { CanUpdateSubscriptionPolicy } from '../../policies/can-update-subscription.policy';
@@ -37,6 +38,7 @@ export class PauseSubscriptionAction extends SubscriptionAction {
     assertPauseSubscriptionPolicySupported(provider, policy);
     const subscription = await this.resolve(billable, name);
     validatePauseSubscriptionResumeBoundary(policy, subscription.currentPeriodEnd);
+    new SubscriptionStateMachine(subscription.status).pause();
     const dto = await provider.pauseSubscription(
       { providerSubscriptionId: subscription.providerSubscriptionId, ...policy },
       this.context('pause', subscription.providerSubscriptionId, JSON.stringify(policy)),

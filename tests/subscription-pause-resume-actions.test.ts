@@ -168,6 +168,38 @@ describe('subscription pause and resume actions', () => {
     expect(actions).not.toContain('subscription.paused');
   });
 
+  it.each([
+    { status: 'past_due', effectiveTiming: 'immediate' },
+    { status: 'unpaid', effectiveTiming: 'nextRenewal' },
+  ] as const)('rejects a $effectiveTiming pause from $status before provider or local writes', async ({
+    status,
+    effectiveTiming,
+  }) => {
+    const provider = new SubscriptionLifecycleProvider();
+    const { payable, storage, subscription } = await setup(provider);
+    await storage.subscriptions.update(subscription.id, { status }, null);
+    const auditCount = (
+      await storage.auditLogs.list({ resourceType: 'subscription', resourceId: subscription.id })
+    ).length;
+
+    await expect(
+      payable.customer(billable).subscription('default').pauseSubscription({
+        effectiveTiming,
+        resumeAt: null,
+        resumeBillingPolicy: 'startNewBillingPeriod',
+      }),
+    ).rejects.toMatchObject({
+      code: 'INVALID_STATE_TRANSITION',
+      context: { machine: 'subscription', from: status, transition: 'pause' },
+    });
+
+    expect(provider.pauseCalls).toBe(0);
+    expect(await storage.subscriptions.findById(subscription.id)).toMatchObject({ status });
+    expect(
+      await storage.auditLogs.list({ resourceType: 'subscription', resourceId: subscription.id }),
+    ).toHaveLength(auditCount);
+  });
+
   it('rejects an unsupported policy before calling the provider', async () => {
     class StartNewOnlyProvider extends SubscriptionLifecycleProvider {
       override subscriptionOperationCapabilities() {

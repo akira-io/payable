@@ -93,6 +93,7 @@ model PayableSubscription {
   endsAt                 DateTime?                 @map("ends_at")
   currentPeriodStart     DateTime?                 @map("current_period_start")
   currentPeriodEnd       DateTime?                 @map("current_period_end")
+  providerSyncedAt       DateTime?                 @map("provider_synced_at")
   scheduledChangeAction  String?                   @map("scheduled_change_action")
   scheduledChangeEffectiveAt DateTime?             @map("scheduled_change_effective_at")
   scheduledResumeAt      DateTime?                 @map("scheduled_resume_at")
