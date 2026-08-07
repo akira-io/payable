@@ -38,6 +38,7 @@ import type {
   CancelSubscriptionInput,
   CreateSubscriptionInput,
   SubscriptionDTO,
+  SubscriptionProviderItemDTO,
   UpdateSubscriptionInput,
 } from '../../src/domain/dtos/subscription.dto';
 import {
@@ -67,6 +68,7 @@ export class FakeProvider
   paymentReconcileResult?: PaymentWebhookReconciliation | null;
   lastVerifyInput?: WebhookVerificationInput;
   createdSubscriptions = 0;
+  createdSubscriptionItems?: SubscriptionProviderItemDTO[];
   lastSubscriptionUpdate?: UpdateSubscriptionInput;
   lastSubscriptionUpdateCtx?: OperationContext;
   lastCreateSubscription?: CreateSubscriptionInput;
@@ -195,6 +197,7 @@ export class FakeProvider
       status: input.trialDays !== undefined ? 'trialing' : 'active',
       currentPeriodEnd: PERIOD_END,
       trialEndsAt: input.trialDays !== undefined ? TRIAL_END : null,
+      items: this.createdSubscriptionItems,
     };
   }
 

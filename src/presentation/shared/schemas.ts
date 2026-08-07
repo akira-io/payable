@@ -90,6 +90,7 @@ export const manageSubscriptionBodySchema = z.object({ billable: billableSchema 
 
 export const swapSubscriptionBodySchema = z.object({
   billable: billableSchema,
+  itemId: z.string().min(1).optional(),
   price: z.string().min(1),
 });
 

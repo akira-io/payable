@@ -52,10 +52,36 @@ export class KnexSubscriptionItemRepository
     if (patch.priceId !== undefined) {
       changes.price_id = patch.priceId;
     }
+    if (patch.providerItemId !== undefined) {
+      changes.provider_item_id = patch.providerItemId;
+    }
     if (patch.quantity !== undefined) {
       changes.quantity = patch.quantity;
     }
     await this.knex(this.table).where({ id: first.id }).update(changes);
+  }
+
+  async updateById(
+    subscriptionId: string,
+    itemId: string,
+    patch: SubscriptionItemPatch,
+    tenantId?: string | null,
+  ): Promise<void> {
+    const query = this.knex(this.table).where({ id: itemId, subscription_id: subscriptionId });
+    if (tenantId !== undefined) {
+      query.whereExists(this.subscriptionScope(subscriptionId, tenantId));
+    }
+    const changes: Record<string, unknown> = { updated_at: this.clock.now().toISOString() };
+    if (patch.priceId !== undefined) {
+      changes.price_id = patch.priceId;
+    }
+    if (patch.providerItemId !== undefined) {
+      changes.provider_item_id = patch.providerItemId;
+    }
+    if (patch.quantity !== undefined) {
+      changes.quantity = patch.quantity;
+    }
+    await query.update(changes);
   }
 
   private subscriptionScope(subscriptionId: string, tenantId: string | null): Knex.QueryBuilder {

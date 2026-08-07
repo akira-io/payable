@@ -11,11 +11,13 @@ import type { BillingDependencies } from './billing-dependencies';
 
 export interface SwapOptions {
   priceId: string;
+  itemId?: string;
   authorization?: AuthorizationContext;
 }
 
 export interface UpdateQuantityOptions {
   quantity: number;
+  itemId?: string;
   authorization?: AuthorizationContext;
 }
 
@@ -45,6 +47,7 @@ export class SubscriptionManager {
       this.name,
       options.priceId,
       options.authorization,
+      options.itemId,
     );
   }
 
@@ -79,6 +82,7 @@ export class SubscriptionManager {
       this.name,
       options.quantity,
       options.authorization,
+      options.itemId,
     );
   }
 }

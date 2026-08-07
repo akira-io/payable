@@ -17,6 +17,7 @@ import {
 } from './support/subscription-capability-providers';
 
 const NO_OPERATIONS = {
+  itemIdentity: 'none',
   create: { checkout: false, direct: false },
   changePrice: {
     preview: false,
@@ -42,7 +43,7 @@ const NO_OPERATIONS = {
     scheduled: false,
     billingPolicies: [],
   },
-};
+} as const;
 
 describe('subscription operation capabilities', () => {
   it('exports a serializable immutable empty descriptor', () => {
@@ -113,6 +114,7 @@ describe('subscription operation capabilities', () => {
       new StripeProvider({ secretKey: 'stripe-secret', webhookSecret: 'stripe-webhook' }),
       {
         ...NO_OPERATIONS,
+        itemIdentity: 'stable',
         create: { checkout: true, direct: true },
         changePrice: {
           preview: false,
@@ -138,6 +140,7 @@ describe('subscription operation capabilities', () => {
       new PaddleProvider({ apiKey: 'paddle-key', webhookSecret: 'paddle-webhook' }),
       {
         ...NO_OPERATIONS,
+        itemIdentity: 'price',
         create: { checkout: true, direct: false },
         changePrice: {
           preview: false,

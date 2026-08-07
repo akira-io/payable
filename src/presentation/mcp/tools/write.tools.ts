@@ -85,6 +85,7 @@ export function registerSubscriptionTools(
         inputSchema: {
           billable: billableObject,
           name: z.string().min(1),
+          itemId: z.string().min(1).optional(),
           priceId: z.string().min(1),
           ...providerShape,
           ...tenantShape,
@@ -95,7 +96,11 @@ export function registerSubscriptionTools(
           payable
             .customer(args.billable, providerFrom(args, options), tenantFrom(args, options))
             .subscription(args.name)
-            .swap(args.priceId, authorizeTool('subscription_swap', args, options)),
+            .swap({
+              priceId: args.priceId,
+              itemId: args.itemId,
+              authorization: authorizeTool('subscription_swap', args, options),
+            }),
         ),
     );
   }
@@ -108,6 +113,7 @@ export function registerSubscriptionTools(
         inputSchema: {
           billable: billableObject,
           name: z.string().min(1),
+          itemId: z.string().min(1).optional(),
           quantity: z.number().int().positive(),
           ...providerShape,
           ...tenantShape,
@@ -118,10 +124,11 @@ export function registerSubscriptionTools(
           payable
             .customer(args.billable, providerFrom(args, options), tenantFrom(args, options))
             .subscription(args.name)
-            .updateQuantity(
-              args.quantity,
-              authorizeTool('subscription_update_quantity', args, options),
-            ),
+            .updateQuantity({
+              quantity: args.quantity,
+              itemId: args.itemId,
+              authorization: authorizeTool('subscription_update_quantity', args, options),
+            }),
         ),
     );
   }

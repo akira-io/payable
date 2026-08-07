@@ -8,7 +8,7 @@ import {
   payableErrorStatus,
   safeContentDispositionFilename,
 } from '../src/presentation/shared/payable-http';
-import { parseBody } from '../src/presentation/shared/schemas';
+import { parseBody, swapSubscriptionBodySchema } from '../src/presentation/shared/schemas';
 
 describe('payableErrorStatus', () => {
   it('maps known domain error codes to their HTTP status', () => {
@@ -54,6 +54,16 @@ describe('parseBody', () => {
       }
       expect(context.issues.map((issue) => issue.field)).toContain('age');
     }
+  });
+
+  it('preserves an explicit local item id for subscription swaps', () => {
+    expect(
+      parseBody(swapSubscriptionBodySchema, {
+        billable: { billableType: 'User', billableId: '1', email: 'user@example.com' },
+        itemId: 'local_item_1',
+        price: 'price_new',
+      }),
+    ).toMatchObject({ itemId: 'local_item_1', price: 'price_new' });
   });
 });
 

@@ -135,6 +135,18 @@ export function toSubscriptionDTO(subscription: PaddleSubscriptionEntity): Subsc
     status,
     currentPeriodEnd: periodEnd,
     trialEndsAt: trialEnd ? new Date(trialEnd) : null,
+    items: (subscription.items ?? []).flatMap((subscriptionItem) => {
+      if (typeof subscriptionItem.price?.id !== 'string') {
+        return [];
+      }
+      return [
+        {
+          providerItemId: null,
+          priceId: subscriptionItem.price.id,
+          quantity: typeof subscriptionItem.quantity === 'number' ? subscriptionItem.quantity : 1,
+        },
+      ];
+    }),
   };
 }
 

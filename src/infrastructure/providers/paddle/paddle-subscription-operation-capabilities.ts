@@ -6,6 +6,7 @@ import {
 export function paddleSubscriptionOperationCapabilities() {
   return defineSubscriptionOperationCapabilities({
     ...NO_SUBSCRIPTION_OPERATIONS,
+    itemIdentity: 'price',
     create: { checkout: true, direct: false },
     changePrice: {
       preview: false,

@@ -131,7 +131,7 @@ so it shares the provider's single SDK instance.
 | Operation | Stripe call | Behavior |
 | --- | --- | --- |
 | `create` | `subscriptions.create` | Uses `input.items` when present, otherwise a single item from `priceId` with `quantity ?? 1`. Applies `trial_period_days` and `discounts` (coupon) when provided. |
-| `update` | `subscriptions.retrieve` then `subscriptions.update` | When `priceId` or `quantity` change, it retrieves the subscription to find the first item id and swaps it. |
+| `update` | `subscriptions.update` | Uses the stable provider item ID persisted for the selected local item. Missing mappings fail without selecting `items.data[0]`. |
 | `cancel` | `subscriptions.cancel` or `subscriptions.update` | `immediately: true` cancels now; otherwise sets `cancel_at_period_end: true`. |
 | `resume` | `subscriptions.update` | Clears the pending cancellation with `cancel_at_period_end: false`. |
 
