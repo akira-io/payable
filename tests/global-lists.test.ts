@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Billable } from '../src/application/builders/billable';
-import type { BillingDependencies } from '../src/application/builders/billing-dependencies';
+import type { LocalDependencies } from '../src/application/builders/local-dependencies';
 import { ListAllPaymentsQuery } from '../src/application/queries/payments/list-all-payments.query';
 import { ListAllSubscriptionsQuery } from '../src/application/queries/subscriptions/list-all-subscriptions.query';
 import { createPayable } from '../src/create-payable';
@@ -51,12 +51,11 @@ function billable(id: string): Billable {
 }
 
 function deps(
-  provider: FakeProvider,
   storage: KnexStorageDriver,
   clock: FakeClock,
   tenantId: string | null,
-): BillingDependencies {
-  return { provider, providerName: 'stripe', clock, storage, tenantId };
+): LocalDependencies {
+  return { clock, storage, tenantId };
 }
 
 describe('global tenant-scoped lists', () => {
@@ -70,7 +69,7 @@ describe('global tenant-scoped lists', () => {
     await payable.customer(billable('user-1')).newSubscription('default').price('price_1').create();
     await payable.customer(billable('user-2')).newSubscription('default').price('price_1').create();
 
-    const all = await new ListAllSubscriptionsQuery(deps(provider, storage, clock, null)).run();
+    const all = await new ListAllSubscriptionsQuery(deps(storage, clock, null)).run();
 
     expect(all).toHaveLength(2);
     await db.destroy();
@@ -95,12 +94,8 @@ describe('global tenant-scoped lists', () => {
       .customer(billable('b'), undefined, 'tenant-b')
       .charge({ amount: Money.of(700, 'USD') });
 
-    const ownTenant = await new ListAllPaymentsQuery(
-      deps(provider, storage, clock, 'tenant-a'),
-    ).run();
-    const otherTenant = await new ListAllPaymentsQuery(
-      deps(provider, storage, clock, 'tenant-b'),
-    ).run();
+    const ownTenant = await new ListAllPaymentsQuery(deps(storage, clock, 'tenant-a')).run();
+    const otherTenant = await new ListAllPaymentsQuery(deps(storage, clock, 'tenant-b')).run();
 
     expect(ownTenant).toHaveLength(1);
     expect(otherTenant).toHaveLength(1);
@@ -110,10 +105,7 @@ describe('global tenant-scoped lists', () => {
 
   it('returns an empty list when storage is absent', async () => {
     const clock = new FakeClock();
-    const provider = new UniqueProvider();
     const query = new ListAllSubscriptionsQuery({
-      provider,
-      providerName: 'stripe',
       clock,
       tenantId: null,
     });

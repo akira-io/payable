@@ -41,7 +41,7 @@ export interface AuthorizationConfig {
 export interface PayableConfig {
   tenant?: TenantConfig;
   authorization?: AuthorizationConfig;
-  providers: Record<string, PaymentProvider>;
+  providers?: Record<string, PaymentProvider>;
   accountingProviders?: Record<string, AccountingProvider>;
   identityProviders?: Record<string, IdentityProvider>;
   issuingProviders?: Record<string, IssuingProvider>;
@@ -116,9 +116,6 @@ export function resolveConfig(config: PayableConfig): ResolvedConfig {
     idempotency: config.idempotency,
   });
   const entries = Object.entries(config.providers ?? {});
-  if (entries.length === 0) {
-    throw new TypeError('Payable requires at least one payment provider');
-  }
   const logger = config.logger ?? new NullLogger();
   const idempotency: ResolvedIdempotency = {
     enabled: config.idempotency?.enabled ?? true,

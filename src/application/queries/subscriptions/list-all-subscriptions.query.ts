@@ -1,9 +1,9 @@
 import type { ListOptions } from '../../../domain/contracts/list-options.contract';
 import type { Subscription } from '../../../domain/entities/subscription.entity';
-import type { BillingDependencies } from '../../builders/billing-dependencies';
+import type { LocalDependencies } from '../../builders/local-dependencies';
 
 export class ListAllSubscriptionsQuery {
-  constructor(private readonly deps: BillingDependencies) {}
+  constructor(private readonly deps: LocalDependencies) {}
 
   run(options?: ListOptions): Promise<Subscription[]> {
     const storage = this.deps.storage;

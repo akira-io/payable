@@ -4,17 +4,14 @@ All configuration is passed to `createPayable(config)`, which calls `resolveConf
 produce a `ResolvedConfig`. This page documents every field of `PayableConfig`, the default
 `resolveConfig` applies, and what each field unlocks.
 
-## Validation and the provider requirement
+## Validation and the provider registry
 
 `resolveConfig` runs a `zod` schema over `tenant` and `idempotency` (it validates `tenant.enabled`
-is a boolean and `idempotency.strategy` is `'auto' | 'manual'`), then requires at least one
-provider:
+is a boolean and `idempotency.strategy` is `'auto' | 'manual'`). Payment providers are optional and
+resolve to an empty registry when omitted:
 
 ```ts
 const entries = Object.entries(config.providers ?? {});
-if (entries.length === 0) {
-  throw new TypeError('Payable requires at least one payment provider');
-}
 ```
 
 ## `PayableConfig` fields
@@ -40,15 +37,29 @@ if (entries.length === 0) {
   `assertAuthorized` and the policies in `src/application/policies/`. The context is supplied per
   call. When authorization is disabled, policy checks are skipped.
 
-### `providers: Record<string, PaymentProvider>`
+### `providers?: Record<string, PaymentProvider>`
 
 - **Type.** Map of provider name to a `PaymentProvider` implementation.
-- **Required.** Yes. At least one entry, or `resolveConfig` throws `TypeError`.
-- **Default.** None.
+- **Required.** Optional.
+- **Default.** An empty map.
 - **Behavior.** Stored as a `Map` and wrapped by `ProviderRegistry`. When no provider name is
-  passed to `customer(...)`, the first registered provider is used. Webhook routing
-  with more than one provider registered requires `/webhooks/:provider`; otherwise `Payable` throws
-  `PayableError` code `WEBHOOK_PROVIDER_AMBIGUOUS`.
+  passed to a provider-bound operation, the first registered provider is used. When the registry is
+  empty, provider-bound operations throw `ProviderNotFoundError` with code `PROVIDER_NOT_FOUND`
+  before side effects. An explicit unknown provider name produces the same coded error. Payable
+  never installs or infers a mock provider. Webhook routing with more than one provider registered
+  requires `/webhooks/:provider`; otherwise `Payable` throws `PayableError` code
+  `WEBHOOK_PROVIDER_AMBIGUOUS`.
+
+### Local and provider-bound dependencies
+
+`LocalDependencies` contains storage, tenant context, clock, authorization state, idempotency,
+audit, events, and logging. Canonical collection reads use this contract and do not select a
+provider. `BillingDependencies` extends it with an explicitly resolved `provider` and
+`providerName` for operations that call an external payment API.
+
+Storage-only instances can list canonical customers, subscriptions, and payments, and retrieve a
+stored local subscription. Customer synchronization, catalogue provider operations, checkout,
+charges, refunds, billing portals, and payment webhooks remain provider-bound.
 
 ### `accountingProviders?: Record<string, AccountingProvider>`
 
@@ -194,7 +205,7 @@ resolved string key to `IdempotencyService`. `IdempotencyStrategy` is available 
 | `tenantEnabled` | `config.tenant?.enabled` | `false` |
 | `tenantResolver` | `config.tenant?.resolver` | `undefined` |
 | `authorizationEnabled` | `config.authorization?.enabled` | `false` |
-| `providers` | `new Map(entries)` | required (throws if empty) |
+| `providers` | `new Map(entries)` | empty `Map` |
 | `accountingProviders` | `config.accountingProviders` | empty `Map` |
 | `identityProviders` | `config.identityProviders` | empty `Map` |
 | `issuingProviders` | `config.issuingProviders` | empty `Map` |

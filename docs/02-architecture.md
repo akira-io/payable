@@ -119,7 +119,10 @@ through dynamic `import()` so the symbol never appears as a static dependency of
   `isErr`/`unwrap`.
 - **Dependency injection via `createPayable`.** All drivers are injected through
   `createPayable(config)`, resolved by `resolveConfig`, and threaded into actions through
-  dependency objects.
+  dependency objects. `LocalDependencies` carries storage, tenant context, clock, authorization,
+  idempotency, audit, events, and logging without resolving a payment provider.
+  `BillingDependencies` adds the provider adapter and provider name only for operations that call an
+  external payment API.
 
 ---
 
