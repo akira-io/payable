@@ -38,4 +38,55 @@ describe('canonical catalog migration', () => {
 
     await database.destroy();
   });
+
+  it('removes price provider bindings when their canonical price is deleted', async () => {
+    const database = createTestDb();
+    await migrate(database);
+    const timestamp = new Date('2026-08-07T00:00:00.000Z').toISOString();
+
+    await database('payable_canonical_products').insert({
+      id: '00000000-0000-4000-8000-000000000001',
+      tenant_id: 'tenant-a',
+      tenant_key: 'tenant-a',
+      name: 'Pro',
+      description: null,
+      active: true,
+      metadata: null,
+      created_at: timestamp,
+      updated_at: timestamp,
+    });
+    await database('payable_canonical_prices').insert({
+      id: '00000000-0000-4000-8000-000000000002',
+      tenant_id: 'tenant-a',
+      tenant_key: 'tenant-a',
+      product_id: '00000000-0000-4000-8000-000000000001',
+      currency: 'EUR',
+      unit_amount: 2900,
+      type: 'recurring',
+      interval: 'month',
+      interval_count: 1,
+      description: null,
+      lookup_key: 'pro_monthly',
+      active: true,
+      created_at: timestamp,
+      updated_at: timestamp,
+    });
+    await database('payable_price_provider_bindings').insert({
+      id: '00000000-0000-4000-8000-000000000003',
+      tenant_id: 'tenant-a',
+      tenant_key: 'tenant-a',
+      price_id: '00000000-0000-4000-8000-000000000002',
+      provider: 'stripe-primary',
+      provider_price_id: 'price_123',
+      created_at: timestamp,
+      updated_at: timestamp,
+    });
+
+    await database('payable_canonical_prices')
+      .where({ id: '00000000-0000-4000-8000-000000000002' })
+      .delete();
+
+    await expect(database('payable_price_provider_bindings')).resolves.toHaveLength(0);
+    await database.destroy();
+  });
 });

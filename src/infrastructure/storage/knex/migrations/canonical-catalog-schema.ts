@@ -71,7 +71,8 @@ export async function addCanonicalCatalogTables(knex: Knex): Promise<void> {
     table
       .foreign(['tenant_key', 'price_id'])
       .references(['tenant_key', 'id'])
-      .inTable('payable_canonical_prices');
+      .inTable('payable_canonical_prices')
+      .onDelete('CASCADE');
     table.unique(['tenant_key', 'price_id', 'provider'], {
       indexName: 'payable_price_bindings_price_provider_unique',
     });
