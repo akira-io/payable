@@ -42,14 +42,15 @@ export class DependencyFactory {
   }
 
   billing(providerName?: string, tenantId?: string | null): BillingDependencies {
-    const local = this.local(tenantId);
     const name = providerName ?? this.registry.names()[0];
     if (!name) {
       throw new ProviderNotFoundError(providerName ?? 'default');
     }
+    const provider = this.registry.get(name);
+    const local = this.local(tenantId);
     return {
       ...local,
-      provider: this.registry.get(name),
+      provider,
       providerName: name,
     };
   }

@@ -50,6 +50,14 @@ describe('createPayable', () => {
     );
   });
 
+  it('reports the missing provider before a missing tenant for provider-bound access', () => {
+    const payable = createPayable({ tenant: { enabled: true } });
+
+    expect(() => payable.customer({ billableType: 'User', billableId: '1' })).toThrowError(
+      expect.objectContaining({ code: 'PROVIDER_NOT_FOUND' }),
+    );
+  });
+
   it('rejects an invalid idempotency strategy', () => {
     expect(() =>
       createPayable({
