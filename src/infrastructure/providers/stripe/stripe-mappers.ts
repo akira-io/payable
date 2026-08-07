@@ -196,6 +196,17 @@ export function toSubscriptionDTO(subscription: Stripe.Subscription): Subscripti
     status: isSubscriptionStatus(subscription.status) ? subscription.status : 'incomplete',
     currentPeriodEnd: fromUnixSeconds(earliestPeriodEnd(subscription)),
     trialEndsAt: fromUnixSeconds(subscription.trial_end),
+    items: subscription.items?.data.flatMap((subscriptionItem) =>
+      subscriptionItem.price
+        ? [
+            {
+              providerItemId: subscriptionItem.id,
+              priceId: subscriptionItem.price.id,
+              quantity: subscriptionItem.quantity ?? 1,
+            },
+          ]
+        : [],
+    ),
   };
 }
 
@@ -218,7 +229,28 @@ export function toSubscriptionDTOFromWebhook(data: Record<string, unknown>): Sub
     status,
     currentPeriodEnd: fromUnixSeconds(periodEnd),
     trialEndsAt: fromUnixSeconds(numberOrNull(data.trial_end)),
+    items: stripeWebhookSubscriptionItems(rawItems),
   };
+}
+
+function stripeWebhookSubscriptionItems(rawItems: unknown): SubscriptionDTO['items'] {
+  if (!Array.isArray(rawItems)) {
+    return undefined;
+  }
+  return rawItems.flatMap((rawItem) => {
+    const subscriptionItem = rawItem as Record<string, unknown>;
+    const price = subscriptionItem.price as Record<string, unknown> | undefined;
+    if (typeof subscriptionItem.id !== 'string' || typeof price?.id !== 'string') {
+      return [];
+    }
+    return [
+      {
+        providerItemId: subscriptionItem.id,
+        priceId: price.id,
+        quantity: typeof subscriptionItem.quantity === 'number' ? subscriptionItem.quantity : 1,
+      },
+    ];
+  });
 }
 
 function earliestPeriodEnd(subscription: Stripe.Subscription): number | null | undefined {

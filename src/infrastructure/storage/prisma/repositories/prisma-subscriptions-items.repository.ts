@@ -46,14 +46,39 @@ export class PrismaSubscriptionItemRepository
     if (!first) {
       return;
     }
-    const data: Record<string, unknown> = { updatedAt: this.clock.now() };
+    const updateFields: Record<string, unknown> = { updatedAt: this.clock.now() };
     if (patch.priceId !== undefined) {
-      data.priceId = patch.priceId;
+      updateFields.priceId = patch.priceId;
+    }
+    if (patch.providerItemId !== undefined) {
+      updateFields.providerItemId = patch.providerItemId;
     }
     if (patch.quantity !== undefined) {
-      data.quantity = patch.quantity;
+      updateFields.quantity = patch.quantity;
     }
-    await this.delegate.update({ where: { id: first.id }, data });
+    await this.delegate.update({ where: { id: first.id }, data: updateFields });
+  }
+
+  async updateById(
+    subscriptionId: string,
+    itemId: string,
+    patch: SubscriptionItemPatch,
+    tenantId?: string | null,
+  ): Promise<void> {
+    const updateFields: Record<string, unknown> = { updatedAt: this.clock.now() };
+    if (patch.priceId !== undefined) {
+      updateFields.priceId = patch.priceId;
+    }
+    if (patch.providerItemId !== undefined) {
+      updateFields.providerItemId = patch.providerItemId;
+    }
+    if (patch.quantity !== undefined) {
+      updateFields.quantity = patch.quantity;
+    }
+    await this.delegate.updateMany({
+      where: { id: itemId, ...this.scope(subscriptionId, tenantId) },
+      data: updateFields,
+    });
   }
 
   private scope(subscriptionId: string, tenantId?: string | null): Record<string, unknown> {

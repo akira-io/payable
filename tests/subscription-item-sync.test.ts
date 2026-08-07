@@ -27,6 +27,30 @@ afterEach(async () => {
 });
 
 describe('subscription item sync (I2)', () => {
+  it('persists provider item identities by price when creation responses are reordered', async () => {
+    const provider = new FakeProvider();
+    provider.createdSubscriptionItems = [
+      { providerItemId: 'si_addon', priceId: 'price_addon', quantity: 2 },
+      { providerItemId: 'si_primary', priceId: 'price_primary', quantity: 1 },
+    ];
+    payable = createPayable({ providers: { stripe: provider }, storage });
+
+    const subscription = await payable
+      .customer(billable)
+      .newSubscription('mapped')
+      .price('price_primary')
+      .addItem('price_addon', 2)
+      .create();
+
+    const items = await storage.subscriptionItems.listBySubscription(subscription.id);
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ priceId: 'price_primary', providerItemId: 'si_primary' }),
+        expect.objectContaining({ priceId: 'price_addon', providerItemId: 'si_addon' }),
+      ]),
+    );
+  });
+
   it('re-syncs the primary item on swap and quantity change', async () => {
     const subscription = await payable
       .customer(billable)
@@ -46,5 +70,58 @@ describe('subscription item sync (I2)', () => {
     const afterQuantity = await storage.subscriptionItems.listBySubscription(subscription.id);
     expect(afterQuantity[0]?.quantity).toBe(4);
     expect(afterQuantity[0]?.priceId).toBe('price_business');
+  });
+
+  it('requires an explicit local item for multi-item mutations', async () => {
+    const subscription = await payable
+      .customer(billable)
+      .newSubscription('multi')
+      .price('price_primary')
+      .addItem('price_addon', 2)
+      .create();
+
+    await expect(
+      payable.customer(billable).subscription('multi').swap('price_replacement'),
+    ).rejects.toMatchObject({
+      code: 'SUBSCRIPTION_ITEM_AMBIGUOUS',
+      context: { subscriptionId: subscription.id, itemCount: 2 },
+    });
+  });
+
+  it('mutates only the explicitly selected local item', async () => {
+    const provider = new FakeProvider();
+    provider.createdSubscriptionItems = [
+      { providerItemId: 'si_primary', priceId: 'price_primary', quantity: 1 },
+      { providerItemId: 'si_addon', priceId: 'price_addon', quantity: 2 },
+    ];
+    payable = createPayable({ providers: { stripe: provider }, storage });
+    const subscription = await payable
+      .customer(billable)
+      .newSubscription('targeted')
+      .price('price_primary')
+      .addItem('price_addon', 2)
+      .create();
+    const before = await storage.subscriptionItems.listBySubscription(subscription.id);
+    const addon = before.find((subscriptionItem) => subscriptionItem.priceId === 'price_addon');
+
+    await payable.customer(billable).subscription('targeted').swap({
+      itemId: addon?.id,
+      priceId: 'price_addon_replacement',
+    });
+
+    expect(provider.lastSubscriptionUpdate).toMatchObject({
+      providerItemId: 'si_addon',
+      items: expect.arrayContaining([
+        { priceId: 'price_primary', quantity: 1 },
+        { priceId: 'price_addon_replacement', quantity: 2 },
+      ]),
+    });
+    const after = await storage.subscriptionItems.listBySubscription(subscription.id);
+    expect(after.find((subscriptionItem) => subscriptionItem.id === addon?.id)?.priceId).toBe(
+      'price_addon_replacement',
+    );
+    expect(after.find((subscriptionItem) => subscriptionItem.id !== addon?.id)?.priceId).toBe(
+      'price_primary',
+    );
   });
 });

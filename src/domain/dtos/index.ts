@@ -117,11 +117,13 @@ export type {
   CancelSubscriptionInput,
   CreateSubscriptionInput,
   SubscriptionDTO,
+  SubscriptionProviderItemDTO,
   UpdateSubscriptionInput,
 } from './subscription.dto';
 export type {
   SubscriptionChangeCapabilities,
   SubscriptionEffectiveTiming,
+  SubscriptionItemIdentity,
   SubscriptionOperationCapabilities,
   SubscriptionPaymentFailurePolicy,
   SubscriptionProrationPolicy,

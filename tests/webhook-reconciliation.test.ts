@@ -39,6 +39,56 @@ async function seedSubscription() {
 }
 
 describe('webhook subscription reconciliation (C1)', () => {
+  it('backfills null provider item identities by price across reordered retries', async () => {
+    const subscription = await payable
+      .customer(billable)
+      .newSubscription('items')
+      .price('price_primary')
+      .addItem('price_addon', 2)
+      .create();
+    provider.verifyResult = {
+      providerEventId: 'evt_items_first',
+      type: 'customer.subscription.updated',
+      normalizedType: 'subscription.updated',
+      data: {},
+    };
+    provider.reconcileResult = {
+      providerSubscriptionId: subscription.providerSubscriptionId ?? 'sub_fake',
+      status: 'past_due',
+      currentPeriodEnd: null,
+      trialEndsAt: null,
+      items: [
+        { providerItemId: 'si_addon', priceId: 'price_addon', quantity: 5 },
+        { providerItemId: 'si_primary', priceId: 'price_primary', quantity: 1 },
+      ],
+    };
+
+    await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
+    provider.verifyResult = { ...provider.verifyResult, providerEventId: 'evt_items_retry' };
+    provider.reconcileResult = {
+      ...provider.reconcileResult,
+      items: [...(provider.reconcileResult.items ?? [])].reverse(),
+    };
+    await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
+
+    const items = await storage.subscriptionItems.listBySubscription(subscription.id);
+    expect(items).toHaveLength(2);
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          providerItemId: 'si_primary',
+          priceId: 'price_primary',
+          quantity: 1,
+        }),
+        expect.objectContaining({
+          providerItemId: 'si_addon',
+          priceId: 'price_addon',
+          quantity: 5,
+        }),
+      ]),
+    );
+  });
+
   it('updates local subscription status from a provider event', async () => {
     const subscription = await seedSubscription();
     provider.verifyResult = {

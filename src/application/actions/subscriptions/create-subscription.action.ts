@@ -8,6 +8,7 @@ import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { Billable } from '../../builders/billable';
 import type { AuthorizationContext } from '../../policies/authorization-context';
 import { assertSubscriptionOperation } from '../../services/provider-capabilities/assert-subscription-operation';
+import { matchProviderSubscriptionItems } from '../../services/subscriptions/match-provider-subscription-items';
 import { SyncCustomerWithProviderAction } from '../customers/sync-customer-with-provider.action';
 import { SubscriptionAction } from './subscription-action';
 
@@ -86,11 +87,11 @@ export class CreateSubscriptionAction extends SubscriptionAction {
           currentPeriodEnd: dto.currentPeriodEnd,
         });
         await repos.subscriptionItems.createMany(
-          items.map((item) => ({
+          matchProviderSubscriptionItems(items, dto.items).map((matchedItem) => ({
             subscriptionId: subscription.id,
-            priceId: item.priceId,
-            providerItemId: null,
-            quantity: item.quantity,
+            priceId: matchedItem.priceId,
+            providerItemId: matchedItem.providerItemId,
+            quantity: matchedItem.quantity,
           })),
         );
         await repos.auditLogs.create({

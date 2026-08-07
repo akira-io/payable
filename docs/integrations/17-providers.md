@@ -179,6 +179,7 @@ const operations = payable
   .subscriptionOperationCapabilities('stripe');
 
 operations.create.direct;
+operations.itemIdentity;
 operations.changePrice.effectiveTimings;
 operations.cancel.atPeriodEnd;
 ```
@@ -187,6 +188,10 @@ The descriptor separates creation, price changes, quantity changes, cancellation
 Change capabilities list supported effective timings, proration policies, and payment-failure
 policies. Pause and resume capabilities list scheduling and billing-cycle behavior. The returned
 snapshot and its policy arrays are immutable.
+
+`itemIdentity` is `stable` for Stripe, `price` for Paddle, and `none` for providers that do not expose
+addressable subscription items. This lets consumers require an explicit local item and avoid assuming
+that the first provider item is primary.
 
 | Subscription operation | Stripe | Paddle | SISP | Revolut |
 | --- | --- | --- | --- | --- |

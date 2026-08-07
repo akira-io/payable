@@ -5,6 +5,10 @@ export interface SubscriptionLineItem {
   quantity: number;
 }
 
+export interface SubscriptionProviderItemDTO extends SubscriptionLineItem {
+  providerItemId: string | null;
+}
+
 export interface CreateSubscriptionInput {
   providerCustomerId: string;
   priceId: string;
@@ -18,6 +22,8 @@ export interface UpdateSubscriptionInput {
   providerSubscriptionId: string;
   priceId?: string;
   quantity?: number;
+  providerItemId?: string | null;
+  items?: SubscriptionLineItem[];
 }
 
 export interface CancelSubscriptionInput {
@@ -30,4 +36,5 @@ export interface SubscriptionDTO {
   status: SubscriptionStatus;
   currentPeriodEnd: Date | null;
   trialEndsAt: Date | null;
+  items?: readonly SubscriptionProviderItemDTO[];
 }

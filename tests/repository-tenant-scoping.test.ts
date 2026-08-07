@@ -151,7 +151,7 @@ describe('subscription item tenant guard', () => {
       currentPeriodStart: null,
       currentPeriodEnd: null,
     });
-    await storage.subscriptionItems.create({
+    const subscriptionItem = await storage.subscriptionItems.create({
       subscriptionId: subscription.id,
       priceId: 'price_pro',
       providerItemId: null,
@@ -162,6 +162,12 @@ describe('subscription item tenant guard', () => {
       [],
     );
     await storage.subscriptionItems.updatePrimary(subscription.id, { quantity: 5 }, 'globex');
+    await storage.subscriptionItems.updateById(
+      subscription.id,
+      subscriptionItem.id,
+      { quantity: 5 },
+      'globex',
+    );
     const items = await storage.subscriptionItems.listBySubscription(subscription.id, 'acme');
     expect(items[0]?.quantity).toBe(1);
   });
