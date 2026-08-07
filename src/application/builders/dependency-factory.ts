@@ -7,6 +7,7 @@ import { IdempotencyService } from '../services/idempotency/idempotency-service'
 import { SubscriptionChangePreviewStore } from '../services/subscriptions/subscription-change-preview-store';
 import type { BillingDependencies } from './billing-dependencies';
 import { CustomerResource } from './customer-resource';
+import { LocalSubscriptionResource } from './local-subscription-resource';
 import type { TreasuryWebhookDependencies } from './treasury-webhook-dependencies';
 import type { WebhookDependencies } from './webhook-dependencies';
 
@@ -50,6 +51,19 @@ export class DependencyFactory {
       tenantId: tenantId ?? null,
       resolveBillingDependencies: () => this.billing(providerName, tenantId),
     });
+  }
+
+  localSubscription(localId: string, tenantId?: string | null): LocalSubscriptionResource {
+    this.assertTenant(tenantId);
+    const storage = this.resolved.storage;
+    if (!storage) {
+      throw new PayableError('Subscription management requires a storage driver', {
+        code: 'SUBSCRIPTION_STORAGE_REQUIRED',
+      });
+    }
+    return new LocalSubscriptionResource(storage, localId, tenantId ?? null, (providerName) =>
+      this.billing(providerName, tenantId),
+    );
   }
 
   webhook(providerName?: string): WebhookDependencies {

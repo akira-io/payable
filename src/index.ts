@@ -80,6 +80,7 @@ export {
   InvoiceResource,
   type ListCustomersInput,
   type ListWebhookEventsInput,
+  LocalSubscriptionResource,
   PriceResource,
   ProductResource,
   RedirectCheckoutBuilder,

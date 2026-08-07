@@ -30,6 +30,7 @@ import { CustomerContext } from './application/builders/customer-context';
 import type { CustomerResource } from './application/builders/customer-resource';
 import { DependencyFactory } from './application/builders/dependency-factory';
 import { InvoiceResource } from './application/builders/invoice-resource';
+import type { LocalSubscriptionResource } from './application/builders/local-subscription-resource';
 import { PriceResource } from './application/builders/price-resource';
 import { ProductResource } from './application/builders/product-resource';
 import { RefundResource } from './application/builders/refund-resource';
@@ -223,6 +224,10 @@ export class Payable extends ProviderRegistries {
 
   subscriptions(tenantId?: string | null, options?: ListOptions): Promise<Subscription[]> {
     return new ListAllSubscriptionsQuery(this.factory.billing(undefined, tenantId)).run(options);
+  }
+
+  subscription(localId: string, tenantId?: string | null): LocalSubscriptionResource {
+    return this.factory.localSubscription(localId, tenantId);
   }
 
   payments(tenantId?: string | null, options?: ListOptions): Promise<Payment[]> {

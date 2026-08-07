@@ -59,6 +59,33 @@ await manager.resume();
 const current = await manager.get();
 ```
 
+For an administrative workflow, keep the local ID returned by Payable and open the subscription
+resource directly:
+
+```ts
+const subscription = payable.subscription(localSubscriptionId, tenantId);
+
+await subscription.swap({
+  priceId: 'price_business_monthly',
+  effectiveTiming: 'immediate',
+  prorationPolicy: 'prorateImmediately',
+  paymentFailurePolicy: 'preventChange',
+});
+await subscription.updateQuantity({
+  quantity: 5,
+  effectiveTiming: 'immediate',
+  prorationPolicy: 'prorateImmediately',
+  paymentFailurePolicy: 'preventChange',
+});
+await subscription.cancel();
+
+const current = await subscription.retrieve();
+```
+
+This resource resolves the customer and provider binding from storage. It routes mutations through
+the provider stored on the subscription and returns the refreshed local record. Pass `tenantId`
+whenever tenancy is enabled. Provider subscription IDs remain adapter details.
+
 Use `.checkout(...)` instead of `.create()` when the provider requires a hosted checkout page.
 
 ## Expected result

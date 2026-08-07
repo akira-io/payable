@@ -95,6 +95,35 @@ local item. Multi-item subscriptions require the local item ID and reject ambigu
 - builds a deterministic idempotency key per operation
   (`subscription:${operation}:${providerName}:${providerSubscriptionId}[:discriminator]`).
 
+### Manage by local ID
+
+Use the local subscription ID returned by list operations for administrative workflows:
+
+```ts
+const subscription = payable.subscription(localSubscriptionId, tenantId);
+
+const current = await subscription.retrieve();
+await subscription.swap({
+  priceId: 'price_business',
+  effectiveTiming: 'immediate',
+  prorationPolicy: 'prorateImmediately',
+  paymentFailurePolicy: 'preventChange',
+});
+await subscription.cancel();
+```
+
+`get()` is an alias for `retrieve()`. The resource resolves the owning customer, provider binding,
+and provider subscription ID from storage. Mutations route to the provider stored on the local
+subscription, then return the refreshed local record. When tenancy is enabled, `tenantId` is
+required. An ID from another tenant returns `SUBSCRIPTION_NOT_FOUND`.
+
+The resource exposes the same change-preview, lifecycle, collection, cancellation, and item mutation
+operations as its billable-scoped counterpart. Each method accepts the same authorization context.
+
+The local ID is the administrative identity. Treat provider subscription IDs as integration details.
+The existing `payable.customer(billable, provider, tenantId).subscription(name)` API remains
+available for billable-scoped application flows.
+
 ### Preview and apply a change
 
 Use the two-step flow when a customer must approve the monetary result before a change is applied.
