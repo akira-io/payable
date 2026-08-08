@@ -6,6 +6,7 @@ import { addCanonicalCatalogTables } from './canonical-catalog-schema';
 import { addCatalogSynchronizationTable } from './catalog-synchronization-schema';
 import { addCatalogTenantKeys } from './catalog-tenant-keys';
 import { addCustomerProviderBindings } from './customer-provider-bindings';
+import { addCustomerProviderSyncStateLeases } from './customer-provider-sync-state-leases';
 import { addCustomerProviderSyncStates } from './customer-provider-sync-states';
 import { runStep } from './migration-ledger';
 import { convergePostLedgerSchema } from './post-ledger-convergence';
@@ -106,6 +107,9 @@ export async function migrate(knex: Knex): Promise<void> {
     await runStep(knex, '012-customer-provider-sync-states', () =>
       addCustomerProviderSyncStates(knex),
     );
-    await runStep(knex, '013-catalog-synchronization', () => addCatalogSynchronizationTable(knex));
+    await runStep(knex, '013-customer-provider-sync-state-leases', () =>
+      addCustomerProviderSyncStateLeases(knex),
+    );
+    await runStep(knex, '014-catalog-synchronization', () => addCatalogSynchronizationTable(knex));
   });
 }

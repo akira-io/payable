@@ -1,3 +1,5 @@
+import type { CustomerProviderSyncStateRepository } from '../../../domain/contracts/customer-provider-sync-state-repository.contract';
+import type { Repositories } from '../../../domain/contracts/storage-driver.contract';
 import type { CustomerProviderSyncState } from '../../../domain/entities/customer-provider-sync-state.entity';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
@@ -8,6 +10,7 @@ export class CustomerProviderSyncLifecycle {
   async begin(
     customerId: string,
     allowReconciliationRepair = false,
+    allowExpiredLeaseReclaim = false,
   ): Promise<CustomerProviderSyncAttempt> {
     const id = CorrelationId.generate().toString();
     const repository = this.dependencies.storage?.customerProviderSyncStates;
@@ -25,6 +28,7 @@ export class CustomerProviderSyncLifecycle {
       attemptOwnerId: id,
       leaseExpiresAt,
       allowReconciliationRepair,
+      allowExpiredLeaseReclaim,
     });
     return {
       id,
@@ -126,76 +130,82 @@ export class CustomerProviderSyncLifecycle {
     error: unknown,
     synchronizedAt: Date | null = null,
   ): Promise<CustomerProviderSyncState | undefined> {
-    const recorded = await this.record({
+    const input = {
       customerId,
       providerCustomerId,
       attempt,
-      status: 'reconciliation_required',
+      status: 'reconciliation_required' as const,
       failureCode: errorCode(error, 'CUSTOMER_PROVIDER_RECONCILIATION_REQUIRED'),
       synchronizedAt,
-    });
-    if (!recorded && providerCustomerId && this.dependencies.storage?.customerProviderSyncStates) {
-      await this.recordOrphan(customerId, providerCustomerId, attempt, error);
+    };
+    const lostBinding = errorCode(error, '') === 'CUSTOMER_PROVIDER_BINDING_CONFLICT';
+    const storage = this.dependencies.storage;
+    if (providerCustomerId && storage?.customerProviderSyncStates) {
+      return storage.transaction(async (repositories) => {
+        const recorded = await this.record(input, repositories.customerProviderSyncStates);
+        if (!recorded || lostBinding) {
+          await this.recordOrphan(repositories, customerId, providerCustomerId, attempt, error);
+        }
+        return recorded;
+      });
     }
-    return recorded;
+    return this.record(input);
   }
 
   private async recordOrphan(
+    repositories: Pick<Repositories, 'auditLogs' | 'outboxEvents'>,
     customerId: string,
     providerCustomerId: string,
     attempt: CustomerProviderSyncAttempt,
     error: unknown,
   ): Promise<void> {
-    const storage = this.dependencies.storage;
-    if (!storage) {
-      return;
-    }
     const failureCode = errorCode(error, 'CUSTOMER_PROVIDER_RECONCILIATION_REQUIRED');
-    await storage.transaction(async (repositories) => {
-      await repositories.auditLogs.create({
+    await repositories.auditLogs.create({
+      tenantId: this.tenantId(),
+      correlationId: attempt.id,
+      actorType: null,
+      actorId: null,
+      action: 'customer.provider.orphaned',
+      resourceType: 'customer',
+      resourceId: customerId,
+      before: null,
+      after: {
+        provider: this.dependencies.providerName,
+        providerCustomerId,
+        status: 'reconciliation_required',
+      },
+      metadata: { provider: this.dependencies.providerName, providerCustomerId, failureCode },
+      ipAddress: null,
+      userAgent: null,
+    });
+    await repositories.outboxEvents.create({
+      tenantId: this.tenantId(),
+      correlationId: attempt.id,
+      eventType: 'customer.provider.orphaned.v1',
+      eventVersion: 1,
+      payload: {
+        customerId,
+        provider: this.dependencies.providerName,
+        providerCustomerId,
+        failureCode,
         tenantId: this.tenantId(),
-        correlationId: attempt.id,
-        actorType: null,
-        actorId: null,
-        action: 'customer.provider.orphaned',
-        resourceType: 'customer',
-        resourceId: customerId,
-        before: null,
-        after: {
-          provider: this.dependencies.providerName,
-          providerCustomerId,
-          status: 'reconciliation_required',
-        },
-        metadata: { provider: this.dependencies.providerName, providerCustomerId, failureCode },
-        ipAddress: null,
-        userAgent: null,
-      });
-      await repositories.outboxEvents.create({
-        tenantId: this.tenantId(),
-        correlationId: attempt.id,
-        eventType: 'customer.provider.orphaned.v1',
-        eventVersion: 1,
-        payload: {
-          customerId,
-          provider: this.dependencies.providerName,
-          providerCustomerId,
-          failureCode,
-          tenantId: this.tenantId(),
-        },
-        dedupeKey: `customer-provider-orphan:${attempt.id}`,
-      });
+      },
+      dedupeKey: `customer-provider-orphan:${attempt.id}`,
     });
   }
 
-  private async record(input: {
-    customerId: string;
-    providerCustomerId: string | null;
-    attempt: CustomerProviderSyncAttempt;
-    status: 'failed' | 'reconciliation_required';
-    failureCode: string;
-    synchronizedAt: Date | null;
-  }): Promise<CustomerProviderSyncState | undefined> {
-    const repository = this.dependencies.storage?.customerProviderSyncStates;
+  private async record(
+    input: {
+      customerId: string;
+      providerCustomerId: string | null;
+      attempt: CustomerProviderSyncAttempt;
+      status: 'failed' | 'reconciliation_required';
+      failureCode: string;
+      synchronizedAt: Date | null;
+    },
+    repository: CustomerProviderSyncStateRepository | undefined = this.dependencies.storage
+      ?.customerProviderSyncStates,
+  ): Promise<CustomerProviderSyncState | undefined> {
     if (!repository) {
       return undefined;
     }

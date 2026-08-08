@@ -69,7 +69,10 @@ export class SyncCustomerWithProviderAction {
       this.dependencies.providerName,
       tenantId,
     );
-    const attempt = await this.lifecycle.begin(customer.id, bindingBeforeClaim !== null);
+    const hasBinding = bindingBeforeClaim !== null;
+    const canReclaimExpiredLease =
+      hasBinding || this.customerProvider().customerCreateIdempotency === 'native';
+    const attempt = await this.lifecycle.begin(customer.id, hasBinding, canReclaimExpiredLease);
     const previous = attempt.previous;
     const bindingChangedDuringClaim =
       previous?.status === 'synchronized' ||
@@ -95,7 +98,6 @@ export class SyncCustomerWithProviderAction {
     }
     return { customer, previous, attempt, binding };
   }
-
   private async reconcile(context: LocalSyncContext): Promise<string> {
     const providerCustomerId = context.previous?.providerCustomerId;
     if (!providerCustomerId) {
@@ -120,7 +122,6 @@ export class SyncCustomerWithProviderAction {
       throw error;
     }
   }
-
   private async updateProvider(context: LocalSyncContext): Promise<string> {
     const binding = context.binding;
     if (!binding) {
@@ -166,7 +167,6 @@ export class SyncCustomerWithProviderAction {
       throw error;
     }
   }
-
   private async createProviderCustomer(
     billable: Billable,
     local: LocalSyncContext | null,
@@ -229,7 +229,6 @@ export class SyncCustomerWithProviderAction {
       throw error;
     }
   }
-
   private executeCreateIdempotently(
     key: IdempotencyKey,
     billable: Billable,
