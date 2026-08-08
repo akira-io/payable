@@ -29,6 +29,7 @@ import { AuditResource } from './application/builders/audit-resource';
 import type { Billable } from './application/builders/billable';
 import { CanonicalPriceResource } from './application/builders/canonical-price-resource';
 import { CanonicalProductResource } from './application/builders/canonical-product-resource';
+import { CanonicalSubscriptionResource } from './application/builders/canonical-subscription-resource';
 import { CatalogSynchronizationResource } from './application/builders/catalog-synchronization-resource';
 import { CustomerContext } from './application/builders/customer-context';
 import type { CustomerResource } from './application/builders/customer-resource';
@@ -91,7 +92,6 @@ export class Payable extends ProviderRegistries {
   logger(): Logger {
     return this.resolved.logger;
   }
-
   tenantEnabled(): boolean {
     return this.resolved.tenantEnabled;
   }
@@ -107,7 +107,6 @@ export class Payable extends ProviderRegistries {
   products(tenantId?: string | null): CanonicalProductResource {
     return new CanonicalProductResource(this.factory.local(tenantId));
   }
-
   catalogSync(providerName: string, tenantId?: string | null): CatalogSynchronizationResource {
     return new CatalogSynchronizationResource(
       this.factory.billing(providerName, tenantId),
@@ -118,15 +117,16 @@ export class Payable extends ProviderRegistries {
   providerCatalog(providerName?: string, tenantId?: string | null): ProviderCatalogResource {
     return new ProviderCatalogResource(this.factory.billing(providerName, tenantId));
   }
-
   prices(tenantId?: string | null): CanonicalPriceResource {
     return new CanonicalPriceResource(this.factory.local(tenantId));
   }
 
+  canonicalSubscriptions(tenantId?: string | null): CanonicalSubscriptionResource {
+    return new CanonicalSubscriptionResource(this.factory.local(tenantId));
+  }
   refunds(providerName?: string, tenantId?: string | null): RefundResource {
     return new RefundResource(this.factory.billing(providerName, tenantId));
   }
-
   invoices(providerName?: string, tenantId?: string | null): InvoiceResource {
     return new InvoiceResource(this.factory.billing(providerName, tenantId));
   }
@@ -224,15 +224,17 @@ export class Payable extends ProviderRegistries {
   subscriptions(tenantId?: string | null, options?: ListOptions): Promise<Subscription[]> {
     return new ListAllSubscriptionsQuery(this.factory.local(tenantId)).run(options);
   }
-
-  subscription(localId: string, tenantId?: string | null): LocalSubscriptionResource {
-    return this.factory.localSubscription(localId, tenantId);
+  subscription(
+    localId: string,
+    tenantId?: string | null,
+    providerName?: string,
+  ): LocalSubscriptionResource {
+    return this.factory.localSubscription(localId, tenantId, providerName);
   }
 
   payments(tenantId?: string | null, options?: ListOptions): Promise<Payment[]> {
     return new ListAllPaymentsQuery(this.factory.local(tenantId)).run(options);
   }
-
   audit(tenantId?: string | null): AuditResource {
     if (!this.resolved.storage) {
       throw new PayableError('Audit logs require a storage driver', {

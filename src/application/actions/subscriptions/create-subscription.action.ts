@@ -86,6 +86,13 @@ export class CreateSubscriptionAction extends SubscriptionAction {
           currentPeriodStart: null,
           currentPeriodEnd: dto.currentPeriodEnd,
         });
+        await repos.subscriptionProviderBindings.create({
+          tenantId: this.deps.tenantId ?? null,
+          subscriptionId: subscription.id,
+          provider: this.deps.providerName,
+          providerSubscriptionId: dto.providerSubscriptionId,
+          providerSyncedAt: this.deps.clock.now(),
+        });
         await repos.subscriptionItems.createMany(
           matchProviderSubscriptionItems(items, dto.items).map((matchedItem) => ({
             subscriptionId: subscription.id,

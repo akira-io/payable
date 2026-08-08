@@ -7,7 +7,9 @@ import { FakeClock } from '../src/support/clock/fake-clock';
 import { FakeProvider } from './support/fake-provider';
 import { createTestDb } from './support/knex';
 
-async function setupStoredSubscription(options: { binding?: boolean } = {}) {
+async function setupStoredSubscription(
+  options: { binding?: boolean; providerSubscriptionId?: string | null } = {},
+) {
   const database = createTestDb();
   await migrate(database);
   const storage = new KnexStorageDriver(database, new FakeClock());
@@ -32,7 +34,8 @@ async function setupStoredSubscription(options: { binding?: boolean } = {}) {
     customerId: customer.id,
     name: 'default',
     provider: 'stripe',
-    providerSubscriptionId: 'sub_1',
+    providerSubscriptionId:
+      options.providerSubscriptionId === undefined ? 'sub_1' : options.providerSubscriptionId,
     status: 'active',
     priceId: 'price_pro',
     quantity: 1,
@@ -41,6 +44,15 @@ async function setupStoredSubscription(options: { binding?: boolean } = {}) {
     currentPeriodStart: null,
     currentPeriodEnd: null,
   });
+  if (subscription.providerSubscriptionId) {
+    await storage.subscriptionProviderBindings.create({
+      tenantId: null,
+      subscriptionId: subscription.id,
+      provider: 'stripe',
+      providerSubscriptionId: subscription.providerSubscriptionId,
+      providerSyncedAt: null,
+    });
+  }
   return { database, payable, storage, subscription };
 }
 
@@ -121,23 +133,24 @@ describe('local subscription resource', () => {
     await database.destroy();
   });
 
-  it('hides a subscription whose stored provider binding is missing', async () => {
+  it('retrieves local state when the customer has no provider binding', async () => {
     const { database, payable, subscription } = await setupStoredSubscription({ binding: false });
     const resource = payable.subscription(subscription.id);
 
-    await expect(resource.retrieve()).rejects.toMatchObject({
-      code: 'SUBSCRIPTION_NOT_FOUND',
-      context: { identifier: subscription.id },
-    });
+    await expect(resource.retrieve()).resolves.toMatchObject({ id: subscription.id });
     await database.destroy();
   });
 
-  it('hides a subscription whose provider subscription id is missing', async () => {
-    const { database, payable, storage, subscription } = await setupStoredSubscription();
-    await storage.subscriptions.update(subscription.id, { providerSubscriptionId: null });
+  it('retrieves local state when no provider subscription id exists', async () => {
+    const { database, payable, subscription } = await setupStoredSubscription({
+      providerSubscriptionId: null,
+    });
     const resource = payable.subscription(subscription.id);
 
-    await expect(resource.retrieve()).rejects.toMatchObject({ code: 'SUBSCRIPTION_NOT_FOUND' });
+    await expect(resource.retrieve()).resolves.toMatchObject({
+      id: subscription.id,
+      providerSubscriptionId: null,
+    });
     await database.destroy();
   });
 });

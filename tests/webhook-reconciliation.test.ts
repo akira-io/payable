@@ -20,7 +20,6 @@ let provider: FakeProvider;
 let payable: Payable;
 
 const billable = { billableType: 'User', billableId: '1', email: 'user@example.com', name: 'User' };
-
 beforeEach(async () => {
   db = createTestDb();
   await migrate(db);
@@ -245,7 +244,13 @@ describe('webhook subscription reconciliation (C1)', () => {
     await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
 
     const reloaded = await storage.subscriptions.findByProviderId('stripe', 'sub_fake');
+    const binding = await storage.subscriptionProviderBindings.findByProviderId(
+      'stripe',
+      'sub_fake',
+      null,
+    );
     expect(reloaded?.status).toBe('past_due');
+    expect(binding?.providerSyncedAt?.toISOString()).toBe('2026-06-22T10:00:00.000Z');
     expect(reloaded?.providerSyncedAt?.toISOString()).toBe('2026-06-22T10:00:00.000Z');
     expect(reloaded?.currentPeriodEnd?.toISOString()).toBe('2026-07-22T00:00:00.000Z');
   });
@@ -283,7 +288,13 @@ describe('webhook subscription reconciliation (C1)', () => {
     await payable.receiveWebhook({ payload: '{}', signature: 'sig' });
 
     const reloaded = await storage.subscriptions.findByProviderId('stripe', 'sub_fake');
+    const binding = await storage.subscriptionProviderBindings.findByProviderId(
+      'stripe',
+      'sub_fake',
+      null,
+    );
     expect(reloaded?.status).toBe('active');
+    expect(binding?.providerSyncedAt?.toISOString()).toBe('2026-06-22T11:00:00.000Z');
     expect(reloaded?.providerSyncedAt?.toISOString()).toBe('2026-06-22T11:00:00.000Z');
   });
 });

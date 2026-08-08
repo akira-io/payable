@@ -76,6 +76,7 @@ describe('prisma schema sync', () => {
     'PayablePriceProviderBinding',
     'PayableCatalogSynchronization',
     'PayableCustomerProviderSyncState',
+    'PayableSubscriptionProviderBinding',
     'PayableOutboxEvent',
   ])('keeps %s aligned across all schema copies', (modelName) => {
     const [canonicalPath, ...copyPaths] = SUBSCRIPTION_SCHEMA_PATHS;

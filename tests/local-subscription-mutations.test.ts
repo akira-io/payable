@@ -90,6 +90,26 @@ describe('local subscription mutations', () => {
     await database.destroy();
   });
 
+  it('fails before provider side effects when only the legacy inline identity exists', async () => {
+    const database = createTestDb();
+    await migrate(database);
+    const storage = new KnexStorageDriver(database, new FakeClock());
+    const provider = new FakeProvider();
+    const payable = createPayable({ providers: { stripe: provider }, storage });
+    const { subscription } = await storeSubscription(storage, {
+      billableId: 'legacy-inline-only',
+      provider: 'stripe',
+      providerSubscriptionId: 'sub_legacy_inline',
+      subscriptionBinding: false,
+    });
+
+    await expect(
+      payable.subscription(subscription.id).updateQuantity({ quantity: 2, ...changePolicies }),
+    ).rejects.toMatchObject({ code: 'SUBSCRIPTION_PROVIDER_BINDING_REQUIRED' });
+    expect(provider.lastSubscriptionUpdate).toBeUndefined();
+    await database.destroy();
+  });
+
   it('cancels through the local id and writes the existing audit event', async () => {
     const { database, payable, subscription } = await setupMutation();
     const resource = payable.subscription(subscription.id);

@@ -11,6 +11,7 @@ export interface StoredSubscriptionOptions {
   quantity?: number;
   status?: SubscriptionStatus;
   binding?: boolean;
+  subscriptionBinding?: boolean;
 }
 
 export async function storeSubscription(
@@ -53,5 +54,14 @@ export async function storeSubscription(
     providerItemId: null,
     quantity: subscription.quantity,
   });
+  if (options.providerSubscriptionId && options.subscriptionBinding !== false) {
+    await storage.subscriptionProviderBindings.create({
+      tenantId,
+      subscriptionId: subscription.id,
+      provider: options.provider,
+      providerSubscriptionId: options.providerSubscriptionId,
+      providerSyncedAt: null,
+    });
+  }
   return { customer, subscription };
 }

@@ -30,6 +30,19 @@ export class PrismaCanonicalPriceRepository
     return super.findById(id, tenantId);
   }
 
+  async findActiveRecurringByIdForUpdate(
+    id: string,
+    tenantId: string | null,
+  ): Promise<CanonicalPrice | null> {
+    assertCatalogTenantId(tenantId);
+    const locked = await this.delegate.updateMany({
+      where: { id, tenantId, active: true, type: 'recurring' },
+      data: { active: true },
+    });
+    if (locked.count === 0) return null;
+    return this.findById(id, tenantId);
+  }
+
   override update(
     id: string,
     patch: Partial<CanonicalPricePatch>,

@@ -26,6 +26,10 @@ export interface CanonicalPriceRepository {
     tenantId: string | null,
   ): Promise<CanonicalPrice>;
   findById(id: string, tenantId: string | null): Promise<CanonicalPrice | null>;
+  findActiveRecurringByIdForUpdate(
+    id: string,
+    tenantId: string | null,
+  ): Promise<CanonicalPrice | null>;
   findByLookupKey(lookupKey: string, tenantId: string | null): Promise<CanonicalPrice | null>;
   list(query: CanonicalPriceListQuery, tenantId: string | null): Promise<CanonicalPriceListResult>;
 }

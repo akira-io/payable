@@ -6,7 +6,7 @@ import { stripUndefined } from './mappers';
 const DEFAULT_LIST_LIMIT = 100;
 const MAX_LIST_LIMIT = 500;
 
-export abstract class KnexRepository<Entity, New> {
+export abstract class KnexRepository<Entity, New, Patch extends Partial<New> = Partial<New>> {
   protected abstract readonly table: string;
 
   constructor(
@@ -43,7 +43,7 @@ export abstract class KnexRepository<Entity, New> {
     await this.knex(this.table).insert(rows);
   }
 
-  async update(id: string, patch: Partial<New>, tenantId?: string | null): Promise<Entity> {
+  async update(id: string, patch: Patch, tenantId?: string | null): Promise<Entity> {
     const [updated] = await this.knex(this.table)
       .where(this.scopedWhere(id, tenantId))
       .update(
@@ -125,7 +125,7 @@ export abstract class KnexRepository<Entity, New> {
     return undefined;
   }
 
-  protected toUpdateRow(data: Partial<New>): Record<string, unknown> {
+  protected toUpdateRow(data: Patch): Record<string, unknown> {
     return this.toRow(data);
   }
 

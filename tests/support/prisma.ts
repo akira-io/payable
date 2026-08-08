@@ -21,6 +21,7 @@ const TRUNCATE_ORDER = [
   'payableWebhookDelivery',
   'payableWebhookEndpoint',
   'payableSubscriptionItem',
+  'payableSubscriptionProviderBinding',
   'payableRefund',
   'payableSubscription',
   'payablePayment',

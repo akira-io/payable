@@ -1,5 +1,23 @@
 # Subscription Lifecycle
 
+Create a provider-independent recurring agreement from a logical customer and canonical price:
+
+```ts
+const subscription = await payable.canonicalSubscriptions(tenantId).create({
+  customerId: customer.id,
+  name: 'default',
+  priceId: monthlyPrice.id,
+  activation: { state: 'pending' },
+  collectionResponsibility: 'merchant',
+  source: 'api',
+});
+
+const current = await payable.subscription(subscription.id, tenantId).retrieve();
+```
+
+This flow uses storage only. Attach a provider later with `attachProvider(...)` when a remote
+subscription exists. Until then, provider mutations fail before any adapter call.
+
 Create and manage a stored subscription through the fluent customer API.
 
 ## Prerequisites
@@ -82,16 +100,19 @@ await subscription.cancel();
 const current = await subscription.retrieve();
 ```
 
-This resource resolves the customer and provider binding from storage. It routes mutations through
-the provider stored on the subscription and returns the refreshed local record. Pass `tenantId`
-whenever tenancy is enabled. Provider subscription IDs remain adapter details.
+This resource reads the local record without a provider. For a mutation, it resolves the customer
+and separate provider binding from storage, routes the operation through that provider, and returns
+the refreshed local record. Pass `tenantId` whenever tenancy is enabled. Provider subscription IDs
+remain adapter details.
 
 Use `.checkout(...)` instead of `.create()` when the provider requires a hosted checkout page.
 
 ## Expected result
 
-Payable persists the provider subscription ID, status, price, quantity, period dates, and items. Each
-management operation updates the provider first and then reconciles the local subscription.
+Canonical creation persists a stable local ID, accepted-price snapshot, status, collection
+responsibility, period dates, and items. Provider-first creation also persists a separate provider
+binding. Each provider management operation updates the provider first and then reconciles the local
+subscription.
 
 ## Failure behavior
 

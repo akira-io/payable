@@ -50,6 +50,18 @@ export interface PrismaCustomerProviderBindingRow {
   updatedAt: Date;
 }
 
+export interface PrismaSubscriptionProviderBindingRow {
+  id: string;
+  tenantId: string | null;
+  tenantKey: string;
+  subscriptionId: string;
+  provider: string;
+  providerSubscriptionId: string;
+  providerSyncedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface PrismaCustomerProviderSyncStateRow {
   id: string;
   tenantId: string | null;
@@ -262,6 +274,7 @@ export interface PrismaModelDelegates {
   payableProductProviderBinding: PrismaDelegate<PrismaProductProviderBindingRow>;
   payablePriceProviderBinding: PrismaDelegate<PrismaPriceProviderBindingRow>;
   payableSubscription: PrismaDelegate<PrismaSubscriptionRow>;
+  payableSubscriptionProviderBinding: PrismaDelegate<PrismaSubscriptionProviderBindingRow>;
   payableSubscriptionItem: PrismaDelegate<PrismaSubscriptionItemRow>;
   payableInvoice: PrismaDelegate<PrismaInvoiceRow>;
   payablePayment: PrismaDelegate<PrismaPaymentRow>;

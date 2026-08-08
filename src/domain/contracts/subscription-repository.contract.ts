@@ -9,19 +9,40 @@ type LifecycleMetadataKey =
   | 'paymentCollectionPauseBehavior'
   | 'paymentCollectionResumesAt';
 
+type CanonicalSnapshotKey =
+  | 'canonicalPriceId'
+  | 'acceptedCurrency'
+  | 'acceptedUnitAmount'
+  | 'acceptedInterval'
+  | 'acceptedIntervalCount'
+  | 'acceptedQuantity'
+  | 'collectionResponsibility'
+  | 'creationSource';
+
 export type NewSubscription = Omit<
   Subscription,
-  'id' | 'createdAt' | 'updatedAt' | LifecycleMetadataKey
+  'id' | 'createdAt' | 'updatedAt' | LifecycleMetadataKey | CanonicalSnapshotKey
 > &
-  Partial<Pick<Subscription, LifecycleMetadataKey>>;
+  Partial<Pick<Subscription, LifecycleMetadataKey | CanonicalSnapshotKey>>;
+
+export type SubscriptionPatch = Partial<
+  Pick<
+    Subscription,
+    | 'status'
+    | 'priceId'
+    | 'quantity'
+    | 'trialEndsAt'
+    | 'endsAt'
+    | 'currentPeriodStart'
+    | 'currentPeriodEnd'
+    | 'providerSyncedAt'
+    | LifecycleMetadataKey
+  >
+>;
 
 export interface SubscriptionRepository {
   create(data: NewSubscription): Promise<Subscription>;
-  update(
-    id: string,
-    patch: Partial<NewSubscription>,
-    tenantId?: string | null,
-  ): Promise<Subscription>;
+  update(id: string, patch: SubscriptionPatch, tenantId?: string | null): Promise<Subscription>;
   findById(id: string, tenantId?: string | null): Promise<Subscription | null>;
   findByName(
     customerId: string,

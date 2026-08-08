@@ -68,13 +68,22 @@ export async function createBillingTables(knex: Knex): Promise<void> {
   await createIfMissing(knex, 'payable_subscriptions', (table) => {
     table.uuid('id').primary();
     table.string('tenant_id').nullable();
+    table.string('tenant_key').notNullable().defaultTo('');
     table.uuid('customer_id').notNullable();
     table.string('name').notNullable();
-    table.string('provider').notNullable();
+    table.string('provider').nullable();
     table.string('provider_subscription_id').nullable();
     table.string('status').notNullable();
     table.uuid('price_id').nullable();
     table.integer('quantity').notNullable();
+    table.uuid('canonical_price_id').nullable();
+    table.string('accepted_currency').nullable();
+    table.bigInteger('accepted_unit_amount').nullable();
+    table.string('accepted_interval').nullable();
+    table.integer('accepted_interval_count').nullable();
+    table.integer('accepted_quantity').nullable();
+    table.string('collection_responsibility').notNullable().defaultTo('provider');
+    table.string('creation_source').nullable();
     table.timestamp('trial_ends_at', { useTz: true }).nullable();
     table.timestamp('ends_at', { useTz: true }).nullable();
     table.timestamp('current_period_start', { useTz: true }).nullable();
@@ -88,8 +97,17 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.timestamp('payment_collection_resumes_at', { useTz: true }).nullable();
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.timestamp('updated_at', { useTz: true }).notNullable();
-    table.unique(['provider', 'provider_subscription_id']);
-    table.unique(['customer_id', 'name']);
+    table.check(
+      "tenant_key = COALESCE(tenant_id, '')",
+      {},
+      'payable_subscriptions_tenant_key_consistency_check',
+    );
+    table.unique(['tenant_key', 'provider', 'provider_subscription_id'], {
+      indexName: 'payable_subscriptions_tenant_provider_id_unique',
+    });
+    table.unique(['tenant_key', 'customer_id', 'name'], {
+      indexName: 'payable_subscriptions_tenant_customer_name_unique',
+    });
   });
 
   await createIfMissing(knex, 'payable_subscription_items', (table) => {
@@ -106,6 +124,34 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.timestamp('updated_at', { useTz: true }).notNullable();
     table.index('subscription_id');
+  });
+
+  await createIfMissing(knex, 'payable_subscription_provider_bindings', (table) => {
+    table.uuid('id').primary();
+    table.string('tenant_id').nullable();
+    table.string('tenant_key').notNullable().defaultTo('');
+    table
+      .uuid('subscription_id')
+      .notNullable()
+      .references('id')
+      .inTable('payable_subscriptions')
+      .onDelete('CASCADE');
+    table.string('provider').notNullable();
+    table.string('provider_subscription_id').notNullable();
+    table.timestamp('provider_synced_at', { useTz: true }).nullable();
+    table.timestamp('created_at', { useTz: true }).notNullable();
+    table.timestamp('updated_at', { useTz: true }).notNullable();
+    table.check(
+      "tenant_key = COALESCE(tenant_id, '')",
+      {},
+      'payable_subscription_bindings_tenant_key_consistency_check',
+    );
+    table.unique(['tenant_key', 'subscription_id', 'provider'], {
+      indexName: 'payable_subscription_bindings_subscription_provider_unique',
+    });
+    table.unique(['tenant_key', 'provider', 'provider_subscription_id'], {
+      indexName: 'payable_subscription_bindings_provider_id_unique',
+    });
   });
 
   await createIfMissing(knex, 'payable_invoices', (table) => {

@@ -65,7 +65,11 @@ export class DependencyFactory {
     });
   }
 
-  localSubscription(localId: string, tenantId?: string | null): LocalSubscriptionResource {
+  localSubscription(
+    localId: string,
+    tenantId?: string | null,
+    providerName?: string,
+  ): LocalSubscriptionResource {
     this.assertTenant(tenantId);
     const storage = this.resolved.storage;
     if (!storage) {
@@ -73,8 +77,12 @@ export class DependencyFactory {
         code: 'SUBSCRIPTION_STORAGE_REQUIRED',
       });
     }
-    return new LocalSubscriptionResource(storage, localId, tenantId ?? null, (providerName) =>
-      this.billing(providerName, tenantId),
+    return new LocalSubscriptionResource(
+      storage,
+      localId,
+      tenantId ?? null,
+      (resolvedProviderName) => this.billing(resolvedProviderName, tenantId),
+      providerName,
     );
   }
 
