@@ -27,7 +27,7 @@ export class PrismaCustomerRepository
 
   async list(query: CustomerListQuery, tenantId: string | null): Promise<CustomerListResult> {
     const filters: Record<string, unknown>[] = [
-      { tenantId },
+      { tenantKey: tenantId ?? '' },
       query.id ? { id: query.id } : {},
       query.billableType ? { billableType: query.billableType } : {},
       query.billableId ? { billableId: query.billableId } : {},

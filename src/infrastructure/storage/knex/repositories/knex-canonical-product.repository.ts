@@ -41,11 +41,22 @@ export class KnexCanonicalProductRepository
   ): Promise<CanonicalProductListResult> {
     assertCatalogTenantId(tenantId);
     let products = this.knex(this.table)
-      .whereRaw("COALESCE(tenant_id, '') = ?", [tenantId ?? ''])
+      .where('tenant_key', tenantId ?? '')
       .orderBy('created_at', 'desc')
       .orderBy('id', 'desc');
+    if (query.id) {
+      products = products.where('id', query.id);
+    }
     if (query.active !== undefined) {
       products = products.where('active', query.active);
+    }
+    if (query.name) {
+      products = products.whereRaw("LOWER(name) LIKE ? ESCAPE '\\'", [searchPattern(query.name)]);
+    }
+    if (query.description) {
+      products = products.whereRaw("LOWER(description) LIKE ? ESCAPE '\\'", [
+        searchPattern(query.description),
+      ]);
     }
     if (query.before) {
       const createdAt = query.before.createdAt.toISOString();
@@ -96,4 +107,9 @@ export class KnexCanonicalProductRepository
       metadata: product.metadata === undefined ? undefined : fromJson(product.metadata),
     };
   }
+}
+
+function searchPattern(search: string): string {
+  const escaped = search.toLocaleLowerCase('en-US').replace(/[\\%_]/gu, '\\$&');
+  return `%${escaped}%`;
 }

@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { PayableError } from '../../domain/errors/payable-error';
 import { Money } from '../../domain/value-objects/money';
+import { PAYMENT_STATUSES } from '../../domain/value-objects/payment-status';
+import { SUBSCRIPTION_STATUSES } from '../../domain/value-objects/subscription-status';
 
 export const MAX_LIST_LIMIT = 100;
 
@@ -57,6 +59,55 @@ export const listRefundsQuerySchema = z.object({
 const booleanQuerySchema = z
   .union([z.boolean(), z.literal('true'), z.literal('false')])
   .transform<boolean>((value) => value === true || value === 'true');
+
+const canonicalListQuerySchema = z.object({
+  limit: z.coerce.number().int().positive().max(MAX_LIST_LIMIT).optional(),
+  cursor: z.string().min(1).optional(),
+  id: z.string().min(1).optional(),
+});
+
+export const canonicalCustomerListQuerySchema = canonicalListQuerySchema.extend({
+  billableType: z.string().min(1).optional(),
+  billableId: z.string().min(1).optional(),
+  email: z.string().min(1).optional(),
+  name: z.string().min(1).optional(),
+  includeBindings: booleanQuerySchema.optional(),
+});
+
+export const canonicalProductListQuerySchema = canonicalListQuerySchema.extend({
+  active: booleanQuerySchema.optional(),
+  name: z.string().min(1).optional(),
+  description: z.string().min(1).optional(),
+  includeBindings: booleanQuerySchema.optional(),
+});
+
+export const canonicalPriceListQuerySchema = canonicalListQuerySchema.extend({
+  active: booleanQuerySchema.optional(),
+  productId: z.string().min(1).optional(),
+  type: z.enum(['one_time', 'recurring']).optional(),
+  lookupKey: z.string().min(1).optional(),
+  lookupKeys: z
+    .union([z.string().min(1), z.array(z.string().min(1)).min(1)])
+    .transform((value) => (Array.isArray(value) ? value : [value]))
+    .optional(),
+  includeBindings: booleanQuerySchema.optional(),
+});
+
+export const canonicalSubscriptionListQuerySchema = canonicalListQuerySchema.extend({
+  customerId: z.string().min(1).optional(),
+  status: z.enum(SUBSCRIPTION_STATUSES).optional(),
+  canonicalPriceId: z.string().min(1).optional(),
+  name: z.string().min(1).optional(),
+  includeBindings: booleanQuerySchema.optional(),
+});
+
+export const canonicalPaymentListQuerySchema = canonicalListQuerySchema.extend({
+  customerId: z.string().min(1).optional(),
+  status: z.enum(PAYMENT_STATUSES).optional(),
+  currency: z.string().min(1).optional(),
+  reference: z.string().min(1).optional(),
+  description: z.string().min(1).optional(),
+});
 
 export const catalogListQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(MAX_LIST_LIMIT).optional(),

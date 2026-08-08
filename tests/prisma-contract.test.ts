@@ -183,7 +183,7 @@ describe('prisma canonical local catalog', () => {
       providerProductId: 'prod_prisma_secondary',
     });
 
-    expect([...firstPage.data, ...secondPage.data].map(({ id }) => id).sort()).toEqual(
+    expect([...firstPage.items, ...secondPage.items].map(({ id }) => id).sort()).toEqual(
       [first.id, second.id].sort(),
     );
     await expect(

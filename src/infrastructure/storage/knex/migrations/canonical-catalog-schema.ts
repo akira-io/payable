@@ -57,6 +57,7 @@ export async function addCanonicalCatalogTables(knex: Knex): Promise<void> {
       ['tenant_key', 'product_id', 'created_at', 'id'],
       'payable_canonical_prices_product_page_index',
     );
+    table.index(['tenant_key', 'created_at', 'id'], 'payable_canonical_prices_tenant_page_index');
   });
 
   await createIfMissing(knex, 'payable_price_provider_bindings', (table) => {

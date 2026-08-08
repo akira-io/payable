@@ -16,4 +16,5 @@ export interface PriceProviderBindingRepository {
     tenantId: string | null,
   ): Promise<PriceProviderBinding | null>;
   listByPriceId(priceId: string, tenantId: string | null): Promise<PriceProviderBinding[]>;
+  listByPriceIds?(priceIds: string[], tenantId: string | null): Promise<PriceProviderBinding[]>;
 }

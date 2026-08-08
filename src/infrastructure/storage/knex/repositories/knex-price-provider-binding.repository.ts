@@ -74,6 +74,20 @@ export class KnexPriceProviderBindingRepository implements PriceProviderBindingR
     return rows.map((row) => this.toEntity(row));
   }
 
+  async listByPriceIds(
+    priceIds: string[],
+    tenantId: string | null,
+  ): Promise<PriceProviderBinding[]> {
+    assertCatalogTenantId(tenantId);
+    if (priceIds.length === 0) return [];
+    const rows = (await this.knex(TABLE)
+      .where({ tenant_key: tenantId ?? '' })
+      .whereIn('price_id', priceIds)
+      .orderBy('price_id', 'asc')
+      .orderBy('provider', 'asc')) as Record<string, unknown>[];
+    return rows.map((row) => this.toEntity(row));
+  }
+
   private async firstWhere(
     query: Record<string, unknown>,
     tenantId: string | null,

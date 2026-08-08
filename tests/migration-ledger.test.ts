@@ -28,6 +28,7 @@ describe('migration ledger', () => {
       '013-customer-provider-sync-state-leases',
       '014-catalog-synchronization',
       '015-canonical-local-subscriptions',
+      '016-provider-neutral-page-indexes',
     ]);
     await db.destroy();
   });

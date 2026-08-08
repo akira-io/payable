@@ -123,12 +123,12 @@ describe('logical customer collection', () => {
 
   it('includes only safe binding metadata when requested', async () => {
     const customer = await createCustomer({ billableId: 'bound' });
-    await storage.customerProviderBindings.create({
+    const stripeBinding = await storage.customerProviderBindings.create({
       customerId: customer.id,
       provider: 'stripe',
       providerCustomerId: 'cus_safe',
     });
-    await storage.customerProviderBindings.create({
+    const paddleBinding = await storage.customerProviderBindings.create({
       customerId: customer.id,
       provider: 'paddle',
       providerCustomerId: 'ctm_safe',
@@ -137,8 +137,8 @@ describe('logical customer collection', () => {
 
     expect((await customers.list()).items[0]).not.toHaveProperty('bindings');
     expect((await customers.list({ includeBindings: true })).items[0]?.bindings).toEqual([
-      { provider: 'paddle', providerCustomerId: 'ctm_safe' },
-      { provider: 'stripe', providerCustomerId: 'cus_safe' },
+      { id: paddleBinding.id, provider: 'paddle', providerCustomerId: 'ctm_safe' },
+      { id: stripeBinding.id, provider: 'stripe', providerCustomerId: 'cus_safe' },
     ]);
   });
 
@@ -148,21 +148,23 @@ describe('logical customer collection', () => {
     expect(() => payable.customers()).toThrow(expect.objectContaining({ code: 'TENANT_REQUIRED' }));
     await expect(
       payable.customers(undefined, 'tenant-a').list({ cursor: 'not-a-cursor' }),
-    ).rejects.toMatchObject({ code: 'CUSTOMER_CURSOR_INVALID' });
+    ).rejects.toMatchObject({ code: 'COLLECTION_CURSOR_INVALID' });
   });
 
-  it('caps page sizes at one hundred customers', async () => {
-    await Promise.all(
-      Array.from({ length: 101 }, (_, index) =>
-        createCustomer({ billableId: `customer-${index}` }),
-      ),
-    );
+  it('rejects page sizes above one hundred customers', async () => {
+    await expect(
+      createTenantPayable().customers(undefined, 'tenant-a').list({ limit: 101 }),
+    ).rejects.toMatchObject({ code: 'COLLECTION_LIMIT_INVALID' });
+  });
 
-    const page = await createTenantPayable()
-      .customers(undefined, 'tenant-a')
-      .list({ limit: 1_000 });
+  it('rejects a customer cursor when search filters change', async () => {
+    await createCustomer({ billableId: 'one', email: 'ada@example.com' });
+    await createCustomer({ billableId: 'two', email: 'ada@example.com' });
+    const customers = createTenantPayable().customers(undefined, 'tenant-a');
+    const first = await customers.list({ limit: 1, email: 'ada' });
 
-    expect(page.items).toHaveLength(100);
-    expect(page.hasMore).toBe(true);
+    await expect(
+      customers.list({ limit: 1, email: 'grace', cursor: first.nextCursor ?? undefined }),
+    ).rejects.toMatchObject({ code: 'COLLECTION_CURSOR_INVALID' });
   });
 });

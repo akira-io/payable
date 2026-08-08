@@ -2,6 +2,7 @@ import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import type { Payable } from '../../payable';
 import { type FastifyPayableOptions, payableErrorReply } from './helpers';
+import { registerCanonicalCollectionRoutes } from './routes/canonical-collections.routes';
 import { registerCatalogRoutes } from './routes/catalog.routes';
 import { registerCheckoutRoutes } from './routes/checkout.routes';
 import { registerCustomerRoutes } from './routes/customers.routes';
@@ -30,6 +31,7 @@ export function createFastifyPayablePlugin(
         authenticatedScope.addHook('onRequest', options.authenticate);
       }
       await registerCheckoutRoutes(authenticatedScope, payable, options);
+      await registerCanonicalCollectionRoutes(authenticatedScope, payable, options);
       await registerSubscriptionRoutes(authenticatedScope, payable, options);
       await registerRefundRoutes(authenticatedScope, payable, options);
       await registerCustomerRoutes(authenticatedScope, payable, options);

@@ -13,6 +13,7 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.text('metadata').nullable();
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.timestamp('updated_at', { useTz: true }).notNullable();
+    table.index(['tenant_key', 'created_at', 'id'], 'payable_customers_tenant_page_index');
   });
 
   await createCustomerProviderBindingsTable(knex);
@@ -108,6 +109,7 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.unique(['tenant_key', 'customer_id', 'name'], {
       indexName: 'payable_subscriptions_tenant_customer_name_unique',
     });
+    table.index(['tenant_key', 'created_at', 'id'], 'payable_subscriptions_tenant_page_index');
   });
 
   await createIfMissing(knex, 'payable_subscription_items', (table) => {
@@ -178,6 +180,7 @@ export async function createBillingTables(knex: Knex): Promise<void> {
   await createIfMissing(knex, 'payable_payments', (table) => {
     table.uuid('id').primary();
     table.string('tenant_id').nullable();
+    table.string('tenant_key').notNullable().defaultTo('');
     table.uuid('customer_id').nullable();
     table.string('provider').notNullable();
     table.string('provider_payment_id').nullable();
@@ -191,6 +194,12 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.timestamp('updated_at', { useTz: true }).notNullable();
     table.unique(['provider', 'provider_payment_id']);
     table.index('customer_id');
+    table.index(['tenant_key', 'created_at', 'id'], 'payable_payments_tenant_page_index');
+    table.check(
+      "tenant_key = COALESCE(tenant_id, '')",
+      {},
+      'payable_payments_tenant_key_consistency_check',
+    );
   });
 
   await createIfMissing(knex, 'payable_refunds', (table) => {

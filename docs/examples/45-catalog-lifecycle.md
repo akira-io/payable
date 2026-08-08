@@ -66,9 +66,10 @@ Local product operations include `create`, `retrieve`, `update`, `list`, `activa
 while amount, currency, billing type, interval, and interval count remain immutable. Create a
 replacement price when any immutable term changes.
 
-Local lists default to 25 records and cap requests at 100. Product filters support `active`. Price
-filters support `active`, canonical `productId`, `type`, and `lookupKeys`. The opaque cursor orders
-equal timestamps by local ID, so pages are deterministic within one tenant.
+Local lists default to 25 records and cap requests at 100. Product filters support exact `id` and
+`active`, plus case-insensitive `name` and `description` searches. Price filters support exact `id`,
+`active`, canonical `productId`, `type`, `lookupKey`, and `lookupKeys`. The opaque cursor orders equal
+timestamps by local ID, so pages are deterministic within one tenant.
 
 ```ts
 const firstPage = await payable.prices('tenant-acme').list({
@@ -97,9 +98,11 @@ await payable
 ```
 
 Use `payable.providerCatalog(providerName, tenantId)` for the provider-first compatibility API. This
-path returns provider DTOs and uses provider product or price IDs. Existing Express, Fastify, NestJS,
-and MCP catalog adapters remain on this explicit provider path until their canonical adapter contract
-is introduced.
+path returns provider DTOs and uses provider product or price IDs. Express, Fastify, and NestJS keep
+that path on unprefixed product and price routes, while their `/canonical/products` and
+`/canonical/prices` routes expose local pages. MCP follows the same split between `products_list`
+and `prices_list` for provider-native data and `canonical_products_list` and
+`canonical_prices_list` for local data.
 
 ## Provider catalog prerequisites
 

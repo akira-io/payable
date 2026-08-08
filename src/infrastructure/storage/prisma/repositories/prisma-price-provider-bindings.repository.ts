@@ -64,6 +64,19 @@ export class PrismaPriceProviderBindingRepository implements PriceProviderBindin
     return rows.map((row) => this.toEntity(row));
   }
 
+  async listByPriceIds(
+    priceIds: string[],
+    tenantId: string | null,
+  ): Promise<PriceProviderBinding[]> {
+    assertCatalogTenantId(tenantId);
+    if (priceIds.length === 0) return [];
+    const rows = await this.client.payablePriceProviderBinding.findMany({
+      where: { priceId: { in: priceIds }, tenantKey: tenantId ?? '' },
+      orderBy: [{ priceId: 'asc' }, { provider: 'asc' }],
+    });
+    return rows.map((row) => this.toEntity(row));
+  }
+
   private async firstWhere(
     where: Record<string, unknown>,
     tenantId: string | null,

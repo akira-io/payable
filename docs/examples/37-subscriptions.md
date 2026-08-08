@@ -105,6 +105,26 @@ and separate provider binding from storage, routes the operation through that pr
 the refreshed local record. Pass `tenantId` whenever tenancy is enabled. Provider subscription IDs
 remain adapter details.
 
+For tenant-wide administrative reads, use the canonical page instead of the compatibility array:
+
+```ts
+const page = await payable.canonicalSubscriptions(tenantId).list({
+  status: 'active',
+  limit: 25,
+});
+
+const nextPage = page.nextCursor
+  ? await payable.canonicalSubscriptions(tenantId).list({
+      status: 'active',
+      limit: 25,
+      cursor: page.nextCursor,
+    })
+  : null;
+```
+
+Repeat the same filters with the opaque cursor. Use `payable.subscriptions(tenantId)` only when the
+legacy array result is required.
+
 Use `.checkout(...)` instead of `.create()` when the provider requires a hosted checkout page.
 
 ## Expected result

@@ -73,6 +73,23 @@ The plugin performs, in order:
 | POST | `/refunds` | 201 | Refund a payment |
 | GET | `/refunds` | 200 | List a payment's refunds (query: paymentId, limit?) |
 
+### Canonical collection routes
+
+Fastify exposes the same provider-neutral storage routes as Express:
+
+| Resource | Page route | Exact route |
+| --- | --- | --- |
+| Customers | `GET /canonical/customers` | `GET /canonical/customers/:id` |
+| Products | `GET /canonical/products` | `GET /canonical/products/:id` |
+| Prices | `GET /canonical/prices` | `GET /canonical/prices/:id` |
+| Subscriptions | `GET /canonical/subscriptions` | `GET /canonical/subscriptions/:id` |
+| Payments | `GET /canonical/payments` | `GET /canonical/payments/:id` |
+
+Page responses use `{ items, nextCursor, hasMore }`, default to 25 items, and accept at most 100.
+These routes use the request tenant and never resolve a payment provider. The unprefixed catalogue
+routes remain provider-native, while unprefixed subscription and payment reads preserve their
+existing array contract.
+
 ## Parity with Express
 
 This adapter exposes the same route set as Express: webhooks, checkout, subscription management

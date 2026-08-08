@@ -62,6 +62,40 @@ return `SUBSCRIPTION_PROVIDER_BINDING_AMBIGUOUS` unless the caller selects one w
 Use `await payable.subscription(localId, tenantId).capabilities()` to inspect local record
 capabilities independently from the operation capabilities of each configured provider binding.
 
+## Listing canonical subscriptions and stored payments
+
+Administrative collection reads use local storage only. They do not resolve a provider or inspect
+provider capabilities.
+
+```ts
+const subscriptions = await payable.canonicalSubscriptions(tenantId).list({
+  status: 'active',
+  customerId,
+  limit: 25,
+});
+
+const payments = await payable.storedPayments(tenantId).list({
+  currency: 'EUR',
+  reference: 'transfer-',
+  limit: 25,
+});
+
+const subscription = await payable
+  .canonicalSubscriptions(tenantId)
+  .retrieve(subscriptionId);
+const payment = await payable.storedPayments(tenantId).retrieve(paymentId);
+```
+
+Both lists return `{ items, nextCursor, hasMore }`, default to 25 records, and reject limits above
+100. Subscription filters support exact `id`, `customerId`, `status`, `canonicalPriceId`, and
+`name`. Payment filters support exact `id`, `customerId`, `status`, and `currency`, plus
+case-insensitive substring searches for `reference` and `description`.
+
+Set `includeBindings: true` on canonical subscription pages to include safe provider binding
+identifiers and synchronization timestamps. Existing `payable.subscriptions(tenantId, options)` and
+`payable.payments(tenantId, options)` methods remain available and continue returning arrays for
+compatibility.
+
 ## Creating a provider-owned subscription
 
 `SubscriptionBuilder` collects state fluently, then `create()` runs `CreateSubscriptionAction`.

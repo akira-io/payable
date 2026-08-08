@@ -16,8 +16,15 @@ export class PrismaCanonicalProductRepository
   extends PrismaRepository<CanonicalProduct, NewCanonicalProduct, PrismaCanonicalProductRow>
   implements CanonicalProductRepository
 {
+  private readonly supportsInsensitiveMode: boolean;
+
   constructor(client: PrismaClient, clock: Clock) {
     super(client.payableCanonicalProduct, clock);
+    const activeProvider = (client as unknown as { _activeProvider?: string })._activeProvider;
+    this.supportsInsensitiveMode =
+      activeProvider === 'postgresql' ||
+      activeProvider === 'cockroachdb' ||
+      activeProvider === 'mongodb';
   }
 
   override create(product: NewCanonicalProduct): Promise<CanonicalProduct> {
@@ -45,8 +52,11 @@ export class PrismaCanonicalProductRepository
   ): Promise<CanonicalProductListResult> {
     assertCatalogTenantId(tenantId);
     const filters: Record<string, unknown>[] = [
-      { tenantId },
+      { tenantKey: tenantId ?? '' },
+      query.id ? { id: query.id } : {},
       query.active === undefined ? {} : { active: query.active },
+      query.name ? { name: this.textSearch(query.name) } : {},
+      query.description ? { description: this.textSearch(query.description) } : {},
     ];
     if (query.before) {
       filters.push({
@@ -94,5 +104,11 @@ export class PrismaCanonicalProductRepository
       active: product.active,
       metadata: toJsonString(product.metadata),
     };
+  }
+
+  private textSearch(search: string): Record<string, unknown> {
+    return this.supportsInsensitiveMode
+      ? { contains: search, mode: 'insensitive' }
+      : { contains: search };
   }
 }

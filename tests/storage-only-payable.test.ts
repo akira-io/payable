@@ -88,4 +88,24 @@ describe('storage-only Payable', () => {
 
     await database.destroy();
   });
+
+  it.each(['', '   '])('rejects an empty tenant id for local reads', async (tenantId) => {
+    const { database, storage } = await setupStorageOnly('tenant_a');
+    const payable = createPayable({ storage, tenant: { enabled: true } });
+
+    expect(() => payable.customers(undefined, tenantId)).toThrowError(
+      expect.objectContaining({ code: 'TENANT_REQUIRED' }),
+    );
+    expect(() => payable.products(tenantId)).toThrowError(
+      expect.objectContaining({ code: 'TENANT_REQUIRED' }),
+    );
+    expect(() => payable.canonicalSubscriptions(tenantId)).toThrowError(
+      expect.objectContaining({ code: 'TENANT_REQUIRED' }),
+    );
+    expect(() => payable.storedPayments(tenantId)).toThrowError(
+      expect.objectContaining({ code: 'TENANT_REQUIRED' }),
+    );
+
+    await database.destroy();
+  });
 });

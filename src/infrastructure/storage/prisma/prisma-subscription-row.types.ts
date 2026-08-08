@@ -1,6 +1,7 @@
 export interface PrismaSubscriptionRow {
   id: string;
   tenantId: string | null;
+  tenantKey: string;
   customerId: string;
   name: string;
   provider: string | null;

@@ -2,6 +2,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Payable } from '../../../payable';
 import type { McpPayableOptions } from '../options';
 import { isToolEnabled, resolvePolicy, type ToolGate } from '../policy';
+import { registerCanonicalReadTools } from './canonical-read.tools';
 import { registerCatalogLifecycleTools } from './catalog-lifecycle.tools';
 import { registerCatalogTools } from './catalog-mutation.tools';
 import { registerMoneyTools } from './money.tools';
@@ -17,6 +18,7 @@ export function registerTools(
   const policy = resolvePolicy(options.policy);
   const gate: ToolGate = (name, kind) => isToolEnabled(name, kind, policy);
   registerReadTools(server, payable, options, gate);
+  registerCanonicalReadTools(server, payable, options, gate);
   registerCatalogReadTools(server, payable, options, gate);
   registerCatalogTools(server, payable, options, gate);
   registerCatalogLifecycleTools(server, payable, options, gate);

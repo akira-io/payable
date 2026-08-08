@@ -1,5 +1,6 @@
 import type { Subscription } from '../entities/subscription.entity';
-import type { ListOptions } from './list-options.contract';
+import type { SubscriptionStatus } from '../value-objects/subscription-status';
+import type { ListCursor, ListOptions } from './list-options.contract';
 
 type LifecycleMetadataKey =
   | 'scheduledChangeAction'
@@ -40,6 +41,21 @@ export type SubscriptionPatch = Partial<
   >
 >;
 
+export interface SubscriptionListQuery {
+  limit: number;
+  before?: ListCursor;
+  id?: string;
+  customerId?: string;
+  status?: SubscriptionStatus;
+  canonicalPriceId?: string;
+  name?: string;
+}
+
+export interface SubscriptionListResult {
+  items: Subscription[];
+  hasMore: boolean;
+}
+
 export interface SubscriptionRepository {
   create(data: NewSubscription): Promise<Subscription>;
   update(id: string, patch: SubscriptionPatch, tenantId?: string | null): Promise<Subscription>;
@@ -60,4 +76,5 @@ export interface SubscriptionRepository {
     options?: ListOptions,
   ): Promise<Subscription[]>;
   list(tenantId?: string | null, options?: ListOptions): Promise<Subscription[]>;
+  page?(query: SubscriptionListQuery, tenantId: string | null): Promise<SubscriptionListResult>;
 }

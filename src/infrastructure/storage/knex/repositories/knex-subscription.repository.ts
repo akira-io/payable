@@ -1,6 +1,8 @@
 import type { ListOptions } from '../../../../domain/contracts/list-options.contract';
 import type {
   NewSubscription,
+  SubscriptionListQuery,
+  SubscriptionListResult,
   SubscriptionPatch,
   SubscriptionRepository,
 } from '../../../../domain/contracts/subscription-repository.contract';
@@ -49,6 +51,37 @@ export class KnexSubscriptionRepository
 
   list(tenantId?: string | null, options?: ListOptions): Promise<Subscription[]> {
     return this.manyWhere(this.tenantClause(tenantId), options);
+  }
+
+  async page(
+    query: SubscriptionListQuery,
+    tenantId: string | null,
+  ): Promise<SubscriptionListResult> {
+    let subscriptions = this.knex(this.table)
+      .where('tenant_key', tenantId ?? '')
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc');
+    if (query.id) subscriptions = subscriptions.where('id', query.id);
+    if (query.customerId) subscriptions = subscriptions.where('customer_id', query.customerId);
+    if (query.status) subscriptions = subscriptions.where('status', query.status);
+    if (query.canonicalPriceId) {
+      subscriptions = subscriptions.where('canonical_price_id', query.canonicalPriceId);
+    }
+    if (query.name) subscriptions = subscriptions.where('name', query.name);
+    if (query.before) {
+      const before = query.before;
+      const createdAt = before.createdAt.toISOString();
+      subscriptions = subscriptions.where((subscription) =>
+        subscription
+          .where('created_at', '<', createdAt)
+          .orWhere((tie) => tie.where('created_at', createdAt).andWhere('id', '<', before.id)),
+      );
+    }
+    const rows = (await subscriptions.limit(query.limit + 1)) as Record<string, unknown>[];
+    return {
+      items: rows.slice(0, query.limit).map((row) => this.toEntity(row)),
+      hasMore: rows.length > query.limit,
+    };
   }
 
   protected toEntity(row: Record<string, unknown>): Subscription {

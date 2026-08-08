@@ -67,6 +67,19 @@ export class PrismaProductProviderBindingRepository implements ProductProviderBi
     return rows.map((row) => this.toEntity(row));
   }
 
+  async listByProductIds(
+    productIds: string[],
+    tenantId: string | null,
+  ): Promise<ProductProviderBinding[]> {
+    assertCatalogTenantId(tenantId);
+    if (productIds.length === 0) return [];
+    const rows = await this.client.payableProductProviderBinding.findMany({
+      where: { productId: { in: productIds }, tenantKey: tenantId ?? '' },
+      orderBy: [{ productId: 'asc' }, { provider: 'asc' }],
+    });
+    return rows.map((row) => this.toEntity(row));
+  }
+
   private async firstWhere(
     where: Record<string, unknown>,
     tenantId: string | null,

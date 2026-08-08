@@ -7,20 +7,28 @@ export {
 export type { Billable } from './billable';
 export type { BillingDependencies } from './billing-dependencies';
 export {
+  type CanonicalPricePageItem,
   CanonicalPriceResource,
   type CreateCanonicalPriceInput,
   type ListCanonicalPricesInput,
+  type PriceBindingMetadata,
   type UpdateCanonicalPriceInput,
 } from './canonical-price-resource';
 export {
+  type CanonicalProductPageItem,
   CanonicalProductResource,
   type CreateCanonicalProductInput,
+  type ListCanonicalProductsInput,
+  type ProductBindingMetadata,
   type UpdateCanonicalProductInput,
 } from './canonical-product-resource';
 export {
   type AttachCanonicalSubscriptionProviderInput,
+  type CanonicalSubscriptionPageItem,
   CanonicalSubscriptionResource,
   type CreateCanonicalSubscriptionInput,
+  type ListCanonicalSubscriptionsInput,
+  type SubscriptionBindingMetadata,
 } from './canonical-subscription-resource';
 export type { CatalogMutationOptions } from './catalog-mutation-options';
 export type { CatalogSyncDependencies } from './catalog-sync-dependencies';
@@ -50,6 +58,10 @@ export {
   type RedirectCheckoutRequest,
 } from './redirect-checkout-builder';
 export { RefundResource } from './refund-resource';
+export {
+  type ListStoredPaymentsInput,
+  StoredPaymentResource,
+} from './stored-payment-resource';
 export { SubscriptionBuilder } from './subscription-builder';
 export {
   SubscriptionManager,

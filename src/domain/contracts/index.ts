@@ -168,6 +168,8 @@ export {
 } from './payment-provider.contract';
 export type {
   NewPayment,
+  PaymentListQuery,
+  PaymentListResult,
   PaymentRepository,
   RefundedAmountPatch,
 } from './payment-repository.contract';
@@ -216,7 +218,12 @@ export type {
   NewSubscriptionProviderBinding,
   SubscriptionProviderBindingRepository,
 } from './subscription-provider-binding-repository.contract';
-export type { NewSubscription, SubscriptionRepository } from './subscription-repository.contract';
+export type {
+  NewSubscription,
+  SubscriptionListQuery,
+  SubscriptionListResult,
+  SubscriptionRepository,
+} from './subscription-repository.contract';
 export type {
   TaxCalculationCapable,
   TaxProvider,

@@ -75,10 +75,10 @@ describe('canonical local products', () => {
     const firstPage = await tenantA.list({ limit: 1 });
     const secondPage = await tenantA.list({ limit: 1, cursor: firstPage.nextCursor ?? undefined });
 
-    expect(firstPage.data).toHaveLength(1);
+    expect(firstPage.items).toHaveLength(1);
     expect(firstPage.nextCursor).not.toBeNull();
     expect(secondPage.nextCursor).toBeNull();
-    expect([...firstPage.data, ...secondPage.data].map(({ id }) => id).sort()).toEqual(
+    expect([...firstPage.items, ...secondPage.items].map(({ id }) => id).sort()).toEqual(
       [first.id, second.id].sort(),
     );
 

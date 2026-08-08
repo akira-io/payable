@@ -2,6 +2,8 @@ import type { Clock } from '../../../../domain/contracts/clock.contract';
 import type { ListOptions } from '../../../../domain/contracts/list-options.contract';
 import type {
   NewSubscription,
+  SubscriptionListQuery,
+  SubscriptionListResult,
   SubscriptionPatch,
   SubscriptionRepository,
 } from '../../../../domain/contracts/subscription-repository.contract';
@@ -48,6 +50,37 @@ export class PrismaSubscriptionRepository
 
   list(tenantId?: string | null, options?: ListOptions): Promise<Subscription[]> {
     return this.manyWhere(this.tenantClause(tenantId), options);
+  }
+
+  async page(
+    query: SubscriptionListQuery,
+    tenantId: string | null,
+  ): Promise<SubscriptionListResult> {
+    const filters: Record<string, unknown>[] = [
+      { tenantKey: tenantId ?? '' },
+      query.id ? { id: query.id } : {},
+      query.customerId ? { customerId: query.customerId } : {},
+      query.status ? { status: query.status } : {},
+      query.canonicalPriceId ? { canonicalPriceId: query.canonicalPriceId } : {},
+      query.name ? { name: query.name } : {},
+    ];
+    if (query.before) {
+      filters.push({
+        OR: [
+          { createdAt: { lt: query.before.createdAt } },
+          { createdAt: query.before.createdAt, id: { lt: query.before.id } },
+        ],
+      });
+    }
+    const rows = await this.delegate.findMany({
+      where: { AND: filters },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: query.limit + 1,
+    });
+    return {
+      items: rows.slice(0, query.limit).map((row) => this.toEntity(row)),
+      hasMore: rows.length > query.limit,
+    };
   }
 
   protected toEntity(row: PrismaSubscriptionRow): Subscription {

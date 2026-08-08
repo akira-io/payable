@@ -16,6 +16,7 @@ model PayableCustomer {
   providerSyncStates PayableCustomerProviderSyncState[]
 
   @@unique([tenantKey, billableType, billableId])
+  @@index([tenantKey, createdAt, id])
   @@map("payable_customers")
 }
 
@@ -132,6 +133,7 @@ model PayableCanonicalPrice {
   @@unique([tenantKey, id])
   @@unique([tenantKey, lookupKey])
   @@index([tenantKey, productId, createdAt, id])
+  @@index([tenantKey, createdAt, id])
   @@map("payable_canonical_prices")
 }
 
@@ -233,6 +235,7 @@ model PayableSubscription {
   @@unique([tenantKey, provider, providerSubscriptionId])
   @@unique([tenantKey, customerId, name])
   @@index([customerId, createdAt, id])
+  @@index([tenantKey, createdAt, id])
   @@map("payable_subscriptions")
 }
 
@@ -293,6 +296,7 @@ model PayableInvoice {
 model PayablePayment {
   id                String          @id
   tenantId          String?         @map("tenant_id")
+  tenantKey         String          @default("") @map("tenant_key")
   customerId        String?         @map("customer_id")
   provider          String
   providerPaymentId String?         @map("provider_payment_id")
@@ -308,6 +312,7 @@ model PayablePayment {
 
   @@unique([provider, providerPaymentId])
   @@index([customerId, createdAt, id])
+  @@index([tenantKey, createdAt, id])
   @@map("payable_payments")
 }
 

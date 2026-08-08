@@ -24,7 +24,7 @@ export class PayableModule {
 
 `forRoot` returns a `DynamicModule` that registers:
 
-- `controllers: [PayableController, PayableCatalogController, PayableReadController]`
+- `controllers: [PayableController, PayableCatalogController, PayableCanonicalReadController, PayableReadController]`
 - `providers`:
   - `{ provide: PAYABLE_INSTANCE, useValue: payable }`
   - `{ provide: PAYABLE_OPTIONS, useValue: options }`
@@ -32,9 +32,10 @@ export class PayableModule {
   - `PayableAuthGuard`
   - `options.authenticate`, only when supplied (so the guard class can be resolved from DI)
 
-The route handlers are split across three controllers: `PayableController` holds non-catalog write
-routes, `PayableCatalogController` holds product and price mutations, and `PayableReadController`
-holds the `GET` read routes (customers, invoices, payments, subscriptions, refunds).
+The route handlers are split across four controllers. `PayableController` holds non-catalog writes,
+`PayableCatalogController` holds provider product and price mutations,
+`PayableCanonicalReadController` holds provider-neutral collection reads, and
+`PayableReadController` holds the compatibility and provider-native reads.
 
 ```ts
 interface NestPayableOptions {
@@ -105,6 +106,13 @@ constructor(
 | GET | `subscriptions/:name` | 200 | `getSubscription` | Get one subscription by name (404 if absent) |
 | GET | `refunds` | 200 | `listRefunds` | List a payment's refunds |
 | POST | `refunds` | 201 | `refunds` | Refund a payment |
+
+`PayableCanonicalReadController` is mounted at `canonical` and exposes page and exact routes for
+`customers`, `products`, `prices`, `subscriptions`, and `payments`. For example,
+`GET canonical/products` returns `{ items, nextCursor, hasMore }` from local storage and
+`GET canonical/products/:id` retrieves one local product. The same pattern applies to the other
+four resources. These routes default to 25 items, accept at most 100, use the request tenant, and do
+not resolve a provider.
 
 ## Scope and parity with Express
 
