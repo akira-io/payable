@@ -64,6 +64,7 @@ export class PaddleProvider
 {
   readonly name = 'paddle';
   readonly catalogSyncSemantics = PADDLE_CATALOG_SYNC_SEMANTICS;
+  readonly customerCreateIdempotency = 'unsupported';
   private readonly catalog: PaddleCatalog;
   private readonly normalizer: PaddleEventNormalizer;
   private readonly verifier: PaddleWebhookVerifier;

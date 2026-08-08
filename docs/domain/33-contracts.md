@@ -12,6 +12,7 @@ Repositories persist and read the [entities](05-domain-model.md). Each defines a
 | --- | --- | --- |
 | `CustomerRepository` | `create`, `update`, `findById`, `findByBillable`, `list` | Persists provider-neutral customers and supports tenant-scoped logical collection queries. |
 | `CustomerProviderBindingRepository` | `create`, `findByCustomerAndProvider`, `findByProviderId`, `listByCustomerIds` | Maps a logical customer to each registered provider account; every lookup is tenant-scoped through the owning customer. |
+| `CustomerProviderSyncStateRepository` | `upsert`, `findByCustomerAndProvider` | Stores the tenant-scoped provider synchronization lifecycle without creating a binding for failed or pending attempts. |
 | `SubscriptionRepository` | `create`, `update`, `findById`, `findByName`, `findByProviderId`, `listByCustomer`, `list` | List methods accept `ListOptions` (cursor pagination). |
 | `SubscriptionItemRepository` | `create`, `createMany`, `updatePrimary`, `listBySubscription` | `updatePrimary` patches the primary line via `SubscriptionItemPatch`. |
 | `PaymentRepository` | `create`, `update`, `findById`, `findByIdForUpdate`, `findByProviderId`, `listByCustomer`, `list` | `findByIdForUpdate` takes a row lock for safe concurrent refund accounting. |
@@ -99,6 +100,15 @@ export interface CustomerProviderBindingRepository {
     customerIds: readonly string[],
     tenantId: string | null,
   ): Promise<CustomerProviderBinding[]>;
+}
+
+export interface CustomerProviderSyncStateRepository {
+  upsert(data: NewCustomerProviderSyncState): Promise<CustomerProviderSyncState>;
+  findByCustomerAndProvider(
+    customerId: string,
+    provider: string,
+    tenantId: string | null,
+  ): Promise<CustomerProviderSyncState | null>;
 }
 ```
 

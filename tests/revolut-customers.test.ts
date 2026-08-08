@@ -68,6 +68,7 @@ describe('RevolutProvider customers', () => {
     const instance = new RevolutProvider({ secretKey: 'sk_rev_test', webhookSecret: 'wsk_test' });
     expect(instance.capabilities().has('customers')).toBe(true);
     expect(isCustomerCapable(instance)).toBe(true);
+    expect(instance.customerCreateIdempotency).toBe('unsupported');
   });
 
   it('creates a Merchant customer without inventing idempotency support', async () => {

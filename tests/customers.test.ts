@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
-import { ProviderCapabilityNotSupportedError } from '../src/domain/errors/provider-capability-not-supported.error';
 import { IdempotencyKey } from '../src/domain/value-objects/idempotency-key';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
@@ -12,7 +11,47 @@ import { createTestDb } from './support/knex';
 const billable = { billableType: 'User', billableId: '1', email: 'user@example.com', name: 'User' };
 
 describe('payable.customers', () => {
-  it('creates a customer at the provider and persists it', async () => {
+  it('keeps logical customer CRUD local when no providers are registered', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const payable = createPayable({
+      storage: new KnexStorageDriver(db, new FakeClock()),
+    });
+
+    const created = await payable.customers().create({
+      ...billable,
+      email: '  USER@Example.COM  ',
+    });
+    const updated = await payable.customers().update(billable, { name: 'Renamed' });
+
+    expect(created.email).toBe('user@example.com');
+    expect(updated.name).toBe('Renamed');
+    expect(await payable.customers().get(billable)).toEqual(updated);
+    expect(await payable.customers().find(created.id)).toEqual(updated);
+    expect((await payable.customers().list()).items).toEqual([updated]);
+    await db.destroy();
+  });
+
+  it('reads a named provider binding without resolving the provider', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({ storage });
+    const customer = await payable.customers().create(billable);
+    await storage.customerProviderBindings.create({
+      customerId: customer.id,
+      provider: 'archived-account',
+      providerCustomerId: 'cus_archived',
+    });
+
+    await expect(payable.customers('archived-account').binding(billable)).resolves.toMatchObject({
+      provider: 'archived-account',
+      providerCustomerId: 'cus_archived',
+    });
+    await db.destroy();
+  });
+
+  it('creates locally and synchronizes only when explicitly requested', async () => {
     const db = createTestDb();
     await migrate(db);
     const provider = new FakeProvider();
@@ -21,11 +60,17 @@ describe('payable.customers', () => {
       storage: new KnexStorageDriver(db, new FakeClock()),
     });
 
-    const customer = await payable.customers().create(billable);
+    const customers = payable.customers('stripe');
+    const customer = await customers.create(billable);
+
+    expect(provider.createCustomerCalls).toBe(0);
+    expect(customer.email).toBe('user@example.com');
+    expect(await customers.binding(billable)).toBeNull();
+
+    await customers.sync(billable);
 
     expect(provider.createCustomerCalls).toBe(1);
-    expect(customer.email).toBe('user@example.com');
-    expect(await payable.customers().binding(billable)).toMatchObject({
+    expect(await customers.binding(billable)).toMatchObject({
       customerId: customer.id,
       provider: 'stripe',
       providerCustomerId: 'cus_fake',
@@ -47,7 +92,7 @@ describe('payable.customers', () => {
     await db.destroy();
   });
 
-  it('is idempotent: a second create returns the existing customer', async () => {
+  it('returns the existing local customer without creating provider customers', async () => {
     const db = createTestDb();
     await migrate(db);
     const provider = new FakeProvider();
@@ -59,7 +104,7 @@ describe('payable.customers', () => {
     const first = await payable.customers().create(billable);
     const second = await payable.customers().create(billable);
 
-    expect(provider.createCustomerCalls).toBe(1);
+    expect(provider.createCustomerCalls).toBe(0);
     expect(second.id).toBe(first.id);
     await db.destroy();
   });
@@ -76,6 +121,7 @@ describe('payable.customers', () => {
     });
 
     await payable.customers().create(billable);
+    await payable.customers('stripe').sync(billable);
 
     const key = IdempotencyKey.forCustomer({
       tenantId: null,
@@ -102,13 +148,16 @@ describe('payable.customers', () => {
     });
 
     expect(await payable.customers().get(billable)).toBeNull();
-    const created = await payable.customers().create(billable);
+    const customers = payable.customers('stripe');
+    const created = await customers.create(billable);
     expect(await payable.customers().get(billable)).toEqual(created);
-    expect((await payable.customers().binding(billable))?.providerCustomerId).toBe('cus_fake');
+    expect(await customers.binding(billable)).toBeNull();
+    await customers.sync(billable);
+    expect((await customers.binding(billable))?.providerCustomerId).toBe('cus_fake');
     await db.destroy();
   });
 
-  it('updates a customer through the provider and persists the change', async () => {
+  it('commits local updates before an explicit provider update', async () => {
     const db = createTestDb();
     await migrate(db);
     const provider = new FakeProvider();
@@ -117,15 +166,19 @@ describe('payable.customers', () => {
       storage: new KnexStorageDriver(db, new FakeClock()),
     });
 
-    await payable.customers().create(billable);
-    const updated = await payable.customers().update(billable, { name: 'Renamed' });
+    const customers = payable.customers('stripe');
+    await customers.create(billable);
+    await customers.sync(billable);
+    const updated = await customers.update(billable, { name: 'Renamed' });
 
-    expect(provider.lastUpdateCustomer?.providerCustomerId).toBe('cus_fake');
+    expect(provider.lastUpdateCustomer).toBeUndefined();
     expect(updated.name).toBe('Renamed');
+    await customers.sync(billable);
+    expect(provider.lastUpdateCustomer?.providerCustomerId).toBe('cus_fake');
     await db.destroy();
   });
 
-  it('rejects provider-backed updates when the provider declares customers without the update method', async () => {
+  it('does not inspect provider methods during local updates', async () => {
     const db = createTestDb();
     await migrate(db);
     const provider = new FakeProvider();
@@ -137,10 +190,10 @@ describe('payable.customers', () => {
     await payable.customers().create(billable);
     Object.defineProperty(provider, 'updateCustomer', { value: undefined });
 
-    await expect(payable.customers().update(billable, { name: 'Renamed' })).rejects.toBeInstanceOf(
-      ProviderCapabilityNotSupportedError,
-    );
-    expect((await payable.customers().get(billable))?.name).toBe('User');
+    await expect(payable.customers().update(billable, { name: 'Renamed' })).resolves.toMatchObject({
+      name: 'Renamed',
+    });
+    expect((await payable.customers().get(billable))?.name).toBe('Renamed');
     await db.destroy();
   });
 
@@ -177,11 +230,11 @@ describe('payable.customers', () => {
 
     const customer = await payable.customers().create(billable);
     expect(customer.email).toBe('user@example.com');
-    expect(await payable.customers().binding(billable)).toBeNull();
+    expect(await payable.customers('stripe').binding(billable)).toBeNull();
 
     const updated = await payable.customers().update(billable, { name: 'Renamed' });
     expect(updated.name).toBe('Renamed');
-    expect(await payable.customers().binding(billable)).toBeNull();
+    expect(await payable.customers('stripe').binding(billable)).toBeNull();
     await db.destroy();
   });
 });

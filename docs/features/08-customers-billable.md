@@ -5,20 +5,20 @@ record (a user, a team, an organization) that should be billed. Payable never ow
 persists one provider-neutral `Customer` and maps that customer to zero or more provider accounts
 through `CustomerProviderBinding` records.
 
-Whether a provider customer is created depends on the provider's `customers` capability:
+`create`, `update`, `get`, `find`, `list`, and `binding` use storage only. They do not resolve a
+provider, inspect capabilities, or make a network request. This allows logical customer management
+when no payment provider is registered or while a provider is unavailable.
 
-- **Provider with `customers`** (Stripe, Paddle): `payable.customers(providerName).create(...)`
-  ensures the logical customer, provisions the provider customer once, and stores the returned id in
-  a binding keyed by the registered provider name.
-- **Provider without `customers`** (SISP): Payable creates only the logical customer, so the billable
-  can still own payments. `binding(...)` returns `null`, and `update(...)` edits the local record.
+Provider synchronization is explicit. Select a registered provider account and call `sync`. The
+provider must declare the `customers` capability.
 
 The registered provider name is the account boundary. For example, `stripe-eu` and `stripe-us` may
 use the same adapter type while retaining independent customer identities.
 
 ```ts
 const customer = await payable.customers('stripe').create(billable);
-await payable.customers('paddle').create(billable);
+await payable.customers('stripe').sync(billable);
+await payable.customers('paddle').sync(billable);
 
 const stripeBinding = await payable.customers('stripe').binding(billable);
 const paddleBinding = await payable.customers('paddle').binding(billable);
@@ -214,24 +214,23 @@ export interface BillingDependencies {
 operations that need persistence (charge, subscription management, refund) fail explicitly when it is
 absent.
 
-## Mapping a logical customer to provider accounts
+## Synchronize with a provider account
 
-`SyncCustomerWithProviderAction` turns a `Billable` into a provider customer id. It is invoked
-internally by checkout, charge, subscription creation, and the billing portal - never called directly
-by application code.
+`payable.customers(providerName, tenantId).sync(billable)` turns the stored logical customer into a
+provider customer id. The registered provider name is required. Checkout, charge, subscription, and
+portal flows may run the same action internally when they need a binding.
 
 Behavior:
 
-1. `EnsureCustomerAction` finds or creates the logical customer by
-   `(tenantId, billableType, billableId)`.
-2. `SyncCustomerWithProviderAction` requires the selected provider's `customers` capability.
-3. It looks for a binding by `(customerId, providerName)`. If one exists, its provider id is returned
-   without a provider call.
-4. Otherwise it calls `provider.createCustomer(...)` with a deterministic idempotency key containing
-   the registered provider name.
-5. It persists a `CustomerProviderBinding`. A concurrent insert that selected the same provider id is
-   treated as success; a different winning id raises `CUSTOMER_PROVIDER_BINDING_CONFLICT`. A provider
-   customer that cannot be bound raises `CUSTOMER_PROVIDER_BINDING_PERSISTENCE_FAILED`.
+1. The action loads or creates the logical customer by `(tenantId, billableType, billableId)`.
+2. It checks the selected provider's `customers` capability before recording an attempt.
+3. It atomically claims a short `pending` lease without changing the logical customer. Concurrent
+   callers wait for the lease owner and reuse its binding instead of creating a second remote
+   customer.
+4. If a binding exists, it calls `updateCustomer` with canonical local email and name. Otherwise it
+   calls `createCustomer` with a stable idempotency key.
+5. It stores the binding and marks the lifecycle `synchronized`. Audit and outbox records identify
+   the logical customer, provider account name, and provider customer id.
 
 ```mermaid
 sequenceDiagram
@@ -244,47 +243,70 @@ sequenceDiagram
         Sync-->>App: ProviderCapabilityNotSupportedError
     else customer-capable
         Sync->>Storage: ensure logical customer
+        Sync->>Storage: persist pending sync state
         Sync->>Storage: find binding(customerId, providerName, tenantId)
         alt binding exists
-            Storage-->>Sync: existing binding
-            Sync-->>App: providerCustomerId (no provider call)
+            Sync->>Provider: updateCustomer(canonical customer, ctx)
         else binding missing
             Sync->>Provider: createCustomer(input, ctx)
             Provider-->>Sync: { providerCustomerId }
             Sync->>Storage: create provider binding
-            Sync-->>App: providerCustomerId
         end
+        Sync->>Storage: mark synchronized
+        Sync-->>App: providerCustomerId
     end
 ```
 
-Without a storage driver the action skips both lookups and the persist step: once the provider is
-confirmed customer-capable it calls `provider.createCustomer` and returns the id, persisting nothing.
+`syncState(billable)` returns `null` when synchronization was never attempted. Persisted states are:
+
+- `pending`: an attempt started and may be retried with the same deterministic key.
+- `synchronized`: the provider result and local binding are durable.
+- `failed`: the provider call failed. `failureCode` stores only a code, never a provider message or
+  credentials.
+- `reconciliation_required`: the provider call may have succeeded but its result did not become
+  durable. When the provider customer id is known, a retry repairs the binding without another
+  remote create. When a provider has no native create idempotency and a timeout leaves the id
+  unknown, Payable blocks automatic retries until the remote result is manually reconciled.
+
+A failed or pending attempt never deletes or rewrites the logical customer. A retry increments
+`attempts`. An expired attempt cannot overwrite the newer attempt's state or publish its normal
+completion event. If it later returns a remote customer id that lost the binding race, Payable
+records `customer.provider.orphaned` audit and outbox entries for operator reconciliation. Each
+registered provider account has an independent binding and lifecycle row.
+
+Providers that do not declare native customer-create idempotency require both the storage driver and
+its customer synchronization lifecycle repository. Sync fails with
+`CUSTOMER_PROVIDER_DURABLE_SYNC_REQUIRED` before the remote call when either is absent. A custom
+provider with no `customerCreateIdempotency` declaration is treated conservatively as non-native.
 
 ## Inputs and outputs
 
 | Concern | Input | Output |
 | --- | --- | --- |
 | Build a context | `Billable`, optional `providerName`, optional `tenantId` | `CustomerContext` |
-| Ensure/select a customer | `payable.customers(providerName).create(Billable)` | `Promise<Customer>` (provider-neutral) |
+| Ensure/select a customer | `payable.customers(undefined, tenantId).create(Billable)` | `Promise<Customer>` (provider-neutral) |
 | Read the selected binding | `payable.customers(providerName).binding(Billable)` | `Promise<CustomerProviderBinding \| null>` |
-| Sync to provider | `Billable` | `Promise<string>` (the `providerCustomerId`) |
+| Sync to provider | `payable.customers(providerName, tenantId).sync(Billable)` | `Promise<string>` (the `providerCustomerId`) |
+| Read sync lifecycle | `payable.customers(providerName, tenantId).syncState(Billable)` | `Promise<CustomerProviderSyncState \| null>` |
 | Provider create payload | `CreateCustomerInput` (`{ email, name?, billableType, billableId, metadata? }`) | `CustomerDTO` (`{ providerCustomerId, email, name }`) |
 
 ## Edge cases
 
-- **No provider registered.** `payable.customer(...)` throws `ProviderNotFoundError`.
-- **Multiple providers.** Without an explicit `providerName`, the first registered provider is used;
-  pass the name to be deterministic.
+- **No provider registered.** Logical customer CRUD continues to work. `sync` requires a registered
+  provider name.
+- **Multiple providers.** Select the registered provider name when calling `sync` or `binding`.
 - **Tenancy enabled, no tenant id.** `payable.customer(...)` throws `PayableError`
   (`TENANT_REQUIRED`).
-- **No storage driver.** Sync still calls the provider on every invocation and persists nothing, so
-  the same `Billable` produces a fresh provider call each time rather than reusing a stored id.
+- **No storage driver.** Logical customer management fails with `CUSTOMER_STORAGE_REQUIRED`.
 - **A new provider for an existing customer.** The logical customer is reused and only a new binding
   is added.
 - **Two accounts of the same provider type.** Register them under distinct keys such as `stripe-eu`
   and `stripe-us`; bindings use those keys, not `provider.name`.
-- **Provider without customer support.** `CustomerResource.create` stores the logical customer and
-  creates no binding.
+- **Provider without customer support.** Local CRUD still works. Explicit sync fails with
+  `PROVIDER_CAPABILITY_NOT_SUPPORTED` before a remote call.
+
+The Express, Fastify, and Nest adapters expose `POST /customers/sync` with `{ provider, billable }`.
+The MCP adapter exposes `customer_sync` with the same required provider name.
 
 ---
 

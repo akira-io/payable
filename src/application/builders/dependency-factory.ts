@@ -60,6 +60,7 @@ export class DependencyFactory {
     return new CustomerResource({
       storage: local.storage,
       tenantId: local.tenantId ?? null,
+      providerName,
       resolveBillingDependencies: () => this.billing(providerName, tenantId),
     });
   }

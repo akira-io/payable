@@ -22,6 +22,7 @@ model PayableCustomer {
   createdAt          DateTime @map("created_at")
   updatedAt          DateTime @map("updated_at")
   providerBindings   PayableCustomerProviderBinding[]
+  providerSyncStates PayableCustomerProviderSyncState[]
 
   @@unique([tenantKey, billableType, billableId])
   @@map("payable_customers")
@@ -39,6 +40,29 @@ model PayableCustomerProviderBinding {
   @@unique([customerId, provider])
   @@unique([provider, providerCustomerId])
   @@map("payable_customer_provider_bindings")
+}
+
+model PayableCustomerProviderSyncState {
+  id                 String          @id
+  tenantId           String?         @map("tenant_id")
+  tenantKey          String          @default("") @map("tenant_key")
+  customerId         String          @map("customer_id")
+  provider           String
+  status             String
+  providerCustomerId String?         @map("provider_customer_id")
+  attempts           Int
+  lastAttemptedAt    DateTime        @map("last_attempted_at")
+  synchronizedAt     DateTime?       @map("synchronized_at")
+  failureCode        String?         @map("failure_code")
+  attemptOwnerId     String?         @map("attempt_owner_id")
+  leaseExpiresAt     DateTime?       @map("lease_expires_at")
+  createdAt          DateTime        @map("created_at")
+  updatedAt          DateTime        @map("updated_at")
+  customer           PayableCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantKey, customerId, provider])
+  @@index([tenantKey, status])
+  @@map("payable_customer_provider_sync_states")
 }
 
 model PayableProduct {

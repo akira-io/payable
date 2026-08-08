@@ -228,9 +228,10 @@ error **and** a `null` result as a signature failure, throwing `InvalidWebhookSi
 | Non-integer amount from Paddle | `PayableError` `PROVIDER_AMOUNT_INVALID` from `toMinorUnits` | Indicates an unexpected amount format; inspect the offending entity. |
 | Paddle API error | The SDK error propagates from the called method | Before retrying a create, reconcile by listing or fetching the entity to confirm whether the first attempt reached Paddle. |
 
-Paddle receives no idempotency key from Payable. A create may have succeeded even when the process did
-not receive the response, so a blind retry can duplicate the resource. Reconcile against Paddle by
-listing or retrieving the entity before issuing another create.
+Paddle receives no idempotency key from Payable. If customer creation fails ambiguously before the
+response supplies a customer id, Payable records `reconciliation_required` and blocks another
+automatic create. Reconcile against Paddle by listing or retrieving the customer, then repair the
+local binding before retrying synchronization.
 
 ## Configuration example
 

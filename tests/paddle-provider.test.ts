@@ -165,6 +165,12 @@ describe('PaddleProvider', () => {
     expect(second.providerCustomerId).toBe('ctm_2');
   });
 
+  it('declares that customer creation has no native idempotency support', () => {
+    const { client } = fakePaddle();
+
+    expect(provider(client).customerCreateIdempotency).toBe('unsupported');
+  });
+
   it('opens a checkout via a transaction', async () => {
     const { client } = fakePaddle();
     const dto = await provider(client).createCheckoutSession(

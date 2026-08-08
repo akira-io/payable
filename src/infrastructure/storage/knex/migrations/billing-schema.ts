@@ -16,6 +16,7 @@ export async function createBillingTables(knex: Knex): Promise<void> {
   });
 
   await createCustomerProviderBindingsTable(knex);
+  await createCustomerProviderSyncStatesTable(knex);
 
   await createIfMissing(knex, 'payable_products', (table) => {
     table.uuid('id').primary();
@@ -183,5 +184,37 @@ export async function createCustomerProviderBindingsTable(knex: Knex): Promise<v
     table.timestamp('updated_at', { useTz: true }).notNullable();
     table.unique(['customer_id', 'provider']);
     table.unique(['provider', 'provider_customer_id']);
+  });
+}
+
+export async function createCustomerProviderSyncStatesTable(knex: Knex): Promise<void> {
+  await createIfMissing(knex, 'payable_customer_provider_sync_states', (table) => {
+    table.uuid('id').primary();
+    table.string('tenant_id').nullable();
+    table.string('tenant_key').notNullable().defaultTo('');
+    table
+      .uuid('customer_id')
+      .notNullable()
+      .references('id')
+      .inTable('payable_customers')
+      .onDelete('CASCADE');
+    table.string('provider').notNullable();
+    table.string('status').notNullable();
+    table.string('provider_customer_id').nullable();
+    table.integer('attempts').notNullable();
+    table.timestamp('last_attempted_at', { useTz: true }).notNullable();
+    table.timestamp('synchronized_at', { useTz: true }).nullable();
+    table.string('failure_code').nullable();
+    table.uuid('attempt_owner_id').nullable();
+    table.timestamp('lease_expires_at', { useTz: true }).nullable();
+    table.timestamp('created_at', { useTz: true }).notNullable();
+    table.timestamp('updated_at', { useTz: true }).notNullable();
+    table.unique(['tenant_key', 'customer_id', 'provider']);
+    table.index(['tenant_key', 'status']);
+    table.check(
+      "tenant_key = COALESCE(tenant_id, '')",
+      {},
+      'payable_customer_provider_sync_states_tenant_key_check',
+    );
   });
 }

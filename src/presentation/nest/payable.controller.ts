@@ -27,6 +27,7 @@ import {
 import {
   checkoutBodySchema,
   customerBodySchema,
+  customerSyncBodySchema,
   customerUpdateBodySchema,
   manageSubscriptionBodySchema,
   parseBody,
@@ -166,6 +167,20 @@ export class PayableController {
     return this.payable
       .customers(undefined, this.tenantOf(request))
       .update(body.billable, { email: body.email, name: body.name });
+  }
+
+  @Post('customers/sync')
+  @HttpCode(200)
+  @UseGuards(PayableAuthGuard)
+  async syncCustomer(
+    @Req() request: PayableHttpRequest,
+    @Body() rawBody: unknown,
+  ): Promise<{ providerCustomerId: string }> {
+    const body = parseBody(customerSyncBodySchema, rawBody);
+    const providerCustomerId = await this.payable
+      .customers(body.provider, this.tenantOf(request))
+      .sync(body.billable);
+    return { providerCustomerId };
   }
 
   @Post('refunds')

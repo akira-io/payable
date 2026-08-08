@@ -3,6 +3,7 @@ import type { CanonicalPriceRepository } from './canonical-price-repository.cont
 import type { CanonicalProductRepository } from './canonical-product-repository.contract';
 import type { CatalogSynchronizationRepository } from './catalog-synchronization-repository.contract';
 import type { CustomerProviderBindingRepository } from './customer-provider-binding-repository.contract';
+import type { CustomerProviderSyncStateRepository } from './customer-provider-sync-state-repository.contract';
 import type { CustomerRepository } from './customer-repository.contract';
 import type { Encryption } from './encryption.contract';
 import type { InvoiceRepository } from './invoice-repository.contract';
@@ -25,6 +26,7 @@ export interface Repositories {
   readonly catalogSynchronizations?: CatalogSynchronizationRepository;
   readonly customers: CustomerRepository;
   readonly customerProviderBindings: CustomerProviderBindingRepository;
+  readonly customerProviderSyncStates?: CustomerProviderSyncStateRepository;
   readonly products: ProductRepository;
   readonly prices: PriceRepository;
   readonly priceProviderBindings?: PriceProviderBindingRepository;

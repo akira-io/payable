@@ -5,6 +5,7 @@ import type {
   CanonicalProductRepository,
   CatalogSynchronizationRepository,
   CustomerProviderBindingRepository,
+  CustomerProviderSyncStateRepository,
   CustomerRepository,
   InvoiceRepository,
   OutboxEventRepository,
@@ -33,6 +34,7 @@ import { KnexCanonicalProductRepository } from './repositories/knex-canonical-pr
 import { KnexCatalogSynchronizationRepository } from './repositories/knex-catalog-synchronization.repository';
 import { KnexCustomerRepository } from './repositories/knex-customer.repository';
 import { KnexCustomerProviderBindingRepository } from './repositories/knex-customer-provider-binding.repository';
+import { KnexCustomerProviderSyncStateRepository } from './repositories/knex-customer-provider-sync-state.repository';
 import { KnexInvoiceRepository } from './repositories/knex-invoice.repository';
 import { KnexOutboxEventRepository } from './repositories/knex-outbox-event.repository';
 import { KnexPaymentRepository } from './repositories/knex-payment.repository';
@@ -59,6 +61,7 @@ function buildRepositories(
     catalogSynchronizations: new KnexCatalogSynchronizationRepository(qb, clock),
     customers: new KnexCustomerRepository(qb, clock),
     customerProviderBindings: new KnexCustomerProviderBindingRepository(qb, clock),
+    customerProviderSyncStates: new KnexCustomerProviderSyncStateRepository(qb, clock),
     products: new KnexProductRepository(qb, clock),
     productProviderBindings: new KnexProductProviderBindingRepository(qb, clock),
     prices: new KnexPriceRepository(qb, clock),
@@ -82,6 +85,7 @@ export class KnexStorageDriver implements StorageDriver {
   catalogSynchronizations!: CatalogSynchronizationRepository;
   customers!: CustomerRepository;
   customerProviderBindings!: CustomerProviderBindingRepository;
+  customerProviderSyncStates!: CustomerProviderSyncStateRepository;
   products!: ProductRepository;
   productProviderBindings!: ProductProviderBindingRepository;
   prices!: PriceRepository;
@@ -129,6 +133,8 @@ export class KnexStorageDriver implements StorageDriver {
       repositories.catalogSynchronizations as CatalogSynchronizationRepository;
     this.customers = repositories.customers;
     this.customerProviderBindings = repositories.customerProviderBindings;
+    this.customerProviderSyncStates =
+      repositories.customerProviderSyncStates as CustomerProviderSyncStateRepository;
     this.products = repositories.products;
     this.productProviderBindings =
       repositories.productProviderBindings as ProductProviderBindingRepository;

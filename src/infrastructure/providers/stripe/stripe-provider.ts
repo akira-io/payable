@@ -98,6 +98,7 @@ export class StripeProvider
 {
   readonly name = 'stripe';
   readonly catalogSyncSemantics = STRIPE_CATALOG_SYNC_SEMANTICS;
+  readonly customerCreateIdempotency = 'native';
   private client?: Stripe;
   private readonly webhooks: StripeWebhooks;
   private readonly subscriptions = new StripeSubscriptions(() => this.stripe());
@@ -284,7 +285,6 @@ export class StripeProvider
   async downloadInvoicePdf(providerInvoiceId: string): Promise<InvoicePdfDTO> {
     return this.invoices.downloadPdf(providerInvoiceId);
   }
-
   private async stripe(): Promise<Stripe> {
     if (this.client) {
       return this.client;
