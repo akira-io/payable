@@ -1,6 +1,7 @@
 import type { AuditLogRepository } from './audit-log-repository.contract';
 import type { CanonicalPriceRepository } from './canonical-price-repository.contract';
 import type { CanonicalProductRepository } from './canonical-product-repository.contract';
+import type { CatalogSynchronizationRepository } from './catalog-synchronization-repository.contract';
 import type { CustomerProviderBindingRepository } from './customer-provider-binding-repository.contract';
 import type { CustomerRepository } from './customer-repository.contract';
 import type { Encryption } from './encryption.contract';
@@ -21,6 +22,7 @@ import type { WebhookEventRepository } from './webhook-event-repository.contract
 export interface Repositories {
   readonly canonicalPrices?: CanonicalPriceRepository;
   readonly canonicalProducts?: CanonicalProductRepository;
+  readonly catalogSynchronizations?: CatalogSynchronizationRepository;
   readonly customers: CustomerRepository;
   readonly customerProviderBindings: CustomerProviderBindingRepository;
   readonly products: ProductRepository;

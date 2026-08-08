@@ -41,6 +41,10 @@ guard (duck-typing on method presence). Calling code narrows first, then either 
 | --- | --- | --- |
 | `CustomerCapable` | `createCustomer(input, ctx)`, `updateCustomer(input, ctx)` | `isCustomerCapable(provider)` |
 | `CatalogCapable` | `createProduct`, `updateProduct`, `createPrice` | `isCatalogCapable(provider)` |
+| `CatalogProductCreateCapable` | `createProduct` | `isCatalogProductCreateCapable(provider)` |
+| `CatalogProductUpdateCapable` | `updateProduct` | `isCatalogProductUpdateCapable(provider)` |
+| `CatalogPriceCreateCapable` | `createPrice` | `isCatalogPriceCreateCapable(provider)` |
+| `CatalogPriceUpdateCapable` | `updatePrice` | `isCatalogPriceUpdateCapable(provider)` |
 | `CatalogReadCapable` | `retrieveProduct`, `listProducts`, `retrievePrice`, `listPrices` | `isCatalogReadCapable(provider)` |
 | `CatalogLifecycleCapable` | `setProductActive`, `setPriceActive` | `isCatalogLifecycleCapable(provider)` |
 | `PriceLookupKeyCapable` | keyed `createPrice`, keyed `listPrices`, `transferPriceLookupKey` | `isPriceLookupKeyCapable(provider)` |
@@ -101,7 +105,8 @@ with `priceLookupKeys` and `isPriceLookupKeyCapable`; normal catalog operations 
 
 ### Capability matrix
 
-The matrix describes the capability set of each built-in Payable adapter. A `no` cell does not make a claim about functionality offered by the external gateway.
+The matrix describes support implemented by each built-in Payable adapter, not every feature offered
+by the external provider. A `no` cell only means that this adapter does not expose the operation.
 
 | Capability | Stripe | Paddle | SISP | Revolut |
 | --- | --- | --- | --- | --- |
@@ -112,6 +117,14 @@ The matrix describes the capability set of each built-in Payable adapter. A `no`
 | `catalogRead` | yes | yes | no | no |
 | `catalogLifecycle` | yes | yes | no | no |
 | `catalogIdempotency` | yes | no | no | no |
+| `catalogProductCreate` | yes | yes | no | no |
+| `catalogProductUpdate` | yes | yes | no | no |
+| `catalogProductArchive` | yes | yes | no | no |
+| `catalogProductReactivate` | yes | yes | no | no |
+| `catalogPriceCreate` | yes | yes | no | no |
+| `catalogPriceUpdate` | yes | yes | no | no |
+| `catalogPriceArchive` | yes | yes | no | no |
+| `catalogPriceReactivate` | yes | yes | no | no |
 | `priceLookupKeys` | yes | no | no | no |
 | `subscriptions` | yes | yes | no | yes (limited) |
 | `trials` | yes | no | no | no |
@@ -127,6 +140,16 @@ The matrix describes the capability set of each built-in Payable adapter. A `no`
 | `disputes` (`DisputeCapable`) | yes | no | no | yes (production only) |
 | `payouts` (`PayoutCapable`) | yes | no | no | yes |
 | `webhookEndpointManagement` | yes | no | no | yes |
+
+Canonical catalogue synchronization uses the granular rows rather than inferring one operation from
+another. `catalogRead` supports reconciliation and `catalogIdempotency` enables safe automatic retry.
+
+See [Catalog Lifecycle](../examples/45-catalog-lifecycle.md) for explicit synchronization, retry,
+and reconciliation examples. Provider API background: [Stripe Products](https://docs.stripe.com/api/products),
+[Stripe Prices](https://docs.stripe.com/api/prices), [Stripe idempotency](https://docs.stripe.com/api/idempotent_requests),
+[Stripe webhooks](https://docs.stripe.com/webhooks), [Paddle Products](https://developer.paddle.com/api-reference/products/),
+[Paddle Prices](https://developer.paddle.com/api-reference/prices/), and
+[Paddle notifications](https://developer.paddle.com/webhooks/overview).
 
 ## The capabilities system
 

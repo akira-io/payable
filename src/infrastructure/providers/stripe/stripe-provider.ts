@@ -119,6 +119,7 @@ export class StripeProvider
   readonly createProduct = this.catalog.createProduct.bind(this.catalog);
   readonly updateProduct = this.catalog.updateProduct.bind(this.catalog);
   readonly createPrice = this.catalog.createPrice.bind(this.catalog);
+  readonly updatePrice = this.catalog.updatePrice.bind(this.catalog);
   readonly retrieveProduct = this.catalog.retrieveProduct.bind(this.catalog);
   readonly listProducts = this.catalog.listProducts.bind(this.catalog);
   readonly retrievePrice = this.catalog.retrievePrice.bind(this.catalog);
@@ -140,7 +141,6 @@ export class StripeProvider
   private readonly payouts = new StripePayouts(() => this.stripe());
   private readonly checkout = new StripeCheckout(() => this.stripe());
   private readonly webhookEndpoints = new StripeWebhookEndpoints(() => this.stripe());
-
   constructor(
     private readonly options: StripeProviderOptions,
     client?: unknown,

@@ -3,6 +3,7 @@ import { PayableError } from '../../../../domain/errors/payable-error';
 import { alterExistingTables } from './alter-existing-tables';
 import { createBillingTables } from './billing-schema';
 import { addCanonicalCatalogTables } from './canonical-catalog-schema';
+import { addCatalogSynchronizationTable } from './catalog-synchronization-schema';
 import { addCatalogTenantKeys } from './catalog-tenant-keys';
 import { addCustomerProviderBindings } from './customer-provider-bindings';
 import { runStep } from './migration-ledger';
@@ -101,5 +102,6 @@ export async function migrate(knex: Knex): Promise<void> {
       addSubscriptionLifecycleMetadata(knex),
     );
     await runStep(knex, '011-canonical-local-catalog', () => addCanonicalCatalogTables(knex));
+    await runStep(knex, '012-catalog-synchronization', () => addCatalogSynchronizationTable(knex));
   });
 }

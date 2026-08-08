@@ -151,6 +151,7 @@ export function toProductDTO(product: Stripe.Product): ProductDTO {
     description: product.description,
     active: product.active,
     metadata: product.metadata,
+    ...(typeof product.updated === 'number' ? { providerVersion: String(product.updated) } : {}),
   };
 }
 
@@ -164,6 +165,7 @@ export function toPriceDTO(price: Stripe.Price): PriceDTO {
     description: price.nickname,
     active: price.active,
     lookupKey: stripePriceLookupKey(price),
+    ...(typeof price.created === 'number' ? { providerVersion: String(price.created) } : {}),
   };
 }
 

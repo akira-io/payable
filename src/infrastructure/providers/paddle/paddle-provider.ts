@@ -80,6 +80,7 @@ export class PaddleProvider
   readonly createProduct: PaddleCatalog['createProduct'];
   readonly updateProduct: PaddleCatalog['updateProduct'];
   readonly createPrice: PaddleCatalog['createPrice'];
+  readonly updatePrice: PaddleCatalog['updatePrice'];
   readonly retrieveProduct: PaddleCatalog['retrieveProduct'];
   readonly listProducts: PaddleCatalog['listProducts'];
   readonly retrievePrice: PaddleCatalog['retrievePrice'];
@@ -94,6 +95,7 @@ export class PaddleProvider
     this.createProduct = this.catalog.createProduct.bind(this.catalog);
     this.updateProduct = this.catalog.updateProduct.bind(this.catalog);
     this.createPrice = this.catalog.createPrice.bind(this.catalog);
+    this.updatePrice = this.catalog.updatePrice.bind(this.catalog);
     this.retrieveProduct = this.catalog.retrieveProduct.bind(this.catalog);
     this.listProducts = this.catalog.listProducts.bind(this.catalog);
     this.retrievePrice = this.catalog.retrievePrice.bind(this.catalog);
@@ -123,6 +125,14 @@ export class PaddleProvider
       'catalog',
       'catalogRead',
       'catalogLifecycle',
+      'catalogProductCreate',
+      'catalogProductUpdate',
+      'catalogProductArchive',
+      'catalogProductReactivate',
+      'catalogPriceCreate',
+      'catalogPriceUpdate',
+      'catalogPriceArchive',
+      'catalogPriceReactivate',
     ]);
   }
 

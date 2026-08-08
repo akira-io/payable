@@ -4,7 +4,7 @@ import type {
   ListProductsInput,
 } from '../../../domain/dtos/catalog.dto';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
-import type { CreatePriceInput, PriceDTO } from '../../../domain/dtos/price.dto';
+import type { CreatePriceInput, PriceDTO, UpdatePriceInput } from '../../../domain/dtos/price.dto';
 import type {
   CreateProductInput,
   ProductDTO,
@@ -68,6 +68,15 @@ export class PaddleCatalog {
           ? { interval: input.interval, frequency: input.intervalCount ?? 1 }
           : undefined,
       }),
+    );
+    return toPriceDTO(price);
+  }
+
+  async updatePrice(input: UpdatePriceInput, ctx: OperationContext): Promise<PriceDTO> {
+    const paddle = await this.client();
+    const price = await withPaddleErrors(
+      () => paddle.prices.update(input.providerPriceId, { description: input.description ?? '' }),
+      createPriceNotFoundFactory(input.providerPriceId, ctx),
     );
     return toPriceDTO(price);
   }

@@ -1,6 +1,7 @@
 import type {
   PrismaCanonicalPriceRow,
   PrismaCanonicalProductRow,
+  PrismaCatalogSynchronizationRow,
   PrismaPriceProviderBindingRow,
   PrismaProductProviderBindingRow,
 } from './prisma-canonical-catalog-row.types';
@@ -15,6 +16,7 @@ import type {
 export type {
   PrismaCanonicalPriceRow,
   PrismaCanonicalProductRow,
+  PrismaCatalogSynchronizationRow,
   PrismaPriceProviderBindingRow,
   PrismaProductProviderBindingRow,
 } from './prisma-canonical-catalog-row.types';
@@ -237,6 +239,7 @@ export interface PrismaModelDelegates {
   payablePrice: PrismaDelegate<PrismaPriceRow>;
   payableCanonicalProduct: PrismaDelegate<PrismaCanonicalProductRow>;
   payableCanonicalPrice: PrismaDelegate<PrismaCanonicalPriceRow>;
+  payableCatalogSynchronization: PrismaDelegate<PrismaCatalogSynchronizationRow>;
   payableProductProviderBinding: PrismaDelegate<PrismaProductProviderBindingRow>;
   payablePriceProviderBinding: PrismaDelegate<PrismaPriceProviderBindingRow>;
   payableSubscription: PrismaDelegate<PrismaSubscriptionRow>;

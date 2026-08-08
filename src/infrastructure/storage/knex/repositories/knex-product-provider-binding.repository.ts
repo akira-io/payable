@@ -38,6 +38,21 @@ export class KnexProductProviderBindingRepository implements ProductProviderBind
     return this.toEntity(row as Record<string, unknown>);
   }
 
+  async updateProviderId(id: string, providerProductId: string): Promise<ProductProviderBinding> {
+    const [updated] = await this.knex(TABLE)
+      .where({ id })
+      .update({
+        provider_product_id: providerProductId,
+        updated_at: this.clock.now().toISOString(),
+      })
+      .returning('*');
+    const row = updated ?? (await this.knex(TABLE).where({ id }).first());
+    if (!row) {
+      throw new Error(`${TABLE}: row ${id} missing after update`);
+    }
+    return this.toEntity(row as Record<string, unknown>);
+  }
+
   async findByProductAndProvider(
     productId: string,
     provider: string,

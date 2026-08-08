@@ -48,3 +48,25 @@ export interface PrismaPriceProviderBindingRow {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface PrismaCatalogSynchronizationRow {
+  id: string;
+  tenantId: string | null;
+  tenantKey: string;
+  provider: string;
+  resourceType: string;
+  resourceId: string;
+  operation: string;
+  canonicalVersion: string;
+  idempotencyKey: string;
+  status: string;
+  reconciliationState: string;
+  providerResourceId: string | null;
+  providerResourceVersion: string | null;
+  retryCount: number;
+  lastErrorCode: string | null;
+  lastAttemptedAt: Date | null;
+  lastSucceededAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}

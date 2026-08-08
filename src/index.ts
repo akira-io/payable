@@ -68,6 +68,7 @@ export {
   type Billable,
   type BillingDependencies,
   type CatalogMutationOptions,
+  CatalogSynchronizationResource,
   type ChargeRequest,
   CheckoutBuilder,
   type CheckoutRequest,

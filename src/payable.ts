@@ -1,3 +1,4 @@
+import { registerCatalogSyncProcessor } from './application/actions/catalog-sync/register-catalog-sync-processor';
 import {
   ReconcileRedirectPaymentAction,
   type ReconcileRedirectPaymentResult,
@@ -28,6 +29,7 @@ import { AuditResource } from './application/builders/audit-resource';
 import type { Billable } from './application/builders/billable';
 import { CanonicalPriceResource } from './application/builders/canonical-price-resource';
 import { CanonicalProductResource } from './application/builders/canonical-product-resource';
+import { CatalogSynchronizationResource } from './application/builders/catalog-synchronization-resource';
 import { CustomerContext } from './application/builders/customer-context';
 import type { CustomerResource } from './application/builders/customer-resource';
 import { DependencyFactory } from './application/builders/dependency-factory';
@@ -77,6 +79,7 @@ export class Payable extends ProviderRegistries {
     this.resolved.queue.process(PROCESS_TREASURY_WEBHOOK_JOB, (job: QueueJob) =>
       this.processTreasuryWebhookJob(job),
     );
+    registerCatalogSyncProcessor(this.resolved.queue, this.factory);
   }
 
   events(): EventBus {
@@ -103,6 +106,13 @@ export class Payable extends ProviderRegistries {
 
   products(tenantId?: string | null): CanonicalProductResource {
     return new CanonicalProductResource(this.factory.local(tenantId));
+  }
+
+  catalogSync(providerName: string, tenantId?: string | null): CatalogSynchronizationResource {
+    return new CatalogSynchronizationResource(
+      this.factory.billing(providerName, tenantId),
+      this.resolved.queue,
+    );
   }
 
   providerCatalog(providerName?: string, tenantId?: string | null): ProviderCatalogResource {

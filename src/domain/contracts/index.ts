@@ -35,6 +35,23 @@ export type {
   CanonicalProductRepository,
   NewCanonicalProduct,
 } from './canonical-product-repository.contract';
+export type {
+  CatalogPriceCreateCapable,
+  CatalogPriceUpdateCapable,
+  CatalogProductCreateCapable,
+  CatalogProductUpdateCapable,
+} from './catalog-provider.contract';
+export {
+  isCatalogPriceCreateCapable,
+  isCatalogPriceUpdateCapable,
+  isCatalogProductCreateCapable,
+  isCatalogProductUpdateCapable,
+} from './catalog-provider.contract';
+export type {
+  CatalogSynchronizationPatch,
+  CatalogSynchronizationRepository,
+  NewCatalogSynchronization,
+} from './catalog-synchronization-repository.contract';
 export type { Clock } from './clock.contract';
 export type {
   CustomerProviderBindingRepository,

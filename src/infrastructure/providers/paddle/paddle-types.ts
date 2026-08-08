@@ -20,6 +20,7 @@ export interface PaddleProductEntity {
   status: string;
   description?: unknown;
   customData?: Record<string, unknown> | null;
+  updatedAt?: string;
 }
 
 export interface PaddlePriceEntity {
@@ -30,6 +31,7 @@ export interface PaddlePriceEntity {
   customData?: Record<string, unknown> | null;
   status: string;
   billingCycle?: { interval: unknown; frequency: unknown } | null;
+  updatedAt?: string;
 }
 
 export interface PaddleTransaction {
@@ -123,7 +125,7 @@ export interface PaddleClient {
       productId?: string[];
       status?: string[];
     }): PaddleCollection<PaddlePriceEntity>;
-    update(id: string, body: { status?: string }): Promise<PaddlePriceEntity>;
+    update(id: string, body: { description?: string; status?: string }): Promise<PaddlePriceEntity>;
   };
   transactions: {
     create(body: {

@@ -20,4 +20,5 @@ export interface ProductDTO {
   description: string | null;
   active: boolean;
   metadata: Metadata | null;
+  providerVersion?: string | null;
 }

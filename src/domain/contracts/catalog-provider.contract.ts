@@ -1,6 +1,11 @@
 import type { CatalogPage, ListPricesInput, ListProductsInput } from '../dtos/catalog.dto';
 import type { OperationContext } from '../dtos/common.dto';
-import type { CreatePriceInput, PriceDTO, TransferPriceLookupKeyInput } from '../dtos/price.dto';
+import type {
+  CreatePriceInput,
+  PriceDTO,
+  TransferPriceLookupKeyInput,
+  UpdatePriceInput,
+} from '../dtos/price.dto';
 import type { CreateProductInput, ProductDTO, UpdateProductInput } from '../dtos/product.dto';
 import type { PaymentProvider } from './payment-provider.contract';
 
@@ -8,6 +13,22 @@ export interface CatalogCapable {
   createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO>;
   updateProduct(input: UpdateProductInput, ctx: OperationContext): Promise<ProductDTO>;
   createPrice(input: CreatePriceInput, ctx: OperationContext): Promise<PriceDTO>;
+}
+
+export interface CatalogProductCreateCapable {
+  createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO>;
+}
+
+export interface CatalogProductUpdateCapable {
+  updateProduct(input: UpdateProductInput, ctx: OperationContext): Promise<ProductDTO>;
+}
+
+export interface CatalogPriceCreateCapable {
+  createPrice(input: CreatePriceInput, ctx: OperationContext): Promise<PriceDTO>;
+}
+
+export interface CatalogPriceUpdateCapable {
+  updatePrice(input: UpdatePriceInput, ctx: OperationContext): Promise<PriceDTO>;
 }
 
 export interface CatalogReadCapable {
@@ -40,6 +61,30 @@ export function isCatalogCapable(
     typeof candidate.updateProduct === 'function' &&
     typeof candidate.createPrice === 'function'
   );
+}
+
+export function isCatalogProductCreateCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & CatalogProductCreateCapable {
+  return typeof (provider as Partial<CatalogProductCreateCapable>).createProduct === 'function';
+}
+
+export function isCatalogProductUpdateCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & CatalogProductUpdateCapable {
+  return typeof (provider as Partial<CatalogProductUpdateCapable>).updateProduct === 'function';
+}
+
+export function isCatalogPriceCreateCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & CatalogPriceCreateCapable {
+  return typeof (provider as Partial<CatalogPriceCreateCapable>).createPrice === 'function';
+}
+
+export function isCatalogPriceUpdateCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & CatalogPriceUpdateCapable {
+  return typeof (provider as Partial<CatalogPriceUpdateCapable>).updatePrice === 'function';
 }
 
 export function isCatalogReadCapable(

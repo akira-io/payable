@@ -30,6 +30,37 @@ const price = await payable.prices('tenant-acme').create({
 or another provider ID belongs in the matching product-provider or price-provider binding. Local CRUD
 does not create those bindings. Provider synchronization is a separate operation.
 
+## Synchronize canonical resources explicitly
+
+Select the registered provider account and tenant when remote catalogue state is needed. The call is
+queued; the default synchronous queue completes inline, while an external queue returns the persisted
+`requested` state and processes the same job asynchronously.
+
+```ts
+const sync = payable.catalogSync('stripe-primary', 'tenant-acme');
+
+await sync.requestProduct(product.id);
+await sync.requestPrice(price.id); // ensures the product binding exists first
+```
+
+Canonical CRUD remains successful when a provider lacks the requested operation. Synchronization is
+recorded as `skipped` with `unsupported` reconciliation state, without archiving or changing the local
+resource. Product and price create, update, archive, and reactivate support is checked independently.
+
+Failed native-idempotent requests retain their derived key and can be retried. Providers without
+native idempotency require reconciliation before Payable can safely repeat an ambiguous request.
+
+```ts
+await sync.retryProduct(product.id);
+await sync.retryPrice(price.id);
+await sync.reconcileProduct(product.id, 'manual');
+await sync.reconcilePrice(price.id, 'webhook');
+```
+
+Reconciliation records missing remote resources and provider drift; it never overwrites canonical
+local state. Requested, succeeded, skipped, failed, retrying, and reconciled transitions are written
+to both audit and outbox storage.
+
 Local product operations include `create`, `retrieve`, `update`, `list`, `activate`, `archive`, and
 `reactivate`. Local price operations expose the same lifecycle; `update` can change the description,
 while amount, currency, billing type, interval, and interval count remain immutable. Create a
