@@ -71,6 +71,13 @@ export class PrismaCustomerProviderSyncStateRepository
       if (hasActiveLease(existing, this.clock.now())) {
         return { state: existing, acquired: false, previous: existing };
       }
+      if (existing.status === 'pending' && !data.allowExpiredLeaseReclaim) {
+        const reconciliation = await this.expirePendingAttempt(data, existing);
+        if (reconciliation) {
+          return { state: reconciliation, acquired: false, previous: existing };
+        }
+        continue;
+      }
       const updatedAt = this.clock.now();
       const attempts = existing.attempts + 1;
       const { count } = await this.client.payableCustomerProviderSyncState.updateMany({
@@ -142,6 +149,39 @@ export class PrismaCustomerProviderSyncStateRepository
 
   private key(data: { tenantId: string | null; customerId: string; provider: string }) {
     return { tenantKey: data.tenantId ?? '', customerId: data.customerId, provider: data.provider };
+  }
+
+  private async expirePendingAttempt(
+    data: BeginCustomerProviderSyncAttempt,
+    existing: CustomerProviderSyncState,
+  ): Promise<CustomerProviderSyncState | null> {
+    const updatedAt = this.clock.now();
+    const { count } = await this.client.payableCustomerProviderSyncState.updateMany({
+      where: {
+        ...this.key(data),
+        attempts: existing.attempts,
+        status: 'pending',
+        attemptOwnerId: existing.attemptOwnerId,
+      },
+      data: {
+        status: 'reconciliation_required',
+        failureCode: 'CUSTOMER_PROVIDER_SYNC_LEASE_EXPIRED',
+        attemptOwnerId: null,
+        leaseExpiresAt: null,
+        updatedAt,
+      },
+    });
+    if (count === 0) {
+      return null;
+    }
+    return {
+      ...existing,
+      status: 'reconciliation_required',
+      failureCode: 'CUSTOMER_PROVIDER_SYNC_LEASE_EXPIRED',
+      attemptOwnerId: null,
+      leaseExpiresAt: null,
+      updatedAt,
+    };
   }
 
   private async requirePersisted(data: {

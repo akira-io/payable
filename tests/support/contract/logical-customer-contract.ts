@@ -137,6 +137,7 @@ export function registerLogicalCustomerContract(context: ContractContext): void 
       lastAttemptedAt: clock.now(),
       attemptOwnerId: 'attempt-owner-3',
       leaseExpiresAt: new Date(clock.now().getTime() + 30_000),
+      allowExpiredLeaseReclaim: true,
     });
     expect(current).toMatchObject({ acquired: true, state: { attempts: 2 } });
     await repository.completeAttempt(
@@ -208,6 +209,48 @@ export function registerLogicalCustomerContract(context: ContractContext): void 
       attempts: 1,
     });
     expect(await repository.findByCustomerAndProvider(customerA.id, 'stripe', TENANT_B)).toBeNull();
+  });
+
+  it('requires reconciliation instead of reclaiming an unsafe expired create lease', async () => {
+    const { storage, clock } = context.harness();
+    const repository = storage.customerProviderSyncStates;
+    if (!repository) {
+      throw new Error('Customer provider sync state repository is unavailable');
+    }
+    const customer = await createCustomer(context, { billableId: 'logical-expired-create' });
+    const attemptedAt = new Date('2026-08-08T11:00:00.000Z');
+    clock.set(attemptedAt);
+    await repository.beginAttempt({
+      tenantId: TENANT_A,
+      customerId: customer.id,
+      provider: 'paddle',
+      lastAttemptedAt: attemptedAt,
+      attemptOwnerId: 'unsafe-create-owner',
+      leaseExpiresAt: new Date(attemptedAt.getTime() + 30_000),
+      allowExpiredLeaseReclaim: false,
+    });
+    clock.advance(30_001);
+
+    const retry = await repository.beginAttempt({
+      tenantId: TENANT_A,
+      customerId: customer.id,
+      provider: 'paddle',
+      lastAttemptedAt: clock.now(),
+      attemptOwnerId: 'unsafe-create-retry',
+      leaseExpiresAt: new Date(clock.now().getTime() + 30_000),
+      allowExpiredLeaseReclaim: false,
+    });
+
+    expect(retry).toMatchObject({
+      acquired: false,
+      state: {
+        status: 'reconciliation_required',
+        attempts: 1,
+        failureCode: 'CUSTOMER_PROVIDER_SYNC_LEASE_EXPIRED',
+        attemptOwnerId: null,
+        leaseExpiresAt: null,
+      },
+    });
   });
 }
 

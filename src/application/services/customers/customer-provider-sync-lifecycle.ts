@@ -8,6 +8,7 @@ export class CustomerProviderSyncLifecycle {
   async begin(
     customerId: string,
     allowReconciliationRepair = false,
+    allowExpiredLeaseReclaim = false,
   ): Promise<CustomerProviderSyncAttempt> {
     const id = CorrelationId.generate().toString();
     const repository = this.dependencies.storage?.customerProviderSyncStates;
@@ -25,6 +26,7 @@ export class CustomerProviderSyncLifecycle {
       attemptOwnerId: id,
       leaseExpiresAt,
       allowReconciliationRepair,
+      allowExpiredLeaseReclaim,
     });
     return {
       id,
@@ -134,7 +136,12 @@ export class CustomerProviderSyncLifecycle {
       failureCode: errorCode(error, 'CUSTOMER_PROVIDER_RECONCILIATION_REQUIRED'),
       synchronizedAt,
     });
-    if (!recorded && providerCustomerId && this.dependencies.storage?.customerProviderSyncStates) {
+    const lostBinding = errorCode(error, '') === 'CUSTOMER_PROVIDER_BINDING_CONFLICT';
+    if (
+      (!recorded || lostBinding) &&
+      providerCustomerId &&
+      this.dependencies.storage?.customerProviderSyncStates
+    ) {
       await this.recordOrphan(customerId, providerCustomerId, attempt, error);
     }
     return recorded;
