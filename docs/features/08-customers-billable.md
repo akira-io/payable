@@ -269,10 +269,15 @@ sequenceDiagram
   unknown, Payable blocks automatic retries until the remote result is manually reconciled.
 
 A failed or pending attempt never deletes or rewrites the logical customer. A retry increments
-`attempts`. An expired attempt cannot overwrite the newer attempt's state or publish its normal
-completion event. If it later returns a remote customer id that lost the binding race, Payable
-records `customer.provider.orphaned` audit and outbox entries for operator reconciliation. Each
-registered provider account has an independent binding and lifecycle row.
+`attempts`. Payable may reclaim an expired lease when a binding already exists or the provider
+declares native create idempotency. Without either guarantee, expiry changes the state to
+`reconciliation_required` with failure code `CUSTOMER_PROVIDER_SYNC_LEASE_EXPIRED`; automatic
+create retries stay blocked while the original request may still be in flight.
+
+An expired attempt cannot overwrite a newer attempt's state or publish its normal completion event.
+Any remote customer id that loses a binding race produces `customer.provider.orphaned` audit and
+outbox entries, including when the losing attempt records reconciliation before the winner repairs
+the lifecycle state. Each registered provider account has an independent binding and lifecycle row.
 
 Providers that do not declare native customer-create idempotency require both the storage driver and
 its customer synchronization lifecycle repository. Sync fails with

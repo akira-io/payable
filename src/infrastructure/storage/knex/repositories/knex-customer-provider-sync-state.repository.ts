@@ -47,6 +47,13 @@ export class KnexCustomerProviderSyncStateRepository
       if (hasActiveLease(existing, this.clock.now())) {
         return { state: existing, acquired: false, previous: existing };
       }
+      if (existing.status === 'pending' && !data.allowExpiredLeaseReclaim) {
+        const reconciliation = await this.expirePendingAttempt(data, existing);
+        if (reconciliation) {
+          return { state: reconciliation, acquired: false, previous: existing };
+        }
+        continue;
+      }
       const updatedAt = this.clock.now();
       const attempts = existing.attempts + 1;
       const updated = await this.knex(TABLE)
@@ -139,6 +146,36 @@ export class KnexCustomerProviderSyncStateRepository
       tenant_key: data.tenantId ?? '',
       customer_id: data.customerId,
       provider: data.provider,
+    };
+  }
+
+  private async expirePendingAttempt(
+    data: BeginCustomerProviderSyncAttempt,
+    existing: CustomerProviderSyncState,
+  ): Promise<CustomerProviderSyncState | null> {
+    const updatedAt = this.clock.now();
+    const updated = await this.knex(TABLE)
+      .where(this.key(data))
+      .where({
+        attempts: existing.attempts,
+        status: 'pending',
+        attempt_owner_id: existing.attemptOwnerId,
+      })
+      .update({
+        status: 'reconciliation_required',
+        failure_code: 'CUSTOMER_PROVIDER_SYNC_LEASE_EXPIRED',
+        lease_expires_at: null,
+        updated_at: updatedAt.toISOString(),
+      });
+    if (updated === 0) {
+      return null;
+    }
+    return {
+      ...existing,
+      status: 'reconciliation_required',
+      failureCode: 'CUSTOMER_PROVIDER_SYNC_LEASE_EXPIRED',
+      leaseExpiresAt: null,
+      updatedAt,
     };
   }
 

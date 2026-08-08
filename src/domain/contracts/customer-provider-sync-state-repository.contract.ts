@@ -8,7 +8,10 @@ export type NewCustomerProviderSyncState = Omit<
 export type BeginCustomerProviderSyncAttempt = Pick<
   NewCustomerProviderSyncState,
   'tenantId' | 'customerId' | 'provider' | 'lastAttemptedAt' | 'attemptOwnerId' | 'leaseExpiresAt'
-> & { readonly allowReconciliationRepair?: boolean };
+> & {
+  readonly allowReconciliationRepair?: boolean;
+  readonly allowExpiredLeaseReclaim?: boolean;
+};
 
 export interface CustomerProviderSyncAttemptClaim {
   readonly state: CustomerProviderSyncState;

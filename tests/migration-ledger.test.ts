@@ -25,6 +25,7 @@ describe('migration ledger', () => {
       '010-subscription-lifecycle-metadata',
       '011-canonical-local-catalog',
       '012-customer-provider-sync-states',
+      '013-customer-provider-sync-state-leases',
     ]);
     await db.destroy();
   });
