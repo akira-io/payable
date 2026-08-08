@@ -7,14 +7,25 @@ export type NewCustomerProviderSyncState = Omit<
 
 export type BeginCustomerProviderSyncAttempt = Pick<
   NewCustomerProviderSyncState,
-  'tenantId' | 'customerId' | 'provider' | 'lastAttemptedAt'
->;
+  'tenantId' | 'customerId' | 'provider' | 'lastAttemptedAt' | 'attemptOwnerId' | 'leaseExpiresAt'
+> & { readonly allowReconciliationRepair?: boolean };
+
+export interface CustomerProviderSyncAttemptClaim {
+  readonly state: CustomerProviderSyncState;
+  readonly acquired: boolean;
+  readonly previous: CustomerProviderSyncState | null;
+}
+
+export interface ExpectedCustomerProviderSyncAttempt {
+  readonly attempts: number;
+  readonly ownerId: string;
+}
 
 export interface CustomerProviderSyncStateRepository {
-  beginAttempt(data: BeginCustomerProviderSyncAttempt): Promise<CustomerProviderSyncState>;
+  beginAttempt(data: BeginCustomerProviderSyncAttempt): Promise<CustomerProviderSyncAttemptClaim>;
   completeAttempt(
     data: NewCustomerProviderSyncState,
-    expectedAttempts: number,
+    expected: ExpectedCustomerProviderSyncAttempt,
   ): Promise<CustomerProviderSyncState | null>;
   findByCustomerAndProvider(
     customerId: string,

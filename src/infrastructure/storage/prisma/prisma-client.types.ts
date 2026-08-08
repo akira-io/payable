@@ -60,6 +60,8 @@ export interface PrismaCustomerProviderSyncStateRow {
   lastAttemptedAt: Date;
   synchronizedAt: Date | null;
   failureCode: string | null;
+  attemptOwnerId: string | null;
+  leaseExpiresAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

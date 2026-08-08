@@ -55,6 +55,8 @@ model PayableCustomerProviderSyncState {
   lastAttemptedAt    DateTime        @map("last_attempted_at")
   synchronizedAt     DateTime?       @map("synchronized_at")
   failureCode        String?         @map("failure_code")
+  attemptOwnerId     String?         @map("attempt_owner_id")
+  leaseExpiresAt     DateTime?       @map("lease_expires_at")
   createdAt          DateTime        @map("created_at")
   updatedAt          DateTime        @map("updated_at")
   customer           PayableCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)

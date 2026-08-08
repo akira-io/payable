@@ -16,6 +16,8 @@ import {
   CustomerProviderSyncLifecycle,
 } from '../../services/customers/customer-provider-sync-lifecycle';
 import {
+  assertDurableCustomerCreate,
+  awaitCustomerProviderSync,
   customerUpdateIdempotencyKey,
   requiresManualCreateReconciliation,
   unresolvedCustomerReconciliationError,
@@ -35,6 +37,14 @@ export class SyncCustomerWithProviderAction {
     const provider = this.dependencies.provider;
     assertCapableProvider(provider, 'customers', isCustomerCapable);
     const local = await this.prepareLocalCustomer(billable);
+    if (local && !local.attempt.acquired) {
+      const providerCustomerId = await awaitCustomerProviderSync(
+        this.dependencies,
+        local.customer.id,
+        local.attempt,
+      );
+      return providerCustomerId ?? this.handle(billable);
+    }
     if (
       local?.previous?.status === 'reconciliation_required' &&
       local.previous.providerCustomerId
@@ -54,19 +64,24 @@ export class SyncCustomerWithProviderAction {
     }
     const tenantId = this.tenantId();
     const customer = await new EnsureCustomerAction(this.dependencies).handle(billable);
-    const repository = storage.customerProviderSyncStates;
-    const previous = repository
-      ? await repository.findByCustomerAndProvider(
-          customer.id,
-          this.dependencies.providerName,
-          tenantId,
-        )
-      : null;
-    const binding = await storage.customerProviderBindings.findByCustomerAndProvider(
+    const bindingBeforeClaim = await storage.customerProviderBindings.findByCustomerAndProvider(
       customer.id,
       this.dependencies.providerName,
       tenantId,
     );
+    const attempt = await this.lifecycle.begin(customer.id, bindingBeforeClaim !== null);
+    const previous = attempt.previous;
+    const bindingChangedDuringClaim =
+      previous?.status === 'synchronized' ||
+      (!attempt.acquired && previous?.status === 'reconciliation_required');
+    const binding =
+      !bindingBeforeClaim && bindingChangedDuringClaim
+        ? await storage.customerProviderBindings.findByCustomerAndProvider(
+            customer.id,
+            this.dependencies.providerName,
+            tenantId,
+          )
+        : bindingBeforeClaim;
     if (
       previous?.status === 'reconciliation_required' &&
       !previous.providerCustomerId &&
@@ -78,7 +93,6 @@ export class SyncCustomerWithProviderAction {
         previous.failureCode,
       );
     }
-    const attempt = await this.lifecycle.begin(customer.id);
     return { customer, previous, attempt, binding };
   }
 
@@ -157,6 +171,7 @@ export class SyncCustomerWithProviderAction {
     billable: Billable,
     local: LocalSyncContext | null,
   ): Promise<string> {
+    assertDurableCustomerCreate(this.customerProvider(), this.dependencies);
     const customerInput = local
       ? {
           email: local.customer.email,

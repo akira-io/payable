@@ -25,5 +25,7 @@ export function customerProviderSyncStateToRow(
     lastAttemptedAt: data.lastAttemptedAt,
     synchronizedAt: data.synchronizedAt,
     failureCode: data.failureCode,
+    attemptOwnerId: data.attemptOwnerId,
+    leaseExpiresAt: data.leaseExpiresAt,
   };
 }

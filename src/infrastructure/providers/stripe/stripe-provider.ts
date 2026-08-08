@@ -100,6 +100,7 @@ export class StripeProvider
     CatalogLifecycleCapable
 {
   readonly name = 'stripe';
+  readonly customerCreateIdempotency = 'native';
   private client?: Stripe;
   private readonly webhooks: StripeWebhooks;
   private readonly subscriptions = new StripeSubscriptions(() => this.stripe());
@@ -286,7 +287,6 @@ export class StripeProvider
   async downloadInvoicePdf(providerInvoiceId: string): Promise<InvoicePdfDTO> {
     return this.invoices.downloadPdf(providerInvoiceId);
   }
-
   private async stripe(): Promise<Stripe> {
     if (this.client) {
       return this.client;

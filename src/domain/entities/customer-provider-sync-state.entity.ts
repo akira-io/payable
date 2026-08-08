@@ -16,4 +16,6 @@ export interface CustomerProviderSyncState extends TenantScoped, Timestamps {
   readonly lastAttemptedAt: Date;
   readonly synchronizedAt: Date | null;
   readonly failureCode: string | null;
+  readonly attemptOwnerId: string | null;
+  readonly leaseExpiresAt: Date | null;
 }

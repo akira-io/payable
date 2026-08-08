@@ -228,4 +228,55 @@ describe('customer provider synchronization boundaries', () => {
       providerCustomerId: 'ctm_manually_reconciled',
     });
   });
+
+  it('does not publish synchronization events for a stale successful attempt', async () => {
+    const database = createTestDb();
+    databases.push(database);
+    await migrate(database);
+    const provider = new FakeProvider('cus_concurrent_events');
+    const clock = new FakeClock();
+    const storage = new KnexStorageDriver(database, clock);
+    const customers = createPayable({ providers: { stripe: provider }, storage, clock }).customers(
+      'stripe',
+    );
+    const customer = await customers.create(billable);
+    await customers.sync(billable);
+    let updateCalls = 0;
+    let notifyOlderStarted: () => void = () => undefined;
+    let releaseOlder: () => void = () => undefined;
+    const olderStarted = new Promise<void>((resolve) => {
+      notifyOlderStarted = resolve;
+    });
+    const olderRelease = new Promise<void>((resolve) => {
+      releaseOlder = resolve;
+    });
+    provider.updateCustomer = async (input) => {
+      updateCalls += 1;
+      if (updateCalls === 1) {
+        notifyOlderStarted();
+        await olderRelease;
+      }
+      return {
+        providerCustomerId: input.providerCustomerId,
+        email: input.email ?? null,
+        name: input.name ?? null,
+      };
+    };
+
+    const older = customers.sync(billable);
+    await olderStarted;
+    clock.advance(30_001);
+    await customers.sync(billable);
+    releaseOlder();
+    await older;
+
+    await expect(customers.syncState(billable)).resolves.toMatchObject({
+      status: 'synchronized',
+      attempts: 3,
+    });
+    await expect(
+      storage.auditLogs.list({ resourceType: 'customer', resourceId: customer.id }),
+    ).resolves.toHaveLength(2);
+    await expect(storage.outboxEvents.claimPending(10)).resolves.toHaveLength(2);
+  });
 });

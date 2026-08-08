@@ -205,6 +205,8 @@ export async function createCustomerProviderSyncStatesTable(knex: Knex): Promise
     table.timestamp('last_attempted_at', { useTz: true }).notNullable();
     table.timestamp('synchronized_at', { useTz: true }).nullable();
     table.string('failure_code').nullable();
+    table.uuid('attempt_owner_id').nullable();
+    table.timestamp('lease_expires_at', { useTz: true }).nullable();
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.timestamp('updated_at', { useTz: true }).notNullable();
     table.unique(['tenant_key', 'customer_id', 'provider']);

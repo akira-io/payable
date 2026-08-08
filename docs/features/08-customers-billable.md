@@ -224,7 +224,9 @@ Behavior:
 
 1. The action loads or creates the logical customer by `(tenantId, billableType, billableId)`.
 2. It checks the selected provider's `customers` capability before recording an attempt.
-3. It writes a `pending` `CustomerProviderSyncState` without changing the logical customer.
+3. It atomically claims a short `pending` lease without changing the logical customer. Concurrent
+   callers wait for the lease owner and reuse its binding instead of creating a second remote
+   customer.
 4. If a binding exists, it calls `updateCustomer` with canonical local email and name. Otherwise it
    calls `createCustomer` with a stable idempotency key.
 5. It stores the binding and marks the lifecycle `synchronized`. Audit and outbox records identify
@@ -267,7 +269,15 @@ sequenceDiagram
   unknown, Payable blocks automatic retries until the remote result is manually reconciled.
 
 A failed or pending attempt never deletes or rewrites the logical customer. A retry increments
-`attempts`. Each registered provider account has an independent binding and lifecycle row.
+`attempts`. An expired attempt cannot overwrite the newer attempt's state or publish its normal
+completion event. If it later returns a remote customer id that lost the binding race, Payable
+records `customer.provider.orphaned` audit and outbox entries for operator reconciliation. Each
+registered provider account has an independent binding and lifecycle row.
+
+Providers that do not declare native customer-create idempotency require both the storage driver and
+its customer synchronization lifecycle repository. Sync fails with
+`CUSTOMER_PROVIDER_DURABLE_SYNC_REQUIRED` before the remote call when either is absent. A custom
+provider with no `customerCreateIdempotency` declaration is treated conservatively as non-native.
 
 ## Inputs and outputs
 

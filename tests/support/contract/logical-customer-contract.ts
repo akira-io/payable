@@ -94,7 +94,7 @@ export function registerLogicalCustomerContract(context: ContractContext): void 
   });
 
   it('allocates customer provider sync attempts atomically and rejects stale completions', async () => {
-    const { storage } = context.harness();
+    const { storage, clock } = context.harness();
     const repository = storage.customerProviderSyncStates;
     if (!repository) {
       throw new Error('Customer provider sync state repository is unavailable');
@@ -105,22 +105,40 @@ export function registerLogicalCustomerContract(context: ContractContext): void 
       billableId: 'logical-sync-b',
     });
     const attemptedAt = new Date('2026-08-08T10:00:00.000Z');
-    const attempts = await Promise.all([
+    clock.set(attemptedAt);
+    const leaseExpiresAt = new Date(attemptedAt.getTime() + 30_000);
+    const claims = await Promise.all([
       repository.beginAttempt({
         tenantId: TENANT_A,
         customerId: customerA.id,
         provider: 'stripe',
         lastAttemptedAt: attemptedAt,
+        attemptOwnerId: 'attempt-owner-1',
+        leaseExpiresAt,
       }),
       repository.beginAttempt({
         tenantId: TENANT_A,
         customerId: customerA.id,
         provider: 'stripe',
         lastAttemptedAt: attemptedAt,
+        attemptOwnerId: 'attempt-owner-2',
+        leaseExpiresAt,
       }),
     ]);
-    expect(attempts.map(({ attempts: count }) => count).sort()).toEqual([1, 2]);
-    const [stale, current] = attempts.sort((left, right) => left.attempts - right.attempts);
+    expect(claims.filter(({ acquired }) => acquired)).toHaveLength(1);
+    expect(claims.map(({ state }) => state.attempts)).toEqual([1, 1]);
+    const stale = claims.find(({ acquired }) => acquired);
+    const staleOwnerId = claims[0] === stale ? 'attempt-owner-1' : 'attempt-owner-2';
+    clock.advance(30_001);
+    const current = await repository.beginAttempt({
+      tenantId: TENANT_A,
+      customerId: customerA.id,
+      provider: 'stripe',
+      lastAttemptedAt: clock.now(),
+      attemptOwnerId: 'attempt-owner-3',
+      leaseExpiresAt: new Date(clock.now().getTime() + 30_000),
+    });
+    expect(current).toMatchObject({ acquired: true, state: { attempts: 2 } });
     await repository.completeAttempt(
       {
         tenantId: TENANT_A,
@@ -128,12 +146,14 @@ export function registerLogicalCustomerContract(context: ContractContext): void 
         provider: 'stripe',
         status: 'synchronized',
         providerCustomerId: 'cus_current',
-        attempts: current?.attempts ?? 0,
+        attempts: current.state.attempts,
         lastAttemptedAt: attemptedAt,
         synchronizedAt: attemptedAt,
         failureCode: null,
+        attemptOwnerId: null,
+        leaseExpiresAt: null,
       },
-      current?.attempts ?? 0,
+      { attempts: current.state.attempts, ownerId: 'attempt-owner-3' },
     );
     await expect(
       repository.completeAttempt(
@@ -143,12 +163,14 @@ export function registerLogicalCustomerContract(context: ContractContext): void 
           provider: 'stripe',
           status: 'failed',
           providerCustomerId: null,
-          attempts: stale?.attempts ?? 0,
+          attempts: stale?.state.attempts ?? 0,
           lastAttemptedAt: attemptedAt,
           synchronizedAt: null,
           failureCode: 'ETIMEDOUT',
+          attemptOwnerId: null,
+          leaseExpiresAt: null,
         },
-        stale?.attempts ?? 0,
+        { attempts: stale?.state.attempts ?? 0, ownerId: staleOwnerId },
       ),
     ).resolves.toBeNull();
     const tenantBAttempt = await repository.beginAttempt({
@@ -156,15 +178,19 @@ export function registerLogicalCustomerContract(context: ContractContext): void 
       customerId: customerB.id,
       provider: 'stripe',
       lastAttemptedAt: attemptedAt,
+      attemptOwnerId: 'attempt-owner-b',
+      leaseExpiresAt,
     });
     await repository.completeAttempt(
       {
-        ...tenantBAttempt,
+        ...tenantBAttempt.state,
         providerCustomerId: 'cus_tenant_b',
         status: 'synchronized',
         synchronizedAt: attemptedAt,
+        attemptOwnerId: null,
+        leaseExpiresAt: null,
       },
-      tenantBAttempt.attempts,
+      { attempts: tenantBAttempt.state.attempts, ownerId: 'attempt-owner-b' },
     );
 
     expect(
