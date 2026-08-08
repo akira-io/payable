@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta7](https://github.com/akira-io/payable/compare/v1.0.0-beta6...v1.0.0-beta7) (2026-08-08)
+
+### Bug Fixes
+
+- **config:** Preserve missing-provider error precedence ([26a06bf](https://github.com/akira-io/payable/commit/26a06bf44f60aeb68b85d54fa3443c1418091110))
+- **catalog:** Align price binding cascade ([c9bfec4](https://github.com/akira-io/payable/commit/c9bfec4fc2d29cf0cf05c736cf15035900e56ba4))
+- **test:** Cap Vitest worker concurrency ([b50f536](https://github.com/akira-io/payable/commit/b50f5362d09d61692ff776a29c90324c8a7c5ad3))
+- **catalog:** Harden provider synchronization ([a0f06e5](https://github.com/akira-io/payable/commit/a0f06e5fcda36ff1e2cf5baf3a27af06158959d6))
+- **customers:** Harden provider synchronization recovery ([c0edd47](https://github.com/akira-io/payable/commit/c0edd474e469528acb0b7ae60a60c889bf7dd4c5))
+- **customers:** Serialize provider synchronization ([231a1bf](https://github.com/akira-io/payable/commit/231a1bf681ba54bc0812c7cca0b72b61c1eedccb))
+- **catalog:** Serialize provider synchronization attempts ([57f27d7](https://github.com/akira-io/payable/commit/57f27d7b628cf2f20906881996416a71f03ef3d3))
+- **catalog:** Close synchronization recovery races ([e3841e1](https://github.com/akira-io/payable/commit/e3841e1d99a448d6ce260eb43e995fb58aa4860d))
+- **customers:** Fence synchronization recovery ([fe1bf83](https://github.com/akira-io/payable/commit/fe1bf83e3f19be1393536614c24c14284f31f041))
+- **customers:** Preserve synchronization recovery evidence ([fe24ed0](https://github.com/akira-io/payable/commit/fe24ed0d71422af982f5464d46df0db36dcd628d))
+
+
+### Features
+
+- **config:** Allow storage-only Payable instances ([1e354ac](https://github.com/akira-io/payable/commit/1e354ac4960e73fa448a683b2ade46662dba052a))
+- **catalog:** Add canonical local catalogue ([707dbd3](https://github.com/akira-io/payable/commit/707dbd3cf33f620b0df313a9e6ee0078f54d2c77))
+- **catalog:** Add canonical provider synchronization ([1694320](https://github.com/akira-io/payable/commit/16943202cae3a1edb6b6ea853b62c9f7529ef48f))
+- **customers:** Make provider synchronization explicit ([e4d1cdf](https://github.com/akira-io/payable/commit/e4d1cdfad13d08ac76c26e6833309c268db9bdf5))
+- **subscriptions:** Add canonical local subscriptions ([5913189](https://github.com/akira-io/payable/commit/591318920dc464723540b53dd0397850666be875))
+- **catalog:** Add provider-neutral collection pages ([9bd7c49](https://github.com/akira-io/payable/commit/9bd7c49014ffeaa18c9aa7a714d6a555bf5c0f66))
+- **catalog:** Backfill canonical provider resources ([8bfe3ed](https://github.com/akira-io/payable/commit/8bfe3ed7d425516e01759d00ecfaf22d245a7c61))
+
 ## [1.0.0-beta6](https://github.com/akira-io/payable/compare/v1.0.0-beta5...v1.0.0-beta6) (2026-08-07)
 
 ### Bug Fixes
