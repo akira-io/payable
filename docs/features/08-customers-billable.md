@@ -71,14 +71,19 @@ Filters use these local semantics:
 - `find(id)` retrieves one logical customer by exact ID. `get(billable)` retrieves one by billable
   type and ID.
 
-Bindings are excluded by default. Set `includeBindings: true` to add only `provider` and
-`providerCustomerId` for each binding. Provider configuration and credentials are never returned.
+Bindings are excluded by default. Set `includeBindings: true` to add only the binding `id`,
+`provider`, and `providerCustomerId` for each binding. Provider configuration and credentials are
+never returned.
 
 ```ts
 const pageWithBindings = await payable.customers(undefined, tenantId).list({
   includeBindings: true,
 });
 ```
+
+HTTP adapters expose the same local collection at `GET /canonical/customers` and exact local reads
+at `GET /canonical/customers/:id`. These routes are separate from the existing billable lookup at
+`GET /customers`.
 
 When tenancy is enabled, pass the tenant ID when constructing the customer resource. Every customer
 filter, cursor page, exact lookup, and binding query stays inside that tenant partition.

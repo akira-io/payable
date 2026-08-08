@@ -26,6 +26,7 @@ export function paymentToEntity(row: PrismaPaymentRow): Payment {
 export function paymentToRow(data: Partial<NewPayment>): Record<string, unknown> {
   return {
     tenantId: data.tenantId,
+    tenantKey: data.tenantId === undefined ? undefined : (data.tenantId ?? ''),
     customerId: data.customerId,
     provider: data.provider,
     providerPaymentId: data.providerPaymentId,

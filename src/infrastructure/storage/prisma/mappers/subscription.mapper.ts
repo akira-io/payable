@@ -50,6 +50,7 @@ export function subscriptionToEntity(row: PrismaSubscriptionRow): Subscription {
 export function subscriptionToRow(data: Partial<NewSubscription>): Record<string, unknown> {
   return {
     tenantId: data.tenantId,
+    tenantKey: data.tenantId === undefined ? undefined : (data.tenantId ?? ''),
     customerId: data.customerId,
     name: data.name,
     provider: data.provider,

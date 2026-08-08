@@ -22,7 +22,7 @@ describe('Prisma logical customer queries', () => {
     expect(customerQuery).toMatchObject({
       where: {
         AND: [
-          { tenantId: 'tenant-a' },
+          { tenantKey: 'tenant-a' },
           {},
           {},
           {},

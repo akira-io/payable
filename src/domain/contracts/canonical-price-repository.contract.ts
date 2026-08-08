@@ -7,9 +7,11 @@ export type CanonicalPricePatch = Pick<CanonicalPrice, 'active' | 'description' 
 export interface CanonicalPriceListQuery {
   limit: number;
   before?: ListCursor;
+  id?: string;
   active?: boolean;
   productId?: string;
   type?: CanonicalPrice['type'];
+  lookupKey?: string;
   lookupKeys?: string[];
 }
 

@@ -13,6 +13,10 @@ import {
   type CanonicalSubscriptionActivation,
   resolveInitialCanonicalSubscriptionLifecycle,
 } from '../services/subscriptions/canonical-subscription-lifecycle';
+import {
+  type ListCanonicalSubscriptionsInput,
+  listCanonicalSubscriptions,
+} from './canonical-subscription-page';
 import type { LocalDependencies } from './local-dependencies';
 
 export interface CreateCanonicalSubscriptionInput {
@@ -26,10 +30,35 @@ export interface CreateCanonicalSubscriptionInput {
   authorization?: AuthorizationContext;
 }
 
+export type {
+  CanonicalSubscriptionPageItem,
+  ListCanonicalSubscriptionsInput,
+  SubscriptionBindingMetadata,
+} from './canonical-subscription-page';
 export type { AttachCanonicalSubscriptionProviderInput };
 
 export class CanonicalSubscriptionResource {
   constructor(private readonly dependencies: LocalDependencies) {}
+
+  async retrieve(id: string): Promise<Subscription> {
+    const storage = this.dependencies.storage;
+    if (!storage) {
+      throw new PayableError('Canonical subscription management requires a storage driver', {
+        code: 'SUBSCRIPTION_STORAGE_REQUIRED',
+      });
+    }
+    const subscription = await storage.subscriptions.findById(
+      id,
+      this.dependencies.tenantId ?? null,
+    );
+    if (!subscription) {
+      throw new PayableError(`Subscription not found: ${id}`, {
+        code: 'SUBSCRIPTION_NOT_FOUND',
+        context: { subscriptionId: id },
+      });
+    }
+    return subscription;
+  }
 
   async create(input: CreateCanonicalSubscriptionInput): Promise<Subscription> {
     const storage = this.dependencies.storage;
@@ -201,6 +230,10 @@ export class CanonicalSubscriptionResource {
     input: AttachCanonicalSubscriptionProviderInput,
   ): Promise<SubscriptionProviderBinding> {
     return attachCanonicalSubscriptionProvider(this.dependencies, subscriptionId, input);
+  }
+
+  list(input: ListCanonicalSubscriptionsInput = {}) {
+    return listCanonicalSubscriptions(this.dependencies, input);
   }
 
   private resolveDuplicate(

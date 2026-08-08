@@ -21,6 +21,10 @@ export interface SubscriptionProviderBindingRepository {
     subscriptionId: string,
     tenantId: string | null,
   ): Promise<SubscriptionProviderBinding[]>;
+  listBySubscriptionIds?(
+    subscriptionIds: string[],
+    tenantId: string | null,
+  ): Promise<SubscriptionProviderBinding[]>;
   updateProviderSyncedAt(
     id: string,
     providerSyncedAt: Date,

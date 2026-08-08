@@ -63,10 +63,12 @@ export class PrismaCanonicalPriceRepository
   ): Promise<CanonicalPriceListResult> {
     assertCatalogTenantId(tenantId);
     const filters: Record<string, unknown>[] = [
-      { tenantId },
+      { tenantKey: tenantId ?? '' },
+      query.id ? { id: query.id } : {},
       query.active === undefined ? {} : { active: query.active },
       query.productId ? { productId: query.productId } : {},
       query.type ? { type: query.type } : {},
+      query.lookupKey ? { lookupKey: query.lookupKey } : {},
       query.lookupKeys ? { lookupKey: { in: query.lookupKeys } } : {},
     ];
     if (query.before) {

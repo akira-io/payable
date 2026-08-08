@@ -52,6 +52,7 @@ Key points:
 model PayablePayment {
   id                String          @id
   tenantId          String?         @map("tenant_id")
+  tenantKey         String          @default("") @map("tenant_key")
   customerId        String?         @map("customer_id")
   provider          String
   providerPaymentId String?         @map("provider_payment_id")
@@ -67,6 +68,7 @@ model PayablePayment {
 
   @@unique([provider, providerPaymentId])
   @@index([customerId, createdAt, id])
+  @@index([tenantKey, createdAt, id])
   @@map("payable_payments")
 }
 ```
@@ -199,6 +201,36 @@ HAVING COUNT(*) > 1;
    the tenant-key unique constraints, then remove the legacy global product and price constraints.
    A failed verification or duplicate query stops the migration. Correct the rows and resume from the
    verification stage; do not remove a legacy constraint first.
+
+### Payment tenant-key and collection-page index migration
+
+Provider-neutral payment pages read by normalized `tenant_key`. Do not deploy a generated migration
+that only adds the column with its `''` default: existing rows with a non-null `tenant_id` would become
+invisible to their tenant. Apply the schema change as expand, backfill, verify, contract:
+
+1. Add `payable_payments.tenant_key` as non-null with default `''`, but defer the consistency check and
+   collection-page index. Keep the old application version running during this stage.
+2. Backfill mismatched rows in bounded, retryable batches until the select returns no ids:
+
+```sql
+SELECT id
+FROM payable_payments
+WHERE tenant_key <> COALESCE(tenant_id, '')
+ORDER BY id
+LIMIT :batchSize;
+
+UPDATE payable_payments
+SET tenant_key = COALESCE(tenant_id, '')
+WHERE id IN (:paymentIds);
+```
+
+3. Verify that `SELECT id FROM payable_payments WHERE tenant_key <>
+   COALESCE(tenant_id, '');` returns no rows. Then add and validate the enforced check constraint named
+   `payable_payments_tenant_key_consistency_check` (or the datasource-equivalent generated name).
+   This must reject a rolling-deployment write that supplies `tenant_id` without the matching key.
+4. Create `(tenant_key, created_at, id)` indexes for customers, canonical products, canonical prices,
+   subscriptions, and payments. Deploy the synchronized Prisma models and new application version only
+   after the payment backfill, verification, constraint, and indexes succeed.
 
 ### Canonical subscription migration
 

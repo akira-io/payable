@@ -79,6 +79,24 @@ Every method and path below is registered by the adapter. Paths are relative to 
 | GET | `/subscriptions/:name` | 200 | Get one subscription by name (404 if absent) |
 | GET | `/refunds` | 200 | List a payment's refunds (query: paymentId, limit?) |
 
+### Canonical collection routes
+
+The following storage-only routes do not resolve or call a payment provider:
+
+| Resource | Page route | Exact route |
+| --- | --- | --- |
+| Customers | `GET /canonical/customers` | `GET /canonical/customers/:id` |
+| Products | `GET /canonical/products` | `GET /canonical/products/:id` |
+| Prices | `GET /canonical/prices` | `GET /canonical/prices/:id` |
+| Subscriptions | `GET /canonical/subscriptions` | `GET /canonical/subscriptions/:id` |
+| Payments | `GET /canonical/payments` | `GET /canonical/payments/:id` |
+
+Page routes return `{ items, nextCursor, hasMore }`, default to 25 items, and accept at most 100.
+Pass an opaque cursor with the same tenant and filters. `includeBindings=true` is available for
+customers, products, prices, and subscriptions. The unprefixed product and price routes remain
+provider-native; the unprefixed subscription and payment reads retain their array-returning
+billable compatibility contract.
+
 All routes above are wired to working implementations. `/customers` (POST/PATCH/GET), `/invoices`,
 and `/payments` resolve a `Payable` resource for the request's billable (and tenant, when tenancy is
 on). The `GET` read routes take `billableType` and `billableId` as query parameters; `/invoices`
@@ -162,6 +180,8 @@ Code-to-status table:
 | `INVALID_WEBHOOK_PAYLOAD` | 400 |
 | `WEBHOOK_PROVIDER_AMBIGUOUS` | 400 |
 | `VALIDATION_FAILED` | 422 |
+| `COLLECTION_CURSOR_INVALID` | 400 |
+| `COLLECTION_LIMIT_INVALID` | 422 |
 | `PROVIDER_NOT_FOUND` | 404 |
 | `CUSTOMER_NOT_FOUND` | 404 |
 | `SUBSCRIPTION_NOT_FOUND` | 404 |

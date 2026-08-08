@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Payable } from '../../payable';
 import { type ExpressPayableOptions, payableErrorHandler } from './helpers';
+import { registerCanonicalCollectionRoutes } from './routes/canonical-collections.routes';
 import { registerCheckoutRoutes } from './routes/checkout.routes';
 import { registerCustomerRoutes } from './routes/customers.routes';
 import { registerInvoiceRoutes } from './routes/invoices.routes';
@@ -20,6 +21,7 @@ export function createExpressPayableRoutes(
     router.use(options.authenticate);
   }
   registerCheckoutRoutes(router, payable, options);
+  registerCanonicalCollectionRoutes(router, payable, options);
   registerSubscriptionRoutes(router, payable, options);
   registerCustomerRoutes(router, payable, options);
   registerInvoiceRoutes(router, payable, options);

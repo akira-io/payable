@@ -43,6 +43,19 @@ export class KnexSubscriptionProviderBindingRepository
     return this.manyWhere({ subscription_id: subscriptionId, tenant_key: tenantId ?? '' });
   }
 
+  async listBySubscriptionIds(
+    subscriptionIds: string[],
+    tenantId: string | null,
+  ): Promise<SubscriptionProviderBinding[]> {
+    if (subscriptionIds.length === 0) return [];
+    const rows = (await this.knex(this.table)
+      .where({ tenant_key: tenantId ?? '' })
+      .whereIn('subscription_id', subscriptionIds)
+      .orderBy('subscription_id', 'asc')
+      .orderBy('provider', 'asc')) as Record<string, unknown>[];
+    return rows.map((row) => this.toEntity(row));
+  }
+
   updateProviderSyncedAt(
     id: string,
     providerSyncedAt: Date,

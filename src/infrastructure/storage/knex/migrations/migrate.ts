@@ -11,6 +11,7 @@ import { addCustomerProviderSyncStateLeases } from './customer-provider-sync-sta
 import { addCustomerProviderSyncStates } from './customer-provider-sync-states';
 import { runStep } from './migration-ledger';
 import { convergePostLedgerSchema } from './post-ledger-convergence';
+import { addProviderNeutralPageIndexes } from './provider-neutral-page-indexes';
 import { addSubscriptionLifecycleMetadata } from './subscription-lifecycle-metadata';
 import { addSubscriptionProviderSyncedAt } from './subscription-provider-synced-at';
 import { createSystemTables } from './system-schema';
@@ -114,6 +115,9 @@ export async function migrate(knex: Knex): Promise<void> {
     await runStep(knex, '014-catalog-synchronization', () => addCatalogSynchronizationTable(knex));
     await runStep(knex, '015-canonical-local-subscriptions', () =>
       addCanonicalLocalSubscriptions(knex),
+    );
+    await runStep(knex, '016-provider-neutral-page-indexes', () =>
+      addProviderNeutralPageIndexes(knex),
     );
   });
 }

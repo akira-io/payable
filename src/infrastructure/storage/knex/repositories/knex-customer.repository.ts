@@ -16,7 +16,7 @@ export class KnexCustomerRepository
 
   async list(query: CustomerListQuery, tenantId: string | null): Promise<CustomerListResult> {
     let customers = this.knex(this.table)
-      .whereRaw("COALESCE(tenant_id, '') = ?", [tenantId ?? ''])
+      .where('tenant_key', tenantId ?? '')
       .orderBy('created_at', 'desc')
       .orderBy('id', 'desc');
     if (query.id) {

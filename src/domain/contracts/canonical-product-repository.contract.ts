@@ -7,7 +7,10 @@ export type CanonicalProductPatch = Partial<Omit<NewCanonicalProduct, 'tenantId'
 export interface CanonicalProductListQuery {
   limit: number;
   before?: ListCursor;
+  id?: string;
   active?: boolean;
+  name?: string;
+  description?: string;
 }
 
 export interface CanonicalProductListResult {

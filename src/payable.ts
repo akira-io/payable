@@ -38,6 +38,7 @@ import { InvoiceResource } from './application/builders/invoice-resource';
 import type { LocalSubscriptionResource } from './application/builders/local-subscription-resource';
 import { ProviderCatalogResource } from './application/builders/provider-catalog-resource';
 import { RefundResource } from './application/builders/refund-resource';
+import { StoredPaymentResource } from './application/builders/stored-payment-resource';
 import { WebhookEndpointResource } from './application/builders/webhook-endpoint-resource';
 import { WebhookEventResource } from './application/builders/webhook-event-resource';
 import type { ReplayWebhookContext } from './application/policies/can-replay-webhook.policy';
@@ -67,10 +68,8 @@ import { ProviderRegistries } from './provider-registries';
 import type { ResolvedConfig } from './support/config/payable-config';
 
 export type { DeliverWebhooksOptions, RefundRequest } from './payable.types';
-
 export class Payable extends ProviderRegistries {
   private readonly factory: DependencyFactory;
-
   constructor(private readonly resolved: ResolvedConfig) {
     super(resolved);
     this.factory = new DependencyFactory(resolved, this.registry, this.treasuryRegistry);
@@ -82,7 +81,6 @@ export class Payable extends ProviderRegistries {
     );
     registerCatalogSyncProcessor(this.resolved.queue, this.factory);
   }
-
   events(): EventBus {
     return this.resolved.events;
   }
@@ -95,7 +93,6 @@ export class Payable extends ProviderRegistries {
   tenantEnabled(): boolean {
     return this.resolved.tenantEnabled;
   }
-
   customer(billable: Billable, providerName?: string, tenantId?: string | null): CustomerContext {
     return new CustomerContext(billable, this.factory.billing(providerName, tenantId));
   }
@@ -103,7 +100,6 @@ export class Payable extends ProviderRegistries {
   customers(providerName?: string, tenantId?: string | null): CustomerResource {
     return this.factory.customerResource(providerName, tenantId);
   }
-
   products(tenantId?: string | null): CanonicalProductResource {
     return new CanonicalProductResource(this.factory.local(tenantId));
   }
@@ -234,6 +230,9 @@ export class Payable extends ProviderRegistries {
 
   payments(tenantId?: string | null, options?: ListOptions): Promise<Payment[]> {
     return new ListAllPaymentsQuery(this.factory.local(tenantId)).run(options);
+  }
+  storedPayments(tenantId?: string | null): StoredPaymentResource {
+    return new StoredPaymentResource(this.factory.local(tenantId));
   }
   audit(tenantId?: string | null): AuditResource {
     if (!this.resolved.storage) {

@@ -110,6 +110,10 @@ describe('documentation examples stay executable', () => {
     expect(prismaStorage).toContain(
       'must defer both tenant-key unique constraints until the contract stage',
     );
+    expect(prismaStorage).toContain('### Payment tenant-key and collection-page index migration');
+    expect(prismaStorage).toContain('UPDATE payable_payments');
+    expect(prismaStorage).toContain('WHERE id IN (:paymentIds);');
+    expect(prismaStorage).toContain('payable_payments_tenant_key_consistency_check');
   });
 
   it('typechecks the Stripe charge example from docs/integrations/18-stripe.md', () => {

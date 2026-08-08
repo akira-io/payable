@@ -1,4 +1,4 @@
-import type { CatalogPage } from '../../domain/dtos/catalog.dto';
+import type { CollectionPage } from '../../domain/dtos/collection-page.dto';
 import type {
   CanonicalPrice,
   CanonicalPriceType,
@@ -8,13 +8,11 @@ import { PayableError } from '../../domain/errors/payable-error';
 import { validateLookupKey, validateLookupKeys } from '../../domain/validation/price-lookup-key';
 import type { Money } from '../../domain/value-objects/money';
 import {
-  decodeCanonicalCatalogCursor,
-  encodeCanonicalCatalogCursor,
-} from './canonical-catalog-page-cursor';
+  decodeCollectionCursor,
+  encodeCollectionCursor,
+} from '../services/collections/collection-cursor';
+import { normalizeCollectionLimit } from '../services/collections/normalize-collection-query';
 import type { LocalDependencies } from './local-dependencies';
-
-const DEFAULT_CATALOG_LIMIT = 25;
-const MAX_CATALOG_LIMIT = 100;
 
 export interface CreateCanonicalPriceInput {
   productId: string;
@@ -30,11 +28,22 @@ export interface CreateCanonicalPriceInput {
 export interface ListCanonicalPricesInput {
   limit?: number;
   cursor?: string;
+  id?: string;
   active?: boolean;
   productId?: string;
   type?: CanonicalPriceType;
+  lookupKey?: string;
   lookupKeys?: string[];
+  includeBindings?: boolean;
 }
+
+export interface PriceBindingMetadata {
+  id: string;
+  provider: string;
+  providerPriceId: string;
+}
+
+export type CanonicalPricePageItem = CanonicalPrice & { bindings?: PriceBindingMetadata[] };
 
 export interface UpdateCanonicalPriceInput {
   description?: string | null;
@@ -136,27 +145,51 @@ export class CanonicalPriceResource {
     });
   }
 
-  async list(input: ListCanonicalPricesInput = {}): Promise<CatalogPage<CanonicalPrice>> {
-    const limit = normalizeLimit(input.limit);
+  async list(
+    input: ListCanonicalPricesInput = {},
+  ): Promise<CollectionPage<CanonicalPricePageItem>> {
+    const limit = normalizeCollectionLimit(input.limit);
     const lookupKeys =
-      input.lookupKeys === undefined ? undefined : validateLookupKeys(input.lookupKeys);
+      input.lookupKeys === undefined
+        ? undefined
+        : validateLookupKeys(input.lookupKeys).toSorted((left, right) => left.localeCompare(right));
+    const filters = {
+      id: input.id,
+      active: input.active,
+      productId: input.productId,
+      type: input.type,
+      lookupKey: input.lookupKey === undefined ? undefined : validateLookupKey(input.lookupKey),
+      lookupKeys,
+      includeBindings: input.includeBindings ?? false,
+    };
+    const context = {
+      resource: 'prices',
+      tenantId: this.dependencies.tenantId ?? null,
+      filters,
+    };
     const page = await this.repository().list(
       {
         limit,
-        before: input.cursor ? decodeCanonicalCatalogCursor(input.cursor) : undefined,
-        active: input.active,
-        productId: input.productId,
-        type: input.type,
-        lookupKeys,
+        before: input.cursor ? decodeCollectionCursor(input.cursor, context) : undefined,
+        id: filters.id,
+        active: filters.active,
+        productId: filters.productId,
+        type: filters.type,
+        lookupKey: filters.lookupKey,
+        lookupKeys: filters.lookupKeys,
       },
       this.dependencies.tenantId ?? null,
     );
     const last = page.items.at(-1);
+    const items = input.includeBindings
+      ? await this.includeBindingMetadata(page.items)
+      : page.items;
     return {
-      data: page.items,
+      items,
+      hasMore: page.hasMore,
       nextCursor:
         page.hasMore && last
-          ? encodeCanonicalCatalogCursor({ createdAt: last.createdAt, id: last.id })
+          ? encodeCollectionCursor({ createdAt: last.createdAt, id: last.id }, context)
           : null,
     };
   }
@@ -193,7 +226,7 @@ export class CanonicalPriceResource {
   }
 
   private repository() {
-    const repository = this.dependencies.storage?.canonicalPrices;
+    const repository = this.requireStorage().canonicalPrices;
     if (!repository) {
       throw new PayableError('Canonical price management requires a storage driver', {
         code: 'PRICE_STORAGE_REQUIRED',
@@ -201,11 +234,43 @@ export class CanonicalPriceResource {
     }
     return repository;
   }
-}
 
-function normalizeLimit(requested?: number): number {
-  if (requested === undefined || !Number.isFinite(requested) || requested < 1) {
-    return DEFAULT_CATALOG_LIMIT;
+  private requireStorage() {
+    const storage = this.dependencies.storage;
+    if (!storage) {
+      throw new PayableError('Canonical price management requires a storage driver', {
+        code: 'PRICE_STORAGE_REQUIRED',
+      });
+    }
+    return storage;
   }
-  return Math.min(Math.floor(requested), MAX_CATALOG_LIMIT);
+
+  private async includeBindingMetadata(
+    prices: CanonicalPrice[],
+  ): Promise<CanonicalPricePageItem[]> {
+    const repository = this.requireStorage().priceProviderBindings;
+    if (!repository) {
+      throw new PayableError('Price binding metadata requires a storage driver', {
+        code: 'PRICE_BINDING_STORAGE_REQUIRED',
+      });
+    }
+    const priceIds = prices.map(({ id }) => id);
+    const bindings = repository.listByPriceIds
+      ? await repository.listByPriceIds(priceIds, this.dependencies.tenantId ?? null)
+      : (
+          await Promise.all(
+            priceIds.map((id) => repository.listByPriceId(id, this.dependencies.tenantId ?? null)),
+          )
+        ).flat();
+    const byPrice = new Map<string, PriceBindingMetadata[]>();
+    for (const { id, priceId, provider, providerPriceId } of bindings) {
+      const priceBindings = byPrice.get(priceId) ?? [];
+      priceBindings.push({ id, provider, providerPriceId });
+      byPrice.set(priceId, priceBindings);
+    }
+    return prices.map((price) => ({
+      ...price,
+      bindings: byPrice.get(price.id) ?? [],
+    }));
+  }
 }

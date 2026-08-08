@@ -142,6 +142,7 @@ export interface PrismaInvoiceRow {
 export interface PrismaPaymentRow {
   id: string;
   tenantId: string | null;
+  tenantKey: string;
   customerId: string | null;
   provider: string;
   providerPaymentId: string | null;

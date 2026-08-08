@@ -19,4 +19,8 @@ export interface ProductProviderBindingRepository {
     tenantId: string | null,
   ): Promise<ProductProviderBinding | null>;
   listByProductId(productId: string, tenantId: string | null): Promise<ProductProviderBinding[]>;
+  listByProductIds?(
+    productIds: string[],
+    tenantId: string | null,
+  ): Promise<ProductProviderBinding[]>;
 }

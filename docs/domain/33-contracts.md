@@ -13,15 +13,15 @@ Repositories persist and read the [entities](05-domain-model.md). Each defines a
 | `CustomerRepository` | `create`, `update`, `findById`, `findByBillable`, `list` | Persists provider-neutral customers and supports tenant-scoped logical collection queries. |
 | `CustomerProviderBindingRepository` | `create`, `findByCustomerAndProvider`, `findByProviderId`, `listByCustomerIds` | Maps a logical customer to each registered provider account; every lookup is tenant-scoped through the owning customer. |
 | `CustomerProviderSyncStateRepository` | `upsert`, `findByCustomerAndProvider` | Stores the tenant-scoped provider synchronization lifecycle without creating a binding for failed or pending attempts. |
-| `SubscriptionRepository` | `create`, `update`, `findById`, `findByName`, `findByProviderId`, `listByCustomer`, `list` | List methods accept `ListOptions` (cursor pagination). |
+| `SubscriptionRepository` | `create`, `update`, `findById`, `findByName`, `findByProviderId`, `listByCustomer`, `list`, `page` | Array lists accept `ListOptions`; `page` backs the canonical collection contract. |
 | `SubscriptionItemRepository` | `create`, `createMany`, `updatePrimary`, `listBySubscription` | `updatePrimary` patches the primary line via `SubscriptionItemPatch`. |
-| `PaymentRepository` | `create`, `update`, `findById`, `findByIdForUpdate`, `findByProviderId`, `listByCustomer`, `list` | `findByIdForUpdate` takes a row lock for safe concurrent refund accounting. |
+| `PaymentRepository` | `create`, `update`, `findById`, `findByIdForUpdate`, `findByProviderId`, `listByCustomer`, `list`, `page` | `findByIdForUpdate` takes a row lock; `page` backs canonical stored-payment reads. |
 | `RefundRepository` | `create`, `update`, `findById`, `findByProviderId`, `listByPayment` | Scoped to a payment via `listByPayment`. |
 | `InvoiceRepository` | `create`, `update`, `findById`, `findByProviderId`, `listByCustomer` | |
 | `CanonicalProductRepository` | `create`, `update`, `findById`, `list` | Provider-neutral products with tenant-scoped deterministic pagination. |
 | `CanonicalPriceRepository` | `create`, `update`, `findById`, `findByLookupKey`, `list` | Provider-neutral prices with immutable billing terms and tenant-scoped lookup keys. |
-| `ProductProviderBindingRepository` | `create`, binding lookups, `listByProductId` | Maps one canonical product to independent registered provider accounts. |
-| `PriceProviderBindingRepository` | `create`, binding lookups, `listByPriceId` | Maps one canonical price to independent registered provider accounts. |
+| `ProductProviderBindingRepository` | `create`, binding lookups, `listByProductId`, `listByProductIds` | Maps one canonical product to independent registered provider accounts. |
+| `PriceProviderBindingRepository` | `create`, binding lookups, `listByPriceId`, `listByPriceIds` | Maps one canonical price to independent registered provider accounts. |
 | `ProductRepository` | `create`, `update`, `findById`, `findByProviderId` | Legacy provider-first compatibility storage. |
 | `PriceRepository` | `create`, `update`, `findById`, `findByProviderId`, `listByProduct` | Legacy provider-first compatibility storage. |
 | `WebhookEventRepository` | `create`, `list`, `findById`, `findByProviderEvent`, `claim`, `markStatus` | `claim` returns a claim token for exactly-once processing; `findByProviderEvent` backs idempotent receipt. |
@@ -122,6 +122,49 @@ The list methods are optional so existing custom storage drivers remain source-c
 bundled Knex and Prisma drivers implement both methods. Calling `CustomerResource.list()` against a
 custom driver without collection support returns `CUSTOMER_LIST_UNSUPPORTED`; requesting bindings
 without batch binding support returns `CUSTOMER_BINDING_LIST_UNSUPPORTED`.
+
+### Provider-neutral collection pages
+
+Canonical customers, products, prices, subscriptions, and stored payments expose the same public
+page contract:
+
+```ts
+export interface CollectionPage<T> {
+  items: T[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+```
+
+The default limit is 25 and the hard maximum is 100. Explicit zero, negative, fractional,
+non-finite, or larger limits fail with `COLLECTION_LIMIT_INVALID` before repository execution.
+Repositories fetch at most `limit + 1` rows, order by `createdAt DESC, id DESC`, and keep the cursor
+boundary and all filters inside the selected tenant partition.
+
+The versioned cursor is opaque. It is bound to the resource type, tenant, normalized filters, and
+ordering version. Reusing it for another resource, tenant, or filter set fails with
+`COLLECTION_CURSOR_INVALID`. Records inserted after the first page do not move the exclusive
+continuation boundary, and the local ID tie-breaker prevents equal timestamps from being skipped or
+duplicated.
+
+Exact and search filters have different semantics:
+
+- `id`, tenant IDs, billable identity fields, product IDs, price IDs, statuses, types, currencies,
+  and lookup keys are exact filters.
+- Customer `email` and `name`, product `name` and `description`, and payment `reference` and
+  `description` are case-insensitive substring searches.
+- Subscription `name` is exact.
+- `includeBindings` defaults to false. When true, responses expose only binding IDs, registered
+  provider names, remote resource IDs, and synchronization timestamps where applicable. Provider
+  configuration and credentials are never returned.
+
+`CustomerRepository.list`, `CanonicalProductRepository.list`, `CanonicalPriceRepository.list`,
+`SubscriptionRepository.page`, and `PaymentRepository.page` return internal `{ items, hasMore }`
+results. Their resources encode the final row into `nextCursor`. Bundled binding repositories also
+provide batch collection methods so an included binding page does not require one query per item.
+The new `page` methods are optional for custom storage-driver source compatibility. A driver without
+them returns `SUBSCRIPTION_PAGE_UNSUPPORTED` or `PAYMENT_PAGE_UNSUPPORTED` from the corresponding
+canonical resource; existing array methods remain available.
 
 ### Catalog repositories
 

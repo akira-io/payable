@@ -62,9 +62,12 @@ export class KnexCanonicalPriceRepository
   ): Promise<CanonicalPriceListResult> {
     assertCatalogTenantId(tenantId);
     let prices = this.knex(this.table)
-      .whereRaw("COALESCE(tenant_id, '') = ?", [tenantId ?? ''])
+      .where('tenant_key', tenantId ?? '')
       .orderBy('created_at', 'desc')
       .orderBy('id', 'desc');
+    if (query.id) {
+      prices = prices.where('id', query.id);
+    }
     if (query.active !== undefined) {
       prices = prices.where('active', query.active);
     }
@@ -73,6 +76,9 @@ export class KnexCanonicalPriceRepository
     }
     if (query.type) {
       prices = prices.where('type', query.type);
+    }
+    if (query.lookupKey) {
+      prices = prices.where('lookup_key', query.lookupKey);
     }
     if (query.lookupKeys) {
       prices = prices.whereIn('lookup_key', query.lookupKeys);

@@ -125,7 +125,10 @@ export class DependencyFactory {
   }
 
   private assertTenant(tenantId?: string | null): void {
-    if (this.resolved.tenantEnabled && (tenantId === undefined || tenantId === null)) {
+    if (
+      this.resolved.tenantEnabled &&
+      (tenantId === undefined || tenantId === null || tenantId.trim().length === 0)
+    ) {
       throw new PayableError('A tenant id is required when tenancy is enabled', {
         code: 'TENANT_REQUIRED',
       });

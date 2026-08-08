@@ -37,6 +37,7 @@ export type {
   CheckoutSessionDTO,
   CreateCheckoutSessionInput,
 } from './checkout.dto';
+export type { CollectionPage } from './collection-page.dto';
 export type { OperationContext } from './common.dto';
 export type { CreateCustomerInput, CustomerDTO, UpdateCustomerInput } from './customer.dto';
 export type { DisputeDTO, DisputeStatus, ListDisputesInput } from './dispute.dto';

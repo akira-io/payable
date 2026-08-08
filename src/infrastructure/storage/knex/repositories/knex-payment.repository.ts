@@ -1,6 +1,8 @@
 import type { ListOptions } from '../../../../domain/contracts/list-options.contract';
 import type {
   NewPayment,
+  PaymentListQuery,
+  PaymentListResult,
   PaymentRepository,
   RefundedAmountPatch,
 } from '../../../../domain/contracts/payment-repository.contract';
@@ -38,6 +40,41 @@ export class KnexPaymentRepository
 
   list(tenantId?: string | null, options?: ListOptions): Promise<Payment[]> {
     return this.manyWhere(this.tenantClause(tenantId), options);
+  }
+
+  async page(query: PaymentListQuery, tenantId: string | null): Promise<PaymentListResult> {
+    let payments = this.knex(this.table)
+      .where('tenant_key', tenantId ?? '')
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc');
+    if (query.id) payments = payments.where('id', query.id);
+    if (query.customerId) payments = payments.where('customer_id', query.customerId);
+    if (query.status) payments = payments.where('status', query.status);
+    if (query.currency) payments = payments.where('currency', query.currency);
+    if (query.reference) {
+      payments = payments.whereRaw("LOWER(reference) LIKE ? ESCAPE '\\'", [
+        searchPattern(query.reference),
+      ]);
+    }
+    if (query.description) {
+      payments = payments.whereRaw("LOWER(description) LIKE ? ESCAPE '\\'", [
+        searchPattern(query.description),
+      ]);
+    }
+    if (query.before) {
+      const before = query.before;
+      const createdAt = before.createdAt.toISOString();
+      payments = payments.where((payment) =>
+        payment
+          .where('created_at', '<', createdAt)
+          .orWhere((tie) => tie.where('created_at', createdAt).andWhere('id', '<', before.id)),
+      );
+    }
+    const rows = (await payments.limit(query.limit + 1)) as Record<string, unknown>[];
+    return {
+      items: rows.slice(0, query.limit).map((row) => this.toEntity(row)),
+      hasMore: rows.length > query.limit,
+    };
   }
 
   async updateRefundedAmountIfUnchanged(
@@ -78,6 +115,7 @@ export class KnexPaymentRepository
   protected toRow(data: Partial<NewPayment>): Record<string, unknown> {
     return {
       tenant_id: data.tenantId,
+      tenant_key: data.tenantId === undefined ? undefined : (data.tenantId ?? ''),
       customer_id: data.customerId,
       provider: data.provider,
       provider_payment_id: data.providerPaymentId,
@@ -89,4 +127,9 @@ export class KnexPaymentRepository
       description: data.description,
     };
   }
+}
+
+function searchPattern(search: string): string {
+  const escaped = search.toLocaleLowerCase('en-US').replace(/[\\%_]/gu, '\\$&');
+  return `%${escaped}%`;
 }

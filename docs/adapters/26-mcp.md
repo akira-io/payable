@@ -63,6 +63,16 @@ cap it at `MAX_LIST_LIMIT = 100` (`src/presentation/mcp/schemas.ts`).
 | `products_list` | read | `payable.providerCatalog().products.list({ limit, cursor, active })` |
 | `price_get` | read | `payable.providerCatalog().prices.retrieve(id)` |
 | `prices_list` | read | `payable.providerCatalog().prices.list({ limit, cursor, active, providerProductId })` |
+| `canonical_customer_get` | read | `payable.customers().find(id)` |
+| `canonical_customers_list` | read | `payable.customers().list(filters)` |
+| `canonical_product_get` | read | `payable.products().retrieve(id)` |
+| `canonical_products_list` | read | `payable.products().list(filters)` |
+| `canonical_price_get` | read | `payable.prices().retrieve(id)` |
+| `canonical_prices_list` | read | `payable.prices().list(filters)` |
+| `canonical_subscription_get` | read | `payable.canonicalSubscriptions().retrieve(id)` |
+| `canonical_subscriptions_list` | read | `payable.canonicalSubscriptions().list(filters)` |
+| `canonical_payment_get` | read | `payable.storedPayments().retrieve(id)` |
+| `canonical_payments_list` | read | `payable.storedPayments().list(filters)` |
 | `product_create` | mutate | `payable.providerCatalog().products.create(...)` |
 | `product_update` | mutate | `payable.providerCatalog().products.update(...)` |
 | `product_activate` | mutate | `payable.providerCatalog().products.activate(id)` |
@@ -89,6 +99,12 @@ Catalog list tools return `{ data, nextCursor }`, treat cursors as opaque, defau
 and accept limits from 1 through 100. `prices_list` also accepts `providerProductId`. MCP exposes
 activation and archival instead of product or price delete tools. Changing price monetary terms
 requires creating a replacement price.
+
+Canonical list tools return `{ items, nextCursor, hasMore }`, default to 25 items, and accept at
+most 100. They use `tenantId`, never accept or resolve a provider, and query only local storage.
+Binding metadata is opt-in for customers, products, prices, and subscriptions. The existing
+`products_list` and `prices_list` tools remain provider-native. The existing `subscriptions_list`
+and `payments_list` tools retain their array-returning compatibility behavior.
 
 ## Catalog idempotency
 

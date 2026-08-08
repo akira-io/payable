@@ -153,7 +153,7 @@ describe('canonical local prices', () => {
 
     expect(results.filter(({ status }) => status === 'fulfilled')).toHaveLength(1);
     expect(results.filter(({ status }) => status === 'rejected')).toHaveLength(1);
-    expect(owners.data).toHaveLength(1);
+    expect(owners.items).toHaveLength(1);
 
     await database.destroy();
   });
@@ -201,7 +201,7 @@ describe('canonical local prices', () => {
 
     expect(firstPage.nextCursor).not.toBeNull();
     expect(secondPage.nextCursor).toBeNull();
-    expect([...firstPage.data, ...secondPage.data].map(({ id }) => id).sort()).toEqual(
+    expect([...firstPage.items, ...secondPage.items].map(({ id }) => id).sort()).toEqual(
       [monthly.id, annual.id].sort(),
     );
 

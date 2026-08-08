@@ -64,6 +64,18 @@ export class PrismaSubscriptionProviderBindingRepository
     return rows.map(subscriptionProviderBindingToEntity);
   }
 
+  async listBySubscriptionIds(
+    subscriptionIds: string[],
+    tenantId: string | null,
+  ): Promise<SubscriptionProviderBinding[]> {
+    if (subscriptionIds.length === 0) return [];
+    const rows = await this.client.payableSubscriptionProviderBinding.findMany({
+      where: { subscriptionId: { in: subscriptionIds }, tenantKey: tenantId ?? '' },
+      orderBy: [{ subscriptionId: 'asc' }, { provider: 'asc' }],
+    });
+    return rows.map(subscriptionProviderBindingToEntity);
+  }
+
   async updateProviderSyncedAt(
     id: string,
     providerSyncedAt: Date,

@@ -1,3 +1,4 @@
+import type { CollectionPage } from '../../domain/dtos/collection-page.dto';
 import type { Customer } from '../../domain/entities/customer.entity';
 import type { CustomerProviderBinding } from '../../domain/entities/customer-provider-binding.entity';
 import type { CustomerProviderSyncState } from '../../domain/entities/customer-provider-sync-state.entity';
@@ -6,12 +7,13 @@ import { PayableError } from '../../domain/errors/payable-error';
 import { EnsureCustomerAction } from '../actions/customers/ensure-customer.action';
 import { normalizeCustomerEmail } from '../actions/customers/normalize-customer-email';
 import { SyncCustomerWithProviderAction } from '../actions/customers/sync-customer-with-provider.action';
+import {
+  decodeCollectionCursor,
+  encodeCollectionCursor,
+} from '../services/collections/collection-cursor';
+import { normalizeCollectionLimit } from '../services/collections/normalize-collection-query';
 import type { Billable } from './billable';
 import type { BillingDependencies } from './billing-dependencies';
-import { decodeCustomerCursor, encodeCustomerCursor } from './customer-page-cursor';
-
-const DEFAULT_CUSTOMER_LIMIT = 25;
-const MAX_CUSTOMER_LIMIT = 100;
 
 export interface CustomerChanges {
   email?: string;
@@ -30,17 +32,14 @@ export interface ListCustomersInput {
 }
 
 export interface CustomerBindingMetadata {
+  id: string;
   provider: string;
   providerCustomerId: string;
 }
 
 export type CustomerPageItem = Customer & { bindings?: CustomerBindingMetadata[] };
 
-export interface CustomerPage {
-  items: CustomerPageItem[];
-  nextCursor: string | null;
-  hasMore: boolean;
-}
+export type CustomerPage = CollectionPage<CustomerPageItem>;
 
 export interface CustomerResourceAccess {
   storage?: BillingDependencies['storage'];
@@ -91,17 +90,30 @@ export class CustomerResource {
         code: 'CUSTOMER_LIST_UNSUPPORTED',
       });
     }
-    const limit = normalizeLimit(input.limit);
+    const limit = normalizeCollectionLimit(input.limit);
+    const filters = {
+      id: input.id,
+      billableType: input.billableType,
+      billableId: input.billableId,
+      email: normalizeSearch(input.email),
+      name: normalizeSearch(input.name),
+      includeBindings: input.includeBindings ?? false,
+    };
+    const context = {
+      resource: 'customers',
+      tenantId: this.access.tenantId,
+      filters,
+    };
     const page = await listCustomers.call(
       storage.customers,
       {
         limit,
-        before: input.cursor ? decodeCustomerCursor(input.cursor) : undefined,
-        id: input.id,
-        billableType: input.billableType,
-        billableId: input.billableId,
-        email: input.email,
-        name: input.name,
+        before: input.cursor ? decodeCollectionCursor(input.cursor, context) : undefined,
+        id: filters.id,
+        billableType: filters.billableType,
+        billableId: filters.billableId,
+        email: filters.email,
+        name: filters.name,
       },
       this.access.tenantId,
     );
@@ -114,7 +126,10 @@ export class CustomerResource {
       hasMore: page.hasMore,
       nextCursor:
         page.hasMore && lastCustomer
-          ? encodeCustomerCursor({ createdAt: lastCustomer.createdAt, id: lastCustomer.id })
+          ? encodeCollectionCursor(
+              { createdAt: lastCustomer.createdAt, id: lastCustomer.id },
+              context,
+            )
           : null,
     };
   }
@@ -227,6 +242,7 @@ export class CustomerResource {
     for (const binding of bindings) {
       const customerBindings = bindingsByCustomer.get(binding.customerId) ?? [];
       customerBindings.push({
+        id: binding.id,
         provider: binding.provider,
         providerCustomerId: binding.providerCustomerId,
       });
@@ -239,9 +255,7 @@ export class CustomerResource {
   }
 }
 
-function normalizeLimit(requested?: number): number {
-  if (requested === undefined || !Number.isFinite(requested) || requested < 1) {
-    return DEFAULT_CUSTOMER_LIMIT;
-  }
-  return Math.min(Math.floor(requested), MAX_CUSTOMER_LIMIT);
+function normalizeSearch(value?: string): string | undefined {
+  const normalized = value?.trim().toLocaleLowerCase('en-US');
+  return normalized ? normalized : undefined;
 }

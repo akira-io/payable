@@ -20,6 +20,8 @@ describe('payableErrorStatus', () => {
       ['PROVIDER_CAPABILITY_NOT_SUPPORTED', 422],
       ['WEBHOOK_PROVIDER_AMBIGUOUS', 400],
       ['TENANT_REQUIRED', 400],
+      ['COLLECTION_CURSOR_INVALID', 400],
+      ['COLLECTION_LIMIT_INVALID', 422],
     ];
     for (const [code, status] of cases) {
       expect(payableErrorStatus(new PayableError('x', { code }))).toBe(status);
