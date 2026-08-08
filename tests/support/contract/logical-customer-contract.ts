@@ -247,9 +247,28 @@ export function registerLogicalCustomerContract(context: ContractContext): void 
         status: 'reconciliation_required',
         attempts: 1,
         failureCode: 'CUSTOMER_PROVIDER_SYNC_LEASE_EXPIRED',
-        attemptOwnerId: null,
+        attemptOwnerId: 'unsafe-create-owner',
         leaseExpiresAt: null,
       },
+    });
+
+    await expect(
+      repository.completeAttempt(
+        {
+          ...retry.state,
+          status: 'synchronized',
+          providerCustomerId: 'cus_late_success',
+          synchronizedAt: clock.now(),
+          failureCode: null,
+          attemptOwnerId: null,
+          leaseExpiresAt: null,
+        },
+        { attempts: 1, ownerId: 'unsafe-create-owner' },
+      ),
+    ).resolves.toMatchObject({
+      status: 'synchronized',
+      providerCustomerId: 'cus_late_success',
+      attempts: 1,
     });
   });
 }

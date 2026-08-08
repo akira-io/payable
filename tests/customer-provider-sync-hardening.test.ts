@@ -72,6 +72,14 @@ describe('customer provider synchronization hardening', () => {
     });
     releaseCreate();
     await expect(original).resolves.toBe('cus_non_native_1');
+    await expect(customers.syncState(billable)).resolves.toMatchObject({
+      status: 'synchronized',
+      providerCustomerId: 'cus_non_native_1',
+      attempts: 1,
+      failureCode: null,
+      attemptOwnerId: null,
+      leaseExpiresAt: null,
+    });
   });
 
   it('records the losing remote id when its current attempt loses the binding race', async () => {
@@ -97,6 +105,28 @@ describe('customer provider synchronization hardening', () => {
       clock,
     });
     const losingAttempt = await lifecycle.begin(customer.id);
+    await database.raw(`
+      CREATE TRIGGER fail_customer_provider_orphan_outbox
+      BEFORE INSERT ON payable_outbox_events
+      WHEN NEW.event_type = 'customer.provider.orphaned.v1'
+      BEGIN
+        SELECT RAISE(FAIL, 'injected orphan outbox failure');
+      END
+    `);
+    await expect(
+      lifecycle.reconciliationRequired(
+        customer.id,
+        'cus_orphan',
+        losingAttempt,
+        new CustomerProviderBindingConflictError('stripe', 'cus_orphan', 'cus_winner'),
+      ),
+    ).rejects.toThrow('injected orphan outbox failure');
+    await expect(customers.syncState(billable)).resolves.toMatchObject({
+      status: 'pending',
+      attemptOwnerId: losingAttempt.id,
+    });
+    await database.raw('DROP TRIGGER fail_customer_provider_orphan_outbox');
+
     await lifecycle.reconciliationRequired(
       customer.id,
       'cus_orphan',

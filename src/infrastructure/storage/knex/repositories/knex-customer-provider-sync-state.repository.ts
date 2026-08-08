@@ -164,7 +164,6 @@ export class KnexCustomerProviderSyncStateRepository
       .update({
         status: 'reconciliation_required',
         failure_code: 'CUSTOMER_PROVIDER_SYNC_LEASE_EXPIRED',
-        attempt_owner_id: null,
         lease_expires_at: null,
         updated_at: updatedAt.toISOString(),
       });
@@ -175,7 +174,6 @@ export class KnexCustomerProviderSyncStateRepository
       ...existing,
       status: 'reconciliation_required',
       failureCode: 'CUSTOMER_PROVIDER_SYNC_LEASE_EXPIRED',
-      attemptOwnerId: null,
       leaseExpiresAt: null,
       updatedAt,
     };

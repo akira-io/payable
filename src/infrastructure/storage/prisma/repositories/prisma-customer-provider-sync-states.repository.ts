@@ -166,7 +166,6 @@ export class PrismaCustomerProviderSyncStateRepository
       data: {
         status: 'reconciliation_required',
         failureCode: 'CUSTOMER_PROVIDER_SYNC_LEASE_EXPIRED',
-        attemptOwnerId: null,
         leaseExpiresAt: null,
         updatedAt,
       },
@@ -178,7 +177,6 @@ export class PrismaCustomerProviderSyncStateRepository
       ...existing,
       status: 'reconciliation_required',
       failureCode: 'CUSTOMER_PROVIDER_SYNC_LEASE_EXPIRED',
-      attemptOwnerId: null,
       leaseExpiresAt: null,
       updatedAt,
     };

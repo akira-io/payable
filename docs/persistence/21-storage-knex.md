@@ -116,7 +116,7 @@ aggregates.
 | --- | --- | --- |
 | `payable_customers` | `tenant_id`, `billable_type`, `billable_id`, `email`, `name`, `metadata` | unique logical identity over normalized tenant, billable type, and billable id; MySQL stores the normalized value in generated `tenant_key` |
 | `payable_customer_provider_bindings` | `customer_id`, `provider`, `provider_customer_id` | foreign key to customer with cascade delete; unique `(customer_id, provider)` and `(provider, provider_customer_id)` |
-| `payable_customer_provider_sync_states` | `tenant_id`, `tenant_key`, `customer_id`, `provider`, `status`, `provider_customer_id`, `attempts`, `last_attempted_at`, `synchronized_at`, `failure_code` | foreign key to customer with cascade delete; unique `(tenant_key, customer_id, provider)`; index `(tenant_key, status)` |
+| `payable_customer_provider_sync_states` | `tenant_id`, `tenant_key`, `customer_id`, `provider`, `status`, `provider_customer_id`, `attempts`, `last_attempted_at`, `synchronized_at`, `failure_code`, `attempt_owner_id`, `lease_expires_at` | foreign key to customer with cascade delete; unique `(tenant_key, customer_id, provider)`; index `(tenant_key, status)` |
 | `payable_products` | `tenant_id`, `tenant_key`, `provider`, `provider_product_id`, `name`, `active` | check `tenant_key = COALESCE(tenant_id, '')`; unique `(tenant_key, provider, provider_product_id)` through `payable_products_tenant_provider_product_unique` |
 | `payable_prices` | `tenant_id`, `tenant_key`, `provider`, `provider_price_id`, `product_id`, `currency`, `unit_amount`, `interval`, `interval_count`, `active` (boolean, notNullable) | check `tenant_key = COALESCE(tenant_id, '')`; unique `(tenant_key, provider, provider_price_id)` through `payable_prices_tenant_provider_price_unique`; index `product_id` |
 | `payable_subscriptions` | `customer_id`, `name`, `provider`, `provider_subscription_id`, `status`, `price_id`, `quantity`, period/trial timestamps | unique `(provider, provider_subscription_id)`; unique `(customer_id, name)` |
@@ -193,6 +193,9 @@ export async function migrate(knex: Knex): Promise<void> {
     await runStep(knex, '012-customer-provider-sync-states', () =>
       addCustomerProviderSyncStates(knex),
     );
+    await runStep(knex, '013-customer-provider-sync-state-leases', () =>
+      addCustomerProviderSyncStateLeases(knex),
+    );
   });
 }
 ```
@@ -208,7 +211,9 @@ Each step is recorded through a migration ledger via `runStep`, so a completed s
 re-run. The first four steps establish the original schema; steps `005` through `007` add webhook
 timestamps, subscription sync timestamps, and post-ledger convergence. The customer identity
 migration is step `008`. Step `011` adds the canonical catalog without rewriting legacy rows. Step
-`012` adds tenant-scoped customer provider synchronization lifecycle rows:
+`012` adds tenant-scoped customer provider synchronization lifecycle rows. Step `013` adds
+`attempt_owner_id` and `lease_expires_at` to existing synchronization state tables so attempts can be
+fenced and leased safely during retries:
 
 1. **Create billing tables** (`001-billing-tables`) - each via `createIfMissing`
    (`create-if-missing.ts`), which checks `knex.schema.hasTable(name)` and only creates the table
@@ -240,6 +245,9 @@ migration is step `008`. Step `011` adds the canonical catalog without rewriting
 - **Canonical local catalog** (`011-canonical-local-catalog`) - creates provider-neutral product and
   price tables plus their provider-binding tables. The step is additive and safe for databases whose
   earlier ledger entries are already applied.
+- **Customer provider sync leases** (`013-customer-provider-sync-state-leases`) - adds nullable
+  `attempt_owner_id` and `lease_expires_at` columns to synchronization tables created by step `012`,
+  including databases whose migration ledger already records step `012` as complete.
 
 Step `009-catalog-tenant-keys` is fail-closed. The mismatch-driven batches revisit rows inserted below
 an earlier batch boundary. The consistency check validates existing rows when it is added and rejects
