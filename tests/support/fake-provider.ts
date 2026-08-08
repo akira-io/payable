@@ -56,6 +56,7 @@ export class FakeProvider
   implements PaymentProvider, SubscriptionOperationCapabilitiesProvider
 {
   readonly name = 'stripe';
+  readonly customerCreateIdempotency: 'native' | 'unsupported' | undefined = 'native';
   createCustomerCalls = 0;
   lastCustomerCtx?: OperationContext;
   lastUpdateCustomer?: UpdateCustomerInput;
@@ -293,7 +294,6 @@ export class FakeProvider
   async downloadInvoicePdf(providerInvoiceId: string): Promise<InvoicePdfDTO> {
     return { filename: `${providerInvoiceId}.pdf`, content: new Uint8Array([1, 2, 3]) };
   }
-
   private unused(operation: string): Promise<never> {
     return Promise.reject(new Error(`FakeProvider.${operation} not used`));
   }

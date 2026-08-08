@@ -62,6 +62,7 @@ export class PaddleProvider
     ScheduledSubscriptionChangeCapable
 {
   readonly name = 'paddle';
+  readonly customerCreateIdempotency = 'unsupported';
   private readonly catalog: PaddleCatalog;
   private readonly normalizer: PaddleEventNormalizer;
   private readonly verifier: PaddleWebhookVerifier;

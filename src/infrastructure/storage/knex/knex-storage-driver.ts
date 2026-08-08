@@ -4,6 +4,7 @@ import type {
   CanonicalPriceRepository,
   CanonicalProductRepository,
   CustomerProviderBindingRepository,
+  CustomerProviderSyncStateRepository,
   CustomerRepository,
   InvoiceRepository,
   OutboxEventRepository,
@@ -31,6 +32,7 @@ import { KnexCanonicalPriceRepository } from './repositories/knex-canonical-pric
 import { KnexCanonicalProductRepository } from './repositories/knex-canonical-product.repository';
 import { KnexCustomerRepository } from './repositories/knex-customer.repository';
 import { KnexCustomerProviderBindingRepository } from './repositories/knex-customer-provider-binding.repository';
+import { KnexCustomerProviderSyncStateRepository } from './repositories/knex-customer-provider-sync-state.repository';
 import { KnexInvoiceRepository } from './repositories/knex-invoice.repository';
 import { KnexOutboxEventRepository } from './repositories/knex-outbox-event.repository';
 import { KnexPaymentRepository } from './repositories/knex-payment.repository';
@@ -56,6 +58,7 @@ function buildRepositories(
     canonicalProducts: new KnexCanonicalProductRepository(qb, clock),
     customers: new KnexCustomerRepository(qb, clock),
     customerProviderBindings: new KnexCustomerProviderBindingRepository(qb, clock),
+    customerProviderSyncStates: new KnexCustomerProviderSyncStateRepository(qb, clock),
     products: new KnexProductRepository(qb, clock),
     productProviderBindings: new KnexProductProviderBindingRepository(qb, clock),
     prices: new KnexPriceRepository(qb, clock),
@@ -78,6 +81,7 @@ export class KnexStorageDriver implements StorageDriver {
   canonicalProducts!: CanonicalProductRepository;
   customers!: CustomerRepository;
   customerProviderBindings!: CustomerProviderBindingRepository;
+  customerProviderSyncStates!: CustomerProviderSyncStateRepository;
   products!: ProductRepository;
   productProviderBindings!: ProductProviderBindingRepository;
   prices!: PriceRepository;
@@ -123,6 +127,8 @@ export class KnexStorageDriver implements StorageDriver {
     this.canonicalProducts = repositories.canonicalProducts as CanonicalProductRepository;
     this.customers = repositories.customers;
     this.customerProviderBindings = repositories.customerProviderBindings;
+    this.customerProviderSyncStates =
+      repositories.customerProviderSyncStates as CustomerProviderSyncStateRepository;
     this.products = repositories.products;
     this.productProviderBindings =
       repositories.productProviderBindings as ProductProviderBindingRepository;

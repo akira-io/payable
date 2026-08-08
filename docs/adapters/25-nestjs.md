@@ -83,8 +83,9 @@ constructor(
 | POST | `subscriptions/:name/cancel-now` | 200 | `cancelNow` | Cancel immediately |
 | POST | `subscriptions/:name/resume` | 200 | `resume` | Resume a canceled subscription |
 | POST | `subscriptions/:name/swap` | 200 | `swap` | Swap to a new price |
-| POST | `customers` | 201 | `createCustomer` | Create (or get) a customer at the provider |
-| PATCH | `customers` | 200 | `updateCustomer` | Update a customer's email/name |
+| POST | `customers` | 201 | `createCustomer` | Create or get a logical customer in local storage |
+| PATCH | `customers` | 200 | `updateCustomer` | Update a logical customer's email or name in local storage |
+| POST | `customers/sync` | 200 | `syncCustomer` | Synchronize a logical customer with the required provider name |
 | GET | `customers` | 200 | `getCustomer` | Get a customer by `billableType`+`billableId` |
 | GET | `invoices` | 200 | `invoices` | List a billable's invoices |
 | GET | `invoices/:id/pdf` | 200 | `getInvoicePdf` | Download an invoice PDF as a `StreamableFile` (`application/pdf`) |

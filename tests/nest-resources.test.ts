@@ -175,6 +175,7 @@ describe('nest adapter', () => {
 
     const updated = await controller.updateCustomer({ headers: {} }, { billable, name: 'Renamed' });
     expect(updated.name).toBe('Renamed');
+
     await db.destroy();
   });
 

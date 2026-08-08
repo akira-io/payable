@@ -111,10 +111,12 @@ const session = await payable
 res.send(session.html); // hosted-form providers return a ready auto-submit form
 ```
 
-Unlike the catalog pipeline it does not call the provider customer sync (the provider may have no
-`customers` capability); it ensures a local customer, then records a pending `Payment` keyed by the
-session id so the later callback can reconcile it. The provider-specific callback is processed with
-`payable.receiveRedirectCallback(...)`. See [SISP](../integrations/20-sisp.md).
+Unlike the catalog pipeline, redirect checkout conditionally synchronizes the provider customer. When
+the selected provider advertises the `customers` capability, it explicitly syncs the local customer
+and passes the resulting provider customer id into checkout. Providers without that capability (such
+as SISP) receive an empty provider customer id. The builder then records a pending `Payment` keyed by
+the session id so the later callback can reconcile it. The provider-specific callback is processed
+with `payable.receiveRedirectCallback(...)`. See [SISP](../integrations/20-sisp.md).
 
 ### The `CheckoutSessionDTO`
 

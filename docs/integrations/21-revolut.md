@@ -149,7 +149,9 @@ provider implements the corresponding optional contracts and intentionally does 
 `updateCustomer(input, ctx)` calls `PATCH /api/customers/{customer_id}`. Both responses map `id`,
 `email`, and `full_name` to `CustomerDTO`. Payable customer `metadata` is not sent because the
 Merchant schema does not support it. These endpoints do not declare `Idempotency-Key`, so the provider
-does not forward `ctx.idempotencyKey`.
+does not forward `ctx.idempotencyKey`. If a create response is lost, Payable marks the customer sync
+as `reconciliation_required` and blocks an automatic retry that could create a duplicate. Resolve the
+remote result and local binding manually before synchronizing again.
 
 ## Saved payment methods
 

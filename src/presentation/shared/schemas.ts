@@ -25,6 +25,11 @@ export const checkoutBodySchema = z.object({
 
 export const customerBodySchema = z.object({ billable: billableSchema });
 
+export const customerSyncBodySchema = z.object({
+  provider: z.string().min(1),
+  billable: billableSchema,
+});
+
 export const customerUpdateBodySchema = z.object({
   billable: billableSchema,
   email: z.string().email().optional(),

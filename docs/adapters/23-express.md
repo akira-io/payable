@@ -57,8 +57,9 @@ Every method and path below is registered by the adapter. Paths are relative to 
 | POST | `/subscriptions/:name/resume` | 200 | Resume a canceled subscription |
 | POST | `/subscriptions/:name/swap` | 200 | Swap to a new price |
 | POST | `/refunds` | 201 | Refund a payment |
-| POST | `/customers` | 201 | Create (or get) a customer at the provider |
-| PATCH | `/customers` | 200 | Update a customer's email/name |
+| POST | `/customers` | 201 | Create or get a logical customer in local storage |
+| PATCH | `/customers` | 200 | Update a logical customer's email or name in local storage |
+| POST | `/customers/sync` | 200 | Synchronize a logical customer with the required provider name |
 | GET | `/customers` | 200 | Get a customer by `billableType`+`billableId` (query) |
 | GET | `/invoices` | 200 | List a billable's invoices (query: billableType, billableId, limit?) |
 | GET | `/invoices/:id/pdf` | 200 | Download an invoice PDF (`application/pdf`; 404 if absent, 422 if the provider lacks `invoicePdf`) |

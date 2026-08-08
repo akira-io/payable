@@ -49,6 +49,7 @@ cap it at `MAX_LIST_LIMIT = 100` (`src/presentation/mcp/schemas.ts`).
 | --- | --- | --- |
 | `providers_list` | read | `payable.providers().names()` |
 | `customer_get` | read | `payable.customers().get(billable)` |
+| `customer_sync` | mutate | `payable.customers(provider).sync(billable)` |
 | `subscriptions_list` | read | per-billable or global `payable.subscriptions()` |
 | `subscription_get` | read | `payable.customer().subscription(name).get()` |
 | `payments_list` | read | per-billable or global `payable.payments()` |

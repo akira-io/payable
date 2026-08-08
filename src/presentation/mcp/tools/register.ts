@@ -7,7 +7,7 @@ import { registerCatalogTools } from './catalog-mutation.tools';
 import { registerMoneyTools } from './money.tools';
 import { registerCatalogReadTools, registerReadTools } from './read.tools';
 import { registerWebhookTools } from './webhook.tools';
-import { registerLinkTools, registerSubscriptionTools } from './write.tools';
+import { registerCustomerTools, registerLinkTools, registerSubscriptionTools } from './write.tools';
 
 export function registerTools(
   server: McpServer,
@@ -20,6 +20,7 @@ export function registerTools(
   registerCatalogReadTools(server, payable, options, gate);
   registerCatalogTools(server, payable, options, gate);
   registerCatalogLifecycleTools(server, payable, options, gate);
+  registerCustomerTools(server, payable, options, gate);
   registerSubscriptionTools(server, payable, options, gate);
   registerLinkTools(server, payable, options, gate);
   registerMoneyTools(server, payable, options, gate);

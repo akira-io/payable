@@ -104,6 +104,7 @@ export class RevolutProvider
     SubscriptionManagementCapable
 {
   readonly name = 'revolut';
+  readonly customerCreateIdempotency = 'unsupported';
   private readonly normalizer: RevolutEventNormalizer;
   private readonly verifier: RevolutWebhookVerifier;
   private readonly client: RevolutClient;

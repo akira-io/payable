@@ -92,6 +92,123 @@ export function registerLogicalCustomerContract(context: ContractContext): void 
       providerCustomerId: 'cus_contract_a',
     });
   });
+
+  it('allocates customer provider sync attempts atomically and rejects stale completions', async () => {
+    const { storage, clock } = context.harness();
+    const repository = storage.customerProviderSyncStates;
+    if (!repository) {
+      throw new Error('Customer provider sync state repository is unavailable');
+    }
+    const customerA = await createCustomer(context, { billableId: 'logical-sync-a' });
+    const customerB = await createCustomer(context, {
+      tenantId: TENANT_B,
+      billableId: 'logical-sync-b',
+    });
+    const attemptedAt = new Date('2026-08-08T10:00:00.000Z');
+    clock.set(attemptedAt);
+    const leaseExpiresAt = new Date(attemptedAt.getTime() + 30_000);
+    const claims = await Promise.all([
+      repository.beginAttempt({
+        tenantId: TENANT_A,
+        customerId: customerA.id,
+        provider: 'stripe',
+        lastAttemptedAt: attemptedAt,
+        attemptOwnerId: 'attempt-owner-1',
+        leaseExpiresAt,
+      }),
+      repository.beginAttempt({
+        tenantId: TENANT_A,
+        customerId: customerA.id,
+        provider: 'stripe',
+        lastAttemptedAt: attemptedAt,
+        attemptOwnerId: 'attempt-owner-2',
+        leaseExpiresAt,
+      }),
+    ]);
+    expect(claims.filter(({ acquired }) => acquired)).toHaveLength(1);
+    expect(claims.map(({ state }) => state.attempts)).toEqual([1, 1]);
+    const stale = claims.find(({ acquired }) => acquired);
+    const staleOwnerId = claims[0] === stale ? 'attempt-owner-1' : 'attempt-owner-2';
+    clock.advance(30_001);
+    const current = await repository.beginAttempt({
+      tenantId: TENANT_A,
+      customerId: customerA.id,
+      provider: 'stripe',
+      lastAttemptedAt: clock.now(),
+      attemptOwnerId: 'attempt-owner-3',
+      leaseExpiresAt: new Date(clock.now().getTime() + 30_000),
+    });
+    expect(current).toMatchObject({ acquired: true, state: { attempts: 2 } });
+    await repository.completeAttempt(
+      {
+        tenantId: TENANT_A,
+        customerId: customerA.id,
+        provider: 'stripe',
+        status: 'synchronized',
+        providerCustomerId: 'cus_current',
+        attempts: current.state.attempts,
+        lastAttemptedAt: attemptedAt,
+        synchronizedAt: attemptedAt,
+        failureCode: null,
+        attemptOwnerId: null,
+        leaseExpiresAt: null,
+      },
+      { attempts: current.state.attempts, ownerId: 'attempt-owner-3' },
+    );
+    await expect(
+      repository.completeAttempt(
+        {
+          tenantId: TENANT_A,
+          customerId: customerA.id,
+          provider: 'stripe',
+          status: 'failed',
+          providerCustomerId: null,
+          attempts: stale?.state.attempts ?? 0,
+          lastAttemptedAt: attemptedAt,
+          synchronizedAt: null,
+          failureCode: 'ETIMEDOUT',
+          attemptOwnerId: null,
+          leaseExpiresAt: null,
+        },
+        { attempts: stale?.state.attempts ?? 0, ownerId: staleOwnerId },
+      ),
+    ).resolves.toBeNull();
+    const tenantBAttempt = await repository.beginAttempt({
+      tenantId: TENANT_B,
+      customerId: customerB.id,
+      provider: 'stripe',
+      lastAttemptedAt: attemptedAt,
+      attemptOwnerId: 'attempt-owner-b',
+      leaseExpiresAt,
+    });
+    await repository.completeAttempt(
+      {
+        ...tenantBAttempt.state,
+        providerCustomerId: 'cus_tenant_b',
+        status: 'synchronized',
+        synchronizedAt: attemptedAt,
+        attemptOwnerId: null,
+        leaseExpiresAt: null,
+      },
+      { attempts: tenantBAttempt.state.attempts, ownerId: 'attempt-owner-b' },
+    );
+
+    expect(
+      await repository.findByCustomerAndProvider(customerA.id, 'stripe', TENANT_A),
+    ).toMatchObject({
+      status: 'synchronized',
+      attempts: 2,
+      providerCustomerId: 'cus_current',
+    });
+    expect(
+      await repository.findByCustomerAndProvider(customerB.id, 'stripe', TENANT_B),
+    ).toMatchObject({
+      status: 'synchronized',
+      providerCustomerId: 'cus_tenant_b',
+      attempts: 1,
+    });
+    expect(await repository.findByCustomerAndProvider(customerA.id, 'stripe', TENANT_B)).toBeNull();
+  });
 }
 
 function createCustomer(context: ContractContext, overrides: Partial<NewCustomer>) {
