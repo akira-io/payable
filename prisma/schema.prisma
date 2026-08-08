@@ -366,10 +366,11 @@ model PayableOutboxEvent {
   lockedBy      String?   @map("locked_by")
   lockedUntil   DateTime? @map("locked_until")
   dedupeKey     String?   @map("dedupe_key")
+  tenantKey     String    @default("") @map("tenant_key")
   createdAt     DateTime  @map("created_at")
   updatedAt     DateTime  @map("updated_at")
 
-  @@unique([tenantId, dedupeKey])
+  @@unique([tenantKey, dedupeKey])
   @@index([status, nextRetryAt, createdAt, id])
   @@index([status, lockedUntil, createdAt, id])
   @@map("payable_outbox_events")

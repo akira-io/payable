@@ -24,7 +24,7 @@ export interface Repositories {
   readonly canonicalProducts?: CanonicalProductRepository;
   readonly customers: CustomerRepository;
   readonly customerProviderBindings: CustomerProviderBindingRepository;
-  readonly customerProviderSyncStates: CustomerProviderSyncStateRepository;
+  readonly customerProviderSyncStates?: CustomerProviderSyncStateRepository;
   readonly products: ProductRepository;
   readonly prices: PriceRepository;
   readonly priceProviderBindings?: PriceProviderBindingRepository;

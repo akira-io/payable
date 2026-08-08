@@ -5,52 +5,49 @@ import type { BillingDependencies } from '../../builders/billing-dependencies';
 export class CustomerProviderSyncLifecycle {
   constructor(private readonly dependencies: BillingDependencies) {}
 
-  async begin(customerId: string, previous: CustomerProviderSyncState | null): Promise<number> {
-    const storage = this.dependencies.storage;
-    if (!storage) {
-      return 1;
+  async begin(customerId: string): Promise<CustomerProviderSyncAttempt> {
+    const id = CorrelationId.generate().toString();
+    const repository = this.dependencies.storage?.customerProviderSyncStates;
+    if (!repository) {
+      return { id, number: 1 };
     }
-    const attempts = (previous?.attempts ?? 0) + 1;
-    await storage.customerProviderSyncStates.upsert({
+    const state = await repository.beginAttempt({
       tenantId: this.tenantId(),
       customerId,
       provider: this.dependencies.providerName,
-      status: 'pending',
-      providerCustomerId: previous?.providerCustomerId ?? null,
-      attempts,
       lastAttemptedAt: this.dependencies.clock.now(),
-      synchronizedAt: previous?.synchronizedAt ?? null,
-      failureCode: null,
     });
-    return attempts;
+    return { id, number: state.attempts };
   }
 
   async synchronized(
     customerId: string,
     providerCustomerId: string,
-    attempts: number,
+    attempt: CustomerProviderSyncAttempt,
   ): Promise<void> {
     const storage = this.dependencies.storage;
     if (!storage) {
       return;
     }
     const synchronizedAt = this.dependencies.clock.now();
-    const correlationId = CorrelationId.generate().toString();
     await storage.transaction(async (repositories) => {
-      await repositories.customerProviderSyncStates.upsert({
-        tenantId: this.tenantId(),
-        customerId,
-        provider: this.dependencies.providerName,
-        status: 'synchronized',
-        providerCustomerId,
-        attempts,
-        lastAttemptedAt: synchronizedAt,
-        synchronizedAt,
-        failureCode: null,
-      });
+      await repositories.customerProviderSyncStates?.completeAttempt(
+        {
+          tenantId: this.tenantId(),
+          customerId,
+          provider: this.dependencies.providerName,
+          status: 'synchronized',
+          providerCustomerId,
+          attempts: attempt.number,
+          lastAttemptedAt: synchronizedAt,
+          synchronizedAt,
+          failureCode: null,
+        },
+        attempt.number,
+      );
       await repositories.auditLogs.create({
         tenantId: this.tenantId(),
-        correlationId,
+        correlationId: attempt.id,
         actorType: null,
         actorId: null,
         action: 'customer.provider.synchronized',
@@ -68,7 +65,7 @@ export class CustomerProviderSyncLifecycle {
       });
       await repositories.outboxEvents.create({
         tenantId: this.tenantId(),
-        correlationId,
+        correlationId: attempt.id,
         eventType: 'customer.provider.synchronized.v1',
         eventVersion: 1,
         payload: {
@@ -77,74 +74,83 @@ export class CustomerProviderSyncLifecycle {
           providerCustomerId,
           tenantId: this.tenantId(),
         },
-        dedupeKey: [
-          'customer-provider-sync',
-          this.tenantId() ?? '',
-          customerId,
-          this.dependencies.providerName,
-          String(attempts),
-        ].join(':'),
+        dedupeKey: `customer-provider-sync:${attempt.id}`,
       });
     });
   }
 
   failed(
     customerId: string,
-    attempts: number,
+    attempt: CustomerProviderSyncAttempt,
     error: unknown,
     providerCustomerId: string | null = null,
+    synchronizedAt: Date | null = null,
   ): Promise<CustomerProviderSyncState | undefined> {
     return this.record({
       customerId,
       providerCustomerId,
-      attempts,
+      attempt,
       status: 'failed',
       failureCode: errorCode(error, 'CUSTOMER_PROVIDER_SYNC_FAILED'),
+      synchronizedAt,
     });
   }
 
   reconciliationRequired(
     customerId: string,
-    providerCustomerId: string,
-    attempts: number,
+    providerCustomerId: string | null,
+    attempt: CustomerProviderSyncAttempt,
     error: unknown,
+    synchronizedAt: Date | null = null,
   ): Promise<CustomerProviderSyncState | undefined> {
     return this.record({
       customerId,
       providerCustomerId,
-      attempts,
+      attempt,
       status: 'reconciliation_required',
       failureCode: errorCode(error, 'CUSTOMER_PROVIDER_RECONCILIATION_REQUIRED'),
+      synchronizedAt,
     });
   }
 
   private async record(input: {
     customerId: string;
     providerCustomerId: string | null;
-    attempts: number;
+    attempt: CustomerProviderSyncAttempt;
     status: 'failed' | 'reconciliation_required';
     failureCode: string;
+    synchronizedAt: Date | null;
   }): Promise<CustomerProviderSyncState | undefined> {
-    const storage = this.dependencies.storage;
-    if (!storage) {
+    const repository = this.dependencies.storage?.customerProviderSyncStates;
+    if (!repository) {
       return undefined;
     }
-    return storage.customerProviderSyncStates.upsert({
-      tenantId: this.tenantId(),
-      customerId: input.customerId,
-      provider: this.dependencies.providerName,
-      status: input.status,
-      providerCustomerId: input.providerCustomerId,
-      attempts: input.attempts,
-      lastAttemptedAt: this.dependencies.clock.now(),
-      synchronizedAt: null,
-      failureCode: input.failureCode,
-    });
+    return (
+      (await repository.completeAttempt(
+        {
+          tenantId: this.tenantId(),
+          customerId: input.customerId,
+          provider: this.dependencies.providerName,
+          status: input.status,
+          providerCustomerId: input.providerCustomerId,
+          attempts: input.attempt.number,
+          lastAttemptedAt: this.dependencies.clock.now(),
+          synchronizedAt: input.synchronizedAt,
+          failureCode: input.failureCode,
+        },
+        input.attempt.number,
+      )) ?? undefined
+    );
   }
 
   private tenantId(): string | null {
     return this.dependencies.tenantId ?? null;
   }
+}
+
+export interface CustomerProviderSyncAttempt {
+  readonly id: string;
+  readonly number: number;
 }
 
 function errorCode(error: unknown, fallback: string): string {

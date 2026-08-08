@@ -93,73 +93,95 @@ export function registerLogicalCustomerContract(context: ContractContext): void 
     });
   });
 
-  it('upserts customer provider sync states within the owning tenant', async () => {
+  it('allocates customer provider sync attempts atomically and rejects stale completions', async () => {
     const { storage } = context.harness();
+    const repository = storage.customerProviderSyncStates;
+    if (!repository) {
+      throw new Error('Customer provider sync state repository is unavailable');
+    }
     const customerA = await createCustomer(context, { billableId: 'logical-sync-a' });
     const customerB = await createCustomer(context, {
       tenantId: TENANT_B,
       billableId: 'logical-sync-b',
     });
     const attemptedAt = new Date('2026-08-08T10:00:00.000Z');
-    await storage.customerProviderSyncStates.upsert({
-      tenantId: TENANT_A,
-      customerId: customerA.id,
-      provider: 'stripe',
-      status: 'pending',
-      providerCustomerId: null,
-      attempts: 1,
-      lastAttemptedAt: attemptedAt,
-      synchronizedAt: null,
-      failureCode: null,
-    });
-    await storage.customerProviderSyncStates.upsert({
+    const attempts = await Promise.all([
+      repository.beginAttempt({
+        tenantId: TENANT_A,
+        customerId: customerA.id,
+        provider: 'stripe',
+        lastAttemptedAt: attemptedAt,
+      }),
+      repository.beginAttempt({
+        tenantId: TENANT_A,
+        customerId: customerA.id,
+        provider: 'stripe',
+        lastAttemptedAt: attemptedAt,
+      }),
+    ]);
+    expect(attempts.map(({ attempts: count }) => count).sort()).toEqual([1, 2]);
+    const [stale, current] = attempts.sort((left, right) => left.attempts - right.attempts);
+    await repository.completeAttempt(
+      {
+        tenantId: TENANT_A,
+        customerId: customerA.id,
+        provider: 'stripe',
+        status: 'synchronized',
+        providerCustomerId: 'cus_current',
+        attempts: current?.attempts ?? 0,
+        lastAttemptedAt: attemptedAt,
+        synchronizedAt: attemptedAt,
+        failureCode: null,
+      },
+      current?.attempts ?? 0,
+    );
+    await expect(
+      repository.completeAttempt(
+        {
+          tenantId: TENANT_A,
+          customerId: customerA.id,
+          provider: 'stripe',
+          status: 'failed',
+          providerCustomerId: null,
+          attempts: stale?.attempts ?? 0,
+          lastAttemptedAt: attemptedAt,
+          synchronizedAt: null,
+          failureCode: 'ETIMEDOUT',
+        },
+        stale?.attempts ?? 0,
+      ),
+    ).resolves.toBeNull();
+    const tenantBAttempt = await repository.beginAttempt({
       tenantId: TENANT_B,
       customerId: customerB.id,
       provider: 'stripe',
-      status: 'synchronized',
-      providerCustomerId: 'cus_tenant_b',
-      attempts: 1,
       lastAttemptedAt: attemptedAt,
-      synchronizedAt: attemptedAt,
-      failureCode: null,
     });
-    await storage.customerProviderSyncStates.upsert({
-      tenantId: TENANT_A,
-      customerId: customerA.id,
-      provider: 'stripe',
-      status: 'failed',
-      providerCustomerId: null,
-      attempts: 2,
-      lastAttemptedAt: attemptedAt,
-      synchronizedAt: null,
-      failureCode: 'ETIMEDOUT',
-    });
+    await repository.completeAttempt(
+      {
+        ...tenantBAttempt,
+        providerCustomerId: 'cus_tenant_b',
+        status: 'synchronized',
+        synchronizedAt: attemptedAt,
+      },
+      tenantBAttempt.attempts,
+    );
 
     expect(
-      await storage.customerProviderSyncStates.findByCustomerAndProvider(
-        customerA.id,
-        'stripe',
-        TENANT_A,
-      ),
-    ).toMatchObject({ status: 'failed', attempts: 2, failureCode: 'ETIMEDOUT' });
+      await repository.findByCustomerAndProvider(customerA.id, 'stripe', TENANT_A),
+    ).toMatchObject({
+      status: 'synchronized',
+      attempts: 2,
+      providerCustomerId: 'cus_current',
+    });
     expect(
-      await storage.customerProviderSyncStates.findByCustomerAndProvider(
-        customerB.id,
-        'stripe',
-        TENANT_B,
-      ),
+      await repository.findByCustomerAndProvider(customerB.id, 'stripe', TENANT_B),
     ).toMatchObject({
       status: 'synchronized',
       providerCustomerId: 'cus_tenant_b',
       attempts: 1,
     });
-    expect(
-      await storage.customerProviderSyncStates.findByCustomerAndProvider(
-        customerA.id,
-        'stripe',
-        TENANT_B,
-      ),
-    ).toBeNull();
+    expect(await repository.findByCustomerAndProvider(customerA.id, 'stripe', TENANT_B)).toBeNull();
   });
 }
 

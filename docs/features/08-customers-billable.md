@@ -261,9 +261,10 @@ sequenceDiagram
 - `synchronized`: the provider result and local binding are durable.
 - `failed`: the provider call failed. `failureCode` stores only a code, never a provider message or
   credentials.
-- `reconciliation_required`: the provider call succeeded but a local result did not become durable.
-  The provider customer id is retained so a retry can repair the binding without another remote
-  create.
+- `reconciliation_required`: the provider call may have succeeded but its result did not become
+  durable. When the provider customer id is known, a retry repairs the binding without another
+  remote create. When a provider has no native create idempotency and a timeout leaves the id
+  unknown, Payable blocks automatic retries until the remote result is manually reconciled.
 
 A failed or pending attempt never deletes or rewrites the logical customer. A retry increments
 `attempts`. Each registered provider account has an independent binding and lifecycle row.

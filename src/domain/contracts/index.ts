@@ -41,6 +41,7 @@ export type {
   NewCustomerProviderBinding,
 } from './customer-provider-binding-repository.contract';
 export type {
+  BeginCustomerProviderSyncAttempt,
   CustomerProviderSyncStateRepository,
   NewCustomerProviderSyncState,
 } from './customer-provider-sync-state-repository.contract';

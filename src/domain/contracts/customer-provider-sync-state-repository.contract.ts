@@ -5,8 +5,17 @@ export type NewCustomerProviderSyncState = Omit<
   'id' | 'createdAt' | 'updatedAt'
 >;
 
+export type BeginCustomerProviderSyncAttempt = Pick<
+  NewCustomerProviderSyncState,
+  'tenantId' | 'customerId' | 'provider' | 'lastAttemptedAt'
+>;
+
 export interface CustomerProviderSyncStateRepository {
-  upsert(data: NewCustomerProviderSyncState): Promise<CustomerProviderSyncState>;
+  beginAttempt(data: BeginCustomerProviderSyncAttempt): Promise<CustomerProviderSyncState>;
+  completeAttempt(
+    data: NewCustomerProviderSyncState,
+    expectedAttempts: number,
+  ): Promise<CustomerProviderSyncState | null>;
   findByCustomerAndProvider(
     customerId: string,
     provider: string,

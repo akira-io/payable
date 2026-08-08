@@ -153,10 +153,12 @@ export class CustomerResource {
     if (!customer) {
       return null;
     }
-    return storage.customerProviderSyncStates.findByCustomerAndProvider(
-      customer.id,
-      this.requireProviderName(),
-      tenantId,
+    return (
+      storage.customerProviderSyncStates?.findByCustomerAndProvider(
+        customer.id,
+        this.requireProviderName(),
+        tenantId,
+      ) ?? null
     );
   }
 

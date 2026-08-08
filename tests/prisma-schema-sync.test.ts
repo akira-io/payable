@@ -74,6 +74,7 @@ describe('prisma schema sync', () => {
     'PayableCanonicalPrice',
     'PayableProductProviderBinding',
     'PayablePriceProviderBinding',
+    'PayableOutboxEvent',
   ])('keeps %s aligned across all schema copies', (modelName) => {
     const [canonicalPath, ...copyPaths] = SUBSCRIPTION_SCHEMA_PATHS;
     const canonicalModel = modelLines(canonicalPath, modelName);

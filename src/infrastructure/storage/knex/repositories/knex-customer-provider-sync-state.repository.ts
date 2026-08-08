@@ -1,10 +1,12 @@
 import type { Knex } from 'knex';
 import type { Clock } from '../../../../domain/contracts/clock.contract';
 import type {
+  BeginCustomerProviderSyncAttempt,
   CustomerProviderSyncStateRepository,
   NewCustomerProviderSyncState,
 } from '../../../../domain/contracts/customer-provider-sync-state-repository.contract';
 import type { CustomerProviderSyncState } from '../../../../domain/entities/customer-provider-sync-state.entity';
+import { isUniqueViolation } from '../unique-violation';
 
 const TABLE = 'payable_customer_provider_sync_states';
 
@@ -16,43 +18,66 @@ export class KnexCustomerProviderSyncStateRepository
     private readonly clock: Clock,
   ) {}
 
-  async upsert(data: NewCustomerProviderSyncState): Promise<CustomerProviderSyncState> {
-    const timestamp = this.clock.now().toISOString();
-    const row = {
-      id: globalThis.crypto.randomUUID(),
-      tenant_id: data.tenantId,
-      tenant_key: data.tenantId ?? '',
-      customer_id: data.customerId,
-      provider: data.provider,
-      status: data.status,
-      provider_customer_id: data.providerCustomerId,
-      attempts: data.attempts,
-      last_attempted_at: data.lastAttemptedAt.toISOString(),
-      synchronized_at: data.synchronizedAt?.toISOString() ?? null,
-      failure_code: data.failureCode,
-      created_at: timestamp,
-      updated_at: timestamp,
-    };
-    await this.knex(TABLE).insert(row).onConflict(['tenant_key', 'customer_id', 'provider']).merge({
-      status: row.status,
-      provider_customer_id: row.provider_customer_id,
-      attempts: row.attempts,
-      last_attempted_at: row.last_attempted_at,
-      synchronized_at: row.synchronized_at,
-      failure_code: row.failure_code,
-      updated_at: row.updated_at,
-    });
-    const persisted = await this.knex(TABLE)
-      .where({
-        tenant_key: row.tenant_key,
-        customer_id: row.customer_id,
-        provider: row.provider,
-      })
-      .first();
-    if (!persisted) {
-      throw new Error(`${TABLE}: row missing after write`);
+  async beginAttempt(data: BeginCustomerProviderSyncAttempt): Promise<CustomerProviderSyncState> {
+    for (;;) {
+      const existing = await this.findByCustomerAndProvider(
+        data.customerId,
+        data.provider,
+        data.tenantId,
+      );
+      if (!existing) {
+        try {
+          const row = this.newAttemptRow(data);
+          await this.knex(TABLE).insert(row);
+          return this.toEntity(row);
+        } catch (error) {
+          if (!isUniqueViolation(error)) {
+            throw error;
+          }
+        }
+        continue;
+      }
+      const updatedAt = this.clock.now();
+      const attempts = existing.attempts + 1;
+      const updated = await this.knex(TABLE)
+        .where(this.key(data))
+        .where({ attempts: existing.attempts })
+        .update({
+          status: 'pending',
+          attempts,
+          last_attempted_at: data.lastAttemptedAt.toISOString(),
+          failure_code: null,
+          updated_at: updatedAt.toISOString(),
+        });
+      if (updated > 0) {
+        return {
+          ...existing,
+          status: 'pending',
+          attempts,
+          lastAttemptedAt: data.lastAttemptedAt,
+          failureCode: null,
+          updatedAt,
+        };
+      }
     }
-    return this.toEntity(persisted as Record<string, unknown>);
+  }
+
+  async completeAttempt(
+    data: NewCustomerProviderSyncState,
+    expectedAttempts: number,
+  ): Promise<CustomerProviderSyncState | null> {
+    const updated = await this.knex(TABLE)
+      .where(this.key(data))
+      .where({ attempts: expectedAttempts })
+      .update({
+        status: data.status,
+        provider_customer_id: data.providerCustomerId,
+        last_attempted_at: data.lastAttemptedAt.toISOString(),
+        synchronized_at: data.synchronizedAt?.toISOString() ?? null,
+        failure_code: data.failureCode,
+        updated_at: this.clock.now().toISOString(),
+      });
+    return updated > 0 ? this.requirePersisted(data) : null;
   }
 
   async findByCustomerAndProvider(
@@ -81,5 +106,42 @@ export class KnexCustomerProviderSyncStateRepository
       createdAt: new Date(row.created_at as string | Date),
       updatedAt: new Date(row.updated_at as string | Date),
     };
+  }
+
+  private key(data: { tenantId: string | null; customerId: string; provider: string }) {
+    return {
+      tenant_key: data.tenantId ?? '',
+      customer_id: data.customerId,
+      provider: data.provider,
+    };
+  }
+
+  private newAttemptRow(data: BeginCustomerProviderSyncAttempt) {
+    const timestamp = this.clock.now().toISOString();
+    return {
+      id: globalThis.crypto.randomUUID(),
+      tenant_id: data.tenantId,
+      ...this.key(data),
+      status: 'pending',
+      provider_customer_id: null,
+      attempts: 1,
+      last_attempted_at: data.lastAttemptedAt.toISOString(),
+      synchronized_at: null,
+      failure_code: null,
+      created_at: timestamp,
+      updated_at: timestamp,
+    };
+  }
+
+  private async requirePersisted(data: {
+    tenantId: string | null;
+    customerId: string;
+    provider: string;
+  }): Promise<CustomerProviderSyncState> {
+    const persisted = await this.knex(TABLE).where(this.key(data)).first();
+    if (!persisted) {
+      throw new Error(`${TABLE}: row missing after write`);
+    }
+    return this.toEntity(persisted as Record<string, unknown>);
   }
 }

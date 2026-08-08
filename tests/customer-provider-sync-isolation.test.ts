@@ -117,4 +117,115 @@ describe('customer provider synchronization boundaries', () => {
     expect(await payable.customers('stripe').syncState(billable)).toBeNull();
     expect(provider.createCustomerCalls).toBe(0);
   });
+
+  it('converges on a competing durable binding after remote-create reconciliation', async () => {
+    const database = createTestDb();
+    databases.push(database);
+    await migrate(database);
+    const provider = new FakeProvider('cus_losing');
+    const storage = new KnexStorageDriver(database, new FakeClock());
+    const bindings = storage.customerProviderBindings;
+    let rejectBinding = true;
+    storage.customerProviderBindings = {
+      ...bindings,
+      create: async (data) => {
+        if (rejectBinding) {
+          rejectBinding = false;
+          throw new Error('binding unavailable');
+        }
+        return bindings.create(data);
+      },
+      findByCustomerAndProvider: (...args) => bindings.findByCustomerAndProvider(...args),
+      findByProviderId: (...args) => bindings.findByProviderId(...args),
+    };
+    const customers = createPayable({ providers: { stripe: provider }, storage }).customers(
+      'stripe',
+    );
+    const customer = await customers.create(billable);
+    await expect(customers.sync(billable)).rejects.toMatchObject({
+      code: 'CUSTOMER_PROVIDER_BINDING_PERSISTENCE_FAILED',
+    });
+    await bindings.create({
+      customerId: customer.id,
+      provider: 'stripe',
+      providerCustomerId: 'cus_winner',
+    });
+
+    await expect(customers.sync(billable)).resolves.toBe('cus_winner');
+
+    expect(provider.createCustomerCalls).toBe(1);
+    expect(provider.lastUpdateCustomer?.providerCustomerId).toBe('cus_winner');
+    expect(await customers.syncState(billable)).toMatchObject({
+      status: 'synchronized',
+      providerCustomerId: 'cus_winner',
+      attempts: 2,
+    });
+  });
+
+  it('keeps explicit synchronization compatible with storage drivers without lifecycle state', async () => {
+    const database = createTestDb();
+    databases.push(database);
+    await migrate(database);
+    const storage = new KnexStorageDriver(database, new FakeClock());
+    const legacyStorage = Object.create(storage) as KnexStorageDriver;
+    Object.defineProperty(legacyStorage, 'customerProviderSyncStates', { value: undefined });
+    Object.defineProperty(legacyStorage, 'transaction', {
+      value: async <T>(work: (repositories: KnexStorageDriver) => Promise<T>) =>
+        work(legacyStorage),
+    });
+    const customers = createPayable({
+      providers: { stripe: new FakeProvider('cus_legacy') },
+      storage: legacyStorage,
+    }).customers('stripe');
+    await customers.create(billable);
+
+    await expect(customers.sync(billable)).resolves.toBe('cus_legacy');
+    await expect(customers.syncState(billable)).resolves.toBeNull();
+  });
+
+  it('blocks duplicate creates after an ambiguous failure without native idempotency', async () => {
+    const database = createTestDb();
+    databases.push(database);
+    await migrate(database);
+    const provider = Object.assign(new FakeProvider(), {
+      customerCreateIdempotency: 'unsupported' as const,
+    });
+    provider.createCustomer = async () => {
+      provider.createCustomerCalls += 1;
+      throw Object.assign(new Error('response lost after create'), { code: 'ECONNRESET' });
+    };
+    const storage = new KnexStorageDriver(database, new FakeClock());
+    const customers = createPayable({
+      providers: { paddle: provider },
+      storage,
+    }).customers('paddle');
+    const customer = await customers.create(billable);
+
+    await expect(customers.sync(billable)).rejects.toThrow('response lost after create');
+    await expect(customers.syncState(billable)).resolves.toMatchObject({
+      status: 'reconciliation_required',
+      providerCustomerId: null,
+      attempts: 1,
+      failureCode: 'ECONNRESET',
+    });
+
+    await expect(customers.sync(billable)).rejects.toMatchObject({
+      code: 'CUSTOMER_PROVIDER_RECONCILIATION_REQUIRED',
+    });
+    expect(provider.createCustomerCalls).toBe(1);
+    await expect(customers.syncState(billable)).resolves.toMatchObject({ attempts: 1 });
+
+    await storage.customerProviderBindings.create({
+      customerId: customer.id,
+      provider: 'paddle',
+      providerCustomerId: 'ctm_manually_reconciled',
+    });
+    await expect(customers.sync(billable)).resolves.toBe('ctm_manually_reconciled');
+    expect(provider.createCustomerCalls).toBe(1);
+    await expect(customers.syncState(billable)).resolves.toMatchObject({
+      status: 'synchronized',
+      attempts: 2,
+      providerCustomerId: 'ctm_manually_reconciled',
+    });
+  });
 });

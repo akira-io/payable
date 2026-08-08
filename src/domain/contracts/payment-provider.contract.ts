@@ -60,6 +60,7 @@ export interface PaymentProvider {
 }
 
 export interface CustomerCapable {
+  readonly customerCreateIdempotency?: 'native' | 'unsupported';
   createCustomer(input: CreateCustomerInput, ctx: OperationContext): Promise<CustomerDTO>;
   updateCustomer(input: UpdateCustomerInput, ctx: OperationContext): Promise<CustomerDTO>;
 }

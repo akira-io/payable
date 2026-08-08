@@ -11,7 +11,15 @@ import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
 import { CustomerProviderBindingWriter } from '../../services/customers/customer-provider-binding-writer';
-import { CustomerProviderSyncLifecycle } from '../../services/customers/customer-provider-sync-lifecycle';
+import {
+  type CustomerProviderSyncAttempt,
+  CustomerProviderSyncLifecycle,
+} from '../../services/customers/customer-provider-sync-lifecycle';
+import {
+  customerUpdateIdempotencyKey,
+  requiresManualCreateReconciliation,
+  unresolvedCustomerReconciliationError,
+} from '../../services/customers/customer-provider-sync-reliability';
 import { assertCapableProvider } from '../../services/provider-capabilities/assert-provider-capability';
 import { EnsureCustomerAction } from './ensure-customer.action';
 import { normalizeCustomerEmail } from './normalize-customer-email';
@@ -46,18 +54,32 @@ export class SyncCustomerWithProviderAction {
     }
     const tenantId = this.tenantId();
     const customer = await new EnsureCustomerAction(this.dependencies).handle(billable);
-    const previous = await storage.customerProviderSyncStates.findByCustomerAndProvider(
-      customer.id,
-      this.dependencies.providerName,
-      tenantId,
-    );
-    const attempts = await this.lifecycle.begin(customer.id, previous);
+    const repository = storage.customerProviderSyncStates;
+    const previous = repository
+      ? await repository.findByCustomerAndProvider(
+          customer.id,
+          this.dependencies.providerName,
+          tenantId,
+        )
+      : null;
     const binding = await storage.customerProviderBindings.findByCustomerAndProvider(
       customer.id,
       this.dependencies.providerName,
       tenantId,
     );
-    return { customer, previous, attempts, binding };
+    if (
+      previous?.status === 'reconciliation_required' &&
+      !previous.providerCustomerId &&
+      !binding
+    ) {
+      throw unresolvedCustomerReconciliationError(
+        customer.id,
+        this.dependencies.providerName,
+        previous.failureCode,
+      );
+    }
+    const attempt = await this.lifecycle.begin(customer.id);
+    return { customer, previous, attempt, binding };
   }
 
   private async reconcile(context: LocalSyncContext): Promise<string> {
@@ -65,20 +87,20 @@ export class SyncCustomerWithProviderAction {
     if (!providerCustomerId) {
       throw new Error('Reconciliation state is missing its provider customer id');
     }
+    if (context.binding && context.binding.providerCustomerId !== providerCustomerId) {
+      return this.updateProvider(context);
+    }
     try {
       if (!context.binding) {
         await this.bindingWriter().persist(context.customer.id, providerCustomerId);
       }
-      if (context.binding?.providerCustomerId !== providerCustomerId && context.binding) {
-        await this.bindingWriter().persist(context.customer.id, providerCustomerId);
-      }
-      await this.lifecycle.synchronized(context.customer.id, providerCustomerId, context.attempts);
+      await this.lifecycle.synchronized(context.customer.id, providerCustomerId, context.attempt);
       return providerCustomerId;
     } catch (error) {
       await this.lifecycle.reconciliationRequired(
         context.customer.id,
         providerCustomerId,
-        context.attempts,
+        context.attempt,
         error,
       );
       throw error;
@@ -91,8 +113,10 @@ export class SyncCustomerWithProviderAction {
       throw new Error('Customer provider binding disappeared before update');
     }
     const providerCustomerId = binding.providerCustomerId;
-    const key = IdempotencyKey.of(
-      `${this.customerKey(context.customer).toString()}:update:${context.customer.updatedAt.toISOString()}`,
+    const key = await customerUpdateIdempotencyKey(
+      context.customer,
+      this.dependencies.providerName,
+      providerCustomerId,
     );
     let remoteUpdated = false;
     try {
@@ -105,22 +129,24 @@ export class SyncCustomerWithProviderAction {
         operationContext(key),
       );
       remoteUpdated = true;
-      await this.lifecycle.synchronized(context.customer.id, providerCustomerId, context.attempts);
+      await this.lifecycle.synchronized(context.customer.id, providerCustomerId, context.attempt);
       return providerCustomerId;
     } catch (error) {
       if (remoteUpdated) {
         await this.lifecycle.reconciliationRequired(
           context.customer.id,
           providerCustomerId,
-          context.attempts,
+          context.attempt,
           error,
+          context.previous?.synchronizedAt ?? null,
         );
       } else {
         await this.lifecycle.failed(
           context.customer.id,
-          context.attempts,
+          context.attempt,
           error,
           providerCustomerId,
+          context.previous?.synchronizedAt ?? null,
         );
       }
       throw error;
@@ -161,11 +187,7 @@ export class SyncCustomerWithProviderAction {
       remoteProviderCustomerId = dto.providerCustomerId;
       if (local) {
         await this.bindingWriter().persist(local.customer.id, dto.providerCustomerId);
-        await this.lifecycle.synchronized(
-          local.customer.id,
-          dto.providerCustomerId,
-          local.attempts,
-        );
+        await this.lifecycle.synchronized(local.customer.id, dto.providerCustomerId, local.attempt);
       }
       return dto.providerCustomerId;
     };
@@ -179,12 +201,16 @@ export class SyncCustomerWithProviderAction {
         await this.lifecycle.reconciliationRequired(
           local.customer.id,
           remoteProviderCustomerId,
-          local.attempts,
+          local.attempt,
           error,
         );
         throw error;
       }
-      await this.lifecycle.failed(local.customer.id, local.attempts, error);
+      if (requiresManualCreateReconciliation(this.customerProvider(), error)) {
+        await this.lifecycle.reconciliationRequired(local.customer.id, null, local.attempt, error);
+      } else {
+        await this.lifecycle.failed(local.customer.id, local.attempt, error);
+      }
       throw error;
     }
   }
@@ -244,7 +270,7 @@ export class SyncCustomerWithProviderAction {
 interface LocalSyncContext {
   customer: Customer;
   previous: CustomerProviderSyncState | null;
-  attempts: number;
+  attempt: CustomerProviderSyncAttempt;
   binding: CustomerProviderBinding | null;
 }
 
