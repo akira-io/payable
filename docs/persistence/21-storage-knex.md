@@ -140,6 +140,13 @@ Source: `src/infrastructure/storage/knex/migrations/canonical-catalog-schema.ts`
 Local CRUD writes only canonical tables. Provider synchronization creates or updates bindings in a
 separate operation.
 
+Migration step `017-canonical-provider-catalog-backfill` upgrades beta6 provider-first catalog
+rows. It preserves legacy local IDs and accepted fields in the canonical tables, then creates
+separate bindings for non-null provider identifiers. The step rejects orphaned, cross-tenant,
+cross-provider, or conflicting rows before recording the ledger entry. It can resume after an
+interrupted batch without duplicating canonical rows or bindings. See
+[Upgrading from 1.0.0-beta6](../32a-upgrading-from-beta6.md) for verification and recovery.
+
 #### Referential integrity
 
 The split between hard foreign keys and plain indexed columns is deliberate, not an oversight:
@@ -199,6 +206,15 @@ export async function migrate(knex: Knex): Promise<void> {
     await runStep(knex, '014-catalog-synchronization', () =>
       addCatalogSynchronizationTable(knex),
     );
+    await runStep(knex, '015-canonical-local-subscriptions', () =>
+      addCanonicalLocalSubscriptions(knex),
+    );
+    await runStep(knex, '016-provider-neutral-page-indexes', () =>
+      addProviderNeutralPageIndexes(knex),
+    );
+    await runStep(knex, '017-canonical-provider-catalog-backfill', () =>
+      backfillCanonicalProviderCatalog(knex),
+    );
   });
 }
 ```
@@ -216,8 +232,9 @@ timestamps, subscription sync timestamps, and post-ledger convergence. The custo
 migration is step `008`. Step `011` adds the canonical catalog without rewriting legacy rows. Step
 `012` adds tenant-scoped customer provider synchronization lifecycle rows. Step `013` adds
 `attempt_owner_id` and `lease_expires_at` to existing synchronization state tables so attempts can be
-fenced and leased safely during retries. Step `014` adds the tenant-scoped catalog synchronization
-lifecycle table with attempt ownership and lease fencing:
+fenced and leased safely during retries. Later steps add catalog synchronization, canonical local
+subscriptions, provider-neutral page indexes, and the canonical provider catalog backfill. The
+complete sequence is:
 
 1. **Create billing tables** (`001-billing-tables`) - each via `createIfMissing`
    (`create-if-missing.ts`), which checks `knex.schema.hasTable(name)` and only creates the table
@@ -260,6 +277,12 @@ lifecycle table with attempt ownership and lease fencing:
   without a provider, adds immutable accepted-price snapshot columns, normalizes the tenant key, and
   creates `payable_subscription_provider_bindings`. Existing provider identities are backfilled into
   tenant-scoped bindings without changing local subscription IDs.
+- **Provider-neutral page indexes** (`016-provider-neutral-page-indexes`) - backfills normalized
+  payment tenant keys, verifies their consistency, and creates deterministic collection indexes.
+- **Canonical provider catalog backfill** (`017-canonical-provider-catalog-backfill`) - copies
+  provider-first products and prices into canonical resources with the same local IDs, then creates
+  bindings for non-null provider identifiers. Conflicting fields, orphaned prices, tenant mismatches,
+  provider mismatches, and binding collisions stop the step before its ledger entry is recorded.
 
 Step `009-catalog-tenant-keys` is fail-closed. The mismatch-driven batches revisit rows inserted below
 an earlier batch boundary. The consistency check validates existing rows when it is added and rejects

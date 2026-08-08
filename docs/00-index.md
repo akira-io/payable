@@ -66,6 +66,7 @@ tree.
 30. [30-operations.md](30-operations.md) - Running migrations, queue workers, and the outbox.
 31. [31-troubleshooting.md](31-troubleshooting.md) - Common errors and their causes.
 32. [32-faq.md](32-faq.md) - Frequently asked questions.
+    - [32a-upgrading-from-beta6.md](32a-upgrading-from-beta6.md) - Database, API, and adapter migration from 1.0.0-beta6.
 
 ## Examples
 
