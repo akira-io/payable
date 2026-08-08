@@ -61,9 +61,15 @@ describe('catalog tenant keys migration', () => {
       ),
     );
     await db('payable_prices').insert(
-      Array.from({ length: 205 }, (_, index) =>
-        legacyPrice(`price-${index}`, index % 2 === 0 ? null : 'tenant-a', `price-${index}`, now),
-      ),
+      Array.from({ length: 205 }, (_, index) => ({
+        ...legacyPrice(
+          `price-${index}`,
+          index % 2 === 0 ? null : 'tenant-a',
+          `price-${index}`,
+          now,
+        ),
+        product_id: `product-${index}`,
+      })),
     );
 
     await migrate(db);

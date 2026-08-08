@@ -4,6 +4,7 @@ import { alterExistingTables } from './alter-existing-tables';
 import { createBillingTables } from './billing-schema';
 import { addCanonicalCatalogTables } from './canonical-catalog-schema';
 import { addCanonicalLocalSubscriptions } from './canonical-local-subscriptions';
+import { backfillCanonicalProviderCatalog } from './canonical-provider-catalog-backfill';
 import { addCatalogSynchronizationTable } from './catalog-synchronization-schema';
 import { addCatalogTenantKeys } from './catalog-tenant-keys';
 import { addCustomerProviderBindings } from './customer-provider-bindings';
@@ -118,6 +119,9 @@ export async function migrate(knex: Knex): Promise<void> {
     );
     await runStep(knex, '016-provider-neutral-page-indexes', () =>
       addProviderNeutralPageIndexes(knex),
+    );
+    await runStep(knex, '017-canonical-provider-catalog-backfill', () =>
+      backfillCanonicalProviderCatalog(knex),
     );
   });
 }

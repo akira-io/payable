@@ -123,9 +123,10 @@ Prisma on top of an existing Payable install).
 The four canonical catalog models are additive. Generate a Prisma migration that creates
 `payable_canonical_products`, `payable_canonical_prices`,
 `payable_product_provider_bindings`, and `payable_price_provider_bindings`. Keep the composite
-tenant-key foreign keys and unique constraints emitted by the reference schema. Do not copy legacy
-provider catalog rows into these tables in this migration; legacy backfill and contract changes are a
-separate migration stage.
+tenant-key foreign keys and unique constraints emitted by the reference schema. Copy legacy provider
+catalog rows only in the reviewed backfill stage described in
+[Upgrading from 1.0.0-beta6](../32a-upgrading-from-beta6.md). Do not accept destructive generated SQL
+that drops provider identities before that backfill passes verification.
 
 ### Catalog tenant-key migration
 

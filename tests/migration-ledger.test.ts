@@ -29,6 +29,7 @@ describe('migration ledger', () => {
       '014-catalog-synchronization',
       '015-canonical-local-subscriptions',
       '016-provider-neutral-page-indexes',
+      '017-canonical-provider-catalog-backfill',
     ]);
     await db.destroy();
   });

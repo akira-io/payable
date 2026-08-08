@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createBillingTables } from '../src/infrastructure/storage/knex/migrations/billing-schema';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { createTestDb } from './support/knex';
 
@@ -18,6 +19,7 @@ const APPLIED_BEFORE_CANONICAL_CATALOG = [
 describe('canonical catalog migration', () => {
   it('adds canonical tables to a database with all earlier ledger steps applied', async () => {
     const database = createTestDb();
+    await createBillingTables(database);
     await database.schema.createTable('payable_migrations', (table) => {
       table.string('name').primary();
       table.timestamp('applied_at').notNullable();

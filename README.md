@@ -125,6 +125,9 @@ bunx prisma migrate dev    # you own migrations
 
 See [docs/persistence/21b-storage-prisma.md](docs/persistence/21b-storage-prisma.md) for the schema,
 multi-tenancy, and behavior-parity notes.
+For an existing `1.0.0-beta6` database, follow the
+[canonical resource upgrade guide](docs/32a-upgrading-from-beta6.md) before deploying application
+changes.
 
 Webhooks, idempotency, the audit log, and the outbox require a storage driver. Charges, refunds, and
 subscription management require one too.
