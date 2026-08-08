@@ -16,6 +16,7 @@ import type {
   ProductRepository,
   RefundRepository,
   SubscriptionItemRepository,
+  SubscriptionProviderBindingRepository,
   SubscriptionRepository,
   WebhookDeliveryRepository,
   WebhookEndpointRepository,
@@ -45,6 +46,7 @@ import { KnexProductProviderBindingRepository } from './repositories/knex-produc
 import { KnexRefundRepository } from './repositories/knex-refund.repository';
 import { KnexSubscriptionRepository } from './repositories/knex-subscription.repository';
 import { KnexSubscriptionItemRepository } from './repositories/knex-subscription-item.repository';
+import { KnexSubscriptionProviderBindingRepository } from './repositories/knex-subscription-provider-binding.repository';
 import { KnexWebhookDeliveryRepository } from './repositories/knex-webhook-delivery.repository';
 import { KnexWebhookEndpointRepository } from './repositories/knex-webhook-endpoint.repository';
 import { KnexWebhookEventRepository } from './repositories/knex-webhook-event.repository';
@@ -67,6 +69,7 @@ function buildRepositories(
     prices: new KnexPriceRepository(qb, clock),
     priceProviderBindings: new KnexPriceProviderBindingRepository(qb, clock),
     subscriptions: new KnexSubscriptionRepository(qb, clock),
+    subscriptionProviderBindings: new KnexSubscriptionProviderBindingRepository(qb, clock),
     subscriptionItems: new KnexSubscriptionItemRepository(qb, clock),
     invoices: new KnexInvoiceRepository(qb, clock),
     payments: new KnexPaymentRepository(qb, clock),
@@ -91,6 +94,7 @@ export class KnexStorageDriver implements StorageDriver {
   prices!: PriceRepository;
   priceProviderBindings!: PriceProviderBindingRepository;
   subscriptions!: SubscriptionRepository;
+  subscriptionProviderBindings!: SubscriptionProviderBindingRepository;
   subscriptionItems!: SubscriptionItemRepository;
   invoices!: InvoiceRepository;
   payments!: PaymentRepository;
@@ -142,6 +146,7 @@ export class KnexStorageDriver implements StorageDriver {
     this.priceProviderBindings =
       repositories.priceProviderBindings as PriceProviderBindingRepository;
     this.subscriptions = repositories.subscriptions;
+    this.subscriptionProviderBindings = repositories.subscriptionProviderBindings;
     this.subscriptionItems = repositories.subscriptionItems;
     this.invoices = repositories.invoices;
     this.payments = repositories.payments;

@@ -3,7 +3,7 @@ import {
   isWebhookCapable,
 } from '../../../domain/contracts/payment-provider.contract';
 import type { Repositories } from '../../../domain/contracts/storage-driver.contract';
-import type { NewSubscription } from '../../../domain/contracts/subscription-repository.contract';
+import type { SubscriptionPatch } from '../../../domain/contracts/subscription-repository.contract';
 import type { VerifiedWebhook } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { WebhookProcessedEvent } from '../../../domain/events/webhook-processed.event';
@@ -179,24 +179,33 @@ export class ProcessWebhookPipeline {
     if (!dto) {
       return;
     }
-    const local = await repos.subscriptions.findByProviderId(
+    const subscriptionBinding = await repos.subscriptionProviderBindings.findByProviderId(
       providerName,
       dto.providerSubscriptionId,
       tenantId,
     );
+    const local = subscriptionBinding
+      ? await repos.subscriptions.findById(subscriptionBinding.subscriptionId, tenantId)
+      : await repos.subscriptions.findByProviderId(
+          providerName,
+          dto.providerSubscriptionId,
+          tenantId,
+        );
     if (!local) {
       return;
     }
     const providerOccurredAt = verified.occurredAt ?? null;
+    const lastProviderSyncedAt =
+      subscriptionBinding?.providerSyncedAt ?? local.providerSyncedAt ?? null;
     if (
       providerOccurredAt &&
-      local.providerSyncedAt &&
-      providerOccurredAt.getTime() <= local.providerSyncedAt.getTime()
+      lastProviderSyncedAt &&
+      providerOccurredAt.getTime() <= lastProviderSyncedAt.getTime()
     ) {
       return;
     }
-    let singleItemPatch: Pick<NewSubscription, 'priceId' | 'quantity'> | null = null;
-    if (dto.items) {
+    let singleItemPatch: Pick<SubscriptionPatch, 'priceId' | 'quantity'> | null = null;
+    if (dto.items && !local.canonicalPriceId) {
       const localItems = await repos.subscriptionItems.listBySubscription(local.id, tenantId);
       const reconciliations = reconcileProviderSubscriptionItems(localItems, dto.items);
       for (const itemReconciliation of reconciliations) {
@@ -234,12 +243,15 @@ export class ProcessWebhookPipeline {
       dto.scheduledChangeAction === null &&
       dto.scheduledChangeEffectiveAt === null &&
       dto.scheduledResumeAt === null;
-    const patch: Partial<NewSubscription> = {
+    const patch: SubscriptionPatch = {
       status,
-      ...(singleItemPatch ?? {}),
+      ...(local.canonicalPriceId ? {} : (singleItemPatch ?? {})),
       currentPeriodEnd: dto.currentPeriodEnd,
       trialEndsAt: dto.trialEndsAt,
-      ...(providerOccurredAt ? { providerSyncedAt: providerOccurredAt } : {}),
+      ...(providerOccurredAt &&
+      (!subscriptionBinding || (local.provider !== null && local.providerSubscriptionId !== null))
+        ? { providerSyncedAt: providerOccurredAt }
+        : {}),
       ...(status === 'canceled' ? { endsAt: dto.currentPeriodEnd ?? occurredAt } : {}),
       ...(dto.scheduledChangeAction !== undefined
         ? { scheduledChangeAction: dto.scheduledChangeAction }
@@ -261,6 +273,13 @@ export class ProcessWebhookPipeline {
         : {}),
     };
     await repos.subscriptions.update(local.id, patch, tenantId);
+    if (providerOccurredAt && subscriptionBinding) {
+      await repos.subscriptionProviderBindings.updateProviderSyncedAt(
+        subscriptionBinding.id,
+        providerOccurredAt,
+        tenantId,
+      );
+    }
   }
 }
 

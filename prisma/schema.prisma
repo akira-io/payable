@@ -208,13 +208,22 @@ model PayableCatalogSynchronization {
 model PayableSubscription {
   id                     String                    @id
   tenantId               String?                   @map("tenant_id")
+  tenantKey              String                    @default("") @map("tenant_key")
   customerId             String                    @map("customer_id")
   name                   String
-  provider               String
+  provider               String?
   providerSubscriptionId String?                   @map("provider_subscription_id")
   status                 String
   priceId                String?                   @map("price_id")
   quantity               Int
+  canonicalPriceId       String?                   @map("canonical_price_id")
+  acceptedCurrency       String?                   @map("accepted_currency")
+  acceptedUnitAmount     BigInt?                   @map("accepted_unit_amount")
+  acceptedInterval       String?                   @map("accepted_interval")
+  acceptedIntervalCount  Int?                      @map("accepted_interval_count")
+  acceptedQuantity       Int?                      @map("accepted_quantity")
+  collectionResponsibility String                  @default("provider") @map("collection_responsibility")
+  creationSource         String?                   @map("creation_source")
   trialEndsAt            DateTime?                 @map("trial_ends_at")
   endsAt                 DateTime?                 @map("ends_at")
   currentPeriodStart     DateTime?                 @map("current_period_start")
@@ -229,11 +238,29 @@ model PayableSubscription {
   createdAt              DateTime                  @map("created_at")
   updatedAt              DateTime                  @map("updated_at")
   items                  PayableSubscriptionItem[]
+  providerBindings       PayableSubscriptionProviderBinding[]
 
-  @@unique([provider, providerSubscriptionId])
-  @@unique([customerId, name])
+  @@unique([tenantKey, provider, providerSubscriptionId])
+  @@unique([tenantKey, customerId, name])
   @@index([customerId, createdAt, id])
   @@map("payable_subscriptions")
+}
+
+model PayableSubscriptionProviderBinding {
+  id                     String               @id
+  tenantId               String?              @map("tenant_id")
+  tenantKey              String               @default("") @map("tenant_key")
+  subscriptionId         String               @map("subscription_id")
+  provider               String
+  providerSubscriptionId String               @map("provider_subscription_id")
+  providerSyncedAt       DateTime?            @map("provider_synced_at")
+  createdAt              DateTime             @map("created_at")
+  updatedAt              DateTime             @map("updated_at")
+  subscription           PayableSubscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantKey, subscriptionId, provider])
+  @@unique([tenantKey, provider, providerSubscriptionId])
+  @@map("payable_subscription_provider_bindings")
 }
 
 model PayableSubscriptionItem {

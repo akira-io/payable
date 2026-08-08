@@ -15,6 +15,7 @@ import type {
   ProductRepository,
   RefundRepository,
   SubscriptionItemRepository,
+  SubscriptionProviderBindingRepository,
   SubscriptionRepository,
   WebhookDeliveryRepository,
   WebhookEndpointRepository,
@@ -43,6 +44,7 @@ import { PrismaPriceRepository } from './repositories/prisma-prices.repository';
 import { PrismaProductProviderBindingRepository } from './repositories/prisma-product-provider-bindings.repository';
 import { PrismaProductRepository } from './repositories/prisma-products.repository';
 import { PrismaRefundRepository } from './repositories/prisma-refunds.repository';
+import { PrismaSubscriptionProviderBindingRepository } from './repositories/prisma-subscription-provider-bindings.repository';
 import { PrismaSubscriptionRepository } from './repositories/prisma-subscriptions.repository';
 import { PrismaSubscriptionItemRepository } from './repositories/prisma-subscriptions-items.repository';
 import { PrismaWebhookDeliveryRepository } from './repositories/prisma-webhook-deliveries.repository';
@@ -67,6 +69,7 @@ function buildRepositories(
     prices: new PrismaPriceRepository(client, clock),
     priceProviderBindings: new PrismaPriceProviderBindingRepository(client, clock),
     subscriptions: new PrismaSubscriptionRepository(client, clock),
+    subscriptionProviderBindings: new PrismaSubscriptionProviderBindingRepository(client, clock),
     subscriptionItems: new PrismaSubscriptionItemRepository(client, clock),
     invoices: new PrismaInvoiceRepository(client, clock),
     payments: new PrismaPaymentRepository(client, clock),
@@ -91,6 +94,7 @@ export class PrismaStorageDriver implements StorageDriver {
   prices!: PriceRepository;
   priceProviderBindings!: PriceProviderBindingRepository;
   subscriptions!: SubscriptionRepository;
+  subscriptionProviderBindings!: SubscriptionProviderBindingRepository;
   subscriptionItems!: SubscriptionItemRepository;
   invoices!: InvoiceRepository;
   payments!: PaymentRepository;
@@ -142,6 +146,7 @@ export class PrismaStorageDriver implements StorageDriver {
     this.priceProviderBindings =
       repositories.priceProviderBindings as PriceProviderBindingRepository;
     this.subscriptions = repositories.subscriptions;
+    this.subscriptionProviderBindings = repositories.subscriptionProviderBindings;
     this.subscriptionItems = repositories.subscriptionItems;
     this.invoices = repositories.invoices;
     this.payments = repositories.payments;

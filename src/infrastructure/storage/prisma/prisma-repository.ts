@@ -6,7 +6,12 @@ import type { PrismaDelegate } from './prisma-client.types';
 const DEFAULT_LIST_LIMIT = 100;
 const MAX_LIST_LIMIT = 500;
 
-export abstract class PrismaRepository<Entity, New, Row> {
+export abstract class PrismaRepository<
+  Entity,
+  New,
+  Row,
+  Patch extends Partial<New> = Partial<New>,
+> {
   constructor(
     protected readonly delegate: PrismaDelegate<Row>,
     protected readonly clock: Clock,
@@ -37,7 +42,7 @@ export abstract class PrismaRepository<Entity, New, Row> {
     await this.delegate.createMany({ data: rows });
   }
 
-  async update(id: string, patch: Partial<New>, tenantId?: string | null): Promise<Entity> {
+  async update(id: string, patch: Patch, tenantId?: string | null): Promise<Entity> {
     await this.delegate.updateMany({
       where: this.scopedWhere(id, tenantId),
       data: stripUndefined({ ...this.toUpdateRow(patch), updatedAt: this.clock.now() }),
@@ -105,7 +110,7 @@ export abstract class PrismaRepository<Entity, New, Row> {
 
   protected abstract toEntity(row: Row): Entity;
 
-  protected toUpdateRow(data: Partial<New>): Record<string, unknown> {
+  protected toUpdateRow(data: Patch): Record<string, unknown> {
     return this.toRow(data);
   }
 

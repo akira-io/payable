@@ -26,6 +26,22 @@ export class KnexCanonicalPriceRepository
     return super.findById(id, tenantId);
   }
 
+  async findActiveRecurringByIdForUpdate(
+    id: string,
+    tenantId: string | null,
+  ): Promise<CanonicalPrice | null> {
+    assertCatalogTenantId(tenantId);
+    const query = this.knex(this.table).where({
+      id,
+      tenant_key: tenantId ?? '',
+      active: true,
+      type: 'recurring',
+    });
+    if (this.supportsRowLocking()) query.forUpdate();
+    const row = await query.first();
+    return row ? this.toEntity(row as Record<string, unknown>) : null;
+  }
+
   override update(
     id: string,
     patch: Partial<CanonicalPricePatch>,

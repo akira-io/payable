@@ -5,17 +5,64 @@ period end (grace period), cancel immediately, and resume. Creation runs through
 post-creation operations run through a manager. Every operation persists the new state locally after
 the provider confirms it.
 
-## Two entry points
+## Three entry points
 
 | Goal | Entry point | Class |
 | --- | --- | --- |
+| Create a provider-independent subscription | `payable.canonicalSubscriptions().create(input)` | `CanonicalSubscriptionResource` |
 | Create a subscription | `payable.customer(billable).newSubscription(name)` | `SubscriptionBuilder` |
 | Manage an existing one | `payable.customer(billable).subscription(name)` | `SubscriptionManager` |
 
 The `name` is the local subscription name (for example `'default'`). It scopes the subscription per
 customer: `FindSubscriptionQuery` looks it up with `storage.subscriptions.findByName(customerId, name)`.
 
-## Creating a subscription
+## Creating a canonical subscription
+
+A canonical subscription is a local recurring agreement. It does not require a registered provider,
+provider credentials, a checkout session, or a provider price ID. The logical customer and active
+recurring canonical price must belong to the same tenant.
+
+```ts
+const subscription = await payable.canonicalSubscriptions(tenantId).create({
+  customerId: customer.id,
+  name: 'default',
+  priceId: price.id,
+  quantity: 3,
+  activation: { state: 'pending' },
+  collectionResponsibility: 'merchant',
+  source: 'api',
+});
+```
+
+Use `activation: { state: 'active', startsAt }` to activate at a known instant. Payable derives the
+next renewal boundary from the accepted recurring interval. A trial requires explicit `startsAt` and
+`trialEndsAt` values. Payable rejects an end that is not after the start and never infers that a
+payment was collected.
+
+Creation snapshots the canonical price ID, currency, unit amount, interval, interval count, and
+quantity. Archiving or replacing the price does not rewrite these accepted terms. Exact retries for
+the same `(tenant, customer, name)` identity return the existing local subscription. Changed terms
+for that identity return `SUBSCRIPTION_IDENTITY_CONFLICT`.
+
+Attach a remote identity later without replacing the local ID or accepted terms:
+
+```ts
+await payable.canonicalSubscriptions(tenantId).attachProvider(subscription.id, {
+  provider: 'stripe',
+  providerSubscriptionId: 'sub_123',
+});
+```
+
+`payable.subscription(localId, tenantId).retrieve()` remains local and works without a binding.
+Provider mutations require one matching binding and fail with
+`SUBSCRIPTION_PROVIDER_BINDING_REQUIRED` before resolving or calling an adapter. Multiple bindings
+return `SUBSCRIPTION_PROVIDER_BINDING_AMBIGUOUS` unless the caller selects one with
+`payable.subscription(localId, tenantId, providerName)`.
+
+Use `await payable.subscription(localId, tenantId).capabilities()` to inspect local record
+capabilities independently from the operation capabilities of each configured provider binding.
+
+## Creating a provider-owned subscription
 
 `SubscriptionBuilder` collects state fluently, then `create()` runs `CreateSubscriptionAction`.
 
@@ -112,10 +159,10 @@ await subscription.swap({
 await subscription.cancel();
 ```
 
-`get()` is an alias for `retrieve()`. The resource resolves the owning customer, provider binding,
-and provider subscription ID from storage. Mutations route to the provider stored on the local
-subscription, then return the refreshed local record. When tenancy is enabled, `tenantId` is
-required. An ID from another tenant returns `SUBSCRIPTION_NOT_FOUND`.
+`get()` is an alias for `retrieve()`. Reading resolves only the local subscription and owning
+customer. Mutations resolve the separate provider binding and provider subscription ID, then return
+the refreshed local record. When tenancy is enabled, `tenantId` is required. An ID from another
+tenant returns `SUBSCRIPTION_NOT_FOUND`.
 
 The resource exposes the same change-preview, lifecycle, collection, cancellation, and item mutation
 operations as its billable-scoped counterpart. Each method accepts the same authorization context.
@@ -131,7 +178,7 @@ customer can have bindings to multiple providers without creating duplicate loca
 subscription belongs to that logical customer and keeps three identity layers separate:
 
 - The local subscription ID is the portable, tenant-scoped identifier used by application code.
-- The provider subscription ID identifies the remote subscription handled by an adapter.
+- A tenant-scoped provider binding identifies the remote subscription handled by an adapter.
 - The provider subscription-item ID identifies one remote line item when a provider requires it.
 
 Provider identifiers are not portable across adapters. Tenant filtering applies before a local ID

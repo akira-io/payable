@@ -2,6 +2,7 @@ import type { Clock } from '../../../../domain/contracts/clock.contract';
 import type { ListOptions } from '../../../../domain/contracts/list-options.contract';
 import type {
   NewSubscription,
+  SubscriptionPatch,
   SubscriptionRepository,
 } from '../../../../domain/contracts/subscription-repository.contract';
 import type { Subscription } from '../../../../domain/entities/subscription.entity';
@@ -10,7 +11,7 @@ import type { PrismaClient, PrismaSubscriptionRow } from '../prisma-client.types
 import { PrismaRepository } from '../prisma-repository';
 
 export class PrismaSubscriptionRepository
-  extends PrismaRepository<Subscription, NewSubscription, PrismaSubscriptionRow>
+  extends PrismaRepository<Subscription, NewSubscription, PrismaSubscriptionRow, SubscriptionPatch>
   implements SubscriptionRepository
 {
   constructor(client: PrismaClient, clock: Clock) {
@@ -54,6 +55,10 @@ export class PrismaSubscriptionRepository
   }
 
   protected toRow(data: Partial<NewSubscription>): Record<string, unknown> {
+    return subscriptionToRow(data);
+  }
+
+  protected override toUpdateRow(data: SubscriptionPatch): Record<string, unknown> {
     return subscriptionToRow(data);
   }
 }

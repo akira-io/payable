@@ -11,7 +11,7 @@ import {
   isSubscriptionChangeCapable,
   type SubscriptionChangeCapable,
 } from '../../../domain/contracts/subscription-change-provider.contract';
-import type { NewSubscription } from '../../../domain/contracts/subscription-repository.contract';
+import type { SubscriptionPatch } from '../../../domain/contracts/subscription-repository.contract';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
 import type { Subscription } from '../../../domain/entities/subscription.entity';
@@ -106,10 +106,26 @@ export abstract class SubscriptionAction {
   protected async resolve(billable: Billable, name: string): Promise<ManagedSubscription> {
     this.storage();
     const subscription = await new FindSubscriptionQuery(this.deps).run(billable, name);
-    if (!subscription?.providerSubscriptionId) {
+    if (!subscription) {
       throw new SubscriptionNotFoundError(name);
     }
-    return subscription as ManagedSubscription;
+    const binding = await this.storage().subscriptionProviderBindings.findBySubscriptionAndProvider(
+      subscription.id,
+      this.deps.providerName,
+      this.deps.tenantId ?? null,
+    );
+    const providerSubscriptionId = binding?.providerSubscriptionId;
+    if (!providerSubscriptionId) {
+      throw new PayableError('A provider binding is required for this subscription operation', {
+        code: 'SUBSCRIPTION_PROVIDER_BINDING_REQUIRED',
+        context: { subscriptionId: subscription.id, provider: this.deps.providerName },
+      });
+    }
+    return {
+      ...subscription,
+      provider: this.deps.providerName,
+      providerSubscriptionId,
+    } as ManagedSubscription;
   }
 
   protected reconcileStatus(
@@ -119,10 +135,7 @@ export abstract class SubscriptionAction {
     return reconcileSubscriptionStatus(current, providerStatus).status;
   }
 
-  protected lifecyclePatch(
-    subscription: Subscription,
-    dto: SubscriptionDTO,
-  ): Partial<NewSubscription> {
+  protected lifecyclePatch(subscription: Subscription, dto: SubscriptionDTO): SubscriptionPatch {
     return {
       status: this.reconcileStatus(subscription.status, dto.status),
       ...(dto.scheduledChangeAction !== undefined

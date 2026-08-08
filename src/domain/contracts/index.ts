@@ -212,6 +212,10 @@ export {
   isSubscriptionOperationCapabilitiesProvider,
   resolveSubscriptionOperationCapabilities,
 } from './subscription-operation-capabilities-provider.contract';
+export type {
+  NewSubscriptionProviderBinding,
+  SubscriptionProviderBindingRepository,
+} from './subscription-provider-binding-repository.contract';
 export type { NewSubscription, SubscriptionRepository } from './subscription-repository.contract';
 export type {
   TaxCalculationCapable,

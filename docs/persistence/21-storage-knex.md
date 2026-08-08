@@ -256,6 +256,10 @@ lifecycle table with attempt ownership and lease fencing:
   `payable_catalog_synchronizations` with a normalized tenant key, one lifecycle row per
   `(tenant, provider, resource type, resource id)`, canonical generation and idempotency metadata,
   retry/reconciliation state, and nullable attempt owner and lease expiration columns.
+- **Canonical local subscriptions** (`015-canonical-local-subscriptions`) - allows subscriptions
+  without a provider, adds immutable accepted-price snapshot columns, normalizes the tenant key, and
+  creates `payable_subscription_provider_bindings`. Existing provider identities are backfilled into
+  tenant-scoped bindings without changing local subscription IDs.
 
 Step `009-catalog-tenant-keys` is fail-closed. The mismatch-driven batches revisit rows inserted below
 an earlier batch boundary. The consistency check validates existing rows when it is added and rejects

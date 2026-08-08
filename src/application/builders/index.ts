@@ -17,6 +17,11 @@ export {
   type CreateCanonicalProductInput,
   type UpdateCanonicalProductInput,
 } from './canonical-product-resource';
+export {
+  type AttachCanonicalSubscriptionProviderInput,
+  CanonicalSubscriptionResource,
+  type CreateCanonicalSubscriptionInput,
+} from './canonical-subscription-resource';
 export type { CatalogMutationOptions } from './catalog-mutation-options';
 export type { CatalogSyncDependencies } from './catalog-sync-dependencies';
 export { CatalogSynchronizationResource } from './catalog-synchronization-resource';
@@ -33,7 +38,10 @@ export {
 } from './customer-resource';
 export { InvoiceResource } from './invoice-resource';
 export type { LocalDependencies } from './local-dependencies';
-export { LocalSubscriptionResource } from './local-subscription-resource';
+export {
+  type LocalSubscriptionCapabilities,
+  LocalSubscriptionResource,
+} from './local-subscription-resource';
 export { PriceResource } from './price-resource';
 export { ProductResource } from './product-resource';
 export { ProviderCatalogResource } from './provider-catalog-resource';

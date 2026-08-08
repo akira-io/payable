@@ -192,6 +192,53 @@ describe('prisma canonical local catalog', () => {
   });
 });
 
+describe('prisma canonical local subscriptions', () => {
+  it('persists accepted terms and a separate provider binding', async () => {
+    const payable = createPayable({ storage, tenant: { enabled: true } });
+    const tenantId = 'prisma-subscription-tenant';
+    const customer = await payable.customers(undefined, tenantId).create({
+      billableType: 'Team',
+      billableId: 'prisma-subscription-team',
+      email: 'subscription@example.com',
+    });
+    const product = await payable.products(tenantId).create({ name: 'Subscription Pro' });
+    const price = await payable.prices(tenantId).create({
+      productId: product.id,
+      unitAmount: Money.of(4200, 'EUR'),
+      type: 'recurring',
+      interval: 'month',
+    });
+
+    const subscription = await payable.canonicalSubscriptions(tenantId).create({
+      customerId: customer.id,
+      name: 'default',
+      priceId: price.id,
+      quantity: 2,
+      activation: { state: 'pending' },
+      collectionResponsibility: 'merchant',
+      source: 'api',
+    });
+    const binding = await payable.canonicalSubscriptions(tenantId).attachProvider(subscription.id, {
+      provider: 'stripe-primary',
+      providerSubscriptionId: 'sub_prisma_canonical',
+    });
+
+    await expect(storage.subscriptions.findById(subscription.id, tenantId)).resolves.toMatchObject({
+      provider: null,
+      providerSubscriptionId: null,
+      acceptedUnitAmount: 4200,
+      acceptedQuantity: 2,
+    });
+    await expect(
+      storage.subscriptionProviderBindings.findByProviderId(
+        'stripe-primary',
+        'sub_prisma_canonical',
+        tenantId,
+      ),
+    ).resolves.toEqual(binding);
+  });
+});
+
 describe('prisma catalog synchronization', () => {
   it('persists and updates tenant-scoped synchronization state', async () => {
     const created = await storage.catalogSynchronizations.save({

@@ -72,8 +72,9 @@ model PayablePayment {
 ```
 
 See `prisma/schema.prisma` for the full model set. It includes canonical products, canonical prices,
-product-provider bindings, and price-provider bindings alongside the legacy provider-first catalog and
-the remaining billing, webhook, audit, outbox, and idempotency models.
+product-provider bindings, price-provider bindings, canonical subscription snapshots, and
+subscription-provider bindings alongside the legacy provider-first catalog and the remaining billing,
+webhook, audit, outbox, and idempotency models.
 
 ## Automated schema sync
 
@@ -198,6 +199,75 @@ HAVING COUNT(*) > 1;
    the tenant-key unique constraints, then remove the legacy global product and price constraints.
    A failed verification or duplicate query stops the migration. Correct the rows and resume from the
    verification stage; do not remove a legacy constraint first.
+
+### Canonical subscription migration
+
+The subscription change is not additive. Do not apply the synchronized Prisma schema directly to an
+existing database. Use an expand, backfill, verify, contract migration and keep the application on the
+old schema until verification succeeds.
+
+1. Expand `payable_subscriptions` with `tenant_key`, all `accepted_*` snapshot columns,
+   `canonical_price_id`, `collection_responsibility`, and `creation_source`. Keep snapshot columns
+   nullable for legacy rows. Add `payable_subscription_provider_bindings` without removing or
+   relaxing legacy subscription columns yet.
+2. Backfill `tenant_key` in bounded batches using the same mismatch-driven loop as the catalog
+   migration. Backfill each legacy provider identity into a separate binding. Generate every
+   `:bindingId` in the migration runner so the operation does not depend on a database UUID extension:
+
+```sql
+INSERT INTO payable_subscription_provider_bindings (
+  id, tenant_id, tenant_key, subscription_id, provider,
+  provider_subscription_id, provider_synced_at, created_at, updated_at
+)
+SELECT
+  :bindingId, tenant_id, COALESCE(tenant_id, ''), id, provider,
+  provider_subscription_id, provider_synced_at, :now, :now
+FROM payable_subscriptions
+WHERE id = :subscriptionId
+  AND provider IS NOT NULL
+  AND provider_subscription_id IS NOT NULL;
+```
+
+   Process one selected legacy subscription per generated binding id. Skip a row when the normalized
+   `(tenant_key, subscription_id, provider)` binding already exists, which makes retries idempotent.
+3. Verify tenant normalization, missing bindings, and duplicate identities. Every query must return no
+   rows before the contract stage:
+
+```sql
+SELECT id FROM payable_subscriptions
+WHERE tenant_key <> COALESCE(tenant_id, '');
+
+SELECT s.id
+FROM payable_subscriptions s
+LEFT JOIN payable_subscription_provider_bindings b
+  ON b.tenant_key = COALESCE(s.tenant_id, '')
+ AND b.subscription_id = s.id
+ AND b.provider = s.provider
+ AND b.provider_subscription_id = s.provider_subscription_id
+WHERE s.provider IS NOT NULL
+  AND s.provider_subscription_id IS NOT NULL
+  AND b.id IS NULL;
+
+SELECT tenant_key, customer_id, name
+FROM payable_subscriptions
+GROUP BY tenant_key, customer_id, name
+HAVING COUNT(*) > 1;
+
+SELECT tenant_key, provider, provider_subscription_id
+FROM payable_subscription_provider_bindings
+GROUP BY tenant_key, provider, provider_subscription_id
+HAVING COUNT(*) > 1;
+```
+
+4. Add and validate the tenant-key consistency check. Create the tenant-scoped subscription and
+   binding unique constraints. Only then remove the legacy global subscription constraints.
+5. Relax `payable_subscriptions.provider` to nullable for provider-neutral records. PostgreSQL uses
+   `ALTER COLUMN provider DROP NOT NULL`; MySQL/MariaDB uses `MODIFY provider <existing-type> NULL`;
+   SQLite requires Prisma's table-rebuild migration. Review the generated SQL for the configured
+   datasource instead of copying syntax between databases.
+6. Deploy the synchronized Prisma models and application code after the contract migration succeeds.
+   Keep `provider` and `provider_subscription_id` populated on legacy subscription rows during this
+   release; provider mutations resolve only through the backfilled binding table.
 
 ## Usage
 

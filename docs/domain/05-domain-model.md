@@ -292,6 +292,18 @@ product. A product can have multiple bindings.
 type, interval, interval count, description, lookup key, and lifecycle state. Billing terms are
 immutable after creation. `PriceProviderBinding` stores provider account and remote price identity.
 
+## Canonical subscription and provider bindings
+
+A canonical `Subscription` belongs to a logical customer and snapshots the accepted canonical price,
+currency, unit amount, recurring interval, interval count, and quantity. Its local ID and accepted
+terms remain stable when a price is archived or a provider is attached later. Initial state and
+period boundaries are explicit, and collection responsibility never proves that payment occurred.
+
+`SubscriptionProviderBinding` stores the tenant, local subscription ID, provider account name,
+remote subscription ID, and last provider synchronization time. A provider binding can be added
+without replacing the canonical ID or rewriting accepted terms. Local reads do not need a binding;
+provider operations do.
+
 ## Legacy provider-first product
 
 `src/domain/entities/product.entity.ts`. Extends `TenantScoped`, `Timestamps`.
