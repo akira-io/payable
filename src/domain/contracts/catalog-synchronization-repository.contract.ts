@@ -1,12 +1,14 @@
 import type {
   CatalogSynchronization,
   CatalogSynchronizationResourceType,
+  CatalogSynchronizationStatus,
 } from '../entities/catalog-synchronization.entity';
 
 export type NewCatalogSynchronization = Omit<
   CatalogSynchronization,
-  'id' | 'createdAt' | 'updatedAt'
->;
+  'id' | 'createdAt' | 'updatedAt' | 'attemptOwnerId' | 'leaseExpiresAt'
+> &
+  Partial<Pick<CatalogSynchronization, 'attemptOwnerId' | 'leaseExpiresAt'>>;
 
 export type CatalogSynchronizationPatch = Partial<
   Omit<
@@ -17,6 +19,7 @@ export type CatalogSynchronizationPatch = Partial<
 
 export interface CatalogSynchronizationRepository {
   save(data: NewCatalogSynchronization): Promise<CatalogSynchronization>;
+  requestGeneration(data: NewCatalogSynchronization): Promise<CatalogSynchronization>;
   update(
     resourceType: CatalogSynchronizationResourceType,
     resourceId: string,
@@ -38,6 +41,9 @@ export interface CatalogSynchronizationRepository {
     idempotencyKey: string,
     tenantId: string | null,
     attemptedAt: Date,
+    ownerId: string,
+    leaseExpiresAt: Date,
+    allowFailedRetry: boolean,
   ): Promise<CatalogSynchronization | null>;
   updateIfCurrent(
     resourceType: CatalogSynchronizationResourceType,
@@ -47,5 +53,7 @@ export interface CatalogSynchronizationRepository {
     idempotencyKey: string,
     patch: CatalogSynchronizationPatch,
     tenantId: string | null,
+    ownerId?: string,
+    expectedStatuses?: CatalogSynchronizationStatus[],
   ): Promise<CatalogSynchronization | null>;
 }

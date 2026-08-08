@@ -6,13 +6,17 @@ import type {
 } from '../../../../domain/contracts/catalog-synchronization-repository.contract';
 import type { Clock } from '../../../../domain/contracts/clock.contract';
 import type {
-  CatalogReconciliationState,
   CatalogSynchronization,
-  CatalogSynchronizationOperation,
   CatalogSynchronizationResourceType,
   CatalogSynchronizationStatus,
 } from '../../../../domain/entities/catalog-synchronization.entity';
 import { assertCatalogTenantId } from '../../catalog-tenant';
+import { isUniqueViolation } from '../unique-violation';
+import {
+  catalogSynchronizationFromRow,
+  toCatalogSynchronizationPatch,
+  toCatalogSynchronizationRow,
+} from './catalog-synchronization-row';
 
 const TABLE = 'payable_catalog_synchronizations';
 
@@ -31,7 +35,7 @@ export class KnexCatalogSynchronizationRepository implements CatalogSynchronizat
       data.tenantId,
     );
     const timestamp = this.clock.now().toISOString();
-    const row = this.toRow(data);
+    const row = toCatalogSynchronizationRow(data);
     await this.knex(TABLE)
       .insert({
         id: previous?.id ?? globalThis.crypto.randomUUID(),
@@ -53,6 +57,47 @@ export class KnexCatalogSynchronizationRepository implements CatalogSynchronizat
     return saved;
   }
 
+  async requestGeneration(data: NewCatalogSynchronization): Promise<CatalogSynchronization> {
+    assertCatalogTenantId(data.tenantId);
+    for (;;) {
+      const existing = await this.findByResource(
+        data.resourceType,
+        data.resourceId,
+        data.provider,
+        data.tenantId,
+      );
+      if (
+        existing?.idempotencyKey === data.idempotencyKey &&
+        ['requested', 'processing', 'retrying', 'succeeded'].includes(existing.status)
+      ) {
+        return existing;
+      }
+      if (!existing) {
+        try {
+          const timestamp = this.clock.now().toISOString();
+          await this.knex(TABLE).insert({
+            id: globalThis.crypto.randomUUID(),
+            ...toCatalogSynchronizationRow(data),
+            created_at: timestamp,
+            updated_at: timestamp,
+          });
+          return this.requirePersisted(data);
+        } catch (error) {
+          if (!isUniqueViolation(error)) throw error;
+        }
+        continue;
+      }
+      const updated = await this.knex(TABLE)
+        .where(this.key(data))
+        .where({ idempotency_key: existing.idempotencyKey, status: existing.status })
+        .update({
+          ...toCatalogSynchronizationRow(data),
+          updated_at: this.clock.now().toISOString(),
+        });
+      if (updated > 0) return this.requirePersisted(data);
+    }
+  }
+
   async update(
     resourceType: CatalogSynchronizationResourceType,
     resourceId: string,
@@ -61,7 +106,7 @@ export class KnexCatalogSynchronizationRepository implements CatalogSynchronizat
     tenantId: string | null,
   ): Promise<CatalogSynchronization> {
     assertCatalogTenantId(tenantId);
-    const update = this.toPatch(patch);
+    const update = toCatalogSynchronizationPatch(patch);
     await this.knex(TABLE)
       .where({
         tenant_key: tenantId ?? '',
@@ -92,7 +137,7 @@ export class KnexCatalogSynchronizationRepository implements CatalogSynchronizat
         resource_id: resourceId,
       })
       .first();
-    return row ? this.toEntity(row as Record<string, unknown>) : null;
+    return row ? catalogSynchronizationFromRow(row as Record<string, unknown>) : null;
   }
 
   async claimGeneration(
@@ -103,17 +148,40 @@ export class KnexCatalogSynchronizationRepository implements CatalogSynchronizat
     idempotencyKey: string,
     tenantId: string | null,
     attemptedAt: Date,
+    ownerId: string,
+    leaseExpiresAt: Date,
+    allowFailedRetry: boolean,
   ): Promise<CatalogSynchronization | null> {
-    return this.compareAndSet(
-      resourceType,
-      resourceId,
-      provider,
-      canonicalVersion,
-      idempotencyKey,
-      { status: 'processing', lastAttemptedAt: attemptedAt },
-      tenantId,
-      ['requested', 'retrying'],
-    );
+    assertCatalogTenantId(tenantId);
+    const statuses = allowFailedRetry
+      ? ['requested', 'retrying', 'failed']
+      : ['requested', 'retrying'];
+    const count = await this.knex(TABLE)
+      .where({
+        tenant_key: tenantId ?? '',
+        provider,
+        resource_type: resourceType,
+        resource_id: resourceId,
+        canonical_version: canonicalVersion,
+        idempotency_key: idempotencyKey,
+      })
+      .where((query) =>
+        query
+          .whereIn('status', statuses)
+          .orWhere((lease) =>
+            lease
+              .where('status', 'processing')
+              .where('lease_expires_at', '<=', attemptedAt.toISOString()),
+          ),
+      )
+      .update({
+        status: 'processing',
+        last_attempted_at: attemptedAt.toISOString(),
+        attempt_owner_id: ownerId,
+        lease_expires_at: leaseExpiresAt.toISOString(),
+        updated_at: this.clock.now().toISOString(),
+      });
+    return count === 0 ? null : this.findByResource(resourceType, resourceId, provider, tenantId);
   }
 
   async updateIfCurrent(
@@ -124,6 +192,8 @@ export class KnexCatalogSynchronizationRepository implements CatalogSynchronizat
     idempotencyKey: string,
     patch: CatalogSynchronizationPatch,
     tenantId: string | null,
+    ownerId?: string,
+    expectedStatuses?: CatalogSynchronizationStatus[],
   ): Promise<CatalogSynchronization | null> {
     return this.compareAndSet(
       resourceType,
@@ -131,8 +201,10 @@ export class KnexCatalogSynchronizationRepository implements CatalogSynchronizat
       provider,
       canonicalVersion,
       idempotencyKey,
-      patch,
+      { ...patch, ...(ownerId ? { attemptOwnerId: null, leaseExpiresAt: null } : {}) },
       tenantId,
+      expectedStatuses,
+      ownerId,
     );
   }
 
@@ -145,6 +217,7 @@ export class KnexCatalogSynchronizationRepository implements CatalogSynchronizat
     patch: CatalogSynchronizationPatch,
     tenantId: string | null,
     statuses?: string[],
+    ownerId?: string,
   ): Promise<CatalogSynchronization | null> {
     assertCatalogTenantId(tenantId);
     const query = this.knex(TABLE).where({
@@ -156,82 +229,31 @@ export class KnexCatalogSynchronizationRepository implements CatalogSynchronizat
       idempotency_key: idempotencyKey,
     });
     if (statuses) query.whereIn('status', statuses);
+    if (ownerId) query.where({ status: 'processing', attempt_owner_id: ownerId });
     const count = await query.update({
-      ...this.toPatch(patch),
+      ...toCatalogSynchronizationPatch(patch),
       updated_at: this.clock.now().toISOString(),
     });
     return count === 0 ? null : this.findByResource(resourceType, resourceId, provider, tenantId);
   }
 
-  private toRow(data: NewCatalogSynchronization): Record<string, unknown> {
+  private key(data: NewCatalogSynchronization) {
     return {
-      tenant_id: data.tenantId,
       tenant_key: data.tenantId ?? '',
       provider: data.provider,
       resource_type: data.resourceType,
       resource_id: data.resourceId,
-      operation: data.operation,
-      canonical_version: data.canonicalVersion,
-      idempotency_key: data.idempotencyKey,
-      status: data.status,
-      reconciliation_state: data.reconciliationState,
-      provider_resource_id: data.providerResourceId,
-      provider_resource_version: data.providerResourceVersion,
-      retry_count: data.retryCount,
-      last_error_code: data.lastErrorCode,
-      last_attempted_at: data.lastAttemptedAt?.toISOString() ?? null,
-      last_succeeded_at: data.lastSucceededAt?.toISOString() ?? null,
     };
   }
 
-  private toPatch(patch: CatalogSynchronizationPatch): Record<string, unknown> {
-    const row: Record<string, unknown> = {};
-    const mappings: Array<[keyof CatalogSynchronizationPatch, string]> = [
-      ['operation', 'operation'],
-      ['canonicalVersion', 'canonical_version'],
-      ['idempotencyKey', 'idempotency_key'],
-      ['status', 'status'],
-      ['reconciliationState', 'reconciliation_state'],
-      ['providerResourceId', 'provider_resource_id'],
-      ['providerResourceVersion', 'provider_resource_version'],
-      ['retryCount', 'retry_count'],
-      ['lastErrorCode', 'last_error_code'],
-      ['lastAttemptedAt', 'last_attempted_at'],
-      ['lastSucceededAt', 'last_succeeded_at'],
-    ];
-    for (const [property, column] of mappings) {
-      const value = patch[property];
-      if (value !== undefined) {
-        row[column] = value instanceof Date ? value.toISOString() : value;
-      }
-    }
-    return row;
-  }
-
-  private toEntity(row: Record<string, unknown>): CatalogSynchronization {
-    return {
-      id: row.id as string,
-      tenantId: (row.tenant_id as string | null) ?? null,
-      provider: row.provider as string,
-      resourceType: row.resource_type as CatalogSynchronizationResourceType,
-      resourceId: row.resource_id as string,
-      operation: row.operation as CatalogSynchronizationOperation,
-      canonicalVersion: row.canonical_version as string,
-      idempotencyKey: row.idempotency_key as string,
-      status: row.status as CatalogSynchronizationStatus,
-      reconciliationState: row.reconciliation_state as CatalogReconciliationState,
-      providerResourceId: (row.provider_resource_id as string | null) ?? null,
-      providerResourceVersion: (row.provider_resource_version as string | null) ?? null,
-      retryCount: Number(row.retry_count),
-      lastErrorCode: (row.last_error_code as string | null) ?? null,
-      lastAttemptedAt: row.last_attempted_at
-        ? new Date(row.last_attempted_at as string | Date)
-        : null,
-      lastSucceededAt: row.last_succeeded_at
-        ? new Date(row.last_succeeded_at as string | Date)
-        : null,
-      createdAt: new Date(row.created_at as string | Date),
-      updatedAt: new Date(row.updated_at as string | Date),
-    };
+  private async requirePersisted(data: NewCatalogSynchronization): Promise<CatalogSynchronization> {
+    const persisted = await this.findByResource(
+      data.resourceType,
+      data.resourceId,
+      data.provider,
+      data.tenantId,
+    );
+    if (!persisted) throw new Error(`${TABLE}: synchronization missing after write`);
+    return persisted;
   }
 }

@@ -168,6 +168,7 @@ export class CatalogSyncCommitter {
           lastErrorCode: 'CATALOG_SYNC_LOCAL_PERSISTENCE_FAILED',
         },
         synchronization.tenantId,
+        synchronization.attemptOwnerId ?? undefined,
       );
       if (updated) await recordCatalogSyncTransition(repositories, updated, correlationId);
     });
@@ -225,6 +226,7 @@ export class CatalogSyncCommitter {
         lastSucceededAt: this.dependencies.clock.now(),
       },
       synchronization.tenantId,
+      synchronization.attemptOwnerId ?? undefined,
     );
     if (!succeeded) {
       throw new PayableError('Catalog synchronization generation was superseded', {

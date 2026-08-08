@@ -54,16 +54,24 @@ export class CatalogSyncRetrier {
         context: { resourceType, resourceId },
       });
     }
+    if (existing.status === 'processing' || existing.status === 'retrying') {
+      throw new PayableError('Catalog synchronization is already in progress', {
+        code: 'CATALOG_SYNC_IN_PROGRESS',
+        context: { resourceType, resourceId },
+      });
+    }
     const correlationId = CorrelationId.generate().toString();
     const retrying = await this.dependencies.storage.transaction(async (repositories) => {
       const synchronizations = repositories.catalogSynchronizations;
       if (!synchronizations) {
         throw this.storageError();
       }
-      const updated = await synchronizations.update(
+      const updated = await synchronizations.updateIfCurrent(
         resourceType,
         resourceId,
         this.dependencies.providerName,
+        existing.canonicalVersion,
+        existing.idempotencyKey,
         {
           status: 'retrying',
           reconciliationState: 'pending',
@@ -71,7 +79,15 @@ export class CatalogSyncRetrier {
           lastErrorCode: null,
         },
         tenantId,
+        undefined,
+        ['failed', 'skipped'],
       );
+      if (!updated) {
+        throw new PayableError('Catalog synchronization is already in progress', {
+          code: 'CATALOG_SYNC_IN_PROGRESS',
+          context: { resourceType, resourceId },
+        });
+      }
       await recordCatalogSyncTransition(repositories, updated, correlationId);
       return updated;
     });
@@ -88,7 +104,7 @@ export class CatalogSyncRetrier {
       name: PROCESS_CATALOG_SYNC_JOB,
       payload,
       correlationId,
-      idempotencyKey: deriveCatalogSyncQueueJobId(existing.idempotencyKey),
+      idempotencyKey: deriveCatalogSyncQueueJobId(existing.idempotencyKey, correlationId),
     });
     if (!this.queue.inline) {
       return retrying;

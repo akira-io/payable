@@ -27,6 +27,7 @@ export async function deriveCatalogSyncKey(input: CatalogSyncKeyInput): Promise<
   return `payable:catalog-sync:v1:${digest}`;
 }
 
-export function deriveCatalogSyncQueueJobId(idempotencyKey: string): string {
-  return `catalog-sync-${idempotencyKey.slice(idempotencyKey.lastIndexOf(':') + 1)}`;
+export function deriveCatalogSyncQueueJobId(idempotencyKey: string, attemptId?: string): string {
+  const digest = idempotencyKey.slice(idempotencyKey.lastIndexOf(':') + 1);
+  return ['catalog-sync', digest, attemptId].filter(Boolean).join('-');
 }

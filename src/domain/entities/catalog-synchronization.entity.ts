@@ -34,4 +34,6 @@ export interface CatalogSynchronization extends TenantScoped, Timestamps {
   readonly lastErrorCode: string | null;
   readonly lastAttemptedAt: Date | null;
   readonly lastSucceededAt: Date | null;
+  readonly attemptOwnerId: string | null;
+  readonly leaseExpiresAt: Date | null;
 }

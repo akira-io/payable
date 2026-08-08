@@ -40,8 +40,11 @@ export async function recordCatalogSyncTransition(
       synchronization.canonicalVersion,
       synchronization.retryCount,
       synchronization.reconciliationState,
+      synchronization.providerResourceId ?? 'none',
       synchronization.providerResourceVersion ?? 'none',
+      synchronization.lastErrorCode ?? 'none',
       context.source ?? 'worker',
+      correlationId,
     ].join(':'),
   });
 }

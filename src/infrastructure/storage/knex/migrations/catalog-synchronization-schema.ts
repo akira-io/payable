@@ -20,6 +20,8 @@ export async function addCatalogSynchronizationTable(knex: Knex): Promise<void> 
     table.string('last_error_code').nullable();
     table.timestamp('last_attempted_at', { useTz: true }).nullable();
     table.timestamp('last_succeeded_at', { useTz: true }).nullable();
+    table.uuid('attempt_owner_id').nullable();
+    table.timestamp('lease_expires_at', { useTz: true }).nullable();
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.timestamp('updated_at', { useTz: true }).notNullable();
     table.check(

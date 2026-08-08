@@ -58,6 +58,9 @@ export class CatalogProductSynchronizer {
       payload.idempotencyKey,
       payload.tenantId,
       this.dependencies.clock.now(),
+      globalThis.crypto.randomUUID(),
+      new Date(this.dependencies.clock.now().getTime() + CATALOG_SYNC_LEASE_MS),
+      this.dependencies.provider.capabilities().has('catalogIdempotency'),
     );
     if (!claimed) {
       return;
@@ -225,6 +228,7 @@ export class CatalogProductSynchronizer {
         synchronization.idempotencyKey,
         patch,
         synchronization.tenantId,
+        synchronization.attemptOwnerId ?? undefined,
       );
       if (updated) await recordCatalogSyncTransition(repositories, updated, correlationId);
     });
@@ -260,3 +264,5 @@ export class CatalogProductSynchronizer {
     });
   }
 }
+
+const CATALOG_SYNC_LEASE_MS = 30_000;

@@ -44,7 +44,7 @@ export class CatalogProductDependency {
         if (!synchronizations) {
           throw this.storageError();
         }
-        const requested = await synchronizations.save({
+        const requested = await synchronizations.requestGeneration({
           tenantId: payload.tenantId,
           provider: payload.providerName,
           resourceType: 'product',
@@ -71,7 +71,8 @@ export class CatalogProductDependency {
       canonicalVersion,
       idempotencyKey,
     });
-    for (let attempt = 0; attempt < 100; attempt += 1) {
+    const startedAt = Date.now();
+    for (;;) {
       const binding = await storage.productProviderBindings?.findByProductAndProvider(
         product.id,
         payload.providerName,
@@ -85,9 +86,14 @@ export class CatalogProductDependency {
         payload.tenantId,
       );
       if (current?.status !== 'processing') return null;
-      await new Promise<void>((resolve) => setTimeout(resolve, 5));
+      const leaseDuration = Math.max(
+        0,
+        (current.leaseExpiresAt?.getTime() ?? this.dependencies.clock.now().getTime()) -
+          this.dependencies.clock.now().getTime(),
+      );
+      if (Date.now() - startedAt >= leaseDuration) return null;
+      await new Promise<void>((resolve) => setTimeout(resolve, 10));
     }
-    return null;
   }
 
   private storage() {

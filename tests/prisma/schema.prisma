@@ -194,6 +194,8 @@ model PayableCatalogSynchronization {
   lastErrorCode           String?   @map("last_error_code")
   lastAttemptedAt         DateTime? @map("last_attempted_at")
   lastSucceededAt         DateTime? @map("last_succeeded_at")
+  attemptOwnerId          String?   @map("attempt_owner_id")
+  leaseExpiresAt          DateTime? @map("lease_expires_at")
   createdAt               DateTime  @map("created_at")
   updatedAt               DateTime  @map("updated_at")
 

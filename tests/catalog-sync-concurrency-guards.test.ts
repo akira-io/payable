@@ -9,6 +9,7 @@ import type { CreateProductInput, ProductDTO } from '../src/domain/dtos/product.
 import { Money } from '../src/domain/value-objects/money';
 import {
   closeCatalogSyncDatabases,
+  FlakySynchronizingProvider,
   NonIdempotentFlakyProvider,
   SynchronizingProvider,
   setupCatalogSync,
@@ -70,6 +71,13 @@ class BlockingProductProvider extends SynchronizingProvider {
   }
 }
 
+class NonIdempotentBlockingProductProvider extends BlockingProductProvider {
+  constructor() {
+    super();
+    this.supportedCapabilities.delete('catalogIdempotency');
+  }
+}
+
 afterEach(closeCatalogSyncDatabases);
 
 describe('catalog synchronization concurrency guards', () => {
@@ -125,6 +133,7 @@ describe('catalog synchronization concurrency guards', () => {
     await provider.remoteStarted;
     await new Promise<void>((resolve) => setTimeout(resolve, 20));
     expect(provider.productCreates).toBe(1);
+    await new Promise<void>((resolve) => setTimeout(resolve, 550));
     provider.release();
     await Promise.all([firstJob, secondJob]);
 
@@ -147,6 +156,75 @@ describe('catalog synchronization concurrency guards', () => {
       code: 'CATALOG_SYNC_RECONCILIATION_REQUIRED',
     });
     expect(provider.productCreates).toBe(1);
+  });
+
+  it('rejects a concurrent manual retry while a non-idempotent mutation is processing', async () => {
+    const queue = new DeferredQueue();
+    const provider = new NonIdempotentBlockingProductProvider();
+    const { payable } = await setupCatalogSync(provider, queue);
+    const product = await payable.products().create({ name: 'Single non-native mutation' });
+    const synchronization = payable.catalogSync('stripe-primary');
+    await synchronization.requestProduct(product.id);
+    const processing = queue.run(0);
+    await provider.remoteStarted;
+
+    await expect(synchronization.retryProduct(product.id)).rejects.toMatchObject({
+      code: 'CATALOG_SYNC_IN_PROGRESS',
+    });
+    provider.release();
+    await processing;
+    expect(provider.productCreates).toBe(1);
+  });
+
+  it('reclaims a failed native-idempotent generation on automatic queue retry', async () => {
+    const queue = new DeferredQueue();
+    const provider = new FlakySynchronizingProvider();
+    const { payable, storage } = await setupCatalogSync(provider, queue);
+    const product = await payable.products().create({ name: 'Retryable queued product' });
+    await payable.catalogSync('stripe-primary').requestProduct(product.id);
+
+    await expect(queue.run(0)).rejects.toMatchObject({ code: 'PROVIDER_UNAVAILABLE' });
+    await expect(queue.run(0)).resolves.toBeUndefined();
+    await expect(
+      storage.catalogSynchronizations.findByResource('product', product.id, 'stripe-primary', null),
+    ).resolves.toMatchObject({ status: 'succeeded', providerResourceId: 'prod_recovered' });
+    expect(new Set(provider.productIdempotencyKeys).size).toBe(1);
+  });
+
+  it('uses a new queue dispatch identity for a manual retry', async () => {
+    const queue = new DeferredQueue();
+    const provider = new FlakySynchronizingProvider();
+    const { payable } = await setupCatalogSync(provider, queue);
+    const product = await payable.products().create({ name: 'Manual retry product' });
+    const synchronization = payable.catalogSync('stripe-primary');
+    await synchronization.requestProduct(product.id);
+    await expect(queue.run(0)).rejects.toMatchObject({ code: 'PROVIDER_UNAVAILABLE' });
+
+    await synchronization.retryProduct(product.id);
+
+    expect(queue.jobs).toHaveLength(2);
+    expect(queue.jobs[1]?.idempotencyKey).not.toBe(queue.jobs[0]?.idempotencyKey);
+    expect(queue.jobs[1]?.payload).toMatchObject({
+      idempotencyKey: (queue.jobs[0]?.payload as { idempotencyKey: string }).idempotencyKey,
+    });
+  });
+
+  it('transitions a claimed price when ensuring its parent product fails', async () => {
+    const queue = new DeferredQueue();
+    const provider = new FlakySynchronizingProvider();
+    const { payable, storage } = await setupCatalogSync(provider, queue);
+    const product = await payable.products().create({ name: 'Failing parent' });
+    const price = await payable.prices().create({
+      productId: product.id,
+      unitAmount: Money.of(1000, 'EUR'),
+      type: 'one_time',
+    });
+    await payable.catalogSync('stripe-primary').requestPrice(price.id);
+
+    await expect(queue.run(0)).rejects.toMatchObject({ code: 'PROVIDER_UNAVAILABLE' });
+    await expect(
+      storage.catalogSynchronizations.findByResource('price', price.id, 'stripe-primary', null),
+    ).resolves.toMatchObject({ status: 'failed', reconciliationState: 'pending' });
   });
 
   it('reconciles a bound catalog product from a verified provider webhook', async () => {

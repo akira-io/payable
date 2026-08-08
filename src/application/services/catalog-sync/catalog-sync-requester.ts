@@ -120,7 +120,7 @@ export class CatalogSyncRequester {
       if (!synchronizations) {
         throw this.storageError();
       }
-      const saved = await synchronizations.save({
+      const saved = await synchronizations.requestGeneration({
         tenantId,
         provider: this.dependencies.providerName,
         resourceType: input.resourceType,

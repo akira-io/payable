@@ -67,6 +67,8 @@ export interface PrismaCatalogSynchronizationRow {
   lastErrorCode: string | null;
   lastAttemptedAt: Date | null;
   lastSucceededAt: Date | null;
+  attemptOwnerId: string | null;
+  leaseExpiresAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

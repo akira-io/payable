@@ -58,6 +58,9 @@ export class CatalogPriceSynchronizer {
       payload.idempotencyKey,
       payload.tenantId,
       this.dependencies.clock.now(),
+      globalThis.crypto.randomUUID(),
+      new Date(this.dependencies.clock.now().getTime() + CATALOG_SYNC_LEASE_MS),
+      this.dependencies.provider.capabilities().has('catalogIdempotency'),
     );
     if (!claimed) return;
     if (!this.supportsOperation(claimed, price)) {
@@ -68,31 +71,31 @@ export class CatalogPriceSynchronizer {
       });
       return;
     }
-    const product = await storage.canonicalProducts?.findById(price.productId, payload.tenantId);
-    if (!product) {
-      throw new PayableError(`Product not found: ${price.productId}`, {
-        code: 'PRODUCT_NOT_FOUND',
-        context: { productId: price.productId },
-      });
-    }
-    const productBinding = await new CatalogProductDependency(this.dependencies).ensure(
-      product,
-      payload,
-    );
-    if (!productBinding) {
-      await this.transition(claimed, payload.correlationId, {
-        status: 'skipped',
-        reconciliationState: 'unsupported',
-        lastErrorCode: 'CATALOG_SYNC_PARENT_UNAVAILABLE',
-      });
-      return;
-    }
     const provider = this.dependencies.provider;
-    const committer = new CatalogSyncCommitter(this.dependencies);
-    if (await committer.recoverPrice(claimed, payload.correlationId)) {
-      return;
-    }
     try {
+      const product = await storage.canonicalProducts?.findById(price.productId, payload.tenantId);
+      if (!product) {
+        throw new PayableError(`Product not found: ${price.productId}`, {
+          code: 'PRODUCT_NOT_FOUND',
+          context: { productId: price.productId },
+        });
+      }
+      const productBinding = await new CatalogProductDependency(this.dependencies).ensure(
+        product,
+        payload,
+      );
+      if (!productBinding) {
+        await this.transition(claimed, payload.correlationId, {
+          status: 'skipped',
+          reconciliationState: 'unsupported',
+          lastErrorCode: 'CATALOG_SYNC_PARENT_UNAVAILABLE',
+        });
+        return;
+      }
+      const committer = new CatalogSyncCommitter(this.dependencies);
+      if (await committer.recoverPrice(claimed, payload.correlationId)) {
+        return;
+      }
       const remote = await this.mutate(claimed, price, productBinding.providerProductId, {
         correlationId: payload.correlationId,
         tenantId: payload.tenantId,
@@ -233,6 +236,7 @@ export class CatalogPriceSynchronizer {
         synchronization.idempotencyKey,
         patch,
         synchronization.tenantId,
+        synchronization.attemptOwnerId ?? undefined,
       );
       if (updated) await recordCatalogSyncTransition(repositories, updated, correlationId);
     });
@@ -259,3 +263,5 @@ export class CatalogPriceSynchronizer {
     });
   }
 }
+
+const CATALOG_SYNC_LEASE_MS = 30_000;

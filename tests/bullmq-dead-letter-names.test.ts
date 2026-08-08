@@ -1,5 +1,6 @@
 import { Job, Queue } from 'bullmq';
 import { describe, expect, it } from 'vitest';
+import { PayableError } from '../src/domain/errors/payable-error';
 import { BullMQQueueDriver } from '../src/infrastructure/queue/bullmq/bullmq-queue-driver';
 
 const connection = { host: 'localhost', port: 6379 };
@@ -82,7 +83,10 @@ describe('BullMQ dead-letter naming', () => {
         data: { payload: { webhookEventId: 'evt_1' }, correlationId: 'corr-1' },
         id: 'job_1',
       },
-      new Error('handler exploded'),
+      new PayableError('handler exploded', {
+        code: 'CATALOG_SYNC_LOCAL_PERSISTENCE_FAILED',
+        context: { providerResourceId: 'prod_1', apiKey: 'secret' },
+      }),
     );
     await driver.settle();
 
@@ -96,6 +100,12 @@ describe('BullMQ dead-letter naming', () => {
       correlationId: 'corr-1',
       originalJobId: 'job_1',
       failedReason: 'handler exploded',
+      failedError: {
+        name: 'PayableError',
+        message: 'handler exploded',
+        code: 'CATALOG_SYNC_LOCAL_PERSISTENCE_FAILED',
+        context: { providerResourceId: 'prod_1', apiKey: '[redacted]' },
+      },
     });
 
     const replay = deadLettered?.data as { payload: unknown; correlationId: string };
