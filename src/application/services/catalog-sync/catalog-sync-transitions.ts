@@ -1,5 +1,6 @@
 import type { Repositories } from '../../../domain/contracts/storage-driver.contract';
 import type { CatalogSynchronization } from '../../../domain/entities/catalog-synchronization.entity';
+import { hashRequest } from '../../../support/hash/request-hash';
 
 export async function recordCatalogSyncTransition(
   repositories: Repositories,
@@ -9,6 +10,16 @@ export async function recordCatalogSyncTransition(
 ): Promise<void> {
   const transition = `catalog.synchronization.${synchronization.status}`;
   const snapshot = snapshotOf(synchronization, context);
+  const transitionDigest = await hashRequest([
+    synchronization.status,
+    synchronization.canonicalVersion,
+    synchronization.retryCount,
+    synchronization.reconciliationState,
+    synchronization.providerResourceId,
+    synchronization.providerResourceVersion,
+    synchronization.lastErrorCode,
+    context.source ?? 'worker',
+  ]);
   await repositories.auditLogs.create({
     tenantId: synchronization.tenantId,
     correlationId,
@@ -33,19 +44,7 @@ export async function recordCatalogSyncTransition(
     eventType: `${transition}.v1`,
     eventVersion: 1,
     payload: snapshot,
-    dedupeKey: [
-      'catalog-sync',
-      synchronization.id,
-      synchronization.status,
-      synchronization.canonicalVersion,
-      synchronization.retryCount,
-      synchronization.reconciliationState,
-      synchronization.providerResourceId ?? 'none',
-      synchronization.providerResourceVersion ?? 'none',
-      synchronization.lastErrorCode ?? 'none',
-      context.source ?? 'worker',
-      correlationId,
-    ].join(':'),
+    dedupeKey: `catalog-sync-transition:${synchronization.id}:${transitionDigest}`,
   });
 }
 

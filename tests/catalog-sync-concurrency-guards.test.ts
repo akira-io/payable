@@ -176,6 +176,25 @@ describe('catalog synchronization concurrency guards', () => {
     expect(provider.productCreates).toBe(1);
   });
 
+  it('does not reclaim an expired non-idempotent provider mutation', async () => {
+    const queue = new DeferredQueue();
+    const provider = new NonIdempotentBlockingProductProvider();
+    const { clock, payable, storage } = await setupCatalogSync(provider, queue);
+    const product = await payable.products().create({ name: 'Expired non-native mutation' });
+    await payable.catalogSync('stripe-primary').requestProduct(product.id);
+    const processing = queue.run(0);
+    await provider.remoteStarted;
+    clock.advance(30_001);
+
+    await expect(queue.run(0)).resolves.toBeUndefined();
+    provider.release();
+    await processing;
+    expect(provider.productCreates).toBe(1);
+    await expect(
+      storage.catalogSynchronizations.findByResource('product', product.id, 'stripe-primary', null),
+    ).resolves.toMatchObject({ status: 'failed', reconciliationState: 'required' });
+  });
+
   it('reclaims a failed native-idempotent generation on automatic queue retry', async () => {
     const queue = new DeferredQueue();
     const provider = new FlakySynchronizingProvider();

@@ -54,43 +54,46 @@ export class CatalogSyncRetrier {
         context: { resourceType, resourceId },
       });
     }
-    if (existing.status === 'processing' || existing.status === 'retrying') {
+    if (existing.status === 'processing') {
       throw new PayableError('Catalog synchronization is already in progress', {
         code: 'CATALOG_SYNC_IN_PROGRESS',
         context: { resourceType, resourceId },
       });
     }
     const correlationId = CorrelationId.generate().toString();
-    const retrying = await this.dependencies.storage.transaction(async (repositories) => {
-      const synchronizations = repositories.catalogSynchronizations;
-      if (!synchronizations) {
-        throw this.storageError();
-      }
-      const updated = await synchronizations.updateIfCurrent(
-        resourceType,
-        resourceId,
-        this.dependencies.providerName,
-        existing.canonicalVersion,
-        existing.idempotencyKey,
-        {
-          status: 'retrying',
-          reconciliationState: 'pending',
-          retryCount: existing.retryCount + 1,
-          lastErrorCode: null,
-        },
-        tenantId,
-        undefined,
-        ['failed', 'skipped'],
-      );
-      if (!updated) {
-        throw new PayableError('Catalog synchronization is already in progress', {
-          code: 'CATALOG_SYNC_IN_PROGRESS',
-          context: { resourceType, resourceId },
-        });
-      }
-      await recordCatalogSyncTransition(repositories, updated, correlationId);
-      return updated;
-    });
+    const retrying =
+      existing.status === 'retrying'
+        ? existing
+        : await this.dependencies.storage.transaction(async (repositories) => {
+            const synchronizations = repositories.catalogSynchronizations;
+            if (!synchronizations) {
+              throw this.storageError();
+            }
+            const updated = await synchronizations.updateIfCurrent(
+              resourceType,
+              resourceId,
+              this.dependencies.providerName,
+              existing.canonicalVersion,
+              existing.idempotencyKey,
+              {
+                status: 'retrying',
+                reconciliationState: 'pending',
+                retryCount: existing.retryCount + 1,
+                lastErrorCode: null,
+              },
+              tenantId,
+              undefined,
+              ['failed', 'skipped'],
+            );
+            if (!updated) {
+              throw new PayableError('Catalog synchronization is already in progress', {
+                code: 'CATALOG_SYNC_IN_PROGRESS',
+                context: { resourceType, resourceId },
+              });
+            }
+            await recordCatalogSyncTransition(repositories, updated, correlationId);
+            return updated;
+          });
     const payload: ProcessCatalogSyncJobPayload = {
       providerName: this.dependencies.providerName,
       tenantId,

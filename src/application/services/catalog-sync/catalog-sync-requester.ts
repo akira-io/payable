@@ -110,7 +110,7 @@ export class CatalogSyncRequester {
     }
     if (
       input.existing?.idempotencyKey === idempotencyKey &&
-      ['requested', 'processing', 'retrying', 'succeeded'].includes(input.existing.status)
+      ['processing', 'succeeded'].includes(input.existing.status)
     ) {
       return input.existing;
     }

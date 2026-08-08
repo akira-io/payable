@@ -66,6 +66,7 @@ export class KnexCatalogSynchronizationRepository implements CatalogSynchronizat
         data.provider,
         data.tenantId,
       );
+      if (existing && data.canonicalVersion < existing.canonicalVersion) return existing;
       if (
         existing?.idempotencyKey === data.idempotencyKey &&
         ['requested', 'processing', 'retrying', 'succeeded'].includes(existing.status)
@@ -153,6 +154,27 @@ export class KnexCatalogSynchronizationRepository implements CatalogSynchronizat
     allowFailedRetry: boolean,
   ): Promise<CatalogSynchronization | null> {
     assertCatalogTenantId(tenantId);
+    if (!allowFailedRetry) {
+      await this.knex(TABLE)
+        .where({
+          tenant_key: tenantId ?? '',
+          provider,
+          resource_type: resourceType,
+          resource_id: resourceId,
+          canonical_version: canonicalVersion,
+          idempotency_key: idempotencyKey,
+          status: 'processing',
+        })
+        .where('lease_expires_at', '<=', attemptedAt.toISOString())
+        .update({
+          status: 'failed',
+          reconciliation_state: 'required',
+          last_error_code: 'CATALOG_SYNC_LEASE_EXPIRED',
+          attempt_owner_id: null,
+          lease_expires_at: null,
+          updated_at: this.clock.now().toISOString(),
+        });
+    }
     const statuses = allowFailedRetry
       ? ['requested', 'retrying', 'failed']
       : ['requested', 'retrying'];
@@ -165,15 +187,16 @@ export class KnexCatalogSynchronizationRepository implements CatalogSynchronizat
         canonical_version: canonicalVersion,
         idempotency_key: idempotencyKey,
       })
-      .where((query) =>
-        query
-          .whereIn('status', statuses)
-          .orWhere((lease) =>
+      .where((query) => {
+        query.whereIn('status', statuses);
+        if (allowFailedRetry) {
+          query.orWhere((lease) =>
             lease
               .where('status', 'processing')
               .where('lease_expires_at', '<=', attemptedAt.toISOString()),
-          ),
-      )
+          );
+        }
+      })
       .update({
         status: 'processing',
         last_attempted_at: attemptedAt.toISOString(),
@@ -181,7 +204,14 @@ export class KnexCatalogSynchronizationRepository implements CatalogSynchronizat
         lease_expires_at: leaseExpiresAt.toISOString(),
         updated_at: this.clock.now().toISOString(),
       });
-    return count === 0 ? null : this.findByResource(resourceType, resourceId, provider, tenantId);
+    if (count === 0) return null;
+    const claimed = await this.findByResource(resourceType, resourceId, provider, tenantId);
+    return claimed?.attemptOwnerId === ownerId &&
+      claimed.status === 'processing' &&
+      claimed.canonicalVersion === canonicalVersion &&
+      claimed.idempotencyKey === idempotencyKey
+      ? claimed
+      : null;
   }
 
   async updateIfCurrent(

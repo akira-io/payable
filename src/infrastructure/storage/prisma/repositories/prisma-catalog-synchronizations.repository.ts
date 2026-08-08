@@ -5,15 +5,17 @@ import type {
 } from '../../../../domain/contracts/catalog-synchronization-repository.contract';
 import type { Clock } from '../../../../domain/contracts/clock.contract';
 import type {
-  CatalogReconciliationState,
   CatalogSynchronization,
-  CatalogSynchronizationOperation,
   CatalogSynchronizationResourceType,
   CatalogSynchronizationStatus,
 } from '../../../../domain/entities/catalog-synchronization.entity';
 import { assertCatalogTenantId } from '../../catalog-tenant';
-import type { PrismaCatalogSynchronizationRow, PrismaClient } from '../prisma-client.types';
+import type { PrismaClient } from '../prisma-client.types';
 import { isPrismaUniqueViolation } from '../unique-violation';
+import {
+  catalogSynchronizationFromPrismaRow,
+  catalogSynchronizationValues,
+} from './catalog-synchronization-row';
 
 export class PrismaCatalogSynchronizationRepository implements CatalogSynchronizationRepository {
   constructor(
@@ -24,7 +26,7 @@ export class PrismaCatalogSynchronizationRepository implements CatalogSynchroniz
   async save(data: NewCatalogSynchronization): Promise<CatalogSynchronization> {
     assertCatalogTenantId(data.tenantId);
     const now = this.clock.now();
-    const values = this.values(data);
+    const values = catalogSynchronizationValues(data);
     const row = await this.client.payableCatalogSynchronization.upsert({
       where: {
         tenantKey_provider_resourceType_resourceId: {
@@ -42,7 +44,7 @@ export class PrismaCatalogSynchronizationRepository implements CatalogSynchroniz
       },
       update: { ...values, updatedAt: now },
     });
-    return this.toEntity(row);
+    return catalogSynchronizationFromPrismaRow(row);
   }
 
   async requestGeneration(data: NewCatalogSynchronization): Promise<CatalogSynchronization> {
@@ -54,6 +56,9 @@ export class PrismaCatalogSynchronizationRepository implements CatalogSynchroniz
         data.provider,
         data.tenantId,
       );
+      if (existing && data.canonicalVersion < existing.canonicalVersion) {
+        return existing;
+      }
       if (
         existing?.idempotencyKey === data.idempotencyKey &&
         ['requested', 'processing', 'retrying', 'succeeded'].includes(existing.status)
@@ -66,12 +71,12 @@ export class PrismaCatalogSynchronizationRepository implements CatalogSynchroniz
           const row = await this.client.payableCatalogSynchronization.create({
             data: {
               id: globalThis.crypto.randomUUID(),
-              ...this.values(data),
+              ...catalogSynchronizationValues(data),
               createdAt: now,
               updatedAt: now,
             },
           });
-          return this.toEntity(row);
+          return catalogSynchronizationFromPrismaRow(row);
         } catch (error) {
           if (!isPrismaUniqueViolation(error)) {
             throw error;
@@ -85,7 +90,7 @@ export class PrismaCatalogSynchronizationRepository implements CatalogSynchroniz
           idempotencyKey: existing.idempotencyKey,
           status: existing.status,
         },
-        data: { ...this.values(data), updatedAt: this.clock.now() },
+        data: { ...catalogSynchronizationValues(data), updatedAt: this.clock.now() },
       });
       if (count > 0) {
         return this.requirePersisted(data);
@@ -108,7 +113,7 @@ export class PrismaCatalogSynchronizationRepository implements CatalogSynchroniz
       where: { id: current.id },
       data: { ...patch, updatedAt: this.clock.now() },
     });
-    return this.toEntity(row);
+    return catalogSynchronizationFromPrismaRow(row);
   }
 
   async findByResource(
@@ -126,7 +131,7 @@ export class PrismaCatalogSynchronizationRepository implements CatalogSynchroniz
         resourceId,
       },
     });
-    return row ? this.toEntity(row) : null;
+    return row ? catalogSynchronizationFromPrismaRow(row) : null;
   }
 
   async claimGeneration(
@@ -142,6 +147,28 @@ export class PrismaCatalogSynchronizationRepository implements CatalogSynchroniz
     allowFailedRetry: boolean,
   ): Promise<CatalogSynchronization | null> {
     assertCatalogTenantId(tenantId);
+    if (!allowFailedRetry) {
+      await this.client.payableCatalogSynchronization.updateMany({
+        where: {
+          tenantKey: tenantId ?? '',
+          provider,
+          resourceType,
+          resourceId,
+          canonicalVersion,
+          idempotencyKey,
+          status: 'processing',
+          leaseExpiresAt: { lte: attemptedAt },
+        },
+        data: {
+          status: 'failed',
+          reconciliationState: 'required',
+          lastErrorCode: 'CATALOG_SYNC_LEASE_EXPIRED',
+          attemptOwnerId: null,
+          leaseExpiresAt: null,
+          updatedAt: this.clock.now(),
+        },
+      });
+    }
     const statuses = allowFailedRetry
       ? ['requested', 'retrying', 'failed']
       : ['requested', 'retrying'];
@@ -155,7 +182,9 @@ export class PrismaCatalogSynchronizationRepository implements CatalogSynchroniz
         idempotencyKey,
         OR: [
           { status: { in: statuses } },
-          { status: 'processing', leaseExpiresAt: { lte: attemptedAt } },
+          ...(allowFailedRetry
+            ? [{ status: 'processing', leaseExpiresAt: { lte: attemptedAt } }]
+            : []),
         ],
       },
       data: {
@@ -166,9 +195,14 @@ export class PrismaCatalogSynchronizationRepository implements CatalogSynchroniz
         updatedAt: this.clock.now(),
       },
     });
-    return result.count === 0
-      ? null
-      : this.findByResource(resourceType, resourceId, provider, tenantId);
+    if (result.count === 0) return null;
+    const claimed = await this.findByResource(resourceType, resourceId, provider, tenantId);
+    return claimed?.attemptOwnerId === ownerId &&
+      claimed.status === 'processing' &&
+      claimed.canonicalVersion === canonicalVersion &&
+      claimed.idempotencyKey === idempotencyKey
+      ? claimed
+      : null;
   }
 
   async updateIfCurrent(
@@ -223,54 +257,6 @@ export class PrismaCatalogSynchronizationRepository implements CatalogSynchroniz
     return result.count === 0
       ? null
       : this.findByResource(resourceType, resourceId, provider, tenantId);
-  }
-
-  private values(data: NewCatalogSynchronization): Record<string, unknown> {
-    return {
-      tenantId: data.tenantId,
-      tenantKey: data.tenantId ?? '',
-      provider: data.provider,
-      resourceType: data.resourceType,
-      resourceId: data.resourceId,
-      operation: data.operation,
-      canonicalVersion: data.canonicalVersion,
-      idempotencyKey: data.idempotencyKey,
-      status: data.status,
-      reconciliationState: data.reconciliationState,
-      providerResourceId: data.providerResourceId,
-      providerResourceVersion: data.providerResourceVersion,
-      retryCount: data.retryCount,
-      lastErrorCode: data.lastErrorCode,
-      lastAttemptedAt: data.lastAttemptedAt,
-      lastSucceededAt: data.lastSucceededAt,
-      attemptOwnerId: data.attemptOwnerId ?? null,
-      leaseExpiresAt: data.leaseExpiresAt ?? null,
-    };
-  }
-
-  private toEntity(row: PrismaCatalogSynchronizationRow): CatalogSynchronization {
-    return {
-      id: row.id,
-      tenantId: row.tenantId,
-      provider: row.provider,
-      resourceType: row.resourceType as CatalogSynchronizationResourceType,
-      resourceId: row.resourceId,
-      operation: row.operation as CatalogSynchronizationOperation,
-      canonicalVersion: row.canonicalVersion,
-      idempotencyKey: row.idempotencyKey,
-      status: row.status as CatalogSynchronizationStatus,
-      reconciliationState: row.reconciliationState as CatalogReconciliationState,
-      providerResourceId: row.providerResourceId,
-      providerResourceVersion: row.providerResourceVersion,
-      retryCount: row.retryCount,
-      lastErrorCode: row.lastErrorCode,
-      lastAttemptedAt: row.lastAttemptedAt,
-      lastSucceededAt: row.lastSucceededAt,
-      attemptOwnerId: row.attemptOwnerId,
-      leaseExpiresAt: row.leaseExpiresAt,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    };
   }
 
   private key(data: NewCatalogSynchronization) {

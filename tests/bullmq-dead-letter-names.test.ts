@@ -99,6 +99,7 @@ describe('BullMQ dead-letter naming', () => {
       payload: { webhookEventId: 'evt_1' },
       correlationId: 'corr-1',
       originalJobId: 'job_1',
+      replayJobId: expect.stringMatching(/^job_1\.replay\.[0-9a-f-]{36}$/),
       failedReason: 'handler exploded',
       failedError: {
         name: 'PayableError',
@@ -108,15 +109,19 @@ describe('BullMQ dead-letter naming', () => {
       },
     });
 
-    const replay = deadLettered?.data as { payload: unknown; correlationId: string };
+    const replay = deadLettered?.data as {
+      payload: unknown;
+      correlationId: string;
+      replayJobId: string;
+    };
     await driver.dispatch({
       name: 'webhook.process',
       payload: replay.payload,
       correlationId: replay.correlationId,
-      idempotencyKey: 'job_1',
+      idempotencyKey: replay.replayJobId,
     });
     const replayed = added.find(
-      (entry) => entry.queue === 'webhook.process' && entry.options.jobId === 'job_1',
+      (entry) => entry.queue === 'webhook.process' && entry.options.jobId === replay.replayJobId,
     );
     expect(replayed?.data).toMatchObject({ payload: { webhookEventId: 'evt_1' } });
   });

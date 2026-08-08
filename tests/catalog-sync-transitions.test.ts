@@ -26,9 +26,17 @@ describe('catalog synchronization transitions', () => {
     const firstKey = create.mock.calls[0]?.[0].dedupeKey as string;
     const secondKey = create.mock.calls[1]?.[0].dedupeKey as string;
     expect(firstKey).not.toBe(secondKey);
-    expect(secondKey).toContain('prod_2');
-    expect(secondKey).toContain('SECOND_FAILURE');
-    expect(secondKey).toContain('correlation-two');
+    expect(secondKey.length).toBeLessThanOrEqual(255);
+    await recordCatalogSyncTransition(
+      repositories,
+      {
+        ...synchronization,
+        providerResourceId: 'prod_2',
+        lastErrorCode: 'SECOND_FAILURE',
+      },
+      'a-different-correlation',
+    );
+    expect(create.mock.calls[2]?.[0].dedupeKey).toBe(secondKey);
   });
 });
 
