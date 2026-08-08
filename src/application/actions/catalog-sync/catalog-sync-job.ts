@@ -6,4 +6,6 @@ export interface ProcessCatalogSyncJobPayload {
   resourceType: 'product' | 'price';
   resourceId: string;
   correlationId: string;
+  canonicalVersion: string;
+  idempotencyKey: string;
 }

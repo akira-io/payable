@@ -29,16 +29,16 @@ export class CatalogProductDependency {
       payload.providerName,
       payload.tenantId,
     );
-    if (existing?.status !== 'requested') {
-      const canonicalVersion = product.updatedAt.toISOString();
-      const idempotencyKey = await deriveCatalogSyncKey({
-        tenantId: payload.tenantId,
-        provider: payload.providerName,
-        resourceType: 'product',
-        resourceId: product.id,
-        operation: 'create',
-        canonicalVersion,
-      });
+    const canonicalVersion = product.updatedAt.toISOString();
+    const idempotencyKey = await deriveCatalogSyncKey({
+      tenantId: payload.tenantId,
+      provider: payload.providerName,
+      resourceType: 'product',
+      resourceId: product.id,
+      operation: 'create',
+      canonicalVersion,
+    });
+    if (existing?.idempotencyKey !== idempotencyKey) {
       await storage.transaction(async (repositories) => {
         const synchronizations = repositories.catalogSynchronizations;
         if (!synchronizations) {
@@ -68,12 +68,26 @@ export class CatalogProductDependency {
       ...payload,
       resourceType: 'product',
       resourceId: product.id,
+      canonicalVersion,
+      idempotencyKey,
     });
-    return storage.productProviderBindings?.findByProductAndProvider(
-      product.id,
-      payload.providerName,
-      payload.tenantId,
-    );
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const binding = await storage.productProviderBindings?.findByProductAndProvider(
+        product.id,
+        payload.providerName,
+        payload.tenantId,
+      );
+      if (binding) return binding;
+      const current = await repository.findByResource(
+        'product',
+        product.id,
+        payload.providerName,
+        payload.tenantId,
+      );
+      if (current?.status !== 'processing') return null;
+      await new Promise<void>((resolve) => setTimeout(resolve, 5));
+    }
+    return null;
   }
 
   private storage() {

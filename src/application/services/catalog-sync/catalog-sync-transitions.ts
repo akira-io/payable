@@ -39,6 +39,9 @@ export async function recordCatalogSyncTransition(
       synchronization.status,
       synchronization.canonicalVersion,
       synchronization.retryCount,
+      synchronization.reconciliationState,
+      synchronization.providerResourceVersion ?? 'none',
+      context.source ?? 'worker',
     ].join(':'),
   });
 }

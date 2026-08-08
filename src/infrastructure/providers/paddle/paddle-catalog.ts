@@ -10,6 +10,7 @@ import type {
   ProductDTO,
   UpdateProductInput,
 } from '../../../domain/dtos/product.dto';
+import { PayableError } from '../../../domain/errors/payable-error';
 import { createPriceNotFoundFactory, createProductNotFoundFactory } from '../catalog-not-found';
 import { paddleAmount } from './paddle-amounts';
 import { withPaddleErrors } from './paddle-errors';
@@ -19,7 +20,13 @@ import type { PaddleClient } from './paddle-types';
 export class PaddleCatalog {
   constructor(private readonly client: () => Promise<PaddleClient>) {}
 
-  async createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO> {
+  async createProduct(input: CreateProductInput, _ctx: OperationContext): Promise<ProductDTO> {
+    if (input.active === false) {
+      throw new PayableError('Paddle cannot atomically create an archived product', {
+        code: 'CATALOG_INACTIVE_CREATE_UNSUPPORTED',
+        context: { provider: 'paddle' },
+      });
+    }
     const paddle = await this.client();
     const product = await withPaddleErrors(() =>
       paddle.products.create({
@@ -29,23 +36,23 @@ export class PaddleCatalog {
         customData: input.metadata,
       }),
     );
-    if (input.active !== false) {
-      return toProductDTO(product);
-    }
-    const archivedProduct = await withPaddleErrors(
-      () => paddle.products.update(product.id, { status: 'archived' }),
-      createProductNotFoundFactory(product.id, ctx),
-    );
-    return toProductDTO(archivedProduct);
+    return toProductDTO(product);
   }
 
   async updateProduct(input: UpdateProductInput, ctx: OperationContext): Promise<ProductDTO> {
+    if (input.description === null) {
+      throw new PayableError('Paddle does not support clearing product descriptions', {
+        code: 'CATALOG_UPDATE_CLEAR_UNSUPPORTED',
+      });
+    }
+    const description = input.description;
     const paddle = await this.client();
     const product = await withPaddleErrors(
       () =>
         paddle.products.update(input.providerProductId, {
           name: input.name,
-          description: input.description,
+          description,
+          customData: input.metadata,
           status: input.active === undefined ? undefined : input.active ? 'active' : 'archived',
         }),
       createProductNotFoundFactory(input.providerProductId, ctx),
@@ -73,9 +80,15 @@ export class PaddleCatalog {
   }
 
   async updatePrice(input: UpdatePriceInput, ctx: OperationContext): Promise<PriceDTO> {
+    if (input.description === null) {
+      throw new PayableError('Paddle does not support clearing price descriptions', {
+        code: 'CATALOG_UPDATE_CLEAR_UNSUPPORTED',
+      });
+    }
+    const description = input.description;
     const paddle = await this.client();
     const price = await withPaddleErrors(
-      () => paddle.prices.update(input.providerPriceId, { description: input.description ?? '' }),
+      () => paddle.prices.update(input.providerPriceId, { description }),
       createPriceNotFoundFactory(input.providerPriceId, ctx),
     );
     return toPriceDTO(price);

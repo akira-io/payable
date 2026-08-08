@@ -85,6 +85,8 @@ describe('catalog synchronization', () => {
         payload: expect.objectContaining({ resourceType: 'product', resourceId: product.id }),
       }),
     ]);
+    expect(queue.jobs[0]?.idempotencyKey).toMatch(/^catalog-sync-[a-f0-9]{64}$/);
+    expect(queue.jobs[0]?.idempotencyKey).not.toContain(':');
   });
 
   it('persists unsupported results without changing canonical state', async () => {
@@ -102,6 +104,27 @@ describe('catalog synchronization', () => {
     await expect(
       storage.productProviderBindings.findByProductAndProvider(product.id, 'stripe-primary', null),
     ).resolves.toBeNull();
+  });
+
+  it('does not create a parent product for an unsupported price operation', async () => {
+    const provider = new SynchronizingProvider();
+    provider.supportedCapabilities.delete('catalogPriceCreate');
+    const { payable } = await setupCatalogSync(provider);
+    const product = await payable.products().create({ name: 'No remote side effect' });
+    const price = await payable.prices().create({
+      productId: product.id,
+      unitAmount: Money.of(1000, 'EUR'),
+      type: 'one_time',
+    });
+
+    await expect(
+      payable.catalogSync('stripe-primary').requestPrice(price.id),
+    ).resolves.toMatchObject({
+      status: 'skipped',
+      reconciliationState: 'unsupported',
+    });
+    expect(provider.productCreates).toBe(0);
+    expect(provider.priceCreates).toBe(0);
   });
 
   it('does not infer an unsupported update from create support', async () => {
@@ -176,6 +199,23 @@ describe('catalog synchronization', () => {
       expect.objectContaining({ active: false }),
       expect.objectContaining({ active: true }),
     ]);
+  });
+
+  it('uses product lifecycle support without requiring price lifecycle support', async () => {
+    const provider = new SynchronizingProvider();
+    Object.defineProperty(provider, 'setPriceActive', { value: undefined });
+    const { clock, payable } = await setupCatalogSync(provider);
+    const product = await payable.products().create({ name: 'Product-only lifecycle' });
+    const synchronization = payable.catalogSync('stripe-primary');
+    await synchronization.requestProduct(product.id);
+    clock.advance(1_000);
+    await payable.products().archive(product.id);
+
+    await expect(synchronization.requestProduct(product.id)).resolves.toMatchObject({
+      operation: 'archive',
+      status: 'succeeded',
+    });
+    expect(provider.productActiveCalls).toHaveLength(1);
   });
 
   it('resolves price lifecycle capabilities independently', async () => {

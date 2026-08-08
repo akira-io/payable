@@ -1,4 +1,4 @@
-import { Queue } from 'bullmq';
+import { Job, Queue } from 'bullmq';
 import { describe, expect, it } from 'vitest';
 import { BullMQQueueDriver } from '../src/infrastructure/queue/bullmq/bullmq-queue-driver';
 
@@ -40,6 +40,19 @@ function fakeBullmq() {
 }
 
 describe('BullMQ dead-letter naming', () => {
+  it('accepts the catalog synchronization queue-safe job id', () => {
+    class ValidatingJob extends Job {
+      validate(): void {
+        this.validateOptions({ data: '{}' } as ReturnType<Job['asJSON']>);
+      }
+    }
+    const jobId = `catalog-sync-${'a'.repeat(64)}`;
+    const job = Object.create(ValidatingJob.prototype) as ValidatingJob;
+    Object.assign(job, { name: 'catalog.synchronize', opts: { jobId } });
+
+    expect(() => job.validate()).not.toThrow();
+  });
+
   it('rejects a colon suffix before any worker starts', () => {
     expect(() => new BullMQQueueDriver({ connection, deadLetterSuffix: ':dead' })).toThrow(
       expect.objectContaining({ code: 'QUEUE_DEAD_LETTER_SUFFIX_INVALID' }),

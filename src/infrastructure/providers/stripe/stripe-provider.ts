@@ -1,8 +1,6 @@
 import type Stripe from 'stripe';
 import type { Logger } from '../../../domain/contracts/logger.contract';
 import type {
-  CatalogLifecycleCapable,
-  CatalogReadCapable,
   ChargeCapable,
   DirectSubscriptionCapable,
   DisputeCapable,
@@ -56,6 +54,7 @@ import type {
   UpdateSubscriptionInput,
 } from '../../../domain/dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/dtos/webhook.dto';
+import { STRIPE_CATALOG_SYNC_SEMANTICS } from '../catalog-sync-semantics';
 import { STRIPE_API_VERSION } from './stripe-api-version';
 import { StripeBillingPortal } from './stripe-billing-portal';
 import { stripeCapabilities } from './stripe-capabilities';
@@ -95,11 +94,10 @@ export class StripeProvider
     PayoutCapable,
     ProviderWebhookEndpointManagementCapable,
     SubscriptionOperationCapabilitiesProvider,
-    SubscriptionPaymentCollectionCapable,
-    CatalogReadCapable,
-    CatalogLifecycleCapable
+    SubscriptionPaymentCollectionCapable
 {
   readonly name = 'stripe';
+  readonly catalogSyncSemantics = STRIPE_CATALOG_SYNC_SEMANTICS;
   private client?: Stripe;
   private readonly webhooks: StripeWebhooks;
   private readonly subscriptions = new StripeSubscriptions(() => this.stripe());

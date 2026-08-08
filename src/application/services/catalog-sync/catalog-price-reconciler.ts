@@ -35,7 +35,12 @@ export class CatalogPriceReconciler {
       this.dependencies.providerName,
       tenantId,
     );
-    if (!binding || !synchronization) {
+    const productBinding = await storage.productProviderBindings?.findByProductAndProvider(
+      price.productId,
+      this.dependencies.providerName,
+      tenantId,
+    );
+    if (!binding || !productBinding || !synchronization) {
       throw new PayableError('Catalog synchronization binding is required for reconciliation', {
         code: 'CATALOG_SYNC_BINDING_REQUIRED',
         context: { resourceType: 'price', resourceId: price.id },
@@ -59,7 +64,14 @@ export class CatalogPriceReconciler {
         synchronization,
         {
           status: 'reconciled',
-          reconciliationState: priceMatches(price, remote) ? 'in_sync' : 'stale_local',
+          reconciliationState: priceMatches(
+            price,
+            remote,
+            productBinding.providerProductId,
+            provider.capabilities().has('priceLookupKeys'),
+          )
+            ? 'in_sync'
+            : 'stale_local',
           providerResourceVersion: remote.providerVersion ?? null,
           lastErrorCode: null,
           lastAttemptedAt: this.dependencies.clock.now(),
@@ -94,13 +106,25 @@ export class CatalogPriceReconciler {
       if (!repository) {
         throw this.storageError();
       }
-      const updated = await repository.update(
+      const updated = await repository.updateIfCurrent(
         synchronization.resourceType,
         synchronization.resourceId,
         synchronization.provider,
+        synchronization.canonicalVersion,
+        synchronization.idempotencyKey,
         patch,
         synchronization.tenantId,
       );
+      if (!updated) {
+        return (
+          (await repository.findByResource(
+            synchronization.resourceType,
+            synchronization.resourceId,
+            synchronization.provider,
+            synchronization.tenantId,
+          )) ?? synchronization
+        );
+      }
       await recordCatalogSyncTransition(repositories, updated, correlationId, { source });
       return updated;
     });
@@ -131,6 +155,7 @@ export class CatalogPriceReconciler {
 function priceMatches(
   local: CanonicalPrice,
   remote: {
+    providerProductId: string;
     unitAmount: { amount(): number; currency(): string };
     interval: string | null;
     intervalCount: number | null;
@@ -138,14 +163,17 @@ function priceMatches(
     active: boolean;
     lookupKey: string | null;
   },
+  providerProductId: string,
+  compareLookupKey: boolean,
 ): boolean {
   return (
+    providerProductId === remote.providerProductId &&
     local.unitAmount === remote.unitAmount.amount() &&
     local.currency === remote.unitAmount.currency() &&
     local.interval === remote.interval &&
     local.intervalCount === remote.intervalCount &&
     local.description === remote.description &&
     local.active === remote.active &&
-    local.lookupKey === remote.lookupKey
+    (!compareLookupKey || local.lookupKey === remote.lookupKey)
   );
 }

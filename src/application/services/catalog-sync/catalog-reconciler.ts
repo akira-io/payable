@@ -107,13 +107,25 @@ export class CatalogReconciler {
       if (!repository) {
         throw this.storageError();
       }
-      const updated = await repository.update(
+      const updated = await repository.updateIfCurrent(
         synchronization.resourceType,
         synchronization.resourceId,
         synchronization.provider,
+        synchronization.canonicalVersion,
+        synchronization.idempotencyKey,
         patch,
         synchronization.tenantId,
       );
+      if (!updated) {
+        return (
+          (await repository.findByResource(
+            synchronization.resourceType,
+            synchronization.resourceId,
+            synchronization.provider,
+            synchronization.tenantId,
+          )) ?? synchronization
+        );
+      }
       await recordCatalogSyncTransition(repositories, updated, correlationId, { source });
       return updated;
     });
@@ -154,6 +166,14 @@ function productMatches(
     local.name === remote.name &&
     local.description === remote.description &&
     local.active === remote.active &&
-    JSON.stringify(local.metadata) === JSON.stringify(remote.metadata)
+    stableMetadata(local.metadata) === stableMetadata(remote.metadata)
+  );
+}
+
+function stableMetadata(metadata: Record<string, string> | null): string {
+  return JSON.stringify(
+    metadata === null
+      ? null
+      : Object.fromEntries(Object.entries(metadata).sort(([a], [b]) => a.localeCompare(b))),
   );
 }

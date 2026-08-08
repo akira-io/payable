@@ -10,7 +10,7 @@ import {
   type ProcessCatalogSyncJobPayload,
 } from '../../actions/catalog-sync/process-catalog-sync.action';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
-import { deriveCatalogSyncKey } from './catalog-sync-idempotency-key';
+import { deriveCatalogSyncKey, deriveCatalogSyncQueueJobId } from './catalog-sync-idempotency-key';
 import { recordCatalogSyncTransition } from './catalog-sync-transitions';
 
 export class CatalogSyncRequester {
@@ -102,9 +102,15 @@ export class CatalogSyncRequester {
       operation: input.operation,
       canonicalVersion: input.canonicalVersion,
     });
+    if (input.existing?.reconciliationState === 'required') {
+      throw new PayableError('Catalog synchronization requires reconciliation before retrying', {
+        code: 'CATALOG_SYNC_RECONCILIATION_REQUIRED',
+        context: { resourceType: input.resourceType, resourceId: input.resourceId },
+      });
+    }
     if (
-      input.existing?.status === 'succeeded' &&
-      input.existing.idempotencyKey === idempotencyKey
+      input.existing?.idempotencyKey === idempotencyKey &&
+      ['requested', 'processing', 'retrying', 'succeeded'].includes(input.existing.status)
     ) {
       return input.existing;
     }
@@ -140,12 +146,14 @@ export class CatalogSyncRequester {
       resourceType: input.resourceType,
       resourceId: input.resourceId,
       correlationId,
+      canonicalVersion: input.canonicalVersion,
+      idempotencyKey,
     };
     await this.queue.dispatch({
       name: PROCESS_CATALOG_SYNC_JOB,
       payload,
       correlationId,
-      idempotencyKey,
+      idempotencyKey: deriveCatalogSyncQueueJobId(idempotencyKey),
     });
     if (!this.queue.inline) {
       return requested;

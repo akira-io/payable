@@ -1,6 +1,7 @@
 import {
-  isCatalogLifecycleCapable,
+  catalogSyncSemantics,
   isCatalogPriceCreateCapable,
+  isCatalogPriceLifecycleCapable,
   isCatalogPriceUpdateCapable,
 } from '../../../domain/contracts/catalog-provider.contract';
 import type { CatalogSynchronizationPatch } from '../../../domain/contracts/catalog-synchronization-repository.contract';
@@ -28,6 +29,45 @@ export class CatalogPriceSynchronizer {
         context: { priceId: payload.resourceId },
       });
     }
+    const synchronization = await this.repository().findByResource(
+      'price',
+      price.id,
+      payload.providerName,
+      payload.tenantId,
+    );
+    if (
+      !synchronization ||
+      synchronization.status === 'succeeded' ||
+      synchronization.canonicalVersion !== payload.canonicalVersion ||
+      synchronization.idempotencyKey !== payload.idempotencyKey ||
+      price.updatedAt.toISOString() !== payload.canonicalVersion
+    ) {
+      return;
+    }
+    if (synchronization.reconciliationState === 'required') {
+      throw new PayableError('Catalog synchronization requires reconciliation before retrying', {
+        code: 'CATALOG_SYNC_RECONCILIATION_REQUIRED',
+        context: { resourceType: 'price', resourceId: price.id },
+      });
+    }
+    const claimed = await this.repository().claimGeneration(
+      'price',
+      price.id,
+      payload.providerName,
+      payload.canonicalVersion,
+      payload.idempotencyKey,
+      payload.tenantId,
+      this.dependencies.clock.now(),
+    );
+    if (!claimed) return;
+    if (!this.supportsOperation(claimed, price)) {
+      await this.transition(claimed, payload.correlationId, {
+        status: 'skipped',
+        reconciliationState: 'unsupported',
+        lastErrorCode: 'CATALOG_SYNC_OPERATION_UNSUPPORTED',
+      });
+      return;
+    }
     const product = await storage.canonicalProducts?.findById(price.productId, payload.tenantId);
     if (!product) {
       throw new PayableError(`Product not found: ${price.productId}`, {
@@ -39,17 +79,8 @@ export class CatalogPriceSynchronizer {
       product,
       payload,
     );
-    const synchronization = await this.repository().findByResource(
-      'price',
-      price.id,
-      payload.providerName,
-      payload.tenantId,
-    );
-    if (!synchronization || synchronization.status === 'succeeded') {
-      return;
-    }
     if (!productBinding) {
-      await this.transition(synchronization, payload.correlationId, {
+      await this.transition(claimed, payload.correlationId, {
         status: 'skipped',
         reconciliationState: 'unsupported',
         lastErrorCode: 'CATALOG_SYNC_PARENT_UNAVAILABLE',
@@ -57,50 +88,51 @@ export class CatalogPriceSynchronizer {
       return;
     }
     const provider = this.dependencies.provider;
-    if (!this.supportsOperation(synchronization)) {
-      await this.transition(synchronization, payload.correlationId, {
-        status: 'skipped',
-        reconciliationState: 'unsupported',
-        lastErrorCode: 'CATALOG_SYNC_OPERATION_UNSUPPORTED',
-      });
-      return;
-    }
     const committer = new CatalogSyncCommitter(this.dependencies);
-    if (await committer.recoverPrice(synchronization, payload.correlationId)) {
+    if (await committer.recoverPrice(claimed, payload.correlationId)) {
       return;
     }
-
-    await this.repository().update(
-      'price',
-      price.id,
-      payload.providerName,
-      { lastAttemptedAt: this.dependencies.clock.now() },
-      payload.tenantId,
-    );
     try {
-      const remote = await this.mutate(synchronization, price, productBinding.providerProductId, {
+      const remote = await this.mutate(claimed, price, productBinding.providerProductId, {
         correlationId: payload.correlationId,
         tenantId: payload.tenantId,
-        idempotencyKey: synchronization.idempotencyKey,
+        idempotencyKey: claimed.idempotencyKey,
       });
       try {
-        await committer.price(synchronization, remote, payload.correlationId);
+        await committer.price(claimed, remote, payload.correlationId);
       } catch (error) {
         await committer
           .rememberRemote(
-            synchronization,
+            claimed,
             remote.providerPriceId,
             remote.providerVersion,
             payload.correlationId,
           )
           .catch(() => {});
+        await committer
+          .recordOrphan(
+            claimed,
+            remote.providerPriceId,
+            remote.providerVersion,
+            payload.correlationId,
+          )
+          .catch(() => {});
+        if (error instanceof PayableError && error.code === 'CATALOG_SYNC_STALE_GENERATION') {
+          return;
+        }
         throw new PayableError('Provider price succeeded but local persistence failed', {
           code: 'CATALOG_SYNC_LOCAL_PERSISTENCE_FAILED',
           cause: error,
+          context: {
+            providerResourceId: remote.providerPriceId,
+            providerResourceVersion: remote.providerVersion ?? null,
+            canonicalVersion: claimed.canonicalVersion,
+            idempotencyKey: claimed.idempotencyKey,
+          },
         });
       }
     } catch (error) {
-      await this.transition(synchronization, payload.correlationId, {
+      await this.transition(claimed, payload.correlationId, {
         status: 'failed',
         reconciliationState: provider.capabilities().has('catalogIdempotency')
           ? 'pending'
@@ -111,19 +143,27 @@ export class CatalogPriceSynchronizer {
     }
   }
 
-  private supportsOperation(synchronization: CatalogSynchronization): boolean {
+  private supportsOperation(
+    synchronization: CatalogSynchronization,
+    price: CanonicalPrice,
+  ): boolean {
     const provider = this.dependencies.provider;
     const capabilities = provider.capabilities();
     if (synchronization.operation === 'create') {
       return capabilities.has('catalogPriceCreate') && isCatalogPriceCreateCapable(provider);
     }
     if (synchronization.operation === 'update') {
-      return capabilities.has('catalogPriceUpdate') && isCatalogPriceUpdateCapable(provider);
+      return (
+        (price.description !== null ||
+          catalogSyncSemantics(provider)?.clearPriceDescription !== false) &&
+        capabilities.has('catalogPriceUpdate') &&
+        isCatalogPriceUpdateCapable(provider)
+      );
     }
     if (synchronization.operation === 'archive') {
-      return capabilities.has('catalogPriceArchive') && isCatalogLifecycleCapable(provider);
+      return capabilities.has('catalogPriceArchive') && isCatalogPriceLifecycleCapable(provider);
     }
-    return capabilities.has('catalogPriceReactivate') && isCatalogLifecycleCapable(provider);
+    return capabilities.has('catalogPriceReactivate') && isCatalogPriceLifecycleCapable(provider);
   }
 
   private mutate(
@@ -155,10 +195,10 @@ export class CatalogPriceSynchronizer {
         context,
       );
     }
-    if (synchronization.operation === 'archive' && isCatalogLifecycleCapable(provider)) {
+    if (synchronization.operation === 'archive' && isCatalogPriceLifecycleCapable(provider)) {
       return provider.setPriceActive(this.providerResourceId(synchronization), false, context);
     }
-    if (isCatalogLifecycleCapable(provider)) {
+    if (isCatalogPriceLifecycleCapable(provider)) {
       return provider.setPriceActive(this.providerResourceId(synchronization), true, context);
     }
     throw new PayableError('Catalog price synchronization operation is unsupported', {
@@ -185,14 +225,16 @@ export class CatalogPriceSynchronizer {
       if (!repository) {
         throw this.storageError();
       }
-      const updated = await repository.update(
+      const updated = await repository.updateIfCurrent(
         synchronization.resourceType,
         synchronization.resourceId,
         synchronization.provider,
+        synchronization.canonicalVersion,
+        synchronization.idempotencyKey,
         patch,
         synchronization.tenantId,
       );
-      await recordCatalogSyncTransition(repositories, updated, correlationId);
+      if (updated) await recordCatalogSyncTransition(repositories, updated, correlationId);
     });
   }
 

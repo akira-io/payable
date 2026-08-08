@@ -10,6 +10,7 @@ import {
   type ProcessCatalogSyncJobPayload,
 } from '../../actions/catalog-sync/process-catalog-sync.action';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
+import { deriveCatalogSyncQueueJobId } from './catalog-sync-idempotency-key';
 import { recordCatalogSyncTransition } from './catalog-sync-transitions';
 
 export class CatalogSyncRetrier {
@@ -80,12 +81,14 @@ export class CatalogSyncRetrier {
       resourceType,
       resourceId,
       correlationId,
+      canonicalVersion: retrying.canonicalVersion,
+      idempotencyKey: retrying.idempotencyKey,
     };
     await this.queue.dispatch({
       name: PROCESS_CATALOG_SYNC_JOB,
       payload,
       correlationId,
-      idempotencyKey: existing.idempotencyKey,
+      idempotencyKey: deriveCatalogSyncQueueJobId(existing.idempotencyKey),
     });
     if (!this.queue.inline) {
       return retrying;

@@ -1,6 +1,7 @@
 import {
-  isCatalogLifecycleCapable,
+  catalogSyncSemantics,
   isCatalogProductCreateCapable,
+  isCatalogProductLifecycleCapable,
   isCatalogProductUpdateCapable,
 } from '../../../domain/contracts/catalog-provider.contract';
 import type { CatalogSynchronizationPatch } from '../../../domain/contracts/catalog-synchronization-repository.contract';
@@ -25,7 +26,12 @@ export class CatalogProductSynchronizer {
       payload.providerName,
       payload.tenantId,
     );
-    if (!synchronization || synchronization.status === 'succeeded') {
+    if (
+      !synchronization ||
+      synchronization.status === 'succeeded' ||
+      synchronization.canonicalVersion !== payload.canonicalVersion ||
+      synchronization.idempotencyKey !== payload.idempotencyKey
+    ) {
       return;
     }
     const product = await storage.canonicalProducts?.findById(payload.resourceId, payload.tenantId);
@@ -35,8 +41,29 @@ export class CatalogProductSynchronizer {
         context: { productId: payload.resourceId },
       });
     }
-    if (!this.supportsOperation(synchronization)) {
-      await this.transition(synchronization, payload.correlationId, {
+    if (product.updatedAt.toISOString() !== payload.canonicalVersion) {
+      return;
+    }
+    if (synchronization.reconciliationState === 'required') {
+      throw new PayableError('Catalog synchronization requires reconciliation before retrying', {
+        code: 'CATALOG_SYNC_RECONCILIATION_REQUIRED',
+        context: { resourceType: 'product', resourceId: product.id },
+      });
+    }
+    const claimed = await this.repository().claimGeneration(
+      'product',
+      product.id,
+      payload.providerName,
+      payload.canonicalVersion,
+      payload.idempotencyKey,
+      payload.tenantId,
+      this.dependencies.clock.now(),
+    );
+    if (!claimed) {
+      return;
+    }
+    if (!this.supportsOperation(claimed, product)) {
+      await this.transition(claimed, payload.correlationId, {
         status: 'skipped',
         reconciliationState: 'unsupported',
         lastErrorCode: 'CATALOG_SYNC_OPERATION_UNSUPPORTED',
@@ -44,50 +71,64 @@ export class CatalogProductSynchronizer {
       return;
     }
     const committer = new CatalogSyncCommitter(this.dependencies);
-    if (await committer.recoverProduct(synchronization, payload.correlationId)) {
+    if (await committer.recoverProduct(claimed, payload.correlationId)) {
       return;
     }
 
-    await this.repository().update(
-      'product',
-      product.id,
-      payload.providerName,
-      { lastAttemptedAt: this.dependencies.clock.now() },
-      payload.tenantId,
-    );
-
     try {
-      const remote = await this.mutate(synchronization, product, {
+      const remote = await this.mutate(claimed, product, {
         correlationId: payload.correlationId,
         tenantId: payload.tenantId,
-        idempotencyKey: synchronization.idempotencyKey,
+        idempotencyKey: claimed.idempotencyKey,
       });
       try {
-        await committer.product(synchronization, remote, payload.correlationId);
+        await committer.product(claimed, remote, payload.correlationId);
       } catch (error) {
         await committer
           .rememberRemote(
-            synchronization,
+            claimed,
             remote.providerProductId,
             remote.providerVersion,
             payload.correlationId,
           )
           .catch(() => {});
+        await committer
+          .recordOrphan(
+            claimed,
+            remote.providerProductId,
+            remote.providerVersion,
+            payload.correlationId,
+          )
+          .catch(() => {});
+        if (error instanceof PayableError && error.code === 'CATALOG_SYNC_STALE_GENERATION') {
+          return;
+        }
         throw new PayableError('Provider product succeeded but local persistence failed', {
           code: 'CATALOG_SYNC_LOCAL_PERSISTENCE_FAILED',
           cause: error,
+          context: {
+            providerResourceId: remote.providerProductId,
+            providerResourceVersion: remote.providerVersion ?? null,
+            canonicalVersion: claimed.canonicalVersion,
+            idempotencyKey: claimed.idempotencyKey,
+          },
         });
       }
     } catch (error) {
-      await this.fail(synchronization, payload.correlationId, error);
+      await this.fail(claimed, payload.correlationId, error);
       throw error;
     }
   }
 
-  private supportsOperation(synchronization: CatalogSynchronization): boolean {
+  private supportsOperation(
+    synchronization: CatalogSynchronization,
+    product: CanonicalProduct,
+  ): boolean {
     const capabilities = this.dependencies.provider.capabilities();
+    const semantics = catalogSyncSemantics(this.dependencies.provider);
     if (synchronization.operation === 'create') {
       return (
+        (product.active || semantics?.inactiveProductCreate !== false) &&
         capabilities.has('catalogProductCreate') &&
         isCatalogProductCreateCapable(this.dependencies.provider)
       );
@@ -95,16 +136,18 @@ export class CatalogProductSynchronizer {
     if (synchronization.operation === 'archive') {
       return (
         capabilities.has('catalogProductArchive') &&
-        isCatalogLifecycleCapable(this.dependencies.provider)
+        isCatalogProductLifecycleCapable(this.dependencies.provider)
       );
     }
     if (synchronization.operation === 'reactivate') {
       return (
         capabilities.has('catalogProductReactivate') &&
-        isCatalogLifecycleCapable(this.dependencies.provider)
+        isCatalogProductLifecycleCapable(this.dependencies.provider)
       );
     }
     return (
+      (product.description !== null || semantics?.clearProductDescription !== false) &&
+      (product.metadata !== null || semantics?.clearProductMetadata !== false) &&
       capabilities.has('catalogProductUpdate') &&
       isCatalogProductUpdateCapable(this.dependencies.provider)
     );
@@ -116,10 +159,10 @@ export class CatalogProductSynchronizer {
     context: OperationContext,
   ): Promise<ProductDTO> {
     const provider = this.dependencies.provider;
-    if (synchronization.operation === 'archive' && isCatalogLifecycleCapable(provider)) {
+    if (synchronization.operation === 'archive' && isCatalogProductLifecycleCapable(provider)) {
       return provider.setProductActive(this.providerResourceId(synchronization), false, context);
     }
-    if (synchronization.operation === 'reactivate' && isCatalogLifecycleCapable(provider)) {
+    if (synchronization.operation === 'reactivate' && isCatalogProductLifecycleCapable(provider)) {
       return provider.setProductActive(this.providerResourceId(synchronization), true, context);
     }
     if (synchronization.operation === 'create' && isCatalogProductCreateCapable(provider)) {
@@ -138,7 +181,8 @@ export class CatalogProductSynchronizer {
         {
           providerProductId: this.providerResourceId(synchronization),
           name: product.name,
-          description: product.description ?? undefined,
+          description: product.description,
+          metadata: product.metadata,
           active: product.active,
         },
         context,
@@ -173,14 +217,16 @@ export class CatalogProductSynchronizer {
       if (!repository) {
         throw this.storageError();
       }
-      const updated = await repository.update(
+      const updated = await repository.updateIfCurrent(
         synchronization.resourceType,
         synchronization.resourceId,
         synchronization.provider,
+        synchronization.canonicalVersion,
+        synchronization.idempotencyKey,
         patch,
         synchronization.tenantId,
       );
-      await recordCatalogSyncTransition(repositories, updated, correlationId);
+      if (updated) await recordCatalogSyncTransition(repositories, updated, correlationId);
     });
   }
 

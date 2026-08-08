@@ -4,6 +4,7 @@ export type CatalogSynchronizationResourceType = 'product' | 'price';
 export type CatalogSynchronizationOperation = 'create' | 'update' | 'archive' | 'reactivate';
 export type CatalogSynchronizationStatus =
   | 'requested'
+  | 'processing'
   | 'succeeded'
   | 'skipped'
   | 'failed'

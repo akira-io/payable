@@ -5,6 +5,7 @@ import {
   closeCatalogSyncDatabases,
   FlakyPriceProvider,
   FlakySynchronizingProvider,
+  NonIdempotentFlakyPriceProvider,
   NonIdempotentFlakyProvider,
   setupCatalogSync,
 } from './support/catalog-sync-fixture';
@@ -76,7 +77,55 @@ describe('catalog synchronization recovery', () => {
     await expect(synchronization.retryProduct(product.id)).rejects.toMatchObject({
       code: 'CATALOG_SYNC_RECONCILIATION_REQUIRED',
     });
+    await expect(synchronization.requestProduct(product.id)).rejects.toMatchObject({
+      code: 'CATALOG_SYNC_RECONCILIATION_REQUIRED',
+    });
     expect(provider.productCreates).toBe(1);
+  });
+
+  it('requires reconciliation before repeating an ambiguous price request', async () => {
+    const provider = new NonIdempotentFlakyPriceProvider();
+    const { payable } = await setupCatalogSync(provider);
+    const product = await payable.products().create({ name: 'Parent' });
+    const price = await payable.prices().create({
+      productId: product.id,
+      unitAmount: Money.of(1000, 'EUR'),
+      type: 'one_time',
+    });
+    const synchronization = payable.catalogSync('stripe-primary');
+
+    await expect(synchronization.requestPrice(price.id)).rejects.toMatchObject({
+      code: 'PROVIDER_UNAVAILABLE',
+    });
+    await expect(synchronization.requestPrice(price.id)).rejects.toMatchObject({
+      code: 'CATALOG_SYNC_RECONCILIATION_REQUIRED',
+    });
+    expect(provider.priceCreates).toBe(1);
+  });
+
+  it('preserves confirmed remote evidence when every local recovery write fails', async () => {
+    const { payable, storage } = await setupCatalogSync();
+    const product = await payable.products().create({ name: 'Evidence' });
+    const originalTransaction = storage.transaction.bind(storage);
+    let transactionCount = 0;
+    storage.transaction = async (work) => {
+      transactionCount += 1;
+      if (transactionCount >= 2 && transactionCount <= 4) {
+        throw new Error('simulated persistence outage');
+      }
+      return originalTransaction(work);
+    };
+
+    await expect(
+      payable.catalogSync('stripe-primary').requestProduct(product.id),
+    ).rejects.toMatchObject({
+      code: 'CATALOG_SYNC_LOCAL_PERSISTENCE_FAILED',
+      context: {
+        providerResourceId: 'prod_1',
+        providerResourceVersion: null,
+        canonicalVersion: product.updatedAt.toISOString(),
+      },
+    });
   });
 
   it('recovers a local commit failure without another provider call', async () => {

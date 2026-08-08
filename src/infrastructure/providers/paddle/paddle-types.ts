@@ -107,6 +107,7 @@ export interface PaddleClient {
       body: {
         name?: string;
         description?: string;
+        customData?: Record<string, string> | null;
         status?: string;
       },
     ): Promise<PaddleProductEntity>;

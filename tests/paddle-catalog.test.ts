@@ -203,7 +203,7 @@ describe('Paddle catalog', () => {
     expect(update).not.toHaveBeenCalled();
   });
 
-  it('archives products created with active false', async () => {
+  it('rejects inactive product creation before a remote side effect', async () => {
     const create = vi.fn().mockResolvedValue({ id: 'pro_1', name: 'Pro', status: 'active' });
     const update = vi.fn().mockResolvedValue({ id: 'pro_1', name: 'Pro', status: 'archived' });
     const paddle = new PaddleProvider({ apiKey: 'pdl_test', webhookSecret: 'wh_test' }, {
@@ -212,18 +212,15 @@ describe('Paddle catalog', () => {
 
     await expect(
       paddle.createProduct({ name: 'Pro', active: false }, operationContext),
-    ).resolves.toMatchObject({ active: false });
-
-    expect(create).toHaveBeenCalledWith({
-      name: 'Pro',
-      taxCategory: 'standard',
-      description: undefined,
-      customData: undefined,
+    ).rejects.toMatchObject({
+      code: 'CATALOG_INACTIVE_CREATE_UNSUPPORTED',
     });
-    expect(update).toHaveBeenCalledWith('pro_1', { status: 'archived' });
+
+    expect(create).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
   });
 
-  it('propagates normalized errors when product archiving fails after creation', async () => {
+  it('never loses a Paddle product id in a second inactive-create mutation', async () => {
     const create = vi.fn().mockResolvedValue({ id: 'pro_1', name: 'Pro', status: 'active' });
     const update = vi.fn().mockRejectedValue({ code: 'not_found', detail: 'missing' });
     const paddle = new PaddleProvider({ apiKey: 'pdl_test', webhookSecret: 'wh_test' }, {
@@ -232,10 +229,12 @@ describe('Paddle catalog', () => {
 
     await expect(
       paddle.createProduct({ name: 'Pro', active: false }, operationContext),
-    ).rejects.toMatchObject({ code: 'PRODUCT_NOT_FOUND' });
+    ).rejects.toMatchObject({
+      code: 'CATALOG_INACTIVE_CREATE_UNSUPPORTED',
+    });
 
-    expect(create).toHaveBeenCalledOnce();
-    expect(update).toHaveBeenCalledWith('pro_1', { status: 'archived' });
+    expect(create).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
   });
 
   it('uses entity-specific not-found errors except for catalog lists', async () => {

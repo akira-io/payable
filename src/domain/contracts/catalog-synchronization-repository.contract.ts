@@ -30,4 +30,22 @@ export interface CatalogSynchronizationRepository {
     provider: string,
     tenantId: string | null,
   ): Promise<CatalogSynchronization | null>;
+  claimGeneration(
+    resourceType: CatalogSynchronizationResourceType,
+    resourceId: string,
+    provider: string,
+    canonicalVersion: string,
+    idempotencyKey: string,
+    tenantId: string | null,
+    attemptedAt: Date,
+  ): Promise<CatalogSynchronization | null>;
+  updateIfCurrent(
+    resourceType: CatalogSynchronizationResourceType,
+    resourceId: string,
+    provider: string,
+    canonicalVersion: string,
+    idempotencyKey: string,
+    patch: CatalogSynchronizationPatch,
+    tenantId: string | null,
+  ): Promise<CatalogSynchronization | null>;
 }

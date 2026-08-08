@@ -95,6 +95,74 @@ export class KnexCatalogSynchronizationRepository implements CatalogSynchronizat
     return row ? this.toEntity(row as Record<string, unknown>) : null;
   }
 
+  async claimGeneration(
+    resourceType: CatalogSynchronizationResourceType,
+    resourceId: string,
+    provider: string,
+    canonicalVersion: string,
+    idempotencyKey: string,
+    tenantId: string | null,
+    attemptedAt: Date,
+  ): Promise<CatalogSynchronization | null> {
+    return this.compareAndSet(
+      resourceType,
+      resourceId,
+      provider,
+      canonicalVersion,
+      idempotencyKey,
+      { status: 'processing', lastAttemptedAt: attemptedAt },
+      tenantId,
+      ['requested', 'retrying'],
+    );
+  }
+
+  async updateIfCurrent(
+    resourceType: CatalogSynchronizationResourceType,
+    resourceId: string,
+    provider: string,
+    canonicalVersion: string,
+    idempotencyKey: string,
+    patch: CatalogSynchronizationPatch,
+    tenantId: string | null,
+  ): Promise<CatalogSynchronization | null> {
+    return this.compareAndSet(
+      resourceType,
+      resourceId,
+      provider,
+      canonicalVersion,
+      idempotencyKey,
+      patch,
+      tenantId,
+    );
+  }
+
+  private async compareAndSet(
+    resourceType: CatalogSynchronizationResourceType,
+    resourceId: string,
+    provider: string,
+    canonicalVersion: string,
+    idempotencyKey: string,
+    patch: CatalogSynchronizationPatch,
+    tenantId: string | null,
+    statuses?: string[],
+  ): Promise<CatalogSynchronization | null> {
+    assertCatalogTenantId(tenantId);
+    const query = this.knex(TABLE).where({
+      tenant_key: tenantId ?? '',
+      provider,
+      resource_type: resourceType,
+      resource_id: resourceId,
+      canonical_version: canonicalVersion,
+      idempotency_key: idempotencyKey,
+    });
+    if (statuses) query.whereIn('status', statuses);
+    const count = await query.update({
+      ...this.toPatch(patch),
+      updated_at: this.clock.now().toISOString(),
+    });
+    return count === 0 ? null : this.findByResource(resourceType, resourceId, provider, tenantId);
+  }
+
   private toRow(data: NewCatalogSynchronization): Record<string, unknown> {
     return {
       tenant_id: data.tenantId,

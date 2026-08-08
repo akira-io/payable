@@ -72,6 +72,13 @@ export class CatalogSyncCommitter {
       if (!bindings || !synchronizations) {
         throw this.storageError();
       }
+      await this.succeed(
+        repositories,
+        synchronization,
+        remote.providerProductId,
+        remote.providerVersion,
+        correlationId,
+      );
       const binding = await bindings.findByProductAndProvider(
         synchronization.resourceId,
         synchronization.provider,
@@ -91,13 +98,6 @@ export class CatalogSyncCommitter {
         }
         await bindings.updateProviderId(binding.id, remote.providerProductId);
       }
-      await this.succeed(
-        repositories,
-        synchronization,
-        remote.providerProductId,
-        remote.providerVersion,
-        correlationId,
-      );
     });
   }
 
@@ -112,6 +112,13 @@ export class CatalogSyncCommitter {
       if (!bindings || !synchronizations) {
         throw this.storageError();
       }
+      await this.succeed(
+        repositories,
+        synchronization,
+        remote.providerPriceId,
+        remote.providerVersion,
+        correlationId,
+      );
       const binding = await bindings.findByPriceAndProvider(
         synchronization.resourceId,
         synchronization.provider,
@@ -131,13 +138,6 @@ export class CatalogSyncCommitter {
         }
         await bindings.updateProviderId(binding.id, remote.providerPriceId);
       }
-      await this.succeed(
-        repositories,
-        synchronization,
-        remote.providerPriceId,
-        remote.providerVersion,
-        correlationId,
-      );
     });
   }
 
@@ -152,10 +152,12 @@ export class CatalogSyncCommitter {
       if (!repository) {
         throw this.storageError();
       }
-      const updated = await repository.update(
+      const updated = await repository.updateIfCurrent(
         synchronization.resourceType,
         synchronization.resourceId,
         synchronization.provider,
+        synchronization.canonicalVersion,
+        synchronization.idempotencyKey,
         {
           status: 'failed',
           reconciliationState: this.dependencies.provider.capabilities().has('catalogIdempotency')
@@ -167,7 +169,33 @@ export class CatalogSyncCommitter {
         },
         synchronization.tenantId,
       );
-      await recordCatalogSyncTransition(repositories, updated, correlationId);
+      if (updated) await recordCatalogSyncTransition(repositories, updated, correlationId);
+    });
+  }
+
+  async recordOrphan(
+    synchronization: CatalogSynchronization,
+    providerResourceId: string,
+    providerResourceVersion: string | null | undefined,
+    correlationId: string,
+  ): Promise<void> {
+    await this.storage().transaction(async (repositories) => {
+      await repositories.outboxEvents.create({
+        tenantId: synchronization.tenantId,
+        correlationId,
+        eventType: 'catalog.synchronization.orphaned.v1',
+        eventVersion: 1,
+        payload: {
+          provider: synchronization.provider,
+          resourceType: synchronization.resourceType,
+          resourceId: synchronization.resourceId,
+          canonicalVersion: synchronization.canonicalVersion,
+          idempotencyKey: synchronization.idempotencyKey,
+          providerResourceId,
+          providerResourceVersion: providerResourceVersion ?? null,
+        },
+        dedupeKey: `catalog-sync-orphan:${synchronization.idempotencyKey}:${providerResourceId}`,
+      });
     });
   }
 
@@ -182,10 +210,12 @@ export class CatalogSyncCommitter {
     if (!synchronizations) {
       throw this.storageError();
     }
-    const succeeded = await synchronizations.update(
+    const succeeded = await synchronizations.updateIfCurrent(
       synchronization.resourceType,
       synchronization.resourceId,
       synchronization.provider,
+      synchronization.canonicalVersion,
+      synchronization.idempotencyKey,
       {
         status: 'succeeded',
         reconciliationState: 'in_sync',
@@ -196,6 +226,11 @@ export class CatalogSyncCommitter {
       },
       synchronization.tenantId,
     );
+    if (!succeeded) {
+      throw new PayableError('Catalog synchronization generation was superseded', {
+        code: 'CATALOG_SYNC_STALE_GENERATION',
+      });
+    }
     await recordCatalogSyncTransition(repositories, succeeded, correlationId);
   }
 

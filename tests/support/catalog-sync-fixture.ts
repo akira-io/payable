@@ -179,6 +179,13 @@ export class FlakyPriceProvider extends SynchronizingProvider {
   }
 }
 
+export class NonIdempotentFlakyPriceProvider extends FlakyPriceProvider {
+  constructor() {
+    super();
+    this.supportedCapabilities.delete('catalogIdempotency');
+  }
+}
+
 const databases: ReturnType<typeof createTestDb>[] = [];
 
 export async function setupCatalogSync(

@@ -52,7 +52,12 @@ export class StripeCatalog {
       () =>
         stripe.products.update(
           input.providerProductId,
-          { name: input.name, description: input.description, active: input.active },
+          {
+            name: input.name,
+            description: input.description === null ? '' : input.description,
+            metadata: input.metadata === null ? '' : input.metadata,
+            active: input.active,
+          },
           { idempotencyKey: ctx.idempotencyKey },
         ),
       'stripe',
@@ -95,7 +100,7 @@ export class StripeCatalog {
       () =>
         stripe.prices.update(
           input.providerPriceId,
-          { nickname: input.description ?? undefined },
+          { nickname: input.description === null ? '' : input.description },
           { idempotencyKey: ctx.idempotencyKey },
         ),
       'stripe',

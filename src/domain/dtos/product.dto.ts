@@ -10,7 +10,8 @@ export interface CreateProductInput {
 export interface UpdateProductInput {
   providerProductId: string;
   name?: string;
-  description?: string;
+  description?: string | null;
+  metadata?: Metadata | null;
   active?: boolean;
 }
 

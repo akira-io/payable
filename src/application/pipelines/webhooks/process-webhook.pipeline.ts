@@ -10,6 +10,8 @@ import { WebhookProcessedEvent } from '../../../domain/events/webhook-processed.
 import { PaymentStateMachine } from '../../../domain/states/payment-state-machine';
 import { reconcileSubscriptionStatus } from '../../../domain/states/subscription-state-machine';
 import type { WebhookDependencies } from '../../builders/webhook-dependencies';
+import { CatalogPriceReconciler } from '../../services/catalog-sync/catalog-price-reconciler';
+import { CatalogReconciler } from '../../services/catalog-sync/catalog-reconciler';
 import { assertCapableProvider } from '../../services/provider-capabilities/assert-provider-capability';
 import { reconcileProviderSubscriptionItems } from '../../services/subscriptions/reconcile-provider-subscription-items';
 
@@ -29,6 +31,8 @@ export class ProcessWebhookPipeline {
     const processedAt = clock.now();
     const occurredAt = input.verified.occurredAt ?? processedAt;
     const tenantId = input.tenantId ?? null;
+
+    await this.reconcileCatalog(input.verified, tenantId);
 
     await storage.transaction(async (repos) => {
       await this.reconcile(repos, input.verified, occurredAt, tenantId);
@@ -90,6 +94,32 @@ export class ProcessWebhookPipeline {
         ),
       )
       .catch(() => {});
+  }
+
+  private async reconcileCatalog(
+    verified: VerifiedWebhook,
+    tenantId: string | null,
+  ): Promise<void> {
+    const providerResourceId = typeof verified.data.id === 'string' ? verified.data.id : null;
+    if (!providerResourceId) return;
+    const dependencies = { ...this.deps, tenantId };
+    if (CATALOG_PRODUCT_EVENTS.has(verified.type)) {
+      const binding = await this.deps.storage.productProviderBindings?.findByProviderId(
+        this.deps.providerName,
+        providerResourceId,
+        tenantId,
+      );
+      if (binding) await new CatalogReconciler(dependencies).product(binding.productId, 'webhook');
+      return;
+    }
+    if (CATALOG_PRICE_EVENTS.has(verified.type)) {
+      const binding = await this.deps.storage.priceProviderBindings?.findByProviderId(
+        this.deps.providerName,
+        providerResourceId,
+        tenantId,
+      );
+      if (binding) await new CatalogPriceReconciler(dependencies).price(binding.priceId, 'webhook');
+    }
   }
 
   private async reconcile(
@@ -233,3 +263,6 @@ export class ProcessWebhookPipeline {
     await repos.subscriptions.update(local.id, patch, tenantId);
   }
 }
+
+const CATALOG_PRODUCT_EVENTS = new Set(['product.created', 'product.updated', 'product.deleted']);
+const CATALOG_PRICE_EVENTS = new Set(['price.created', 'price.updated', 'price.deleted']);

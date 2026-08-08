@@ -28,6 +28,7 @@ import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/
 import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import { requireSubscriptionChangePolicies } from '../../../domain/validation/subscription-change-policies';
+import { PADDLE_CATALOG_SYNC_SEMANTICS } from '../catalog-sync-semantics';
 import { assertSubscriptionPayload } from '../webhook-subscription-payload';
 import { PaddleCatalog } from './paddle-catalog';
 import { buildPaddleClientOptions } from './paddle-client-options';
@@ -62,6 +63,7 @@ export class PaddleProvider
     ScheduledSubscriptionChangeCapable
 {
   readonly name = 'paddle';
+  readonly catalogSyncSemantics = PADDLE_CATALOG_SYNC_SEMANTICS;
   private readonly catalog: PaddleCatalog;
   private readonly normalizer: PaddleEventNormalizer;
   private readonly verifier: PaddleWebhookVerifier;

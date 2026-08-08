@@ -80,6 +80,75 @@ export class PrismaCatalogSynchronizationRepository implements CatalogSynchroniz
     return row ? this.toEntity(row) : null;
   }
 
+  async claimGeneration(
+    resourceType: CatalogSynchronizationResourceType,
+    resourceId: string,
+    provider: string,
+    canonicalVersion: string,
+    idempotencyKey: string,
+    tenantId: string | null,
+    attemptedAt: Date,
+  ): Promise<CatalogSynchronization | null> {
+    return this.compareAndSet(
+      resourceType,
+      resourceId,
+      provider,
+      canonicalVersion,
+      idempotencyKey,
+      { status: 'processing', lastAttemptedAt: attemptedAt },
+      tenantId,
+      ['requested', 'retrying'],
+    );
+  }
+
+  async updateIfCurrent(
+    resourceType: CatalogSynchronizationResourceType,
+    resourceId: string,
+    provider: string,
+    canonicalVersion: string,
+    idempotencyKey: string,
+    patch: CatalogSynchronizationPatch,
+    tenantId: string | null,
+  ): Promise<CatalogSynchronization | null> {
+    return this.compareAndSet(
+      resourceType,
+      resourceId,
+      provider,
+      canonicalVersion,
+      idempotencyKey,
+      patch,
+      tenantId,
+    );
+  }
+
+  private async compareAndSet(
+    resourceType: CatalogSynchronizationResourceType,
+    resourceId: string,
+    provider: string,
+    canonicalVersion: string,
+    idempotencyKey: string,
+    patch: CatalogSynchronizationPatch,
+    tenantId: string | null,
+    statuses?: string[],
+  ): Promise<CatalogSynchronization | null> {
+    assertCatalogTenantId(tenantId);
+    const result = await this.client.payableCatalogSynchronization.updateMany({
+      where: {
+        tenantKey: tenantId ?? '',
+        provider,
+        resourceType,
+        resourceId,
+        canonicalVersion,
+        idempotencyKey,
+        ...(statuses ? { status: { in: statuses } } : {}),
+      },
+      data: { ...patch, updatedAt: this.clock.now() },
+    });
+    return result.count === 0
+      ? null
+      : this.findByResource(resourceType, resourceId, provider, tenantId);
+  }
+
   private values(data: NewCatalogSynchronization): Record<string, unknown> {
     return {
       tenantId: data.tenantId,

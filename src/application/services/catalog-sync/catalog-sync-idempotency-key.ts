@@ -26,3 +26,7 @@ export async function deriveCatalogSyncKey(input: CatalogSyncKeyInput): Promise<
   ]);
   return `payable:catalog-sync:v1:${digest}`;
 }
+
+export function deriveCatalogSyncQueueJobId(idempotencyKey: string): string {
+  return `catalog-sync-${idempotencyKey.slice(idempotencyKey.lastIndexOf(':') + 1)}`;
+}
