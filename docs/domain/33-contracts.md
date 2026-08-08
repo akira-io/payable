@@ -261,9 +261,10 @@ the application actions enforce both before invoking the provider.
 
 ### Catalog provider contracts
 
-Catalog capabilities are split so a provider can expose only the operations it supports. Creation
-and product metadata updates require `catalog`; retrieval and cursor pagination require
-`catalogRead`; activation and archival require `catalogLifecycle`.
+Catalog capabilities are split so a provider can expose only the operations it supports. Canonical
+synchronization checks granular product and price create, update, archive, and reactivate capability
+names together with the corresponding method guard. Retrieval and cursor pagination require
+`catalogRead`; the provider-first compatibility API uses `catalog` and `catalogLifecycle`.
 
 ```ts
 export interface CatalogCapable {

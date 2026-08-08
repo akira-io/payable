@@ -191,3 +191,42 @@ describe('prisma canonical local catalog', () => {
     ).resolves.toHaveLength(2);
   });
 });
+
+describe('prisma catalog synchronization', () => {
+  it('persists and updates tenant-scoped synchronization state', async () => {
+    const created = await storage.catalogSynchronizations.save({
+      tenantId: 'prisma-sync-tenant',
+      provider: 'stripe-primary',
+      resourceType: 'product',
+      resourceId: globalThis.crypto.randomUUID(),
+      operation: 'create',
+      canonicalVersion: 'v1',
+      idempotencyKey: 'payable:catalog-sync:v1:prisma',
+      status: 'requested',
+      reconciliationState: 'pending',
+      providerResourceId: null,
+      providerResourceVersion: null,
+      retryCount: 0,
+      lastErrorCode: null,
+      lastAttemptedAt: null,
+      lastSucceededAt: null,
+    });
+    const updated = await storage.catalogSynchronizations.update(
+      'product',
+      created.resourceId,
+      'stripe-primary',
+      { status: 'succeeded', providerResourceId: 'prod_prisma' },
+      'prisma-sync-tenant',
+    );
+
+    expect(updated).toMatchObject({ status: 'succeeded', providerResourceId: 'prod_prisma' });
+    await expect(
+      storage.catalogSynchronizations.findByResource(
+        'product',
+        created.resourceId,
+        'stripe-primary',
+        'another-tenant',
+      ),
+    ).resolves.toBeNull();
+  });
+});

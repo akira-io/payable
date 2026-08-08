@@ -1,6 +1,11 @@
 import type { CatalogPage, ListPricesInput, ListProductsInput } from '../dtos/catalog.dto';
 import type { OperationContext } from '../dtos/common.dto';
-import type { CreatePriceInput, PriceDTO, TransferPriceLookupKeyInput } from '../dtos/price.dto';
+import type {
+  CreatePriceInput,
+  PriceDTO,
+  TransferPriceLookupKeyInput,
+  UpdatePriceInput,
+} from '../dtos/price.dto';
 import type { CreateProductInput, ProductDTO, UpdateProductInput } from '../dtos/product.dto';
 import type { PaymentProvider } from './payment-provider.contract';
 
@@ -8,6 +13,22 @@ export interface CatalogCapable {
   createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO>;
   updateProduct(input: UpdateProductInput, ctx: OperationContext): Promise<ProductDTO>;
   createPrice(input: CreatePriceInput, ctx: OperationContext): Promise<PriceDTO>;
+}
+
+export interface CatalogProductCreateCapable {
+  createProduct(input: CreateProductInput, ctx: OperationContext): Promise<ProductDTO>;
+}
+
+export interface CatalogProductUpdateCapable {
+  updateProduct(input: UpdateProductInput, ctx: OperationContext): Promise<ProductDTO>;
+}
+
+export interface CatalogPriceCreateCapable {
+  createPrice(input: CreatePriceInput, ctx: OperationContext): Promise<PriceDTO>;
+}
+
+export interface CatalogPriceUpdateCapable {
+  updatePrice(input: UpdatePriceInput, ctx: OperationContext): Promise<PriceDTO>;
 }
 
 export interface CatalogReadCapable {
@@ -20,6 +41,30 @@ export interface CatalogReadCapable {
 export interface CatalogLifecycleCapable {
   setProductActive(id: string, active: boolean, ctx: OperationContext): Promise<ProductDTO>;
   setPriceActive(id: string, active: boolean, ctx: OperationContext): Promise<PriceDTO>;
+}
+
+export interface CatalogProductLifecycleCapable {
+  setProductActive(id: string, active: boolean, ctx: OperationContext): Promise<ProductDTO>;
+}
+
+export interface CatalogPriceLifecycleCapable {
+  setPriceActive(id: string, active: boolean, ctx: OperationContext): Promise<PriceDTO>;
+}
+
+export interface CatalogSyncSemantics {
+  readonly inactiveProductCreate: boolean;
+  readonly clearProductDescription: boolean;
+  readonly clearProductMetadata: boolean;
+  readonly clearPriceDescription: boolean;
+}
+
+export interface CatalogSyncSemanticsProvider {
+  readonly catalogSyncSemantics: CatalogSyncSemantics;
+}
+
+export function catalogSyncSemantics(provider: PaymentProvider): CatalogSyncSemantics | null {
+  const candidate = provider as Partial<CatalogSyncSemanticsProvider>;
+  return candidate.catalogSyncSemantics ?? null;
 }
 
 export interface PriceLookupKeyCapable {
@@ -42,6 +87,30 @@ export function isCatalogCapable(
   );
 }
 
+export function isCatalogProductCreateCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & CatalogProductCreateCapable {
+  return typeof (provider as Partial<CatalogProductCreateCapable>).createProduct === 'function';
+}
+
+export function isCatalogProductUpdateCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & CatalogProductUpdateCapable {
+  return typeof (provider as Partial<CatalogProductUpdateCapable>).updateProduct === 'function';
+}
+
+export function isCatalogPriceCreateCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & CatalogPriceCreateCapable {
+  return typeof (provider as Partial<CatalogPriceCreateCapable>).createPrice === 'function';
+}
+
+export function isCatalogPriceUpdateCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & CatalogPriceUpdateCapable {
+  return typeof (provider as Partial<CatalogPriceUpdateCapable>).updatePrice === 'function';
+}
+
 export function isCatalogReadCapable(
   provider: PaymentProvider,
 ): provider is PaymentProvider & CatalogReadCapable {
@@ -62,6 +131,20 @@ export function isCatalogLifecycleCapable(
     typeof candidate.setProductActive === 'function' &&
     typeof candidate.setPriceActive === 'function'
   );
+}
+
+export function isCatalogProductLifecycleCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & CatalogProductLifecycleCapable {
+  return (
+    typeof (provider as Partial<CatalogProductLifecycleCapable>).setProductActive === 'function'
+  );
+}
+
+export function isCatalogPriceLifecycleCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & CatalogPriceLifecycleCapable {
+  return typeof (provider as Partial<CatalogPriceLifecycleCapable>).setPriceActive === 'function';
 }
 
 export function isPriceLookupKeyCapable(

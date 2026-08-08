@@ -2,6 +2,13 @@ export type { AuditLog, SequencedAuditLog } from './audit-log.entity';
 export type { CanonicalPrice, CanonicalPriceType } from './canonical-price.entity';
 export type { CanonicalProduct } from './canonical-product.entity';
 export type {
+  CatalogReconciliationState,
+  CatalogSynchronization,
+  CatalogSynchronizationOperation,
+  CatalogSynchronizationResourceType,
+  CatalogSynchronizationStatus,
+} from './catalog-synchronization.entity';
+export type {
   Metadata,
   RecurringInterval,
   StoredMoney,

@@ -9,6 +9,7 @@ import type {
   CreatePriceInput,
   PriceDTO,
   TransferPriceLookupKeyInput,
+  UpdatePriceInput,
 } from '../../../domain/dtos/price.dto';
 import type {
   CreateProductInput,
@@ -51,7 +52,12 @@ export class StripeCatalog {
       () =>
         stripe.products.update(
           input.providerProductId,
-          { name: input.name, description: input.description, active: input.active },
+          {
+            name: input.name,
+            description: input.description === null ? '' : input.description,
+            metadata: input.metadata === null ? '' : input.metadata,
+            active: input.active,
+          },
           { idempotencyKey: ctx.idempotencyKey },
         ),
       'stripe',
@@ -86,6 +92,21 @@ export class StripeCatalog {
     return lookupKey === undefined
       ? toPriceDTO(price)
       : requirePriceLookupKey(toPriceDTO(price), lookupKey);
+  }
+
+  async updatePrice(input: UpdatePriceInput, ctx: OperationContext): Promise<PriceDTO> {
+    const stripe = await this.client();
+    const price = await withStripeErrors(
+      () =>
+        stripe.prices.update(
+          input.providerPriceId,
+          { nickname: input.description === null ? '' : input.description },
+          { idempotencyKey: ctx.idempotencyKey },
+        ),
+      'stripe',
+      createPriceNotFoundFactory(input.providerPriceId, ctx),
+    );
+    return toPriceDTO(price);
   }
 
   async retrieveProduct(id: string): Promise<ProductDTO> {

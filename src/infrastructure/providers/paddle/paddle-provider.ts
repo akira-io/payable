@@ -28,6 +28,7 @@ import type { VerifiedWebhook, WebhookVerificationInput } from '../../../domain/
 import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import { requireSubscriptionChangePolicies } from '../../../domain/validation/subscription-change-policies';
+import { PADDLE_CATALOG_SYNC_SEMANTICS } from '../catalog-sync-semantics';
 import { assertSubscriptionPayload } from '../webhook-subscription-payload';
 import { PaddleCatalog } from './paddle-catalog';
 import { buildPaddleClientOptions } from './paddle-client-options';
@@ -62,6 +63,7 @@ export class PaddleProvider
     ScheduledSubscriptionChangeCapable
 {
   readonly name = 'paddle';
+  readonly catalogSyncSemantics = PADDLE_CATALOG_SYNC_SEMANTICS;
   readonly customerCreateIdempotency = 'unsupported';
   private readonly catalog: PaddleCatalog;
   private readonly normalizer: PaddleEventNormalizer;
@@ -81,6 +83,7 @@ export class PaddleProvider
   readonly createProduct: PaddleCatalog['createProduct'];
   readonly updateProduct: PaddleCatalog['updateProduct'];
   readonly createPrice: PaddleCatalog['createPrice'];
+  readonly updatePrice: PaddleCatalog['updatePrice'];
   readonly retrieveProduct: PaddleCatalog['retrieveProduct'];
   readonly listProducts: PaddleCatalog['listProducts'];
   readonly retrievePrice: PaddleCatalog['retrievePrice'];
@@ -95,6 +98,7 @@ export class PaddleProvider
     this.createProduct = this.catalog.createProduct.bind(this.catalog);
     this.updateProduct = this.catalog.updateProduct.bind(this.catalog);
     this.createPrice = this.catalog.createPrice.bind(this.catalog);
+    this.updatePrice = this.catalog.updatePrice.bind(this.catalog);
     this.retrieveProduct = this.catalog.retrieveProduct.bind(this.catalog);
     this.listProducts = this.catalog.listProducts.bind(this.catalog);
     this.retrievePrice = this.catalog.retrievePrice.bind(this.catalog);
@@ -124,6 +128,14 @@ export class PaddleProvider
       'catalog',
       'catalogRead',
       'catalogLifecycle',
+      'catalogProductCreate',
+      'catalogProductUpdate',
+      'catalogProductArchive',
+      'catalogProductReactivate',
+      'catalogPriceCreate',
+      'catalogPriceUpdate',
+      'catalogPriceArchive',
+      'catalogPriceReactivate',
     ]);
   }
 

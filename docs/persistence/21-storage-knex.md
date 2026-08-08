@@ -196,6 +196,9 @@ export async function migrate(knex: Knex): Promise<void> {
     await runStep(knex, '013-customer-provider-sync-state-leases', () =>
       addCustomerProviderSyncStateLeases(knex),
     );
+    await runStep(knex, '014-catalog-synchronization', () =>
+      addCatalogSynchronizationTable(knex),
+    );
   });
 }
 ```
@@ -213,7 +216,8 @@ timestamps, subscription sync timestamps, and post-ledger convergence. The custo
 migration is step `008`. Step `011` adds the canonical catalog without rewriting legacy rows. Step
 `012` adds tenant-scoped customer provider synchronization lifecycle rows. Step `013` adds
 `attempt_owner_id` and `lease_expires_at` to existing synchronization state tables so attempts can be
-fenced and leased safely during retries:
+fenced and leased safely during retries. Step `014` adds the tenant-scoped catalog synchronization
+lifecycle table with attempt ownership and lease fencing:
 
 1. **Create billing tables** (`001-billing-tables`) - each via `createIfMissing`
    (`create-if-missing.ts`), which checks `knex.schema.hasTable(name)` and only creates the table
@@ -248,6 +252,10 @@ fenced and leased safely during retries:
 - **Customer provider sync leases** (`013-customer-provider-sync-state-leases`) - adds nullable
   `attempt_owner_id` and `lease_expires_at` columns to synchronization tables created by step `012`,
   including databases whose migration ledger already records step `012` as complete.
+- **Catalog synchronization** (`014-catalog-synchronization`) - creates
+  `payable_catalog_synchronizations` with a normalized tenant key, one lifecycle row per
+  `(tenant, provider, resource type, resource id)`, canonical generation and idempotency metadata,
+  retry/reconciliation state, and nullable attempt owner and lease expiration columns.
 
 Step `009-catalog-tenant-keys` is fail-closed. The mismatch-driven batches revisit rows inserted below
 an earlier batch boundary. The consistency check validates existing rows when it is added and rejects

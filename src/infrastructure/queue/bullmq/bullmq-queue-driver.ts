@@ -205,7 +205,12 @@ export class BullMQQueueDriver implements QueueDriver {
         payload: data.payload,
         correlationId: data.correlationId,
         originalJobId: job.id,
+        replayJobId: `${job.id ?? 'job'}.replay.${globalThis.crypto.randomUUID()}`,
         failedReason: error.message,
+        failedError:
+          error instanceof PayableError
+            ? error.toJSON()
+            : { name: error.name, message: error.message },
       },
       {
         jobId: job.id ? `${job.id}${this.deadLetterSuffix}` : undefined,

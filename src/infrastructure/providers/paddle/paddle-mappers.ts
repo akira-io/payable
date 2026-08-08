@@ -68,6 +68,7 @@ export function toProductDTO(product: PaddleProductEntity): ProductDTO {
     description: stringValue(product.description),
     active: product.status === 'active',
     metadata: stringMetadata(product.customData),
+    ...(product.updatedAt ? { providerVersion: product.updatedAt } : {}),
   };
 }
 
@@ -82,6 +83,7 @@ export function toPriceDTO(price: PaddlePriceEntity): PriceDTO {
     description: stringValue(price.description),
     active: price.status === 'active',
     lookupKey: null,
+    ...(price.updatedAt ? { providerVersion: price.updatedAt } : {}),
   };
 }
 

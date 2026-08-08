@@ -18,6 +18,8 @@ export {
   type UpdateCanonicalProductInput,
 } from './canonical-product-resource';
 export type { CatalogMutationOptions } from './catalog-mutation-options';
+export type { CatalogSyncDependencies } from './catalog-sync-dependencies';
+export { CatalogSynchronizationResource } from './catalog-synchronization-resource';
 export type { ChargeRequest } from './charge-request';
 export { CheckoutBuilder, type CheckoutRequest } from './checkout-builder';
 export { CustomerContext } from './customer-context';

@@ -19,6 +19,14 @@ export type ProviderCapability =
   | 'catalogRead'
   | 'catalogLifecycle'
   | 'catalogIdempotency'
+  | 'catalogProductCreate'
+  | 'catalogProductUpdate'
+  | 'catalogProductArchive'
+  | 'catalogProductReactivate'
+  | 'catalogPriceCreate'
+  | 'catalogPriceUpdate'
+  | 'catalogPriceArchive'
+  | 'catalogPriceReactivate'
   | 'priceLookupKeys';
 
 export type ProviderCapabilityValue = ProviderCapability | (string & {});

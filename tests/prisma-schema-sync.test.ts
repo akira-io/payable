@@ -74,6 +74,7 @@ describe('prisma schema sync', () => {
     'PayableCanonicalPrice',
     'PayableProductProviderBinding',
     'PayablePriceProviderBinding',
+    'PayableCatalogSynchronization',
     'PayableCustomerProviderSyncState',
     'PayableOutboxEvent',
   ])('keeps %s aligned across all schema copies', (modelName) => {

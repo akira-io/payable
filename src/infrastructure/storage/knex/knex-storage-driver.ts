@@ -3,6 +3,7 @@ import type {
   AuditLogRepository,
   CanonicalPriceRepository,
   CanonicalProductRepository,
+  CatalogSynchronizationRepository,
   CustomerProviderBindingRepository,
   CustomerProviderSyncStateRepository,
   CustomerRepository,
@@ -30,6 +31,7 @@ import { SystemClock } from '../../../support/clock/system-clock';
 import { KnexAuditLogRepository } from './repositories/knex-audit-log.repository';
 import { KnexCanonicalPriceRepository } from './repositories/knex-canonical-price.repository';
 import { KnexCanonicalProductRepository } from './repositories/knex-canonical-product.repository';
+import { KnexCatalogSynchronizationRepository } from './repositories/knex-catalog-synchronization.repository';
 import { KnexCustomerRepository } from './repositories/knex-customer.repository';
 import { KnexCustomerProviderBindingRepository } from './repositories/knex-customer-provider-binding.repository';
 import { KnexCustomerProviderSyncStateRepository } from './repositories/knex-customer-provider-sync-state.repository';
@@ -56,6 +58,7 @@ function buildRepositories(
   return {
     canonicalPrices: new KnexCanonicalPriceRepository(qb, clock),
     canonicalProducts: new KnexCanonicalProductRepository(qb, clock),
+    catalogSynchronizations: new KnexCatalogSynchronizationRepository(qb, clock),
     customers: new KnexCustomerRepository(qb, clock),
     customerProviderBindings: new KnexCustomerProviderBindingRepository(qb, clock),
     customerProviderSyncStates: new KnexCustomerProviderSyncStateRepository(qb, clock),
@@ -79,6 +82,7 @@ function buildRepositories(
 export class KnexStorageDriver implements StorageDriver {
   canonicalPrices!: CanonicalPriceRepository;
   canonicalProducts!: CanonicalProductRepository;
+  catalogSynchronizations!: CatalogSynchronizationRepository;
   customers!: CustomerRepository;
   customerProviderBindings!: CustomerProviderBindingRepository;
   customerProviderSyncStates!: CustomerProviderSyncStateRepository;
@@ -125,6 +129,8 @@ export class KnexStorageDriver implements StorageDriver {
   private assignRepositories(repositories: Repositories): void {
     this.canonicalPrices = repositories.canonicalPrices as CanonicalPriceRepository;
     this.canonicalProducts = repositories.canonicalProducts as CanonicalProductRepository;
+    this.catalogSynchronizations =
+      repositories.catalogSynchronizations as CatalogSynchronizationRepository;
     this.customers = repositories.customers;
     this.customerProviderBindings = repositories.customerProviderBindings;
     this.customerProviderSyncStates =

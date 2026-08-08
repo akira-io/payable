@@ -4,6 +4,7 @@ export type NewPriceProviderBinding = Omit<PriceProviderBinding, 'id' | 'created
 
 export interface PriceProviderBindingRepository {
   create(binding: NewPriceProviderBinding): Promise<PriceProviderBinding>;
+  updateProviderId?(id: string, providerPriceId: string): Promise<PriceProviderBinding>;
   findByPriceAndProvider(
     priceId: string,
     provider: string,

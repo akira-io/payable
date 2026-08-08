@@ -176,6 +176,34 @@ model PayablePriceProviderBinding {
   @@map("payable_price_provider_bindings")
 }
 
+model PayableCatalogSynchronization {
+  id                      String    @id
+  tenantId                String?   @map("tenant_id")
+  tenantKey               String    @default("") @map("tenant_key")
+  provider                String
+  resourceType            String    @map("resource_type")
+  resourceId              String    @map("resource_id")
+  operation               String
+  canonicalVersion        String    @map("canonical_version")
+  idempotencyKey          String    @map("idempotency_key")
+  status                  String
+  reconciliationState     String    @map("reconciliation_state")
+  providerResourceId      String?   @map("provider_resource_id")
+  providerResourceVersion String?   @map("provider_resource_version")
+  retryCount              Int       @default(0) @map("retry_count")
+  lastErrorCode           String?   @map("last_error_code")
+  lastAttemptedAt         DateTime? @map("last_attempted_at")
+  lastSucceededAt         DateTime? @map("last_succeeded_at")
+  attemptOwnerId          String?   @map("attempt_owner_id")
+  leaseExpiresAt          DateTime? @map("lease_expires_at")
+  createdAt               DateTime  @map("created_at")
+  updatedAt               DateTime  @map("updated_at")
+
+  @@unique([tenantKey, provider, resourceType, resourceId])
+  @@index([tenantKey, status, updatedAt])
+  @@map("payable_catalog_synchronizations")
+}
+
 model PayableSubscription {
   id                     String                    @id
   tenantId               String?                   @map("tenant_id")

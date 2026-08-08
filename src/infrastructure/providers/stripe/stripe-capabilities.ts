@@ -21,6 +21,14 @@ export function stripeCapabilities(): ProviderCapabilities {
     'catalogRead',
     'catalogLifecycle',
     'catalogIdempotency',
+    'catalogProductCreate',
+    'catalogProductUpdate',
+    'catalogProductArchive',
+    'catalogProductReactivate',
+    'catalogPriceCreate',
+    'catalogPriceUpdate',
+    'catalogPriceArchive',
+    'catalogPriceReactivate',
     'priceLookupKeys',
   ]);
 }

@@ -31,6 +31,14 @@ export class PrismaPriceProviderBindingRepository implements PriceProviderBindin
     return this.toEntity(row);
   }
 
+  async updateProviderId(id: string, providerPriceId: string): Promise<PriceProviderBinding> {
+    const row = await this.client.payablePriceProviderBinding.update({
+      where: { id },
+      data: { providerPriceId, updatedAt: this.clock.now() },
+    });
+    return this.toEntity(row);
+  }
+
   findByPriceAndProvider(
     priceId: string,
     provider: string,

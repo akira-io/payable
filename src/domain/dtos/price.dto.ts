@@ -16,6 +16,11 @@ export interface TransferPriceLookupKeyInput {
   lookupKey: string;
 }
 
+export interface UpdatePriceInput {
+  providerPriceId: string;
+  description?: string | null;
+}
+
 export interface PriceDTO {
   providerPriceId: string;
   providerProductId: string;
@@ -25,4 +30,5 @@ export interface PriceDTO {
   description: string | null;
   active: boolean;
   lookupKey: string | null;
+  providerVersion?: string | null;
 }

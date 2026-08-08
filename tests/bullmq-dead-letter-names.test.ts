@@ -1,5 +1,6 @@
-import { Queue } from 'bullmq';
+import { Job, Queue } from 'bullmq';
 import { describe, expect, it } from 'vitest';
+import { PayableError } from '../src/domain/errors/payable-error';
 import { BullMQQueueDriver } from '../src/infrastructure/queue/bullmq/bullmq-queue-driver';
 
 const connection = { host: 'localhost', port: 6379 };
@@ -40,6 +41,19 @@ function fakeBullmq() {
 }
 
 describe('BullMQ dead-letter naming', () => {
+  it('accepts the catalog synchronization queue-safe job id', () => {
+    class ValidatingJob extends Job {
+      validate(): void {
+        this.validateOptions({ data: '{}' } as ReturnType<Job['asJSON']>);
+      }
+    }
+    const jobId = `catalog-sync-${'a'.repeat(64)}`;
+    const job = Object.create(ValidatingJob.prototype) as ValidatingJob;
+    Object.assign(job, { name: 'catalog.synchronize', opts: { jobId } });
+
+    expect(() => job.validate()).not.toThrow();
+  });
+
   it('rejects a colon suffix before any worker starts', () => {
     expect(() => new BullMQQueueDriver({ connection, deadLetterSuffix: ':dead' })).toThrow(
       expect.objectContaining({ code: 'QUEUE_DEAD_LETTER_SUFFIX_INVALID' }),
@@ -69,7 +83,10 @@ describe('BullMQ dead-letter naming', () => {
         data: { payload: { webhookEventId: 'evt_1' }, correlationId: 'corr-1' },
         id: 'job_1',
       },
-      new Error('handler exploded'),
+      new PayableError('handler exploded', {
+        code: 'CATALOG_SYNC_LOCAL_PERSISTENCE_FAILED',
+        context: { providerResourceId: 'prod_1', apiKey: 'secret' },
+      }),
     );
     await driver.settle();
 
@@ -82,18 +99,29 @@ describe('BullMQ dead-letter naming', () => {
       payload: { webhookEventId: 'evt_1' },
       correlationId: 'corr-1',
       originalJobId: 'job_1',
+      replayJobId: expect.stringMatching(/^job_1\.replay\.[0-9a-f-]{36}$/),
       failedReason: 'handler exploded',
+      failedError: {
+        name: 'PayableError',
+        message: 'handler exploded',
+        code: 'CATALOG_SYNC_LOCAL_PERSISTENCE_FAILED',
+        context: { providerResourceId: 'prod_1', apiKey: '[redacted]' },
+      },
     });
 
-    const replay = deadLettered?.data as { payload: unknown; correlationId: string };
+    const replay = deadLettered?.data as {
+      payload: unknown;
+      correlationId: string;
+      replayJobId: string;
+    };
     await driver.dispatch({
       name: 'webhook.process',
       payload: replay.payload,
       correlationId: replay.correlationId,
-      idempotencyKey: 'job_1',
+      idempotencyKey: replay.replayJobId,
     });
     const replayed = added.find(
-      (entry) => entry.queue === 'webhook.process' && entry.options.jobId === 'job_1',
+      (entry) => entry.queue === 'webhook.process' && entry.options.jobId === replay.replayJobId,
     );
     expect(replayed?.data).toMatchObject({ payload: { webhookEventId: 'evt_1' } });
   });
