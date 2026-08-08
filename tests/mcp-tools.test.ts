@@ -61,6 +61,19 @@ function parse(result: CallToolResult): unknown {
 const billable = { billableType: 'User', billableId: '1', email: 'user@test.dev' };
 
 describe('mcp tools', () => {
+  it('synchronizes a logical customer with an explicitly named provider', async () => {
+    const { client, provider, db } = await connect();
+
+    const result = (await client.callTool({
+      name: 'customer_sync',
+      arguments: { billable, provider: 'stripe' },
+    })) as CallToolResult;
+
+    expect(parse(result)).toEqual({ providerCustomerId: 'cus_1' });
+    expect(provider.createCustomerCalls).toBe(0);
+    await db.destroy();
+  });
+
   it('lists configured providers', async () => {
     const { client, db } = await connect();
     const result = (await client.callTool({
@@ -163,6 +176,7 @@ describe('mcp execution-time authorization', () => {
   ]);
 
   const deniedCalls: Array<{ name: string; arguments: Record<string, unknown> }> = [
+    { name: 'customer_sync', arguments: { billable, provider: 'stripe' } },
     { name: 'product_create', arguments: { name: 'Pro Plan' } },
     { name: 'product_update', arguments: { providerProductId: 'prod_1', name: 'Pro' } },
     { name: 'product_activate', arguments: { id: 'prod_1' } },

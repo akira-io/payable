@@ -28,6 +28,7 @@ describe('express adapter', () => {
     const app = makeApp(payable);
 
     const customer = await payable.customers().create(billable);
+    await payable.customers('stripe').sync(billable);
     await storage.payments.create({
       tenantId: null,
       customerId: customer.id,
@@ -89,6 +90,12 @@ describe('express adapter', () => {
       .send({ billable, name: 'Renamed' });
     expect(updated.status).toBe(200);
     expect(updated.body.name).toBe('Renamed');
+
+    const synchronized = await request(app)
+      .post('/payable/customers/sync')
+      .send({ provider: 'stripe', billable });
+    expect(synchronized.status).toBe(200);
+    expect(synchronized.body).toEqual({ providerCustomerId: 'cus_fake' });
     await db.destroy();
   });
 

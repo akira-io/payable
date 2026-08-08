@@ -249,7 +249,8 @@ describe('documentation examples stay executable', () => {
     };
 
     const customer = await payable.customers('stripe').create(billable);
-    await payable.customers('paddle').create(billable);
+    await payable.customers('stripe').sync(billable);
+    await payable.customers('paddle').sync(billable);
     const stripeBinding = await payable.customers('stripe').binding(billable);
     const paddleBinding = await payable.customers('paddle').binding(billable);
 

@@ -3,6 +3,7 @@ import type { Payable } from '../../../payable';
 import {
   billableLookupSchema,
   customerBodySchema,
+  customerSyncBodySchema,
   customerUpdateBodySchema,
   parseBody,
 } from '../../shared/schemas';
@@ -33,6 +34,13 @@ export async function registerCustomerRoutes(
       .customers(undefined, tenantId)
       .update(body.billable, { email: body.email, name: body.name });
     reply.status(200).send(customer);
+  });
+
+  scope.post('/customers/sync', writeOptions, async (request, reply) => {
+    const body = parseBody(customerSyncBodySchema, request.body);
+    const tenantId = options.resolveTenant?.(request) ?? null;
+    const providerCustomerId = await payable.customers(body.provider, tenantId).sync(body.billable);
+    reply.status(200).send({ providerCustomerId });
   });
 
   scope.get('/customers', async (request, reply) => {

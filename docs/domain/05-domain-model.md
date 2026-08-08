@@ -119,7 +119,8 @@ Purpose: represents one host-application billable independently from any provide
 | `name` | `string \| null` | Optional display name. |
 | `metadata` | `Metadata \| null` | Optional string key/value bag. |
 
-Relationships: owns many `CustomerProviderBinding`, `Subscription`, `Invoice`, and `Payment` records.
+Relationships: owns many `CustomerProviderBinding`, `CustomerProviderSyncState`, `Subscription`,
+`Invoice`, and `Payment` records.
 On `Payment` the link is `customerId: string | null`, so a payment can exist without a customer.
 
 Invariant: `(tenantId, billableType, billableId)` identifies one logical customer.
@@ -141,6 +142,18 @@ Purpose: maps one logical customer to one registered provider account.
 Invariants: `(customerId, provider)` is unique, and `(provider, providerCustomerId)` is unique. The
 same opaque provider id may appear under different registered provider keys. Deleting a customer
 cascades to its bindings.
+
+## Customer Provider Sync State
+
+`src/domain/entities/customer-provider-sync-state.entity.ts`. Extends `TenantScoped`, `Timestamps`.
+
+Purpose: records synchronization attempts independently from provider bindings. No row means never
+attempted. `pending`, `failed`, `synchronized`, and `reconciliation_required` describe the durable
+lifecycle without storing provider messages or credentials.
+
+The row is unique by `(tenantId, customerId, provider)`. It stores `attempts`, `lastAttemptedAt`,
+`synchronizedAt`, a safe `failureCode`, and the provider customer id when known. Deleting the logical
+customer cascades to its sync states.
 
 ## Subscription
 

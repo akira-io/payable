@@ -92,6 +92,75 @@ export function registerLogicalCustomerContract(context: ContractContext): void 
       providerCustomerId: 'cus_contract_a',
     });
   });
+
+  it('upserts customer provider sync states within the owning tenant', async () => {
+    const { storage } = context.harness();
+    const customerA = await createCustomer(context, { billableId: 'logical-sync-a' });
+    const customerB = await createCustomer(context, {
+      tenantId: TENANT_B,
+      billableId: 'logical-sync-b',
+    });
+    const attemptedAt = new Date('2026-08-08T10:00:00.000Z');
+    await storage.customerProviderSyncStates.upsert({
+      tenantId: TENANT_A,
+      customerId: customerA.id,
+      provider: 'stripe',
+      status: 'pending',
+      providerCustomerId: null,
+      attempts: 1,
+      lastAttemptedAt: attemptedAt,
+      synchronizedAt: null,
+      failureCode: null,
+    });
+    await storage.customerProviderSyncStates.upsert({
+      tenantId: TENANT_B,
+      customerId: customerB.id,
+      provider: 'stripe',
+      status: 'synchronized',
+      providerCustomerId: 'cus_tenant_b',
+      attempts: 1,
+      lastAttemptedAt: attemptedAt,
+      synchronizedAt: attemptedAt,
+      failureCode: null,
+    });
+    await storage.customerProviderSyncStates.upsert({
+      tenantId: TENANT_A,
+      customerId: customerA.id,
+      provider: 'stripe',
+      status: 'failed',
+      providerCustomerId: null,
+      attempts: 2,
+      lastAttemptedAt: attemptedAt,
+      synchronizedAt: null,
+      failureCode: 'ETIMEDOUT',
+    });
+
+    expect(
+      await storage.customerProviderSyncStates.findByCustomerAndProvider(
+        customerA.id,
+        'stripe',
+        TENANT_A,
+      ),
+    ).toMatchObject({ status: 'failed', attempts: 2, failureCode: 'ETIMEDOUT' });
+    expect(
+      await storage.customerProviderSyncStates.findByCustomerAndProvider(
+        customerB.id,
+        'stripe',
+        TENANT_B,
+      ),
+    ).toMatchObject({
+      status: 'synchronized',
+      providerCustomerId: 'cus_tenant_b',
+      attempts: 1,
+    });
+    expect(
+      await storage.customerProviderSyncStates.findByCustomerAndProvider(
+        customerA.id,
+        'stripe',
+        TENANT_B,
+      ),
+    ).toBeNull();
+  });
 }
 
 function createCustomer(context: ContractContext, overrides: Partial<NewCustomer>) {

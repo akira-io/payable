@@ -6,6 +6,36 @@ import type { McpPayableOptions } from '../options';
 import type { ToolGate } from '../policy';
 import { billableObject, providerShape, tenantShape } from '../schemas';
 
+export function registerCustomerTools(
+  server: McpServer,
+  payable: Payable,
+  options: McpPayableOptions,
+  gate: ToolGate,
+): void {
+  if (!gate('customer_sync', 'mutate')) {
+    return;
+  }
+  server.registerTool(
+    'customer_sync',
+    {
+      description: 'Synchronize a logical customer with a named provider account.',
+      inputSchema: {
+        billable: billableObject,
+        provider: z.string().min(1),
+        ...tenantShape,
+      },
+    },
+    (args) =>
+      respond(async () => {
+        authorizeTool('customer_sync', args, options);
+        const providerCustomerId = await payable
+          .customers(args.provider, tenantFrom(args, options))
+          .sync(args.billable);
+        return { providerCustomerId };
+      }),
+  );
+}
+
 export function registerSubscriptionTools(
   server: McpServer,
   payable: Payable,

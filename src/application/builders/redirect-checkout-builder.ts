@@ -3,6 +3,7 @@ import type { Customer } from '../../domain/entities/customer.entity';
 import { IdempotencyKey } from '../../domain/value-objects/idempotency-key';
 import type { Money } from '../../domain/value-objects/money';
 import { CreateCheckoutSessionAction } from '../actions/checkout/create-checkout-session.action';
+import { SyncCustomerWithProviderAction } from '../actions/customers/sync-customer-with-provider.action';
 import { assertAuthorized } from '../policies/assert-authorized';
 import type { AuthorizationContext } from '../policies/authorization-context';
 import { CanCreateCheckoutPolicy } from '../policies/can-create-checkout.policy';
@@ -33,7 +34,10 @@ export class RedirectCheckoutBuilder {
     );
     const customers = new CustomerResource(this.deps);
     const customer = this.deps.storage ? await customers.create(this.billable) : null;
-    const binding = customer ? await customers.binding(this.billable) : null;
+    const providerCustomerId =
+      customer && this.deps.provider.capabilities().has('customers')
+        ? await new SyncCustomerWithProviderAction(this.deps).handle(this.billable)
+        : '';
     const key = IdempotencyKey.forCheckout({
       tenantId: this.deps.tenantId ?? null,
       provider: this.deps.providerName,
@@ -45,7 +49,7 @@ export class RedirectCheckoutBuilder {
     });
     const session = await new CreateCheckoutSessionAction(this.deps).handle({
       input: {
-        providerCustomerId: binding?.providerCustomerId ?? '',
+        providerCustomerId,
         mode: 'payment',
         lineItems: [],
         successUrl: request.successUrl ?? '',

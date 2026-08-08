@@ -21,7 +21,6 @@ async function makeApp(
 }
 
 const billable = { billableType: 'User', billableId: '1', email: 'user@example.com', name: 'User' };
-
 describe('fastify adapter', () => {
   it('lists invoices and payments for a billable', async () => {
     const db = createTestDb();
@@ -29,8 +28,8 @@ describe('fastify adapter', () => {
     const storage = new KnexStorageDriver(db, new FakeClock());
     const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
     const app = await makeApp(payable);
-
     const customer = await payable.customers().create(billable);
+    await payable.customers('stripe').sync(billable);
     await storage.payments.create({
       tenantId: null,
       customerId: customer.id,
@@ -141,6 +140,7 @@ describe('fastify adapter', () => {
     });
     expect(updated.statusCode).toBe(200);
     expect(updated.json().name).toBe('Renamed');
+
     await app.close();
     await db.destroy();
   });

@@ -1,13 +1,11 @@
-import { isCustomerCapable } from '../../domain/contracts/payment-provider.contract';
 import type { Customer } from '../../domain/entities/customer.entity';
 import type { CustomerProviderBinding } from '../../domain/entities/customer-provider-binding.entity';
+import type { CustomerProviderSyncState } from '../../domain/entities/customer-provider-sync-state.entity';
 import { CustomerNotFoundError } from '../../domain/errors/customer-not-found.error';
 import { PayableError } from '../../domain/errors/payable-error';
-import { CorrelationId } from '../../domain/value-objects/correlation-id';
-import { IdempotencyKey } from '../../domain/value-objects/idempotency-key';
 import { EnsureCustomerAction } from '../actions/customers/ensure-customer.action';
+import { normalizeCustomerEmail } from '../actions/customers/normalize-customer-email';
 import { SyncCustomerWithProviderAction } from '../actions/customers/sync-customer-with-provider.action';
-import { assertCapableProvider } from '../services/provider-capabilities/assert-provider-capability';
 import type { Billable } from './billable';
 import type { BillingDependencies } from './billing-dependencies';
 import { decodeCustomerCursor, encodeCustomerCursor } from './customer-page-cursor';
@@ -47,6 +45,7 @@ export interface CustomerPage {
 export interface CustomerResourceAccess {
   storage?: BillingDependencies['storage'];
   tenantId: string | null;
+  providerName?: string;
   resolveBillingDependencies: () => BillingDependencies;
 }
 
@@ -59,18 +58,17 @@ export class CustomerResource {
         ? {
             storage: dependencies.storage,
             tenantId: dependencies.tenantId ?? null,
+            providerName: dependencies.providerName,
             resolveBillingDependencies: () => dependencies,
           }
         : dependencies;
   }
 
   async create(billable: Billable): Promise<Customer> {
-    const dependencies = this.billingDependencies();
-    const customer = await new EnsureCustomerAction(dependencies).handle(billable);
-    if (dependencies.provider.capabilities().has('customers')) {
-      await new SyncCustomerWithProviderAction(dependencies).handle(billable);
-    }
-    return customer;
+    return new EnsureCustomerAction({
+      storage: this.access.storage,
+      tenantId: this.access.tenantId,
+    }).handle(billable);
   }
 
   get(billable: Billable): Promise<Customer | null> {
@@ -123,7 +121,6 @@ export class CustomerResource {
 
   async binding(billable: Billable): Promise<CustomerProviderBinding | null> {
     const storage = this.requireStorage();
-    const dependencies = this.billingDependencies();
     const tenantId = this.access.tenantId;
     const customer = await storage.customers.findByBillable(
       billable.billableType,
@@ -135,14 +132,36 @@ export class CustomerResource {
     }
     return storage.customerProviderBindings.findByCustomerAndProvider(
       customer.id,
-      dependencies.providerName,
+      this.requireProviderName(),
+      tenantId,
+    );
+  }
+
+  sync(billable: Billable): Promise<string> {
+    this.requireProviderName();
+    return new SyncCustomerWithProviderAction(this.billingDependencies()).handle(billable);
+  }
+
+  async syncState(billable: Billable): Promise<CustomerProviderSyncState | null> {
+    const storage = this.requireStorage();
+    const tenantId = this.access.tenantId;
+    const customer = await storage.customers.findByBillable(
+      billable.billableType,
+      billable.billableId,
+      tenantId,
+    );
+    if (!customer) {
+      return null;
+    }
+    return storage.customerProviderSyncStates.findByCustomerAndProvider(
+      customer.id,
+      this.requireProviderName(),
       tenantId,
     );
   }
 
   async update(billable: Billable, changes: CustomerChanges): Promise<Customer> {
     const storage = this.requireStorage();
-    const dependencies = this.billingDependencies();
     const tenantId = this.access.tenantId;
     const existing = await storage.customers.findByBillable(
       billable.billableType,
@@ -152,41 +171,10 @@ export class CustomerResource {
     if (!existing) {
       throw new CustomerNotFoundError(billable.billableId);
     }
-    const provider = dependencies.provider;
-    const binding = await storage.customerProviderBindings.findByCustomerAndProvider(
-      existing.id,
-      dependencies.providerName,
-      tenantId,
-    );
-    if (provider.capabilities().has('customers') && binding) {
-      assertCapableProvider(provider, 'customers', isCustomerCapable);
-      const key = IdempotencyKey.forCustomer({
-        tenantId,
-        provider: dependencies.providerName,
-        billableType: billable.billableType,
-        billableId: billable.billableId,
-      });
-      const dto = await provider.updateCustomer(
-        {
-          providerCustomerId: binding.providerCustomerId,
-          email: changes.email,
-          name: changes.name,
-        },
-        { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
-      );
-      return storage.customers.update(
-        existing.id,
-        {
-          email: dto.email ?? changes.email ?? existing.email,
-          name: dto.name ?? changes.name ?? existing.name,
-        },
-        tenantId,
-      );
-    }
     return storage.customers.update(
       existing.id,
       {
-        email: changes.email ?? existing.email,
+        email: changes.email === undefined ? existing.email : normalizeCustomerEmail(changes.email),
         name: changes.name ?? existing.name,
       },
       tenantId,
@@ -205,6 +193,16 @@ export class CustomerResource {
 
   private billingDependencies(): BillingDependencies {
     return this.access.resolveBillingDependencies();
+  }
+
+  private requireProviderName(): string {
+    const providerName = this.access.providerName;
+    if (!providerName) {
+      throw new PayableError('Customer provider name is required', {
+        code: 'CUSTOMER_PROVIDER_REQUIRED',
+      });
+    }
+    return providerName;
   }
 
   private async includeBindingMetadata(customers: Customer[]): Promise<CustomerPageItem[]> {

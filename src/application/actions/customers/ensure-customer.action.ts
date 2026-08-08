@@ -1,11 +1,11 @@
 import type { Customer } from '../../../domain/entities/customer.entity';
 import { PayableError } from '../../../domain/errors/payable-error';
 import type { Billable } from '../../builders/billable';
-import type { BillingDependencies } from '../../builders/billing-dependencies';
+import type { LocalDependencies } from '../../builders/local-dependencies';
 import { normalizeCustomerEmail } from './normalize-customer-email';
 
 export class EnsureCustomerAction {
-  constructor(private readonly deps: BillingDependencies) {}
+  constructor(private readonly deps: Pick<LocalDependencies, 'storage' | 'tenantId'>) {}
 
   async handle(billable: Billable): Promise<Customer> {
     const storage = this.deps.storage;

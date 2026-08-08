@@ -3,6 +3,7 @@ import type {
   CanonicalPriceRepository,
   CanonicalProductRepository,
   CustomerProviderBindingRepository,
+  CustomerProviderSyncStateRepository,
   CustomerRepository,
   InvoiceRepository,
   OutboxEventRepository,
@@ -30,6 +31,7 @@ import { PrismaAuditLogRepository } from './repositories/prisma-audit-logs.repos
 import { PrismaCanonicalPriceRepository } from './repositories/prisma-canonical-prices.repository';
 import { PrismaCanonicalProductRepository } from './repositories/prisma-canonical-products.repository';
 import { PrismaCustomerProviderBindingRepository } from './repositories/prisma-customer-provider-bindings.repository';
+import { PrismaCustomerProviderSyncStateRepository } from './repositories/prisma-customer-provider-sync-states.repository';
 import { PrismaCustomerRepository } from './repositories/prisma-customers.repository';
 import { PrismaInvoiceRepository } from './repositories/prisma-invoices.repository';
 import { PrismaOutboxEventRepository } from './repositories/prisma-outbox.repository';
@@ -56,6 +58,7 @@ function buildRepositories(
     canonicalProducts: new PrismaCanonicalProductRepository(client, clock),
     customers: new PrismaCustomerRepository(client, clock),
     customerProviderBindings: new PrismaCustomerProviderBindingRepository(client, clock),
+    customerProviderSyncStates: new PrismaCustomerProviderSyncStateRepository(client, clock),
     products: new PrismaProductRepository(client, clock),
     productProviderBindings: new PrismaProductProviderBindingRepository(client, clock),
     prices: new PrismaPriceRepository(client, clock),
@@ -78,6 +81,7 @@ export class PrismaStorageDriver implements StorageDriver {
   canonicalProducts!: CanonicalProductRepository;
   customers!: CustomerRepository;
   customerProviderBindings!: CustomerProviderBindingRepository;
+  customerProviderSyncStates!: CustomerProviderSyncStateRepository;
   products!: ProductRepository;
   productProviderBindings!: ProductProviderBindingRepository;
   prices!: PriceRepository;
@@ -123,6 +127,7 @@ export class PrismaStorageDriver implements StorageDriver {
     this.canonicalProducts = repositories.canonicalProducts as CanonicalProductRepository;
     this.customers = repositories.customers;
     this.customerProviderBindings = repositories.customerProviderBindings;
+    this.customerProviderSyncStates = repositories.customerProviderSyncStates;
     this.products = repositories.products;
     this.productProviderBindings =
       repositories.productProviderBindings as ProductProviderBindingRepository;

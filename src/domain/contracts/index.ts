@@ -41,6 +41,10 @@ export type {
   NewCustomerProviderBinding,
 } from './customer-provider-binding-repository.contract';
 export type {
+  CustomerProviderSyncStateRepository,
+  NewCustomerProviderSyncState,
+} from './customer-provider-sync-state-repository.contract';
+export type {
   CustomerListQuery,
   CustomerListResult,
   CustomerRepository,

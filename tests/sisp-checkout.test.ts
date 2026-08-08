@@ -67,7 +67,7 @@ describe('payable redirect checkout (SISP)', () => {
 
     const customer = await payable.customers().get(billable);
     expect(customer).toMatchObject({ billableType: 'User', billableId: '1' });
-    expect(await payable.customers().binding(billable)).toBeNull();
+    expect(await payable.customers('sisp').binding(billable)).toBeNull();
 
     const pending = await payable.customer(billable).payments();
     expect(pending).toHaveLength(1);

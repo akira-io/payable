@@ -22,7 +22,8 @@ describe('customer provider bindings', () => {
 
     const stripeCustomer = await payable.customers('stripe').create(billable);
     const paddleCustomer = await payable.customers('paddle').create(billable);
-    await payable.customers('stripe').create(billable);
+    await payable.customers('stripe').sync(billable);
+    await payable.customers('paddle').sync(billable);
 
     expect(paddleCustomer.id).toBe(stripeCustomer.id);
     expect(await payable.customers('stripe').binding(billable)).toMatchObject({
@@ -50,7 +51,8 @@ describe('customer provider bindings', () => {
     });
 
     const customer = await payable.customers('stripe-eu').create(billable);
-    await payable.customers('stripe-us').create(billable);
+    await payable.customers('stripe-eu').sync(billable);
+    await payable.customers('stripe-us').sync(billable);
 
     expect(await payable.customers('stripe-eu').binding(billable)).toMatchObject({
       customerId: customer.id,
@@ -77,6 +79,7 @@ describe('customer provider bindings', () => {
     });
 
     await payable.customers('stripe').create(billable);
+    await payable.customers('stripe').sync(billable);
     await payable.customer(billable, 'paddle').redirectCheckout(Money.of(2500, 'USD')).create();
     await payable.customer(billable, 'paddle').invoices();
 
@@ -100,7 +103,8 @@ describe('customer provider bindings', () => {
     ]);
 
     expect(customers[0]?.id).toBe(customers[1]?.id);
-    expect(await payable.customers().binding(billable)).toMatchObject({
+    await payable.customers('stripe').sync(billable);
+    expect(await payable.customers('stripe').binding(billable)).toMatchObject({
       customerId: customers[0]?.id,
       provider: 'stripe',
       providerCustomerId: 'cus_fake',
@@ -122,7 +126,8 @@ describe('customer provider bindings', () => {
     };
     const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
 
-    await expect(payable.customers().create(billable)).rejects.toMatchObject({
+    await payable.customers().create(billable);
+    await expect(payable.customers('stripe').sync(billable)).rejects.toMatchObject({
       code: 'CUSTOMER_PROVIDER_BINDING_PERSISTENCE_FAILED',
       context: { provider: 'stripe', providerCustomerId: 'cus_fake' },
     });
@@ -157,7 +162,8 @@ describe('customer provider bindings', () => {
     };
     const payable = createPayable({ providers: { stripe: new FakeProvider() }, storage });
 
-    await expect(payable.customers().create(billable)).rejects.toMatchObject({
+    await payable.customers().create(billable);
+    await expect(payable.customers('stripe').sync(billable)).rejects.toMatchObject({
       code: 'CUSTOMER_PROVIDER_BINDING_CONFLICT',
       context: {
         provider: 'stripe',
