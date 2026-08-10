@@ -12,6 +12,7 @@ type LifecycleMetadataKey =
 
 type CanonicalSnapshotKey =
   | 'canonicalPriceId'
+  | 'canonicalProductId'
   | 'acceptedCurrency'
   | 'acceptedUnitAmount'
   | 'acceptedInterval'
@@ -48,6 +49,7 @@ export interface SubscriptionListQuery {
   customerId?: string;
   status?: SubscriptionStatus;
   canonicalPriceId?: string;
+  canonicalProductId?: string;
   name?: string;
 }
 

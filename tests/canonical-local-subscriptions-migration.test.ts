@@ -3,9 +3,65 @@ import {
   addCanonicalLocalSubscriptions,
   dropLegacyUniqueIdentity,
 } from '../src/infrastructure/storage/knex/migrations/canonical-local-subscriptions';
+import { addCanonicalSubscriptionProducts } from '../src/infrastructure/storage/knex/migrations/canonical-subscription-products';
+import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { createTestDb } from './support/knex';
 
 describe('canonical local subscriptions migration', () => {
+  it('installs the immutable canonical product snapshot column and filter index', async () => {
+    const database = createTestDb();
+
+    await migrate(database);
+
+    const columns = await database('payable_subscriptions').columnInfo();
+    expect(columns.canonical_product_id).toBeDefined();
+    const index = await database('sqlite_master')
+      .where({ type: 'index', name: 'payable_subscriptions_tenant_product_page_idx' })
+      .first();
+    expect(index).toBeDefined();
+    await database.destroy();
+  });
+
+  it('backfills only same-tenant canonical price relationships and reports unresolved rows', async () => {
+    const database = createTestDb();
+    await database.schema.createTable('payable_subscriptions', (table) => {
+      table.string('id').primary();
+      table.string('tenant_key').notNullable();
+      table.string('canonical_price_id').nullable();
+      table.timestamp('created_at').notNullable().defaultTo(database.fn.now());
+    });
+    await database.schema.createTable('payable_canonical_prices', (table) => {
+      table.string('id').notNullable();
+      table.string('tenant_key').notNullable();
+      table.string('product_id').notNullable();
+    });
+    await database('payable_canonical_prices').insert({
+      id: 'price-shared',
+      tenant_key: 'tenant-a',
+      product_id: 'product-a',
+    });
+    await database('payable_subscriptions').insert([
+      { id: 'subscription-a', tenant_key: 'tenant-a', canonical_price_id: 'price-shared' },
+      { id: 'subscription-b', tenant_key: 'tenant-b', canonical_price_id: 'price-shared' },
+    ]);
+
+    await expect(addCanonicalSubscriptionProducts(database)).resolves.toEqual({
+      backfilled: 1,
+      unresolved: 1,
+    });
+    await expect(addCanonicalSubscriptionProducts(database)).resolves.toEqual({
+      backfilled: 0,
+      unresolved: 1,
+    });
+    expect(
+      await database('payable_subscriptions').where({ id: 'subscription-a' }).first(),
+    ).toMatchObject({ canonical_product_id: 'product-a' });
+    expect(
+      await database('payable_subscriptions').where({ id: 'subscription-b' }).first(),
+    ).toMatchObject({ canonical_product_id: null });
+    await database.destroy();
+  });
+
   it('drops PostgreSQL unique constraints through the table constraint', async () => {
     const statements: Array<{ sql: string; bindings?: unknown[] }> = [];
     const knex = {

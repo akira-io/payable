@@ -97,6 +97,7 @@ export const canonicalSubscriptionListQuerySchema = canonicalListQuerySchema.ext
   customerId: z.string().min(1).optional(),
   status: z.enum(SUBSCRIPTION_STATUSES).optional(),
   canonicalPriceId: z.string().min(1).optional(),
+  canonicalProductId: z.string().min(1).optional(),
   name: z.string().min(1).optional(),
   includeBindings: booleanQuerySchema.optional(),
 });

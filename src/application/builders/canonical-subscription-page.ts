@@ -16,6 +16,7 @@ export interface ListCanonicalSubscriptionsInput {
   customerId?: string;
   status?: SubscriptionStatus;
   canonicalPriceId?: string;
+  canonicalProductId?: string;
   name?: string;
   includeBindings?: boolean;
 }
@@ -47,6 +48,7 @@ export async function listCanonicalSubscriptions(
     customerId: input.customerId,
     status: input.status,
     canonicalPriceId: input.canonicalPriceId,
+    canonicalProductId: input.canonicalProductId,
     name: input.name,
     includeBindings: input.includeBindings ?? false,
   };
@@ -66,6 +68,7 @@ export async function listCanonicalSubscriptions(
       customerId: filters.customerId,
       status: filters.status,
       canonicalPriceId: filters.canonicalPriceId,
+      canonicalProductId: filters.canonicalProductId,
       name: filters.name,
     },
     tenantId,

@@ -107,7 +107,9 @@ export class CanonicalSubscriptionResource {
       price.intervalCount,
     );
     const existing = await storage.subscriptions.findByName(customer.id, input.name, tenantId);
-    if (existing) return this.resolveDuplicate(existing, input, quantity, lifecycle);
+    if (existing) {
+      return this.resolveDuplicate(existing, input, quantity, lifecycle, price.productId);
+    }
     if (!price.active) {
       throw new PayableError('Canonical subscriptions require an active price', {
         code: 'SUBSCRIPTION_PRICE_INACTIVE',
@@ -138,6 +140,7 @@ export class CanonicalSubscriptionResource {
           priceId: lockedPrice.id,
           quantity,
           canonicalPriceId: lockedPrice.id,
+          canonicalProductId: lockedPrice.productId,
           acceptedCurrency: lockedPrice.currency,
           acceptedUnitAmount: lockedPrice.unitAmount,
           acceptedInterval: lockedPrice.interval,
@@ -171,6 +174,7 @@ export class CanonicalSubscriptionResource {
           metadata: {
             source: input.source,
             canonicalPriceId: lockedPrice.id,
+            canonicalProductId: lockedPrice.productId,
             currency: lockedPrice.currency,
             unitAmount: lockedPrice.unitAmount,
             interval: lockedPrice.interval,
@@ -198,6 +202,7 @@ export class CanonicalSubscriptionResource {
             tenantId,
             acceptedTerms: {
               canonicalPriceId: lockedPrice.id,
+              canonicalProductId: lockedPrice.productId,
               currency: lockedPrice.currency,
               unitAmount: lockedPrice.unitAmount,
               interval: lockedPrice.interval,
@@ -221,7 +226,7 @@ export class CanonicalSubscriptionResource {
       if (!isUniqueConstraintViolation(error)) throw error;
       const duplicate = await storage.subscriptions.findByName(customer.id, input.name, tenantId);
       if (!duplicate) throw error;
-      return this.resolveDuplicate(duplicate, input, quantity, lifecycle);
+      return this.resolveDuplicate(duplicate, input, quantity, lifecycle, price.productId);
     }
   }
 
@@ -244,9 +249,11 @@ export class CanonicalSubscriptionResource {
       Subscription,
       'status' | 'trialEndsAt' | 'currentPeriodStart' | 'currentPeriodEnd'
     >,
+    canonicalProductId: string,
   ): Subscription {
     if (
       existing.canonicalPriceId === input.priceId &&
+      existing.canonicalProductId === canonicalProductId &&
       existing.acceptedQuantity === quantity &&
       existing.provider === null &&
       existing.collectionResponsibility === input.collectionResponsibility &&

@@ -62,6 +62,7 @@ export class PrismaSubscriptionRepository
       query.customerId ? { customerId: query.customerId } : {},
       query.status ? { status: query.status } : {},
       query.canonicalPriceId ? { canonicalPriceId: query.canonicalPriceId } : {},
+      query.canonicalProductId ? { canonicalProductId: query.canonicalProductId } : {},
       query.name ? { name: query.name } : {},
     ];
     if (query.before) {

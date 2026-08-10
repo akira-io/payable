@@ -10,6 +10,7 @@ export interface PrismaSubscriptionRow {
   priceId: string | null;
   quantity: number;
   canonicalPriceId: string | null;
+  canonicalProductId: string | null;
   acceptedCurrency: string | null;
   acceptedUnitAmount: bigint | null;
   acceptedInterval: string | null;

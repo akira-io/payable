@@ -219,6 +219,7 @@ model PayableSubscription {
   priceId                String?                   @map("price_id")
   quantity               Int
   canonicalPriceId       String?                   @map("canonical_price_id")
+  canonicalProductId     String?                   @map("canonical_product_id")
   acceptedCurrency       String?                   @map("accepted_currency")
   acceptedUnitAmount     BigInt?                   @map("accepted_unit_amount")
   acceptedInterval       String?                   @map("accepted_interval")
@@ -246,6 +247,7 @@ model PayableSubscription {
   @@unique([tenantKey, customerId, name])
   @@index([customerId, createdAt, id])
   @@index([tenantKey, createdAt, id])
+  @@index([tenantKey, canonicalProductId, createdAt, id], map: "payable_subscriptions_tenant_product_page_idx")
   @@map("payable_subscriptions")
 }
 

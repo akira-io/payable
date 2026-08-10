@@ -67,6 +67,9 @@ export class KnexSubscriptionRepository
     if (query.canonicalPriceId) {
       subscriptions = subscriptions.where('canonical_price_id', query.canonicalPriceId);
     }
+    if (query.canonicalProductId) {
+      subscriptions = subscriptions.where('canonical_product_id', query.canonicalProductId);
+    }
     if (query.name) subscriptions = subscriptions.where('name', query.name);
     if (query.before) {
       const before = query.before;
@@ -96,6 +99,7 @@ export class KnexSubscriptionRepository
       priceId: (row.price_id as string | null) ?? null,
       quantity: row.quantity as number,
       canonicalPriceId: (row.canonical_price_id as string | null) ?? null,
+      canonicalProductId: (row.canonical_product_id as string | null) ?? null,
       acceptedCurrency: (row.accepted_currency as CurrencyCode | null) ?? null,
       acceptedUnitAmount: (row.accepted_unit_amount as number | null) ?? null,
       acceptedInterval: (row.accepted_interval as RecurringInterval | null) ?? null,
@@ -135,6 +139,7 @@ export class KnexSubscriptionRepository
       price_id: data.priceId,
       quantity: data.quantity,
       canonical_price_id: data.canonicalPriceId,
+      canonical_product_id: data.canonicalProductId,
       accepted_currency: data.acceptedCurrency,
       accepted_unit_amount: data.acceptedUnitAmount,
       accepted_interval: data.acceptedInterval,

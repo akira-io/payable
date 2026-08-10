@@ -45,6 +45,7 @@ describe('canonical local subscriptions', () => {
       providerSubscriptionId: null,
       status: 'incomplete',
       canonicalPriceId: price.id,
+      canonicalProductId: product.id,
       acceptedCurrency: 'EUR',
       acceptedUnitAmount: 2900,
       acceptedInterval: 'month',
@@ -63,6 +64,7 @@ describe('canonical local subscriptions', () => {
       tenantId: null,
       acceptedTerms: {
         canonicalPriceId: price.id,
+        canonicalProductId: product.id,
         currency: 'EUR',
         unitAmount: 2900,
         interval: 'month',
