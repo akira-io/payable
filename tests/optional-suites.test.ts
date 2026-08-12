@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { MCP_SUITES, NEST_SUITES, optionalSuiteExcludes, PRISMA_SUITES } from '../vitest.suites';
 
 describe('optionalSuiteExcludes', () => {
+  it('classifies provider-neutral Prisma pages as an optional Prisma suite', () => {
+    expect(PRISMA_SUITES).toContain('tests/prisma-provider-neutral-pages.test.ts');
+  });
+
   it('keeps every suite when all optional peers resolve', () => {
     expect(optionalSuiteExcludes(() => true)).toEqual([]);
   });

@@ -6,7 +6,11 @@ export const MCP_SUITES = [
 
 export const NEST_SUITES = ['tests/nest.test.ts'];
 
-export const PRISMA_SUITES = ['tests/prisma-contract.test.ts'];
+export const PRISMA_SUITES = [
+  'tests/prisma-contract.test.ts',
+  'tests/prisma-provider-neutral-pages.test.ts',
+  'tests/prisma-canonical-reset.test.ts',
+];
 
 const MCP_PROBE = '@modelcontextprotocol/sdk/client/index.js';
 const NEST_PROBES = ['@nestjs/common', '@nestjs/core', 'reflect-metadata'];
