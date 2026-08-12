@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PayableError } from '../../domain/errors/payable-error';
+import { INVOICE_STATUSES } from '../../domain/value-objects/invoice-status';
 import { Money } from '../../domain/value-objects/money';
 import { PAYMENT_STATUSES } from '../../domain/value-objects/payment-status';
 import { SUBSCRIPTION_STATUSES } from '../../domain/value-objects/subscription-status';
@@ -153,6 +154,12 @@ export const localRefundBodySchema = z
     message: 'currency is required with amount',
   });
 
+export const canonicalInvoiceListQuerySchema = canonicalListQuerySchema.extend({
+  customerId: z.string().min(1).optional(),
+  subscriptionId: z.string().min(1).optional(),
+  status: z.enum(INVOICE_STATUSES).optional(),
+  number: z.string().min(1).optional(),
+});
 export const catalogListQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(MAX_LIST_LIMIT).optional(),
   cursor: z.string().min(1).optional(),

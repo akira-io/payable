@@ -27,6 +27,7 @@ import {
 import { ReplayWebhookAction } from './application/actions/webhooks/replay-webhook.action';
 import { AuditResource } from './application/builders/audit-resource';
 import type { Billable } from './application/builders/billable';
+import { CanonicalInvoiceResource } from './application/builders/canonical-invoice-resource';
 import { CanonicalPriceResource } from './application/builders/canonical-price-resource';
 import { CanonicalProductResource } from './application/builders/canonical-product-resource';
 import { CanonicalSubscriptionResource } from './application/builders/canonical-subscription-resource';
@@ -96,7 +97,6 @@ export class Payable extends ProviderRegistries {
   customer(billable: Billable, providerName?: string, tenantId?: string | null): CustomerContext {
     return new CustomerContext(billable, this.factory.billing(providerName, tenantId));
   }
-
   customers(providerName?: string, tenantId?: string | null): CustomerResource {
     return this.factory.customerResource(providerName, tenantId);
   }
@@ -109,16 +109,17 @@ export class Payable extends ProviderRegistries {
       this.resolved.queue,
     );
   }
-
   providerCatalog(providerName?: string, tenantId?: string | null): ProviderCatalogResource {
     return new ProviderCatalogResource(this.factory.billing(providerName, tenantId));
   }
   prices(tenantId?: string | null): CanonicalPriceResource {
     return new CanonicalPriceResource(this.factory.local(tenantId));
   }
-
   canonicalSubscriptions(tenantId?: string | null): CanonicalSubscriptionResource {
     return new CanonicalSubscriptionResource(this.factory.local(tenantId));
+  }
+  canonicalInvoices(tenantId?: string | null): CanonicalInvoiceResource {
+    return new CanonicalInvoiceResource(this.factory.local(tenantId));
   }
   refunds(providerName?: string, tenantId?: string | null): RefundResource {
     return new RefundResource(this.factory.billing(providerName, tenantId));

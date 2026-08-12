@@ -73,6 +73,8 @@ cap it at `MAX_LIST_LIMIT = 100` (`src/presentation/mcp/schemas.ts`).
 | `canonical_subscriptions_list` | read | `payable.canonicalSubscriptions().list(filters)` |
 | `canonical_payment_get` | read | `payable.storedPayments().retrieve(id)` |
 | `canonical_payments_list` | read | `payable.storedPayments().list(filters)` |
+| `canonical_invoices_list` | read | `payable.canonicalInvoices().list(filters)` |
+| `canonical_invoice_get` | read | `payable.canonicalInvoices().retrieve(id)` |
 | `product_create` | mutate | `payable.providerCatalog().products.create(...)` |
 | `product_update` | mutate | `payable.providerCatalog().products.update(...)` |
 | `product_activate` | mutate | `payable.providerCatalog().products.activate(id)` |

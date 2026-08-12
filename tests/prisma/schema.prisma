@@ -11,16 +11,16 @@ datasource db {
 }
 
 model PayableCustomer {
-  id                 String   @id
-  tenantId           String?  @map("tenant_id")
-  tenantKey          String   @default("") @map("tenant_key")
-  billableType       String   @map("billable_type")
-  billableId         String   @map("billable_id")
+  id                 String                             @id
+  tenantId           String?                            @map("tenant_id")
+  tenantKey          String                             @default("") @map("tenant_key")
+  billableType       String                             @map("billable_type")
+  billableId         String                             @map("billable_id")
   email              String
   name               String?
   metadata           String?
-  createdAt          DateTime @map("created_at")
-  updatedAt          DateTime @map("updated_at")
+  createdAt          DateTime                           @map("created_at")
+  updatedAt          DateTime                           @map("updated_at")
   providerBindings   PayableCustomerProviderBinding[]
   providerSyncStates PayableCustomerProviderSyncState[]
 
@@ -104,15 +104,15 @@ model PayablePrice {
 }
 
 model PayableCanonicalProduct {
-  id               String   @id
-  tenantId         String?  @map("tenant_id")
-  tenantKey        String   @default("") @map("tenant_key")
+  id               String                          @id
+  tenantId         String?                         @map("tenant_id")
+  tenantKey        String                          @default("") @map("tenant_key")
   name             String
   description      String?
   active           Boolean
   metadata         String?
-  createdAt        DateTime @map("created_at")
-  updatedAt        DateTime @map("updated_at")
+  createdAt        DateTime                        @map("created_at")
+  updatedAt        DateTime                        @map("updated_at")
   prices           PayableCanonicalPrice[]
   providerBindings PayableProductProviderBinding[]
 
@@ -122,21 +122,21 @@ model PayableCanonicalProduct {
 }
 
 model PayableCanonicalPrice {
-  id               String   @id
-  tenantId         String?  @map("tenant_id")
-  tenantKey        String   @default("") @map("tenant_key")
-  productId        String   @map("product_id")
+  id               String                        @id
+  tenantId         String?                       @map("tenant_id")
+  tenantKey        String                        @default("") @map("tenant_key")
+  productId        String                        @map("product_id")
   currency         String
-  unitAmount       BigInt   @map("unit_amount")
+  unitAmount       BigInt                        @map("unit_amount")
   type             String
   interval         String?
-  intervalCount    Int?     @map("interval_count")
+  intervalCount    Int?                          @map("interval_count")
   description      String?
-  lookupKey        String?  @map("lookup_key")
+  lookupKey        String?                       @map("lookup_key")
   active           Boolean
-  createdAt        DateTime @map("created_at")
-  updatedAt        DateTime @map("updated_at")
-  product          PayableCanonicalProduct @relation(fields: [tenantKey, productId], references: [tenantKey, id], onDelete: Restrict)
+  createdAt        DateTime                      @map("created_at")
+  updatedAt        DateTime                      @map("updated_at")
+  product          PayableCanonicalProduct       @relation(fields: [tenantKey, productId], references: [tenantKey, id], onDelete: Restrict)
   providerBindings PayablePriceProviderBinding[]
 
   @@unique([tenantKey, id])
@@ -147,14 +147,14 @@ model PayableCanonicalPrice {
 }
 
 model PayableProductProviderBinding {
-  id                String   @id
-  tenantId          String?  @map("tenant_id")
-  tenantKey         String   @default("") @map("tenant_key")
-  productId         String   @map("product_id")
+  id                String                  @id
+  tenantId          String?                 @map("tenant_id")
+  tenantKey         String                  @default("") @map("tenant_key")
+  productId         String                  @map("product_id")
   provider          String
-  providerProductId String   @map("provider_product_id")
-  createdAt         DateTime @map("created_at")
-  updatedAt         DateTime @map("updated_at")
+  providerProductId String                  @map("provider_product_id")
+  createdAt         DateTime                @map("created_at")
+  updatedAt         DateTime                @map("updated_at")
   product           PayableCanonicalProduct @relation(fields: [tenantKey, productId], references: [tenantKey, id], onDelete: Cascade)
 
   @@unique([tenantKey, productId, provider])
@@ -163,14 +163,14 @@ model PayableProductProviderBinding {
 }
 
 model PayablePriceProviderBinding {
-  id              String   @id
-  tenantId        String?  @map("tenant_id")
-  tenantKey       String   @default("") @map("tenant_key")
-  priceId         String   @map("price_id")
+  id              String                @id
+  tenantId        String?               @map("tenant_id")
+  tenantKey       String                @default("") @map("tenant_key")
+  priceId         String                @map("price_id")
   provider        String
-  providerPriceId String   @map("provider_price_id")
-  createdAt       DateTime @map("created_at")
-  updatedAt       DateTime @map("updated_at")
+  providerPriceId String                @map("provider_price_id")
+  createdAt       DateTime              @map("created_at")
+  updatedAt       DateTime              @map("updated_at")
   price           PayableCanonicalPrice @relation(fields: [tenantKey, priceId], references: [tenantKey, id], onDelete: Cascade)
 
   @@unique([tenantKey, priceId, provider])
@@ -207,40 +207,40 @@ model PayableCatalogSynchronization {
 }
 
 model PayableSubscription {
-  id                     String                    @id
-  tenantId               String?                   @map("tenant_id")
-  tenantKey              String                    @default("") @map("tenant_key")
-  customerId             String                    @map("customer_id")
-  name                   String
-  provider               String?
-  providerSubscriptionId String?                   @map("provider_subscription_id")
-  status                 String
-  priceId                String?                   @map("price_id")
-  quantity               Int
-  canonicalPriceId       String?                   @map("canonical_price_id")
-  canonicalProductId     String?                   @map("canonical_product_id")
-  acceptedCurrency       String?                   @map("accepted_currency")
-  acceptedUnitAmount     BigInt?                   @map("accepted_unit_amount")
-  acceptedInterval       String?                   @map("accepted_interval")
-  acceptedIntervalCount  Int?                      @map("accepted_interval_count")
-  acceptedQuantity       Int?                      @map("accepted_quantity")
-  collectionResponsibility String                  @default("provider") @map("collection_responsibility")
-  creationSource         String?                   @map("creation_source")
-  trialEndsAt            DateTime?                 @map("trial_ends_at")
-  endsAt                 DateTime?                 @map("ends_at")
-  currentPeriodStart     DateTime?                 @map("current_period_start")
-  currentPeriodEnd       DateTime?                 @map("current_period_end")
-  providerSyncedAt       DateTime?                 @map("provider_synced_at")
-  scheduledChangeAction  String?                   @map("scheduled_change_action")
-  scheduledChangeEffectiveAt DateTime?             @map("scheduled_change_effective_at")
-  scheduledResumeAt      DateTime?                 @map("scheduled_resume_at")
-  resumeBillingPolicy    String?                   @map("resume_billing_policy")
-  paymentCollectionPauseBehavior String?           @map("payment_collection_pause_behavior")
-  paymentCollectionResumesAt DateTime?             @map("payment_collection_resumes_at")
-  createdAt              DateTime                  @map("created_at")
-  updatedAt              DateTime                  @map("updated_at")
-  items                  PayableSubscriptionItem[]
-  providerBindings       PayableSubscriptionProviderBinding[]
+  id                             String                               @id
+  tenantId                       String?                              @map("tenant_id")
+  tenantKey                      String                               @default("") @map("tenant_key")
+  customerId                     String                               @map("customer_id")
+  name                           String
+  provider                       String?
+  providerSubscriptionId         String?                              @map("provider_subscription_id")
+  status                         String
+  priceId                        String?                              @map("price_id")
+  quantity                       Int
+  canonicalPriceId               String?                              @map("canonical_price_id")
+  canonicalProductId             String?                              @map("canonical_product_id")
+  acceptedCurrency               String?                              @map("accepted_currency")
+  acceptedUnitAmount             BigInt?                              @map("accepted_unit_amount")
+  acceptedInterval               String?                              @map("accepted_interval")
+  acceptedIntervalCount          Int?                                 @map("accepted_interval_count")
+  acceptedQuantity               Int?                                 @map("accepted_quantity")
+  collectionResponsibility       String                               @default("provider") @map("collection_responsibility")
+  creationSource                 String?                              @map("creation_source")
+  trialEndsAt                    DateTime?                            @map("trial_ends_at")
+  endsAt                         DateTime?                            @map("ends_at")
+  currentPeriodStart             DateTime?                            @map("current_period_start")
+  currentPeriodEnd               DateTime?                            @map("current_period_end")
+  providerSyncedAt               DateTime?                            @map("provider_synced_at")
+  scheduledChangeAction          String?                              @map("scheduled_change_action")
+  scheduledChangeEffectiveAt     DateTime?                            @map("scheduled_change_effective_at")
+  scheduledResumeAt              DateTime?                            @map("scheduled_resume_at")
+  resumeBillingPolicy            String?                              @map("resume_billing_policy")
+  paymentCollectionPauseBehavior String?                              @map("payment_collection_pause_behavior")
+  paymentCollectionResumesAt     DateTime?                            @map("payment_collection_resumes_at")
+  createdAt                      DateTime                             @map("created_at")
+  updatedAt                      DateTime                             @map("updated_at")
+  items                          PayableSubscriptionItem[]
+  providerBindings               PayableSubscriptionProviderBinding[]
 
   @@unique([tenantKey, provider, providerSubscriptionId])
   @@unique([tenantKey, customerId, name])
@@ -251,16 +251,16 @@ model PayableSubscription {
 }
 
 model PayableSubscriptionProviderBinding {
-  id                     String               @id
-  tenantId               String?              @map("tenant_id")
-  tenantKey              String               @default("") @map("tenant_key")
-  subscriptionId         String               @map("subscription_id")
+  id                     String              @id
+  tenantId               String?             @map("tenant_id")
+  tenantKey              String              @default("") @map("tenant_key")
+  subscriptionId         String              @map("subscription_id")
   provider               String
-  providerSubscriptionId String               @map("provider_subscription_id")
-  providerSyncedAt       DateTime?            @map("provider_synced_at")
-  createdAt              DateTime             @map("created_at")
-  updatedAt              DateTime             @map("updated_at")
-  subscription           PayableSubscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  providerSubscriptionId String              @map("provider_subscription_id")
+  providerSyncedAt       DateTime?           @map("provider_synced_at")
+  createdAt              DateTime            @map("created_at")
+  updatedAt              DateTime            @map("updated_at")
+  subscription           PayableSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   @@unique([tenantKey, subscriptionId, provider])
   @@unique([tenantKey, provider, providerSubscriptionId])
@@ -279,6 +279,71 @@ model PayableSubscriptionItem {
 
   @@index([subscriptionId])
   @@map("payable_subscription_items")
+}
+
+model PayableCanonicalInvoice {
+  id               String                          @id
+  tenantId         String?                         @map("tenant_id")
+  tenantKey        String                          @default("") @map("tenant_key")
+  customerId       String                          @map("customer_id")
+  subscriptionId   String?                         @map("subscription_id")
+  status           String
+  currency         String
+  total            BigInt
+  amountPaid       BigInt                          @map("amount_paid")
+  amountDue        BigInt                          @map("amount_due")
+  number           String?
+  hostedInvoiceUrl String?                         @map("hosted_invoice_url")
+  invoicePdf       String?                         @map("invoice_pdf")
+  createdAt        DateTime                        @map("created_at")
+  updatedAt        DateTime                        @map("updated_at")
+  providerBindings PayableInvoiceProviderBinding[]
+  payments         PayableInvoicePayment[]
+
+  @@unique([tenantKey, id])
+  @@index([tenantKey, createdAt, id])
+  @@index([tenantKey, customerId, createdAt, id])
+  @@map("payable_canonical_invoices")
+}
+
+model PayableInvoiceProviderBinding {
+  id                   String                  @id
+  tenantId             String?                 @map("tenant_id")
+  tenantKey            String                  @default("") @map("tenant_key")
+  invoiceId            String                  @map("invoice_id")
+  provider             String
+  providerResourceType String                  @map("provider_resource_type")
+  providerResourceId   String                  @map("provider_resource_id")
+  createdAt            DateTime                @map("created_at")
+  updatedAt            DateTime                @map("updated_at")
+  invoice              PayableCanonicalInvoice @relation(fields: [tenantKey, invoiceId], references: [tenantKey, id], onDelete: Cascade)
+
+  @@unique([tenantKey, invoiceId, provider])
+  @@unique([tenantKey, provider, providerResourceType, providerResourceId])
+  @@map("payable_invoice_provider_bindings")
+}
+
+model PayableInvoicePayment {
+  tenantId  String?                 @map("tenant_id")
+  tenantKey String                  @default("") @map("tenant_key")
+  invoiceId String                  @map("invoice_id")
+  paymentId String                  @map("payment_id")
+  createdAt DateTime                @map("created_at")
+  invoice   PayableCanonicalInvoice @relation(fields: [tenantKey, invoiceId], references: [tenantKey, id], onDelete: Cascade)
+  payment   PayablePayment          @relation(fields: [tenantKey, paymentId], references: [tenantKey, id], onDelete: Restrict)
+
+  @@id([tenantKey, invoiceId, paymentId])
+  @@index([tenantKey, invoiceId, createdAt, paymentId])
+  @@map("payable_invoice_payments")
+}
+
+model PayableMigrationReport {
+  migrationName String   @id @map("migration_name")
+  report        String
+  createdAt     DateTime @map("created_at")
+  updatedAt     DateTime @map("updated_at")
+
+  @@map("payable_migration_reports")
 }
 
 model PayableInvoice {
@@ -324,6 +389,7 @@ model PayablePayment {
   createdAt         DateTime        @map("created_at")
   updatedAt         DateTime        @map("updated_at")
   refunds           PayableRefund[]
+  invoicePayments   PayableInvoicePayment[]
 
   @@unique([provider, providerPaymentId])
   @@unique([tenantKey, id])

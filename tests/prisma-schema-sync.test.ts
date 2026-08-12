@@ -43,6 +43,10 @@ describe('prisma schema sync', () => {
     const models = readPayableModels();
     expect(models).toContain('model PayableCustomer');
     expect(models).toContain('model PayableOutboxEvent');
+    expect(models).toContain('model PayableCanonicalInvoice');
+    expect(models).toContain('model PayableInvoiceProviderBinding');
+    expect(models).toContain('model PayableInvoicePayment');
+    expect(models).toContain('model PayableMigrationReport');
     expect(models).toContain('occurredAt');
     expect(models).not.toMatch(/\bdatasource\s+\w+\s*\{/);
     expect(models).not.toMatch(/\bgenerator\s+\w+\s*\{/);
@@ -77,9 +81,13 @@ describe('prisma schema sync', () => {
     'PayableCatalogSynchronization',
     'PayableCustomerProviderSyncState',
     'PayableSubscriptionProviderBinding',
+    'PayableCanonicalInvoice',
+    'PayableInvoiceProviderBinding',
+    'PayableInvoicePayment',
     'PayableProduct',
     'PayablePayment',
     'PayableRefund',
+    'PayableMigrationReport',
     'PayableOutboxEvent',
   ])('keeps %s aligned across all schema copies', (modelName) => {
     const [canonicalPath, ...copyPaths] = SUBSCRIPTION_SCHEMA_PATHS;

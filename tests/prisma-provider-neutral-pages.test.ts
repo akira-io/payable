@@ -52,6 +52,22 @@ describe('Prisma provider-neutral collection pages', () => {
       externalReference: 'BANK-PRISMA-100',
       description: 'Manual transfer',
     });
+    const invoice = await payable.canonicalInvoices(tenantId).create({
+      customerId: customer.id,
+      subscriptionId: subscription.id,
+      status: 'open',
+      currency: 'EUR',
+      total: 4900,
+      amountPaid: 0,
+      amountDue: 4900,
+      number: 'INV-PRISMA-100',
+    });
+    await payable.canonicalInvoices(tenantId).attachPayment(invoice.id, payment.id);
+    await payable.canonicalInvoices(tenantId).attachProvider(invoice.id, {
+      provider: 'stripe',
+      providerResourceType: 'invoice',
+      providerResourceId: 'in_prisma_100',
+    });
 
     await expect(payable.products(tenantId).list({ name: 'GROWTH' })).resolves.toMatchObject({
       items: [growth],
@@ -74,6 +90,12 @@ describe('Prisma provider-neutral collection pages', () => {
           externalReference: 'BANK-PRISMA-100',
         }),
       ],
+      hasMore: false,
+    });
+    await expect(
+      payable.canonicalInvoices(tenantId).list({ customerId: customer.id }),
+    ).resolves.toMatchObject({
+      items: [expect.objectContaining({ id: invoice.id, paymentIds: [payment.id] })],
       hasMore: false,
     });
 

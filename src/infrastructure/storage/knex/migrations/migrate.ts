@@ -3,6 +3,7 @@ import { PayableError } from '../../../../domain/errors/payable-error';
 import { alterExistingTables } from './alter-existing-tables';
 import { createBillingTables } from './billing-schema';
 import { addCanonicalCatalogTables } from './canonical-catalog-schema';
+import { addCanonicalInvoices } from './canonical-invoices';
 import { addCanonicalLocalSubscriptions } from './canonical-local-subscriptions';
 import { backfillCanonicalProviderCatalog } from './canonical-provider-catalog-backfill';
 import { addCanonicalSubscriptionProducts } from './canonical-subscription-products';
@@ -129,5 +130,8 @@ export async function migrate(knex: Knex): Promise<void> {
       addCanonicalSubscriptionProducts(knex).then(() => undefined),
     );
     await runStep(knex, '019-local-payment-evidence', () => addLocalPaymentEvidence(knex));
+    await runStep(knex, '020-canonical-invoices', () =>
+      addCanonicalInvoices(knex).then(() => undefined),
+    );
   });
 }

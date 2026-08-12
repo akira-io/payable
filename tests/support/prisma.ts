@@ -22,6 +22,9 @@ const TRUNCATE_ORDER = [
   'payableWebhookEndpoint',
   'payableSubscriptionItem',
   'payableSubscriptionProviderBinding',
+  'payableInvoicePayment',
+  'payableInvoiceProviderBinding',
+  'payableCanonicalInvoice',
   'payableRefund',
   'payableSubscription',
   'payablePayment',
@@ -35,6 +38,7 @@ const TRUNCATE_ORDER = [
   'payableIdempotencyKey',
   'payableAuditLog',
   'payableOutboxEvent',
+  'payableMigrationReport',
 ];
 
 interface Deletable {

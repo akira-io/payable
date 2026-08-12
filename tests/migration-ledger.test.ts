@@ -32,6 +32,7 @@ describe('migration ledger', () => {
       '017-canonical-provider-catalog-backfill',
       '018-canonical-subscription-products',
       '019-local-payment-evidence',
+      '020-canonical-invoices',
     ]);
     await db.destroy();
   });

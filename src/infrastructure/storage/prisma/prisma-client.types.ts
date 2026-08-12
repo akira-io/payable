@@ -6,6 +6,12 @@ import type {
   PrismaProductProviderBindingRow,
 } from './prisma-canonical-catalog-row.types';
 import type { PrismaCollectionEvidenceRow } from './prisma-collection-evidence.types';
+import type {
+  PrismaCanonicalInvoiceRow,
+  PrismaInvoicePaymentRow,
+  PrismaInvoiceProviderBindingRow,
+  PrismaInvoiceRow,
+} from './prisma-invoice-row.types';
 import type { PrismaSubscriptionRow } from './prisma-subscription-row.types';
 import type {
   PrismaWebhookDeliveryRow,
@@ -21,6 +27,7 @@ export type {
   PrismaPriceProviderBindingRow,
   PrismaProductProviderBindingRow,
 } from './prisma-canonical-catalog-row.types';
+export type { PrismaInvoiceRow } from './prisma-invoice-row.types';
 export type { PrismaSubscriptionRow } from './prisma-subscription-row.types';
 export type {
   PrismaWebhookDeliveryRow,
@@ -117,25 +124,6 @@ export interface PrismaSubscriptionItemRow {
   priceId: string;
   providerItemId: string | null;
   quantity: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface PrismaInvoiceRow {
-  id: string;
-  tenantId: string | null;
-  customerId: string;
-  subscriptionId: string | null;
-  provider: string;
-  providerInvoiceId: string | null;
-  status: string;
-  currency: string;
-  total: bigint;
-  amountPaid: bigint;
-  amountDue: bigint;
-  number: string | null;
-  hostedInvoiceUrl: string | null;
-  invoicePdf: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -256,6 +244,7 @@ export interface PrismaDelegate<Row> {
     where: Record<string, unknown>;
     data: Record<string, unknown>;
   }): Promise<PrismaCountResult>;
+  deleteMany(args: { where: Record<string, unknown> }): Promise<PrismaCountResult>;
   upsert(args: {
     where: Record<string, unknown>;
     create: Record<string, unknown>;
@@ -279,6 +268,9 @@ export interface PrismaModelDelegates {
   payableSubscriptionProviderBinding: PrismaDelegate<PrismaSubscriptionProviderBindingRow>;
   payableSubscriptionItem: PrismaDelegate<PrismaSubscriptionItemRow>;
   payableInvoice: PrismaDelegate<PrismaInvoiceRow>;
+  payableCanonicalInvoice: PrismaDelegate<PrismaCanonicalInvoiceRow>;
+  payableInvoiceProviderBinding: PrismaDelegate<PrismaInvoiceProviderBindingRow>;
+  payableInvoicePayment: PrismaDelegate<PrismaInvoicePaymentRow>;
   payablePayment: PrismaDelegate<PrismaPaymentRow>;
   payableRefund: PrismaDelegate<PrismaRefundRow>;
   payableWebhookEvent: PrismaDelegate<PrismaWebhookEventRow>;
