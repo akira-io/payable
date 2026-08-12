@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 const releaseWorkflow = readFileSync('.github/workflows/release.yml', 'utf8');
 const publishWorkflow = readFileSync('.github/workflows/publish.yml', 'utf8');
+const testWorkflow = readFileSync('.github/workflows/test.yml', 'utf8');
 
 function verify(tag: string, version: string, changelog: string) {
   const root = mkdtempSync(join(tmpdir(), 'payable-release-'));
@@ -37,6 +38,10 @@ describe('release metadata integrity', () => {
 });
 
 describe('release workflows', () => {
+  it('checks out release tags for the beta upgrade smoke test', () => {
+    expect(testWorkflow.match(/fetch-depth: 0/g)).toHaveLength(2);
+  });
+
   it('validates immutable metadata instead of rewriting the tagged tree', () => {
     for (const workflow of [releaseWorkflow, publishWorkflow]) {
       expect(workflow).toContain('node scripts/verify-release-metadata.mjs "$GITHUB_REF_NAME"');
