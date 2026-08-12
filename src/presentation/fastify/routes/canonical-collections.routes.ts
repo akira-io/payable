@@ -4,6 +4,7 @@ import type { Payable } from '../../../payable';
 import { requireRequestIdempotencyKey } from '../../shared/catalog-idempotency';
 import {
   canonicalCustomerListQuerySchema,
+  canonicalInvoiceListQuerySchema,
   canonicalPaymentListQuerySchema,
   canonicalPriceListQuerySchema,
   canonicalProductListQuerySchema,
@@ -76,6 +77,16 @@ export async function registerCanonicalCollectionRoutes(
   scope.get('/canonical/payments', async (request, reply) => {
     const input = parseBody(canonicalPaymentListQuerySchema, request.query);
     reply.status(200).send(await payable.storedPayments(tenantOf(request, options)).list(input));
+  });
+  scope.get('/canonical/invoices', async (request, reply) => {
+    const input = parseBody(canonicalInvoiceListQuerySchema, request.query);
+    reply.status(200).send(await payable.canonicalInvoices(tenantOf(request, options)).list(input));
+  });
+  scope.get('/canonical/invoices/:id', async (request, reply) => {
+    const { id } = parseBody(catalogIdParamSchema, request.params);
+    reply
+      .status(200)
+      .send(await payable.canonicalInvoices(tenantOf(request, options)).retrieve(id));
   });
   scope.get('/canonical/payments/:id', async (request, reply) => {
     const { id } = parseBody(catalogIdParamSchema, request.params);

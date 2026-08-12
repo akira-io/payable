@@ -16,6 +16,7 @@ import type { Payable } from '../../payable';
 import { rawHeadersOf, requireRequestIdempotencyKey } from '../shared/catalog-idempotency';
 import {
   canonicalCustomerListQuerySchema,
+  canonicalInvoiceListQuerySchema,
   canonicalPaymentListQuerySchema,
   canonicalPriceListQuerySchema,
   canonicalProductListQuerySchema,
@@ -105,6 +106,18 @@ export class PayableCanonicalReadController {
   listPayments(@Req() request: PayableHttpRequest, @Query() query: unknown) {
     const input = parseBody(canonicalPaymentListQuerySchema, query);
     return this.payable.storedPayments(this.tenantOf(request)).list(input);
+  }
+
+  @Get('invoices')
+  listInvoices(@Req() request: PayableHttpRequest, @Query() query: unknown) {
+    const input = parseBody(canonicalInvoiceListQuerySchema, query);
+    return this.payable.canonicalInvoices(this.tenantOf(request)).list(input);
+  }
+
+  @Get('invoices/:id')
+  getInvoice(@Req() request: PayableHttpRequest, @Param('id') rawId: string) {
+    const { id } = parseBody(catalogIdParamSchema, { id: rawId });
+    return this.payable.canonicalInvoices(this.tenantOf(request)).retrieve(id);
   }
 
   @Get('payments/:id')

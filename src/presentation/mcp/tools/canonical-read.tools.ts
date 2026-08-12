@@ -1,6 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { CustomerNotFoundError } from '../../../domain/errors/customer-not-found.error';
+import { INVOICE_STATUSES } from '../../../domain/value-objects/invoice-status';
 import { PAYMENT_STATUSES } from '../../../domain/value-objects/payment-status';
 import { SUBSCRIPTION_STATUSES } from '../../../domain/value-objects/subscription-status';
 import type { Payable } from '../../../payable';
@@ -215,6 +216,42 @@ export function registerCanonicalReadTools(
             description: args.description,
           }),
         ),
+    );
+  }
+  if (gate('canonical_invoices_list', 'read')) {
+    server.registerTool(
+      'canonical_invoices_list',
+      {
+        description: 'List canonical invoices from local storage without calling a provider.',
+        inputSchema: {
+          ...pageShape,
+          customerId: z.string().min(1).optional(),
+          subscriptionId: z.string().min(1).optional(),
+          status: z.enum(INVOICE_STATUSES).optional(),
+          number: z.string().min(1).optional(),
+          ...tenantShape,
+        },
+      },
+      (args) =>
+        respond(() =>
+          payable.canonicalInvoices(tenantFrom(args, options)).list({
+            limit: args.limit,
+            cursor: args.cursor,
+            id: args.id,
+            customerId: args.customerId,
+            subscriptionId: args.subscriptionId,
+            status: args.status,
+            number: args.number,
+          }),
+        ),
+    );
+  }
+  if (gate('canonical_invoice_get', 'read')) {
+    server.registerTool(
+      'canonical_invoice_get',
+      { description: 'Fetch a canonical invoice by its local id.', inputSchema: exactShape },
+      (args) =>
+        respond(() => payable.canonicalInvoices(tenantFrom(args, options)).retrieve(args.id)),
     );
   }
   if (gate('canonical_payment_get', 'read')) {

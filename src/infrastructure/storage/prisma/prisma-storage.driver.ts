@@ -1,11 +1,14 @@
 import type {
   AuditLogRepository,
+  CanonicalInvoiceRepository,
   CanonicalPriceRepository,
   CanonicalProductRepository,
   CatalogSynchronizationRepository,
   CustomerProviderBindingRepository,
   CustomerProviderSyncStateRepository,
   CustomerRepository,
+  InvoicePaymentRepository,
+  InvoiceProviderBindingRepository,
   InvoiceRepository,
   OutboxEventRepository,
   PaymentRepository,
@@ -30,12 +33,15 @@ import type {
 import { SystemClock } from '../../../support/clock/system-clock';
 import type { PrismaClient, PrismaClientLike } from './prisma-client.types';
 import { PrismaAuditLogRepository } from './repositories/prisma-audit-logs.repository';
+import { PrismaCanonicalInvoiceRepository } from './repositories/prisma-canonical-invoices.repository';
 import { PrismaCanonicalPriceRepository } from './repositories/prisma-canonical-prices.repository';
 import { PrismaCanonicalProductRepository } from './repositories/prisma-canonical-products.repository';
 import { PrismaCatalogSynchronizationRepository } from './repositories/prisma-catalog-synchronizations.repository';
 import { PrismaCustomerProviderBindingRepository } from './repositories/prisma-customer-provider-bindings.repository';
 import { PrismaCustomerProviderSyncStateRepository } from './repositories/prisma-customer-provider-sync-states.repository';
 import { PrismaCustomerRepository } from './repositories/prisma-customers.repository';
+import { PrismaInvoicePaymentRepository } from './repositories/prisma-invoice-payments.repository';
+import { PrismaInvoiceProviderBindingRepository } from './repositories/prisma-invoice-provider-bindings.repository';
 import { PrismaInvoiceRepository } from './repositories/prisma-invoices.repository';
 import { PrismaOutboxEventRepository } from './repositories/prisma-outbox.repository';
 import { PrismaPaymentRepository } from './repositories/prisma-payments.repository';
@@ -58,6 +64,7 @@ function buildRepositories(
   auditKey?: string,
 ): Repositories {
   return {
+    canonicalInvoices: new PrismaCanonicalInvoiceRepository(client, clock),
     canonicalPrices: new PrismaCanonicalPriceRepository(client, clock),
     canonicalProducts: new PrismaCanonicalProductRepository(client, clock),
     catalogSynchronizations: new PrismaCatalogSynchronizationRepository(client, clock),
@@ -72,6 +79,8 @@ function buildRepositories(
     subscriptionProviderBindings: new PrismaSubscriptionProviderBindingRepository(client, clock),
     subscriptionItems: new PrismaSubscriptionItemRepository(client, clock),
     invoices: new PrismaInvoiceRepository(client, clock),
+    invoicePayments: new PrismaInvoicePaymentRepository(client),
+    invoiceProviderBindings: new PrismaInvoiceProviderBindingRepository(client, clock),
     payments: new PrismaPaymentRepository(client, clock),
     refunds: new PrismaRefundRepository(client, clock),
     webhookEvents: new PrismaWebhookEventRepository(client, clock, encryption),
@@ -83,6 +92,7 @@ function buildRepositories(
 }
 
 export class PrismaStorageDriver implements StorageDriver {
+  canonicalInvoices!: CanonicalInvoiceRepository;
   canonicalPrices!: CanonicalPriceRepository;
   canonicalProducts!: CanonicalProductRepository;
   catalogSynchronizations!: CatalogSynchronizationRepository;
@@ -97,6 +107,8 @@ export class PrismaStorageDriver implements StorageDriver {
   subscriptionProviderBindings!: SubscriptionProviderBindingRepository;
   subscriptionItems!: SubscriptionItemRepository;
   invoices!: InvoiceRepository;
+  invoicePayments!: InvoicePaymentRepository;
+  invoiceProviderBindings!: InvoiceProviderBindingRepository;
   payments!: PaymentRepository;
   refunds!: RefundRepository;
   webhookEvents!: WebhookEventRepository;
@@ -131,6 +143,7 @@ export class PrismaStorageDriver implements StorageDriver {
   }
 
   private assignRepositories(repositories: Repositories): void {
+    this.canonicalInvoices = repositories.canonicalInvoices as CanonicalInvoiceRepository;
     this.canonicalPrices = repositories.canonicalPrices as CanonicalPriceRepository;
     this.canonicalProducts = repositories.canonicalProducts as CanonicalProductRepository;
     this.catalogSynchronizations =
@@ -149,6 +162,9 @@ export class PrismaStorageDriver implements StorageDriver {
     this.subscriptionProviderBindings = repositories.subscriptionProviderBindings;
     this.subscriptionItems = repositories.subscriptionItems;
     this.invoices = repositories.invoices;
+    this.invoicePayments = repositories.invoicePayments as InvoicePaymentRepository;
+    this.invoiceProviderBindings =
+      repositories.invoiceProviderBindings as InvoiceProviderBindingRepository;
     this.payments = repositories.payments;
     this.refunds = repositories.refunds;
     this.webhookEvents = repositories.webhookEvents;

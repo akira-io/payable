@@ -7,6 +7,13 @@ export {
 export type { Billable } from './billable';
 export type { BillingDependencies } from './billing-dependencies';
 export {
+  type AttachInvoiceProviderInput,
+  type CanonicalInvoiceDetails,
+  CanonicalInvoiceResource,
+  type CreateCanonicalInvoiceInput,
+  type ListCanonicalInvoicesInput,
+} from './canonical-invoice-resource';
+export {
   type CanonicalPricePageItem,
   CanonicalPriceResource,
   type CreateCanonicalPriceInput,

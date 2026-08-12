@@ -1,4 +1,5 @@
 import type { AuditLogRepository } from './audit-log-repository.contract';
+import type { CanonicalInvoiceRepository } from './canonical-invoice-repository.contract';
 import type { CanonicalPriceRepository } from './canonical-price-repository.contract';
 import type { CanonicalProductRepository } from './canonical-product-repository.contract';
 import type { CatalogSynchronizationRepository } from './catalog-synchronization-repository.contract';
@@ -6,6 +7,8 @@ import type { CustomerProviderBindingRepository } from './customer-provider-bind
 import type { CustomerProviderSyncStateRepository } from './customer-provider-sync-state-repository.contract';
 import type { CustomerRepository } from './customer-repository.contract';
 import type { Encryption } from './encryption.contract';
+import type { InvoicePaymentRepository } from './invoice-payment-repository.contract';
+import type { InvoiceProviderBindingRepository } from './invoice-provider-binding-repository.contract';
 import type { InvoiceRepository } from './invoice-repository.contract';
 import type { OutboxEventRepository } from './outbox-event-repository.contract';
 import type { PaymentRepository } from './payment-repository.contract';
@@ -22,6 +25,7 @@ import type { WebhookEndpointRepository } from './webhook-endpoint-repository.co
 import type { WebhookEventRepository } from './webhook-event-repository.contract';
 
 export interface Repositories {
+  readonly canonicalInvoices?: CanonicalInvoiceRepository;
   readonly canonicalPrices?: CanonicalPriceRepository;
   readonly canonicalProducts?: CanonicalProductRepository;
   readonly catalogSynchronizations?: CatalogSynchronizationRepository;
@@ -36,6 +40,8 @@ export interface Repositories {
   readonly subscriptionProviderBindings: SubscriptionProviderBindingRepository;
   readonly subscriptionItems: SubscriptionItemRepository;
   readonly invoices: InvoiceRepository;
+  readonly invoicePayments?: InvoicePaymentRepository;
+  readonly invoiceProviderBindings?: InvoiceProviderBindingRepository;
   readonly payments: PaymentRepository;
   readonly refunds: RefundRepository;
   readonly webhookEvents: WebhookEventRepository;

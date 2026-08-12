@@ -22,6 +22,12 @@ export type {
 } from './audit-log-repository.contract';
 export type { CacheDriver } from './cache-driver.contract';
 export type {
+  CanonicalInvoiceListQuery,
+  CanonicalInvoiceListResult,
+  CanonicalInvoiceRepository,
+  NewCanonicalInvoice,
+} from './canonical-invoice-repository.contract';
+export type {
   CanonicalPriceListQuery,
   CanonicalPriceListResult,
   CanonicalPricePatch,
@@ -84,6 +90,11 @@ export type {
   IdentityVerificationCapable,
 } from './identity-provider.contract';
 export { isIdentityVerificationCapable } from './identity-provider.contract';
+export type { InvoicePaymentRepository } from './invoice-payment-repository.contract';
+export type {
+  InvoiceProviderBindingRepository,
+  NewInvoiceProviderBinding,
+} from './invoice-provider-binding-repository.contract';
 export type { InvoiceRepository, NewInvoice } from './invoice-repository.contract';
 export type {
   IssuingAuthorizationCapable,

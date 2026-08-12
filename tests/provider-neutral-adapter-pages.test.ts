@@ -23,7 +23,7 @@ const STARTS_AT = new Date('2026-08-08T12:00:00.000Z');
 
 interface Fixture {
   payable: Payable;
-  ids: Record<'customer' | 'product' | 'price' | 'subscription' | 'payment', string>;
+  ids: Record<'customer' | 'product' | 'price' | 'subscription' | 'payment' | 'invoice', string>;
 }
 
 describe('provider-neutral collection adapter parity', () => {
@@ -189,6 +189,16 @@ async function createFixture(databases: ReturnType<typeof createTestDb>[]): Prom
     reference: 'adapter-transfer',
     description: 'Provider-neutral adapter payment',
   });
+  const invoice = await payable.canonicalInvoices(TENANT).create({
+    customerId: customer.id,
+    subscriptionId: subscription.id,
+    status: 'open',
+    currency: 'EUR',
+    total: 1900,
+    amountPaid: 0,
+    amountDue: 1900,
+    number: 'INV-ADAPTER',
+  });
 
   return {
     payable,
@@ -198,6 +208,7 @@ async function createFixture(databases: ReturnType<typeof createTestDb>[]): Prom
       price: price.id,
       subscription: subscription.id,
       payment: payment.id,
+      invoice: invoice.id,
     },
   };
 }

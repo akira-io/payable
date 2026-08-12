@@ -4,6 +4,62 @@ This page covers reading a customer's invoices, downloading an invoice PDF, and 
 provider-hosted billing portal. All three depend on optional provider capabilities and degrade or
 fail explicitly when the provider does not support them.
 
+## Canonical local invoices
+
+`payable.canonicalInvoices(tenantId)` manages Payable-owned invoice records without resolving or
+calling a provider. A canonical invoice has a stable local ID, canonical customer and optional
+subscription relationships, amounts in minor units, lifecycle status, and optional document
+metadata. Provider identifiers are stored in separate bindings and never replace the local ID.
+
+```ts
+const invoices = payable.canonicalInvoices('tenant-1');
+const invoice = await invoices.create({
+  customerId: customer.id,
+  subscriptionId: subscription.id,
+  status: 'open',
+  currency: 'EUR',
+  total: 4900,
+  amountPaid: 0,
+  amountDue: 4900,
+  number: 'INV-100',
+});
+
+await invoices.attachPayment(invoice.id, payment.id);
+await invoices.attachProvider(invoice.id, {
+  provider: 'stripe-primary',
+  providerResourceType: 'invoice',
+  providerResourceId: 'in_100',
+});
+```
+
+`list()` returns the standard bounded canonical page with an opaque cursor. `retrieve()` and page
+items expose stable `bindings` and `paymentIds` arrays, including empty arrays for invoices without
+relationships. Attach operations validate the same tenant and never infer relationships from
+provider IDs, invoice numbers, email addresses, labels, currency, or amount matching.
+
+Canonical reads are available at `/canonical/invoices` and `/canonical/invoices/:id` in Express,
+Fastify, and Nest, and through `canonical_invoices_list` and `canonical_invoice_get` in MCP.
+
+The existing `payable.invoices(providerName, tenantId)` API remains the provider-native
+compatibility path for provider listing and PDF download. PDF retrieval continues to use the
+provider invoice ID and its existing ownership and capability checks. Stripe invoice IDs and Paddle
+transaction IDs are binding metadata, not canonical route identities.
+
+The forward migration copies legacy invoice rows without changing their local IDs or values and
+creates a provider binding only when both provider and provider invoice ID are present. Incomplete
+provider identities remain as canonical invoices and are reported as unresolved. A customer must
+be proven in the same tenant before its invoice is canonicalized; an unproven optional subscription
+is left unmapped. Conflicting provider resources are reported and skipped instead of aborting the
+migration. Stripe resources retain the `invoice` type while Paddle transaction IDs use
+`transaction`. Payment relationships are never guessed during backfill.
+
+The forward-only ledger runs invoice migration as step `020-canonical-invoices`, after local
+payment evidence step `019`. It stores the structured JSON result in
+`payable_migration_reports` under the step name. Operators should inspect that row after an
+upgrade and resolve non-zero orphan, mismatch, conflict, unresolved, or unmapped counters before
+any later schema contraction. Replaying the migration is additive and cannot restore a dropped
+legacy field, so database snapshots remain the rollback boundary.
+
 ## Listing invoices
 
 `ListInvoicesAction` returns the customer's invoices from the provider.
