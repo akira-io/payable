@@ -72,7 +72,8 @@
     "prisma:generate": "prisma generate --schema tests/prisma/schema.prisma",
     "verify:bundle": "node scripts/check-core-bundle.mjs",
     "verify:exports": "node scripts/check-exports.mjs",
-    "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run build && npm run verify:bundle && npm run verify:exports"
+    "verify:consumer": "node scripts/smoke-package-consumer.mjs",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run build && npm run verify:bundle && npm run verify:exports && npm run verify:consumer"
   },
   "keywords": [
     "billing",
