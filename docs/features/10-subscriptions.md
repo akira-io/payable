@@ -87,8 +87,10 @@ const payment = await payable.storedPayments(tenantId).retrieve(paymentId);
 ```
 
 Both lists return `{ items, nextCursor, hasMore }`, default to 25 records, and reject limits above
-100. Subscription filters support exact `id`, `customerId`, `status`, `canonicalPriceId`, and
-`name`. Payment filters support exact `id`, `customerId`, `status`, and `currency`, plus
+100. Subscription filters support exact `id`, `customerId`, `status`, `canonicalPriceId`,
+`canonicalProductId`, and `name`. `canonicalProductId` is the immutable product associated with
+the accepted canonical price; provider identifiers and current catalogue defaults are never used
+to derive it. Payment filters support exact `id`, `customerId`, `status`, and `currency`, plus
 case-insensitive substring searches for `reference` and `description`.
 
 Set `includeBindings: true` on canonical subscription pages to include safe provider binding

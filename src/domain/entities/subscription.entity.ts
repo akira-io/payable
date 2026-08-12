@@ -18,6 +18,7 @@ export interface Subscription extends TenantScoped, Timestamps {
   readonly priceId: string | null;
   readonly quantity: number;
   readonly canonicalPriceId: string | null;
+  readonly canonicalProductId: string | null;
   readonly acceptedCurrency: CurrencyCode | null;
   readonly acceptedUnitAmount: number | null;
   readonly acceptedInterval: RecurringInterval | null;
