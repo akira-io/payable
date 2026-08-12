@@ -19,6 +19,7 @@ export interface RecordLocalRefundInput {
   collectionMethod: CollectionMethod;
   occurredAt?: Date;
   externalReference?: string;
+  confirmedExternally?: boolean;
   reason?: string;
   authorization?: AuthorizationContext;
   idempotencyKey?: string;

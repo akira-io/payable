@@ -12,6 +12,10 @@ Pending local payments support `succeed(id)` and the public `void(id)` operation
 the existing canonical `canceled` payment status for state-machine compatibility. `refundLocal()`
 records a full or partial return already performed outside a provider, creates an independently
 addressable refund with null provider identity, and atomically updates the payment's refunded amount.
+It can also record a return already completed outside Payable for a provider-backed payment. That
+case requires `confirmedExternally: true` and a non-blank `externalReference`; it never resolves or
+calls the payment provider. Local and provider-backed refunds reserve the same canonical refunded
+amount with compare-and-swap updates, so concurrent operations cannot exceed the payment total.
 
 All local mutations accept an `idempotencyKey`. When an idempotency store is configured, an identical
 key and payload replay the stored result; reusing the key with different evidence returns

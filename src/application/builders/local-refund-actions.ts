@@ -67,10 +67,22 @@ export class LocalRefundActions {
     const tenantId = this.dependencies.tenantId ?? null;
     return storage.transaction(async (repositories) => {
       const payment = await repositories.payments.findByIdForUpdate(paymentId, tenantId);
-      if (!payment || payment.provider !== null) {
+      if (!payment) {
         throw new PayableError(`Local payment not found: ${paymentId}`, {
           code: 'PAYMENT_NOT_FOUND',
         });
+      }
+      if (payment.provider !== null) {
+        if (input.confirmedExternally !== true) {
+          throw new PayableError('Provider-backed local refunds require explicit confirmation', {
+            code: 'LOCAL_REFUND_EXTERNAL_CONFIRMATION_REQUIRED',
+          });
+        }
+        if (!input.externalReference?.trim()) {
+          throw new PayableError('Provider-backed local refunds require an external reference', {
+            code: 'LOCAL_REFUND_EXTERNAL_REFERENCE_REQUIRED',
+          });
+        }
       }
       if (payment.status !== 'succeeded' && payment.status !== 'partially_refunded') {
         throw new PayableError(`Payment ${paymentId} is not refundable`, {
@@ -165,6 +177,7 @@ export class LocalRefundActions {
       collectionMethod: input.collectionMethod,
       occurredAt: input.occurredAt?.toISOString() ?? null,
       externalReference: input.externalReference ?? null,
+      confirmedExternally: input.confirmedExternally ?? false,
       reason: input.reason ?? null,
     };
   }

@@ -144,6 +144,7 @@ export const localRefundBodySchema = z
     collectionMethod: collectionMethodSchema,
     occurredAt: z.coerce.date().optional(),
     externalReference: z.string().min(1).optional(),
+    confirmedExternally: z.literal(true).optional(),
     reason: z.string().min(1).optional(),
   })
   .strict()
