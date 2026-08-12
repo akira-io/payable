@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  Headers,
   Inject,
   Param,
   Post,
@@ -14,11 +13,13 @@ import {
 import { PayableError } from '../../domain/errors/payable-error';
 import { Money } from '../../domain/value-objects/money';
 import type { Payable } from '../../payable';
+import { rawHeadersOf, requireRequestIdempotencyKey } from '../shared/catalog-idempotency';
 import {
   canonicalCustomerListQuerySchema,
   canonicalPaymentListQuerySchema,
   canonicalPriceListQuerySchema,
   canonicalProductListQuerySchema,
+  canonicalRefundListQuerySchema,
   canonicalSubscriptionListQuerySchema,
   catalogIdParamSchema,
   localPaymentBodySchema,
@@ -112,18 +113,26 @@ export class PayableCanonicalReadController {
     return this.payable.storedPayments(this.tenantOf(request)).retrieve(id);
   }
 
+  @Get('refunds')
+  listRefunds(@Req() request: PayableHttpRequest, @Query() query: unknown) {
+    const input = parseBody(canonicalRefundListQuerySchema, query);
+    return this.payable.storedPayments(this.tenantOf(request)).listRefunds(input);
+  }
+
+  @Get('refunds/:id')
+  getRefund(@Req() request: PayableHttpRequest, @Param('id') rawId: string) {
+    const { id } = parseBody(catalogIdParamSchema, { id: rawId });
+    return this.payable.storedPayments(this.tenantOf(request)).retrieveRefund(id);
+  }
+
   @Post('payments/local')
-  recordPayment(
-    @Req() request: PayableHttpRequest,
-    @Body() rawBody: unknown,
-    @Headers('idempotency-key') idempotencyKey?: string,
-  ) {
+  recordPayment(@Req() request: PayableHttpRequest, @Body() rawBody: unknown) {
     const body = parseBody(localPaymentBodySchema, rawBody);
     return this.payable.storedPayments(this.tenantOf(request)).record({
       ...body,
       amount: Money.of(body.amount, body.currency),
       authorization: resolveAuthorization(this.options, request),
-      idempotencyKey,
+      idempotencyKey: requestIdempotencyKey(request),
     });
   }
 
@@ -132,7 +141,6 @@ export class PayableCanonicalReadController {
     @Req() request: PayableHttpRequest,
     @Param('id') rawId: string,
     @Body() rawBody: unknown,
-    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
     const { id } = parseBody(catalogIdParamSchema, { id: rawId });
     const body = parseBody(localRefundBodySchema, rawBody);
@@ -141,35 +149,34 @@ export class PayableCanonicalReadController {
       amount:
         body.amount === undefined ? undefined : Money.of(body.amount, body.currency as string),
       authorization: resolveAuthorization(this.options, request),
-      idempotencyKey,
+      idempotencyKey: requestIdempotencyKey(request),
     });
   }
 
   @Post('payments/:id/succeed')
-  succeedPayment(
-    @Req() request: PayableHttpRequest,
-    @Param('id') id: string,
-    @Headers('idempotency-key') idempotencyKey?: string,
-  ) {
+  succeedPayment(@Req() request: PayableHttpRequest, @Param('id') id: string) {
     return this.payable.storedPayments(this.tenantOf(request)).succeed(id, {
       authorization: resolveAuthorization(this.options, request),
-      idempotencyKey,
+      idempotencyKey: requestIdempotencyKey(request),
     });
   }
 
   @Post('payments/:id/void')
-  voidPayment(
-    @Req() request: PayableHttpRequest,
-    @Param('id') id: string,
-    @Headers('idempotency-key') idempotencyKey?: string,
-  ) {
+  voidPayment(@Req() request: PayableHttpRequest, @Param('id') id: string) {
     return this.payable.storedPayments(this.tenantOf(request)).void(id, {
       authorization: resolveAuthorization(this.options, request),
-      idempotencyKey,
+      idempotencyKey: requestIdempotencyKey(request),
     });
   }
 
   private tenantOf(request: PayableHttpRequest): string | null {
     return resolveTenantId(this.options, request);
   }
+}
+
+function requestIdempotencyKey(request: PayableHttpRequest): string {
+  return requireRequestIdempotencyKey({
+    headers: request.headers,
+    rawHeaders: rawHeadersOf(request),
+  });
 }

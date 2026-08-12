@@ -1,11 +1,13 @@
 import type { Router } from 'express';
 import { Money } from '../../../domain/value-objects/money';
 import type { Payable } from '../../../payable';
+import { requireRequestIdempotencyKey } from '../../shared/catalog-idempotency';
 import {
   canonicalCustomerListQuerySchema,
   canonicalPaymentListQuerySchema,
   canonicalPriceListQuerySchema,
   canonicalProductListQuerySchema,
+  canonicalRefundListQuerySchema,
   canonicalSubscriptionListQuerySchema,
   catalogIdParamSchema,
   localPaymentBodySchema,
@@ -24,6 +26,20 @@ export function registerCanonicalCollectionRoutes(
     asyncHandler(async (req, res) => {
       const input = parseBody(canonicalCustomerListQuerySchema, req.query);
       res.status(200).json(await payable.customers(undefined, tenantOf(req, options)).list(input));
+    }),
+  );
+  router.get(
+    '/canonical/refunds',
+    asyncHandler(async (req, res) => {
+      const input = parseBody(canonicalRefundListQuerySchema, req.query);
+      res.status(200).json(await payable.storedPayments(tenantOf(req, options)).listRefunds(input));
+    }),
+  );
+  router.get(
+    '/canonical/refunds/:id',
+    asyncHandler(async (req, res) => {
+      const { id } = parseBody(catalogIdParamSchema, req.params);
+      res.status(200).json(await payable.storedPayments(tenantOf(req, options)).retrieveRefund(id));
     }),
   );
   router.get(
@@ -111,7 +127,7 @@ export function registerCanonicalCollectionRoutes(
         ...body,
         amount: Money.of(body.amount, body.currency),
         authorization: options.resolveAuthorization?.(req),
-        idempotencyKey: header(req.headers['idempotency-key']),
+        idempotencyKey: requestIdempotencyKey(req),
       });
       res.status(201).json(payment);
     }),
@@ -127,7 +143,7 @@ export function registerCanonicalCollectionRoutes(
         amount:
           body.amount === undefined ? undefined : Money.of(body.amount, body.currency as string),
         authorization: options.resolveAuthorization?.(req),
-        idempotencyKey: header(req.headers['idempotency-key']),
+        idempotencyKey: requestIdempotencyKey(req),
       });
       res.status(201).json(refund);
     }),
@@ -140,7 +156,7 @@ export function registerCanonicalCollectionRoutes(
         res.status(200).json(
           await payable.storedPayments(tenantOf(req, options))[operation](id, {
             authorization: options.resolveAuthorization?.(req),
-            idempotencyKey: header(req.headers['idempotency-key']),
+            idempotencyKey: requestIdempotencyKey(req),
           }),
         );
       }),
@@ -148,8 +164,10 @@ export function registerCanonicalCollectionRoutes(
   }
 }
 
-function header(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
+function requestIdempotencyKey(
+  request: Parameters<NonNullable<ExpressPayableOptions['resolveTenant']>>[0],
+) {
+  return requireRequestIdempotencyKey({ headers: request.headers, rawHeaders: request.rawHeaders });
 }
 
 function tenantOf(

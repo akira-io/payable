@@ -15,8 +15,16 @@ addressable refund with null provider identity, and atomically updates the payme
 
 All local mutations accept an `idempotencyKey`. When an idempotency store is configured, an identical
 key and payload replay the stored result; reusing the key with different evidence returns
-`IDEMPOTENCY_CONFLICT`. HTTP adapters read the key from `Idempotency-Key`, and MCP money tools expose
-it as `idempotencyKey`. SDK callers that omit the key intentionally opt out of replay protection.
+`IDEMPOTENCY_CONFLICT`. HTTP and MCP mutations require a valid key: send exactly one
+`Idempotency-Key` header or the required `idempotencyKey` argument. SDK callers can omit the key and
+intentionally opt out of replay protection. If a local transaction commits but its idempotency result
+cannot be persisted, retrying the key returns `IDEMPOTENCY_RECONCILIATION_REQUIRED` rather than
+duplicating the money movement; reconcile the already-recorded canonical resource first.
+
+Canonical refunds are readable through `storedPayments(tenantId).retrieveRefund(id)` and
+`listRefunds({ limit, cursor, paymentId })`. The list is tenant-scoped, uses opaque bounded cursors,
+and is exposed at `GET /canonical/refunds`, `GET /canonical/refunds/:id`, and the MCP
+`canonical_refunds_list` and `canonical_refund_get` tools.
 
 When authorization is enabled, recording, succeeding, voiding, and refunding use the same charge or
 refund policies as provider-backed operations. Audit `recordedBy` values come only from the resolved

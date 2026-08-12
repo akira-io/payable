@@ -1,6 +1,8 @@
 import type { ListOptions } from '../../../../domain/contracts/list-options.contract';
 import type {
   NewRefund,
+  RefundListQuery,
+  RefundListResult,
   RefundRepository,
 } from '../../../../domain/contracts/refund-repository.contract';
 import type { CollectionMethod } from '../../../../domain/entities/payment.entity';
@@ -34,6 +36,29 @@ export class KnexRefundRepository
     options?: ListOptions,
   ): Promise<Refund[]> {
     return this.manyWhere({ payment_id: paymentId, ...this.tenantClause(tenantId) }, options);
+  }
+
+  async page(query: RefundListQuery, tenantId: string | null): Promise<RefundListResult> {
+    let refunds = this.knex(this.table)
+      .where('tenant_id', tenantId)
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc');
+    if (query.id) refunds = refunds.where('id', query.id);
+    if (query.paymentId) refunds = refunds.where('payment_id', query.paymentId);
+    if (query.before) {
+      const createdAt = query.before.createdAt.toISOString();
+      const beforeId = query.before.id;
+      refunds = refunds.where((refund) =>
+        refund
+          .where('created_at', '<', createdAt)
+          .orWhere((tie) => tie.where('created_at', createdAt).andWhere('id', '<', beforeId)),
+      );
+    }
+    const rows = (await refunds.limit(query.limit + 1)) as Record<string, unknown>[];
+    return {
+      items: rows.slice(0, query.limit).map((row) => this.toEntity(row)),
+      hasMore: rows.length > query.limit,
+    };
   }
 
   protected toEntity(row: Record<string, unknown>): Refund {

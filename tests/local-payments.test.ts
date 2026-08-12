@@ -89,11 +89,37 @@ describe('canonical local payments', () => {
       collectionMethod: 'bank_transfer',
     });
     await expect(
+      payable.storedPayments('tenant-local').retrieveRefund(partial.id),
+    ).resolves.toEqual(partial);
+    await expect(
+      payable.storedPayments('tenant-local').listRefunds({ paymentId: pending.id }),
+    ).resolves.toMatchObject({ items: [partial], hasMore: false, nextCursor: null });
+    await expect(
       payable.storedPayments('tenant-local').retrieve(pending.id),
     ).resolves.toMatchObject({
       status: 'partially_refunded',
       refundedAmount: 700,
     });
+    const finalRefund = await payable.storedPayments('tenant-local').refundLocal(pending.id, {
+      amount: Money.of(2300, 'EUR'),
+      collectionMethod: 'bank_transfer',
+      externalReference: 'return-2',
+    });
+    const firstRefundPage = await payable
+      .storedPayments('tenant-local')
+      .listRefunds({ paymentId: pending.id, limit: 1 });
+    const secondRefundPage = await payable.storedPayments('tenant-local').listRefunds({
+      paymentId: pending.id,
+      limit: 1,
+      cursor: firstRefundPage.nextCursor ?? undefined,
+    });
+    expect(firstRefundPage).toMatchObject({ hasMore: true, nextCursor: expect.any(String) });
+    expect(
+      [...firstRefundPage.items, ...secondRefundPage.items].map(({ id }) => id).sort(),
+    ).toEqual([partial.id, finalRefund.id].sort());
+    await expect(
+      payable.storedPayments('tenant-other').retrieveRefund(partial.id),
+    ).rejects.toMatchObject({ code: 'REFUND_NOT_FOUND' });
 
     const voidable = await payable.storedPayments('tenant-local').record({
       customerId: customer.id,

@@ -24,7 +24,8 @@ export class LocalPaymentActions {
         tenantId,
         request: this.request(input),
         resourceType: 'payment',
-        retryFailed: true,
+        retryFailed: false,
+        failurePolicy: 'reconciliation-required',
         run: () => this.persist(input),
         revive: async (response) => {
           const payment = await this.storage().payments.findById(
@@ -62,7 +63,8 @@ export class LocalPaymentActions {
         request: { paymentId: id, operation: event === 'cancel' ? 'void' : event },
         resourceType: 'payment',
         resourceId: id,
-        retryFailed: true,
+        retryFailed: false,
+        failurePolicy: 'reconciliation-required',
         run: () => this.transition(id, event, input.authorization),
         revive: async () => {
           const payment = await this.storage().payments.findById(id, tenantId);

@@ -1,11 +1,13 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { Money } from '../../../domain/value-objects/money';
 import type { Payable } from '../../../payable';
+import { requireRequestIdempotencyKey } from '../../shared/catalog-idempotency';
 import {
   canonicalCustomerListQuerySchema,
   canonicalPaymentListQuerySchema,
   canonicalPriceListQuerySchema,
   canonicalProductListQuerySchema,
+  canonicalRefundListQuerySchema,
   canonicalSubscriptionListQuerySchema,
   catalogIdParamSchema,
   localPaymentBodySchema,
@@ -74,13 +76,25 @@ export async function registerCanonicalCollectionRoutes(
     const { id } = parseBody(catalogIdParamSchema, request.params);
     reply.status(200).send(await payable.storedPayments(tenantOf(request, options)).retrieve(id));
   });
+  scope.get('/canonical/refunds', async (request, reply) => {
+    const input = parseBody(canonicalRefundListQuerySchema, request.query);
+    reply
+      .status(200)
+      .send(await payable.storedPayments(tenantOf(request, options)).listRefunds(input));
+  });
+  scope.get('/canonical/refunds/:id', async (request, reply) => {
+    const { id } = parseBody(catalogIdParamSchema, request.params);
+    reply
+      .status(200)
+      .send(await payable.storedPayments(tenantOf(request, options)).retrieveRefund(id));
+  });
   scope.post('/canonical/payments/local', async (request, reply) => {
     const body = parseBody(localPaymentBodySchema, request.body);
     const payment = await payable.storedPayments(tenantOf(request, options)).record({
       ...body,
       amount: Money.of(body.amount, body.currency),
       authorization: options.resolveAuthorization?.(request),
-      idempotencyKey: request.headers['idempotency-key'] as string | undefined,
+      idempotencyKey: requestIdempotencyKey(request),
     });
     reply.status(201).send(payment);
   });
@@ -92,7 +106,7 @@ export async function registerCanonicalCollectionRoutes(
       amount:
         body.amount === undefined ? undefined : Money.of(body.amount, body.currency as string),
       authorization: options.resolveAuthorization?.(request),
-      idempotencyKey: request.headers['idempotency-key'] as string | undefined,
+      idempotencyKey: requestIdempotencyKey(request),
     });
     reply.status(201).send(refund);
   });
@@ -101,7 +115,7 @@ export async function registerCanonicalCollectionRoutes(
     reply.status(200).send(
       await payable.storedPayments(tenantOf(request, options)).succeed(id, {
         authorization: options.resolveAuthorization?.(request),
-        idempotencyKey: request.headers['idempotency-key'] as string | undefined,
+        idempotencyKey: requestIdempotencyKey(request),
       }),
     );
   });
@@ -110,7 +124,7 @@ export async function registerCanonicalCollectionRoutes(
     reply.status(200).send(
       await payable.storedPayments(tenantOf(request, options)).void(id, {
         authorization: options.resolveAuthorization?.(request),
-        idempotencyKey: request.headers['idempotency-key'] as string | undefined,
+        idempotencyKey: requestIdempotencyKey(request),
       }),
     );
   });
@@ -118,4 +132,11 @@ export async function registerCanonicalCollectionRoutes(
 
 function tenantOf(request: FastifyRequest, options: FastifyPayableOptions): string | null {
   return options.resolveTenant?.(request) ?? null;
+}
+
+function requestIdempotencyKey(request: FastifyRequest): string {
+  return requireRequestIdempotencyKey({
+    headers: request.headers,
+    rawHeaders: request.raw.rawHeaders,
+  });
 }

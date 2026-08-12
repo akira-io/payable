@@ -15,7 +15,7 @@ import type { AuthorizationContext } from '../../application/policies/authorizat
 import type { PriceDTO } from '../../domain/dtos/price.dto';
 import type { ProductDTO } from '../../domain/dtos/product.dto';
 import type { Payable } from '../../payable';
-import { resolveCatalogIdempotencyHeader } from '../shared/catalog-idempotency';
+import { rawHeadersOf, resolveCatalogIdempotencyHeader } from '../shared/catalog-idempotency';
 import {
   catalogIdParamSchema,
   parseBody,
@@ -139,21 +139,4 @@ export class PayableCatalogController {
   private tenantOf(request: PayableHttpRequest): string | null {
     return resolveTenantId(this.options, request);
   }
-}
-
-function rawHeadersOf(request: unknown): readonly string[] | undefined {
-  if (typeof request !== 'object' || request === null) {
-    return undefined;
-  }
-  if ('rawHeaders' in request && isStringArray(request.rawHeaders)) {
-    return request.rawHeaders;
-  }
-  if ('raw' in request) {
-    return rawHeadersOf(request.raw);
-  }
-  return undefined;
-}
-
-function isStringArray(candidate: unknown): candidate is string[] {
-  return Array.isArray(candidate) && candidate.every((entry) => typeof entry === 'string');
 }

@@ -28,6 +28,7 @@ export {
   type ListCanonicalSubscriptionsInput,
   type ListCustomersInput,
   type ListStoredPaymentsInput,
+  type ListStoredRefundsInput,
   type ListWebhookEventsInput,
   type LocalDependencies,
   LocalSubscriptionResource,

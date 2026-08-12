@@ -36,6 +36,13 @@ export interface ListStoredPaymentsInput {
   description?: string;
 }
 
+export interface ListStoredRefundsInput {
+  limit?: number;
+  cursor?: string;
+  id?: string;
+  paymentId?: string;
+}
+
 export class StoredPaymentResource {
   private readonly localPayments: LocalPaymentActions;
   private readonly localRefunds: LocalRefundActions;
@@ -59,6 +66,50 @@ export class StoredPaymentResource {
 
   refundLocal(id: string, input: RecordLocalRefundInput): Promise<Refund> {
     return this.localRefunds.record(id, input);
+  }
+
+  async retrieveRefund(id: string): Promise<Refund> {
+    const refund = await this.storage().refunds.findById(id, this.dependencies.tenantId ?? null);
+    if (!refund) {
+      throw new PayableError(`Refund not found: ${id}`, {
+        code: 'REFUND_NOT_FOUND',
+        context: { refundId: id },
+      });
+    }
+    return refund;
+  }
+
+  async listRefunds(input: ListStoredRefundsInput = {}): Promise<CollectionPage<Refund>> {
+    const tenantId = this.dependencies.tenantId ?? null;
+    const context = {
+      resource: 'refunds',
+      tenantId,
+      filters: { id: input.id, paymentId: input.paymentId },
+    };
+    const repository = this.storage().refunds;
+    if (!repository.page) {
+      throw new PayableError('The refund repository does not support collection queries', {
+        code: 'REFUND_PAGE_UNSUPPORTED',
+      });
+    }
+    const page = await repository.page(
+      {
+        limit: normalizeCollectionLimit(input.limit),
+        before: input.cursor ? decodeCollectionCursor(input.cursor, context) : undefined,
+        id: input.id,
+        paymentId: input.paymentId,
+      },
+      tenantId,
+    );
+    const last = page.items.at(-1);
+    return {
+      items: page.items,
+      hasMore: page.hasMore,
+      nextCursor:
+        page.hasMore && last
+          ? encodeCollectionCursor({ createdAt: last.createdAt, id: last.id }, context)
+          : null,
+    };
   }
 
   async retrieve(id: string): Promise<Payment> {

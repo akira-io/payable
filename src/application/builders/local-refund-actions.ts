@@ -32,7 +32,8 @@ export class LocalRefundActions {
         tenantId,
         request: this.request(paymentId, input),
         resourceType: 'refund',
-        retryFailed: true,
+        retryFailed: false,
+        failurePolicy: 'reconciliation-required',
         run: () => this.persist(paymentId, input),
         revive: async (response) => {
           const refund = await this.storage().refunds.findById(

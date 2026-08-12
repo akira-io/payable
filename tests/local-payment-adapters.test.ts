@@ -10,6 +10,7 @@ import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { KnexIdempotencyRepository } from '../src/infrastructure/storage/knex/repositories/knex-idempotency.repository';
 import { createFastifyPayablePlugin } from '../src/presentation/fastify/create-fastify-payable-plugin';
 import { createPayableMcpServer } from '../src/presentation/mcp/index';
+import { requireRequestIdempotencyKey } from '../src/presentation/shared/catalog-idempotency';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { createTestDb } from './support/knex';
 
@@ -57,9 +58,37 @@ describe('local payment adapters', () => {
 
     const first = await app.inject(request);
     const replay = await app.inject(request);
+    const missingKey = await app.inject({
+      ...request,
+      headers: {},
+      payload: { ...request.payload, externalReference: 'receipt-without-key' },
+    });
+    const malformedKey = await app.inject({
+      ...request,
+      headers: { 'idempotency-key': ' invalid-key ' },
+      payload: { ...request.payload, externalReference: 'receipt-malformed-key' },
+    });
     expect(first.statusCode).toBe(201);
     expect(replay.json()).toEqual(first.json());
+    expect(missingKey.statusCode).toBe(400);
+    expect(malformedKey.statusCode).toBe(400);
     expect(first.json()).toMatchObject({ provider: null, recordedBy: 'cashier-1' });
+    const refund = await payable.storedPayments().refundLocal((first.json() as { id: string }).id, {
+      amount: Money.of(500, 'EUR'),
+      collectionMethod: 'cash',
+      idempotencyKey: 'fastify-read-refund-1',
+      authorization: { allowed: true, actorType: 'service', actorId: 'cashier-1' },
+    });
+    const listed = await app.inject({
+      method: 'GET',
+      url: `/payable/canonical/refunds?paymentId=${(first.json() as { id: string }).id}`,
+    });
+    const retrieved = await app.inject({
+      method: 'GET',
+      url: `/payable/canonical/refunds/${refund.id}`,
+    });
+    expect(listed.json()).toMatchObject({ items: [expect.objectContaining({ id: refund.id })] });
+    expect(retrieved.json()).toMatchObject({ id: refund.id });
     await app.close();
   });
 
@@ -85,6 +114,7 @@ describe('local payment adapters', () => {
       status: 'succeeded',
       collectionMethod: 'cash',
       externalReference: 'receipt-42',
+      idempotencyKey: 'mcp-local-payment-1',
     });
     const payment = parse(recorded) as { id: string; provider: null };
     const refunded = await call(client, 'canonical_payment_refund_local', {
@@ -92,16 +122,39 @@ describe('local payment adapters', () => {
       amount: { amount: 500, currency: 'EUR' },
       collectionMethod: 'cash',
       externalReference: 'return-42',
+      idempotencyKey: 'mcp-local-refund-1',
     });
     expect(parse(refunded)).toMatchObject({ paymentId: payment.id, provider: null, amount: 500 });
+    const refund = parse(refunded) as { id: string };
+    await expect(call(client, 'canonical_refund_get', { id: refund.id })).resolves.toSatisfy(
+      (result: CallToolResult) => (parse(result) as { id: string }).id === refund.id,
+    );
+    await expect(
+      call(client, 'canonical_refunds_list', { paymentId: payment.id, limit: 1 }),
+    ).resolves.toSatisfy(
+      (result: CallToolResult) =>
+        (parse(result) as { items: Array<{ id: string }> }).items[0]?.id === refund.id,
+    );
     const pending = await payable.storedPayments('tenant-local').record({
       customerId: customer.id,
       amount: Money.of(800, 'EUR'),
       status: 'pending',
       collectionMethod: 'cheque',
     });
-    const voided = await call(client, 'canonical_payment_void_local', { paymentId: pending.id });
+    const voided = await call(client, 'canonical_payment_void_local', {
+      paymentId: pending.id,
+      idempotencyKey: 'mcp-local-void-1',
+    });
     expect(parse(voided)).toMatchObject({ id: pending.id, status: 'canceled' });
+  });
+
+  it('rejects repeated idempotency headers before an adapter mutation can run', () => {
+    expect(() =>
+      requireRequestIdempotencyKey({
+        headers: { 'idempotency-key': 'repeated-key-a, repeated-key-b' },
+        rawHeaders: ['Idempotency-Key', 'repeated-key-a', 'Idempotency-Key', 'repeated-key-b'],
+      }),
+    ).toThrowError(expect.objectContaining({ code: 'INVALID_IDEMPOTENCY_KEY' }));
   });
 });
 

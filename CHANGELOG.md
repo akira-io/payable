@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Changed
+
+- `Payment.provider` and `Refund.provider` are nullable for canonical local money movements. Consumers
+  that assumed a provider string must handle `null`; migrate generated Prisma clients and update
+  provider-routing code to branch before using provider capabilities.
+- Canonical local-money HTTP and MCP mutations now require a valid idempotency key. Send one
+  `Idempotency-Key` header per HTTP request or an `idempotencyKey` MCP argument.
+
 ## [1.0.0-beta7](https://github.com/akira-io/payable/compare/v1.0.0-beta6...v1.0.0-beta7) (2026-08-08)
 
 ### Bug Fixes
@@ -588,4 +598,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **storage:** Batch subscription items, wrap create in a transaction, order lists ([d878e1d](https://github.com/akira-io/payable/commit/d878e1d25f29a0e2b89a2a807b2dc71622a0fc1d))
 - **storage:** Add composite indexes for the keyset list access path ([893c984](https://github.com/akira-io/payable/commit/893c98483ebb4f7a3cb2deb4e0e0a56f4323b782))
 - **storage:** Use RETURNING to avoid the post-write re-select ([607b13c](https://github.com/akira-io/payable/commit/607b13c71c0ed5f424405be19bb7ee70959ed63c))
-

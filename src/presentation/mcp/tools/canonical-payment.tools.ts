@@ -4,7 +4,7 @@ import type { Payable } from '../../../payable';
 import { authorizeTool, respond, tenantFrom } from '../context';
 import type { McpPayableOptions } from '../options';
 import type { ToolGate } from '../policy';
-import { idempotencyKeyShape, moneyObject, tenantShape, toMoney } from '../schemas';
+import { moneyObject, requiredIdempotencyKeyShape, tenantShape, toMoney } from '../schemas';
 
 const collectionMethod = z.enum([
   'cash',
@@ -35,7 +35,7 @@ export function registerCanonicalPaymentTools(
           occurredAt: z.string().datetime().optional(),
           externalReference: z.string().optional(),
           description: z.string().optional(),
-          ...idempotencyKeyShape,
+          ...requiredIdempotencyKeyShape,
           ...tenantShape,
         },
       },
@@ -69,7 +69,7 @@ export function registerCanonicalPaymentTools(
           occurredAt: z.string().datetime().optional(),
           externalReference: z.string().optional(),
           reason: z.string().optional(),
-          ...idempotencyKeyShape,
+          ...requiredIdempotencyKeyShape,
           ...tenantShape,
         },
       },
@@ -106,7 +106,11 @@ export function registerCanonicalPaymentTools(
           operation === 'void'
             ? 'Void a pending providerless payment. The stored status becomes canceled.'
             : 'Mark a pending providerless payment as succeeded.',
-        inputSchema: { paymentId: z.string().min(1), ...idempotencyKeyShape, ...tenantShape },
+        inputSchema: {
+          paymentId: z.string().min(1),
+          ...requiredIdempotencyKeyShape,
+          ...tenantShape,
+        },
       },
       (args) =>
         respond(() => {

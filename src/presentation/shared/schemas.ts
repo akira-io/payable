@@ -110,6 +110,10 @@ export const canonicalPaymentListQuerySchema = canonicalListQuerySchema.extend({
   description: z.string().min(1).optional(),
 });
 
+export const canonicalRefundListQuerySchema = canonicalListQuerySchema.extend({
+  paymentId: z.string().min(1).optional(),
+});
+
 const collectionMethodSchema = z.enum([
   'cash',
   'bank_transfer',

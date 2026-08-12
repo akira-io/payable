@@ -224,4 +224,31 @@ export function registerCanonicalReadTools(
       (args) => respond(() => payable.storedPayments(tenantFrom(args, options)).retrieve(args.id)),
     );
   }
+
+  if (gate('canonical_refunds_list', 'read')) {
+    server.registerTool(
+      'canonical_refunds_list',
+      {
+        description: 'List canonical refunds from local storage without calling a provider.',
+        inputSchema: { ...pageShape, paymentId: z.string().min(1).optional(), ...tenantShape },
+      },
+      (args) =>
+        respond(() =>
+          payable.storedPayments(tenantFrom(args, options)).listRefunds({
+            limit: args.limit,
+            cursor: args.cursor,
+            id: args.id,
+            paymentId: args.paymentId,
+          }),
+        ),
+    );
+  }
+  if (gate('canonical_refund_get', 'read')) {
+    server.registerTool(
+      'canonical_refund_get',
+      { description: 'Fetch a canonical refund by its local id.', inputSchema: exactShape },
+      (args) =>
+        respond(() => payable.storedPayments(tenantFrom(args, options)).retrieveRefund(args.id)),
+    );
+  }
 }

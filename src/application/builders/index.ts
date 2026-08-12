@@ -60,6 +60,7 @@ export {
 export { RefundResource } from './refund-resource';
 export {
   type ListStoredPaymentsInput,
+  type ListStoredRefundsInput,
   type RecordLocalPaymentInput,
   type RecordLocalRefundInput,
   StoredPaymentResource,

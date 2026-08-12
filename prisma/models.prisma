@@ -61,14 +61,10 @@ model PayableProduct {
   id                String   @id
   tenantId          String?  @map("tenant_id")
   tenantKey         String   @default("") @map("tenant_key")
-  provider          String?
+  provider          String
   providerProductId String?  @map("provider_product_id")
   name              String
   description       String?
-  collectionMethod  String?         @map("collection_method")
-  occurredAt        DateTime?       @map("occurred_at")
-  externalReference String?         @map("external_reference")
-  recordedBy        String?         @map("recorded_by")
   active            Boolean
   metadata          String?
   createdAt         DateTime @map("created_at")

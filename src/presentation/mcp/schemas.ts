@@ -26,6 +26,17 @@ export const idempotencyKeyShape = {
   idempotencyKey: z.string().optional(),
 };
 
+export const requiredIdempotencyKeyShape = {
+  idempotencyKey: z
+    .string()
+    .min(1)
+    .max(512)
+    .refine(
+      (value) => value.trim() === value,
+      'idempotency key cannot have surrounding whitespace',
+    ),
+};
+
 export const limitShape = {
   limit: z.number().int().positive().max(MAX_LIST_LIMIT).optional(),
 };
