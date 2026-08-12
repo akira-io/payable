@@ -3,7 +3,12 @@ import type { CurrencyCode } from '../value-objects/currency';
 import type { PaymentStatus } from '../value-objects/payment-status';
 import type { ListCursor, ListOptions } from './list-options.contract';
 
-export type NewPayment = Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>;
+type PaymentEvidence = Pick<
+  Payment,
+  'collectionMethod' | 'occurredAt' | 'externalReference' | 'recordedBy'
+>;
+export type NewPayment = Omit<Payment, 'id' | 'createdAt' | 'updatedAt' | keyof PaymentEvidence> &
+  Partial<PaymentEvidence>;
 
 export interface RefundedAmountPatch {
   refundedAmount: number;

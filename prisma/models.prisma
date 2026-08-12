@@ -300,7 +300,7 @@ model PayablePayment {
   tenantId          String?         @map("tenant_id")
   tenantKey         String          @default("") @map("tenant_key")
   customerId        String?         @map("customer_id")
-  provider          String
+  provider          String?
   providerPaymentId String?         @map("provider_payment_id")
   status            String
   currency          String
@@ -308,11 +308,16 @@ model PayablePayment {
   refundedAmount    BigInt          @map("refunded_amount")
   reference         String?
   description       String?
+  collectionMethod  String?         @map("collection_method")
+  occurredAt        DateTime?       @map("occurred_at")
+  externalReference String?         @map("external_reference")
+  recordedBy        String?         @map("recorded_by")
   createdAt         DateTime        @map("created_at")
   updatedAt         DateTime        @map("updated_at")
   refunds           PayableRefund[]
 
   @@unique([provider, providerPaymentId])
+  @@unique([tenantKey, id])
   @@index([customerId, createdAt, id])
   @@index([tenantKey, createdAt, id])
   @@map("payable_payments")
@@ -322,12 +327,16 @@ model PayableRefund {
   id               String         @id
   tenantId         String?        @map("tenant_id")
   paymentId        String         @map("payment_id")
-  provider         String
+  provider         String?
   providerRefundId String?        @map("provider_refund_id")
   status           String
   currency         String
   amount           BigInt
   reason           String?
+  collectionMethod String?         @map("collection_method")
+  occurredAt       DateTime?       @map("occurred_at")
+  externalReference String?        @map("external_reference")
+  recordedBy       String?         @map("recorded_by")
   createdAt        DateTime       @map("created_at")
   updatedAt        DateTime       @map("updated_at")
   payment          PayablePayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)

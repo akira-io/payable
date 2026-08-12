@@ -1,7 +1,24 @@
 import type { Refund } from '../entities/refund.entity';
-import type { ListOptions } from './list-options.contract';
+import type { ListCursor, ListOptions } from './list-options.contract';
 
-export type NewRefund = Omit<Refund, 'id' | 'createdAt' | 'updatedAt'>;
+type RefundEvidence = Pick<
+  Refund,
+  'collectionMethod' | 'occurredAt' | 'externalReference' | 'recordedBy'
+>;
+export type NewRefund = Omit<Refund, 'id' | 'createdAt' | 'updatedAt' | keyof RefundEvidence> &
+  Partial<RefundEvidence>;
+
+export interface RefundListQuery {
+  limit: number;
+  before?: ListCursor;
+  id?: string;
+  paymentId?: string;
+}
+
+export interface RefundListResult {
+  items: Refund[];
+  hasMore: boolean;
+}
 
 export interface RefundRepository {
   create(data: NewRefund): Promise<Refund>;
@@ -17,4 +34,5 @@ export interface RefundRepository {
     tenantId?: string | null,
     options?: ListOptions,
   ): Promise<Refund[]>;
+  page?(query: RefundListQuery, tenantId: string | null): Promise<RefundListResult>;
 }

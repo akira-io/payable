@@ -2,6 +2,8 @@ import type { Clock } from '../../../../domain/contracts/clock.contract';
 import type { ListOptions } from '../../../../domain/contracts/list-options.contract';
 import type {
   NewRefund,
+  RefundListQuery,
+  RefundListResult,
   RefundRepository,
 } from '../../../../domain/contracts/refund-repository.contract';
 import type { Refund } from '../../../../domain/entities/refund.entity';
@@ -35,6 +37,31 @@ export class PrismaRefundRepository
     options?: ListOptions,
   ): Promise<Refund[]> {
     return this.manyWhere({ paymentId, ...this.tenantClause(tenantId) }, options);
+  }
+
+  async page(query: RefundListQuery, tenantId: string | null): Promise<RefundListResult> {
+    const filters: Record<string, unknown>[] = [
+      { tenantId },
+      query.id ? { id: query.id } : {},
+      query.paymentId ? { paymentId: query.paymentId } : {},
+    ];
+    if (query.before) {
+      filters.push({
+        OR: [
+          { createdAt: { lt: query.before.createdAt } },
+          { createdAt: query.before.createdAt, id: { lt: query.before.id } },
+        ],
+      });
+    }
+    const rows = await this.delegate.findMany({
+      where: { AND: filters },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: query.limit + 1,
+    });
+    return {
+      items: rows.slice(0, query.limit).map((row) => this.toEntity(row)),
+      hasMore: rows.length > query.limit,
+    };
   }
 
   protected toEntity(row: PrismaRefundRow): Refund {

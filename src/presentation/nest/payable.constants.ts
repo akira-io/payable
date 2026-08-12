@@ -9,6 +9,8 @@ export const PAYABLE_OPTIONS = Symbol('payable.options');
 
 export interface PayableHttpRequest {
   headers: IncomingHttpHeaders;
+  rawHeaders?: readonly string[];
+  raw?: unknown;
   body?: unknown;
   rawBody?: Buffer;
 }

@@ -1,5 +1,43 @@
 # Charges and Refunds
 
+## Canonical local collections
+
+After configuring storage, `payable.storedPayments(tenantId)` can record funds collected outside a
+payment adapter. `record()` requires a canonical customer, money, an explicit `pending` or
+`succeeded` status, and a structured collection method such as `cash`, `bank_transfer`, or `cheque`.
+The resulting payment has `provider` and `providerPaymentId` set to `null`; provider identity is
+routing metadata and must never be fabricated for a local collection.
+
+Pending local payments support `succeed(id)` and the public `void(id)` operation. Void is persisted as
+the existing canonical `canceled` payment status for state-machine compatibility. `refundLocal()`
+records a full or partial return already performed outside a provider, creates an independently
+addressable refund with null provider identity, and atomically updates the payment's refunded amount.
+It can also record a return already completed outside Payable for a provider-backed payment. That
+case requires `confirmedExternally: true` and a non-blank `externalReference`; it never resolves or
+calls the payment provider. Local and provider-backed refunds reserve the same canonical refunded
+amount with compare-and-swap updates, so concurrent operations cannot exceed the payment total.
+
+All local mutations accept an `idempotencyKey`. When an idempotency store is configured, an identical
+key and payload replay the stored result; reusing the key with different evidence returns
+`IDEMPOTENCY_CONFLICT`. HTTP and MCP mutations require a valid key: send exactly one
+`Idempotency-Key` header or the required `idempotencyKey` argument. SDK callers can omit the key and
+intentionally opt out of replay protection. If a local transaction commits but its idempotency result
+cannot be persisted, retrying the key returns `IDEMPOTENCY_RECONCILIATION_REQUIRED` rather than
+duplicating the money movement; reconcile the already-recorded canonical resource first.
+
+Canonical refunds are readable through `storedPayments(tenantId).retrieveRefund(id)` and
+`listRefunds({ limit, cursor, paymentId })`. The list is tenant-scoped, uses opaque bounded cursors,
+and is exposed at `GET /canonical/refunds`, `GET /canonical/refunds/:id`, and the MCP
+`canonical_refunds_list` and `canonical_refund_get` tools.
+
+When authorization is enabled, recording, succeeding, voiding, and refunding use the same charge or
+refund policies as provider-backed operations. Audit `recordedBy` values come only from the resolved
+authorization actor; they are not accepted from public request bodies.
+
+Collection method does not imply settlement status. Store receipts or bank references in
+`externalReference`; do not overload descriptions with routing identity. Provider-backed charge and
+refund operations remain unchanged and continue to carry explicit provider attribution.
+
 A **charge** is a one-off payment against a customer; a **refund** returns money against a recorded
 payment, partially or in full. Both persist locally and track the payment's lifecycle through the
 payment state machine.

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { knex } from 'knex';
 import { describe, expect, it } from 'vitest';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
+import { generatePrismaClient } from './support/prisma-generate';
 
 function taggedSchema(): string {
   for (const [command, args] of [
@@ -22,15 +23,6 @@ function pushSchema(schema: string, databaseUrl: string): void {
     process.execPath,
     ['node_modules/prisma/build/index.js', 'db', 'push', '--skip-generate', '--schema', schema],
     { encoding: 'utf8', env: { ...process.env, PAYABLE_PRISMA_TEST_URL: databaseUrl } },
-  );
-  if (result.status !== 0) throw new Error(result.stderr || result.stdout);
-}
-
-function generateCurrentPrismaClient(): void {
-  const result = spawnSync(
-    'npx',
-    ['prisma', 'generate', '--schema', 'tests/prisma/schema.prisma'],
-    { encoding: 'utf8' },
   );
   if (result.status !== 0) throw new Error(result.stderr || result.stdout);
 }
@@ -98,7 +90,7 @@ describe('beta7 to beta8 package upgrade', () => {
     });
     await database.destroy();
 
-    generateCurrentPrismaClient();
+    generatePrismaClient();
     process.env.PAYABLE_PRISMA_TEST_URL = databaseUrl;
     const { PrismaClient } = await import('@prisma/client');
     const prisma = new PrismaClient();

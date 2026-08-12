@@ -22,7 +22,7 @@ export type {
   CustomerProviderSyncStatus,
 } from './customer-provider-sync-state.entity';
 export type { Invoice } from './invoice.entity';
-export type { Payment } from './payment.entity';
+export type { CollectionMethod, Payment } from './payment.entity';
 export type { Price } from './price.entity';
 export type { PriceProviderBinding } from './price-provider-binding.entity';
 export type { Product } from './product.entity';

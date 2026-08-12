@@ -8,10 +8,10 @@ import {
   PrismaStorageDriver,
 } from '../../src/infrastructure/storage/prisma';
 import { FakeClock } from '../../src/support/clock/fake-clock';
+import { generatePrismaClient } from './prisma-generate';
 import { CONTRACT_BASE_TIME, type StorageHarness } from './storage-contract';
 
 const SCHEMA = 'tests/prisma/schema.prisma';
-
 const TRUNCATE_ORDER = [
   'payablePriceProviderBinding',
   'payableProductProviderBinding',
@@ -57,7 +57,7 @@ function ensurePrismaClientGenerated(): void {
   if (clientGenerated) {
     return;
   }
-  execFileSync('npx', ['prisma', 'generate', '--schema', SCHEMA], { stdio: 'ignore' });
+  generatePrismaClient(SCHEMA);
   clientGenerated = true;
 }
 

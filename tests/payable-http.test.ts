@@ -22,6 +22,8 @@ describe('payableErrorStatus', () => {
       ['TENANT_REQUIRED', 400],
       ['COLLECTION_CURSOR_INVALID', 400],
       ['COLLECTION_LIMIT_INVALID', 422],
+      ['LOCAL_REFUND_EXTERNAL_CONFIRMATION_REQUIRED', 422],
+      ['LOCAL_REFUND_EXTERNAL_REFERENCE_REQUIRED', 422],
     ];
     for (const [code, status] of cases) {
       expect(payableErrorStatus(new PayableError('x', { code }))).toBe(status);

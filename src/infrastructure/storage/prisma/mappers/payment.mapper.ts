@@ -1,5 +1,5 @@
 import type { NewPayment } from '../../../../domain/contracts/payment-repository.contract';
-import type { Payment } from '../../../../domain/entities/payment.entity';
+import type { CollectionMethod, Payment } from '../../../../domain/entities/payment.entity';
 import { CurrencyManager } from '../../../../domain/value-objects/currency';
 import type { PaymentStatus } from '../../../../domain/value-objects/payment-status';
 import type { PrismaPaymentRow } from '../prisma-client.types';
@@ -18,6 +18,10 @@ export function paymentToEntity(row: PrismaPaymentRow): Payment {
     refundedAmount: toMinor(row.refundedAmount, 'refunded_amount'),
     reference: row.reference ?? null,
     description: row.description ?? null,
+    collectionMethod: (row.collectionMethod as CollectionMethod | null) ?? null,
+    occurredAt: row.occurredAt ?? null,
+    externalReference: row.externalReference ?? null,
+    recordedBy: row.recordedBy ?? null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -36,5 +40,9 @@ export function paymentToRow(data: Partial<NewPayment>): Record<string, unknown>
     refundedAmount: fromMinor(data.refundedAmount),
     reference: data.reference,
     description: data.description,
+    collectionMethod: data.collectionMethod,
+    occurredAt: data.occurredAt,
+    externalReference: data.externalReference,
+    recordedBy: data.recordedBy,
   };
 }

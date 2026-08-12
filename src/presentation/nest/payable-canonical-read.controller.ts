@@ -1,13 +1,29 @@
-import { Controller, Get, Inject, Param, Query, Req, UseFilters, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseFilters,
+  UseGuards,
+} from '@nestjs/common';
 import { PayableError } from '../../domain/errors/payable-error';
+import { Money } from '../../domain/value-objects/money';
 import type { Payable } from '../../payable';
+import { rawHeadersOf, requireRequestIdempotencyKey } from '../shared/catalog-idempotency';
 import {
   canonicalCustomerListQuerySchema,
   canonicalPaymentListQuerySchema,
   canonicalPriceListQuerySchema,
   canonicalProductListQuerySchema,
+  canonicalRefundListQuerySchema,
   canonicalSubscriptionListQuerySchema,
   catalogIdParamSchema,
+  localPaymentBodySchema,
+  localRefundBodySchema,
   parseBody,
 } from '../shared/schemas';
 import {
@@ -15,6 +31,7 @@ import {
   PAYABLE_INSTANCE,
   PAYABLE_OPTIONS,
   type PayableHttpRequest,
+  resolveAuthorization,
   resolveTenantId,
 } from './payable.constants';
 import { PayableExceptionFilter } from './payable.exception-filter';
@@ -96,7 +113,70 @@ export class PayableCanonicalReadController {
     return this.payable.storedPayments(this.tenantOf(request)).retrieve(id);
   }
 
+  @Get('refunds')
+  listRefunds(@Req() request: PayableHttpRequest, @Query() query: unknown) {
+    const input = parseBody(canonicalRefundListQuerySchema, query);
+    return this.payable.storedPayments(this.tenantOf(request)).listRefunds(input);
+  }
+
+  @Get('refunds/:id')
+  getRefund(@Req() request: PayableHttpRequest, @Param('id') rawId: string) {
+    const { id } = parseBody(catalogIdParamSchema, { id: rawId });
+    return this.payable.storedPayments(this.tenantOf(request)).retrieveRefund(id);
+  }
+
+  @Post('payments/local')
+  recordPayment(@Req() request: PayableHttpRequest, @Body() rawBody: unknown) {
+    const body = parseBody(localPaymentBodySchema, rawBody);
+    return this.payable.storedPayments(this.tenantOf(request)).record({
+      ...body,
+      amount: Money.of(body.amount, body.currency),
+      authorization: resolveAuthorization(this.options, request),
+      idempotencyKey: requestIdempotencyKey(request),
+    });
+  }
+
+  @Post('payments/:id/refunds/local')
+  recordRefund(
+    @Req() request: PayableHttpRequest,
+    @Param('id') rawId: string,
+    @Body() rawBody: unknown,
+  ) {
+    const { id } = parseBody(catalogIdParamSchema, { id: rawId });
+    const body = parseBody(localRefundBodySchema, rawBody);
+    return this.payable.storedPayments(this.tenantOf(request)).refundLocal(id, {
+      ...body,
+      amount:
+        body.amount === undefined ? undefined : Money.of(body.amount, body.currency as string),
+      authorization: resolveAuthorization(this.options, request),
+      idempotencyKey: requestIdempotencyKey(request),
+    });
+  }
+
+  @Post('payments/:id/succeed')
+  succeedPayment(@Req() request: PayableHttpRequest, @Param('id') id: string) {
+    return this.payable.storedPayments(this.tenantOf(request)).succeed(id, {
+      authorization: resolveAuthorization(this.options, request),
+      idempotencyKey: requestIdempotencyKey(request),
+    });
+  }
+
+  @Post('payments/:id/void')
+  voidPayment(@Req() request: PayableHttpRequest, @Param('id') id: string) {
+    return this.payable.storedPayments(this.tenantOf(request)).void(id, {
+      authorization: resolveAuthorization(this.options, request),
+      idempotencyKey: requestIdempotencyKey(request),
+    });
+  }
+
   private tenantOf(request: PayableHttpRequest): string | null {
     return resolveTenantId(this.options, request);
   }
+}
+
+function requestIdempotencyKey(request: PayableHttpRequest): string {
+  return requireRequestIdempotencyKey({
+    headers: request.headers,
+    rawHeaders: rawHeadersOf(request),
+  });
 }

@@ -44,16 +44,12 @@ describe('Prisma provider-neutral collection pages', () => {
       collectionResponsibility: 'merchant',
       source: 'test',
     });
-    const payment = await storage.payments.create({
-      tenantId,
+    const payment = await payable.storedPayments(tenantId).record({
       customerId: customer.id,
-      provider: 'manual',
-      providerPaymentId: null,
+      amount: Money.of(4900, 'EUR'),
       status: 'pending',
-      currency: 'EUR',
-      amount: 4900,
-      refundedAmount: 0,
-      reference: 'BANK-PRISMA-100',
+      collectionMethod: 'bank_transfer',
+      externalReference: 'BANK-PRISMA-100',
       description: 'Manual transfer',
     });
 
@@ -68,8 +64,18 @@ describe('Prisma provider-neutral collection pages', () => {
       payable.canonicalSubscriptions(tenantId).list({ customerId: customer.id }),
     ).resolves.toMatchObject({ items: [subscription], hasMore: false });
     await expect(
-      payable.storedPayments(tenantId).list({ reference: 'prisma' }),
-    ).resolves.toMatchObject({ items: [payment], hasMore: false });
+      payable.storedPayments(tenantId).list({ description: 'manual' }),
+    ).resolves.toMatchObject({
+      items: [
+        expect.objectContaining({
+          id: payment.id,
+          provider: null,
+          collectionMethod: 'bank_transfer',
+          externalReference: 'BANK-PRISMA-100',
+        }),
+      ],
+      hasMore: false,
+    });
 
     const first = await payable.products(tenantId).list({ limit: 1 });
     const second = await payable.products(tenantId).list({

@@ -31,6 +31,7 @@ describe('migration ledger', () => {
       '016-provider-neutral-page-indexes',
       '017-canonical-provider-catalog-backfill',
       '018-canonical-subscription-products',
+      '019-local-payment-evidence',
     ]);
     await db.destroy();
   });

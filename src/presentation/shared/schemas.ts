@@ -110,6 +110,49 @@ export const canonicalPaymentListQuerySchema = canonicalListQuerySchema.extend({
   description: z.string().min(1).optional(),
 });
 
+export const canonicalRefundListQuerySchema = canonicalListQuerySchema.extend({
+  paymentId: z.string().min(1).optional(),
+});
+
+const collectionMethodSchema = z.enum([
+  'cash',
+  'bank_transfer',
+  'cheque',
+  'money_order',
+  'mobile_money',
+  'card_terminal',
+  'other',
+]);
+
+export const localPaymentBodySchema = z
+  .object({
+    customerId: z.string().min(1),
+    amount: z.number().int().positive(),
+    currency: z.string().length(3),
+    status: z.enum(['pending', 'succeeded']),
+    collectionMethod: collectionMethodSchema,
+    occurredAt: z.coerce.date().optional(),
+    externalReference: z.string().min(1).optional(),
+    description: z.string().min(1).optional(),
+  })
+  .strict();
+
+export const localRefundBodySchema = z
+  .object({
+    amount: z.number().int().positive().optional(),
+    currency: z.string().length(3).optional(),
+    collectionMethod: collectionMethodSchema,
+    occurredAt: z.coerce.date().optional(),
+    externalReference: z.string().min(1).optional(),
+    confirmedExternally: z.literal(true).optional(),
+    reason: z.string().min(1).optional(),
+  })
+  .strict()
+  .refine((value) => value.amount === undefined || value.currency !== undefined, {
+    path: ['currency'],
+    message: 'currency is required with amount',
+  });
+
 export const catalogListQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(MAX_LIST_LIMIT).optional(),
   cursor: z.string().min(1).optional(),

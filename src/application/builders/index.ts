@@ -60,7 +60,11 @@ export {
 export { RefundResource } from './refund-resource';
 export {
   type ListStoredPaymentsInput,
+  type ListStoredRefundsInput,
+  type RecordLocalPaymentInput,
+  type RecordLocalRefundInput,
   StoredPaymentResource,
+  type TransitionLocalPaymentInput,
 } from './stored-payment-resource';
 export { SubscriptionBuilder } from './subscription-builder';
 export {
