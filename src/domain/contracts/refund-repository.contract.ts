@@ -1,7 +1,12 @@
 import type { Refund } from '../entities/refund.entity';
 import type { ListOptions } from './list-options.contract';
 
-export type NewRefund = Omit<Refund, 'id' | 'createdAt' | 'updatedAt'>;
+type RefundEvidence = Pick<
+  Refund,
+  'collectionMethod' | 'occurredAt' | 'externalReference' | 'recordedBy'
+>;
+export type NewRefund = Omit<Refund, 'id' | 'createdAt' | 'updatedAt' | keyof RefundEvidence> &
+  Partial<RefundEvidence>;
 
 export interface RefundRepository {
   create(data: NewRefund): Promise<Refund>;

@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { Money } from '../../../domain/value-objects/money';
 import type { Payable } from '../../../payable';
 import {
   canonicalCustomerListQuerySchema,
@@ -7,6 +8,8 @@ import {
   canonicalProductListQuerySchema,
   canonicalSubscriptionListQuerySchema,
   catalogIdParamSchema,
+  localPaymentBodySchema,
+  localRefundBodySchema,
   parseBody,
 } from '../../shared/schemas';
 import type { FastifyPayableOptions } from '../helpers';
@@ -70,6 +73,46 @@ export async function registerCanonicalCollectionRoutes(
   scope.get('/canonical/payments/:id', async (request, reply) => {
     const { id } = parseBody(catalogIdParamSchema, request.params);
     reply.status(200).send(await payable.storedPayments(tenantOf(request, options)).retrieve(id));
+  });
+  scope.post('/canonical/payments/local', async (request, reply) => {
+    const body = parseBody(localPaymentBodySchema, request.body);
+    const payment = await payable.storedPayments(tenantOf(request, options)).record({
+      ...body,
+      amount: Money.of(body.amount, body.currency),
+      authorization: options.resolveAuthorization?.(request),
+      idempotencyKey: request.headers['idempotency-key'] as string | undefined,
+    });
+    reply.status(201).send(payment);
+  });
+  scope.post('/canonical/payments/:id/refunds/local', async (request, reply) => {
+    const { id } = parseBody(catalogIdParamSchema, request.params);
+    const body = parseBody(localRefundBodySchema, request.body);
+    const refund = await payable.storedPayments(tenantOf(request, options)).refundLocal(id, {
+      ...body,
+      amount:
+        body.amount === undefined ? undefined : Money.of(body.amount, body.currency as string),
+      authorization: options.resolveAuthorization?.(request),
+      idempotencyKey: request.headers['idempotency-key'] as string | undefined,
+    });
+    reply.status(201).send(refund);
+  });
+  scope.post('/canonical/payments/:id/succeed', async (request, reply) => {
+    const { id } = parseBody(catalogIdParamSchema, request.params);
+    reply.status(200).send(
+      await payable.storedPayments(tenantOf(request, options)).succeed(id, {
+        authorization: options.resolveAuthorization?.(request),
+        idempotencyKey: request.headers['idempotency-key'] as string | undefined,
+      }),
+    );
+  });
+  scope.post('/canonical/payments/:id/void', async (request, reply) => {
+    const { id } = parseBody(catalogIdParamSchema, request.params);
+    reply.status(200).send(
+      await payable.storedPayments(tenantOf(request, options)).void(id, {
+        authorization: options.resolveAuthorization?.(request),
+        idempotencyKey: request.headers['idempotency-key'] as string | undefined,
+      }),
+    );
   });
 }
 

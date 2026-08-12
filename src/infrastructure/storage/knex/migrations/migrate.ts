@@ -11,6 +11,7 @@ import { addCatalogTenantKeys } from './catalog-tenant-keys';
 import { addCustomerProviderBindings } from './customer-provider-bindings';
 import { addCustomerProviderSyncStateLeases } from './customer-provider-sync-state-leases';
 import { addCustomerProviderSyncStates } from './customer-provider-sync-states';
+import { addLocalPaymentEvidence } from './local-payment-evidence';
 import { runStep } from './migration-ledger';
 import { convergePostLedgerSchema } from './post-ledger-convergence';
 import { addProviderNeutralPageIndexes } from './provider-neutral-page-indexes';
@@ -127,5 +128,6 @@ export async function migrate(knex: Knex): Promise<void> {
     await runStep(knex, '018-canonical-subscription-products', () =>
       addCanonicalSubscriptionProducts(knex).then(() => undefined),
     );
+    await runStep(knex, '019-local-payment-evidence', () => addLocalPaymentEvidence(knex));
   });
 }

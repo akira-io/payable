@@ -3,11 +3,12 @@ import type {
   NewRefund,
   RefundRepository,
 } from '../../../../domain/contracts/refund-repository.contract';
+import type { CollectionMethod } from '../../../../domain/entities/payment.entity';
 import type { Refund } from '../../../../domain/entities/refund.entity';
 import { CurrencyManager } from '../../../../domain/value-objects/currency';
 import type { RefundStatus } from '../../../../domain/value-objects/refund-status';
 import { KnexRepository } from '../knex-repository';
-import { toDate, toMinor } from '../mappers';
+import { fromDate, toDate, toMinor, toNullableDate } from '../mappers';
 
 export class KnexRefundRepository
   extends KnexRepository<Refund, NewRefund>
@@ -40,12 +41,16 @@ export class KnexRefundRepository
       id: row.id as string,
       tenantId: (row.tenant_id as string | null) ?? null,
       paymentId: row.payment_id as string,
-      provider: row.provider as string,
+      provider: (row.provider as string | null) ?? null,
       providerRefundId: (row.provider_refund_id as string | null) ?? null,
       status: row.status as RefundStatus,
       currency: CurrencyManager.normalize(row.currency as string),
       amount: toMinor(row.amount, 'amount'),
       reason: (row.reason as string | null) ?? null,
+      collectionMethod: (row.collection_method as CollectionMethod | null) ?? null,
+      occurredAt: toNullableDate(row.occurred_at),
+      externalReference: (row.external_reference as string | null) ?? null,
+      recordedBy: (row.recorded_by as string | null) ?? null,
       createdAt: toDate(row.created_at),
       updatedAt: toDate(row.updated_at),
     };
@@ -61,6 +66,10 @@ export class KnexRefundRepository
       currency: data.currency,
       amount: data.amount,
       reason: data.reason,
+      collection_method: data.collectionMethod,
+      occurred_at: fromDate(data.occurredAt),
+      external_reference: data.externalReference,
+      recorded_by: data.recordedBy,
     };
   }
 }

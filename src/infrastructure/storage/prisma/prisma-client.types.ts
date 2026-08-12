@@ -5,6 +5,7 @@ import type {
   PrismaPriceProviderBindingRow,
   PrismaProductProviderBindingRow,
 } from './prisma-canonical-catalog-row.types';
+import type { PrismaCollectionEvidenceRow } from './prisma-collection-evidence.types';
 import type { PrismaSubscriptionRow } from './prisma-subscription-row.types';
 import type {
   PrismaWebhookDeliveryRow,
@@ -139,12 +140,12 @@ export interface PrismaInvoiceRow {
   updatedAt: Date;
 }
 
-export interface PrismaPaymentRow {
+export interface PrismaPaymentRow extends PrismaCollectionEvidenceRow {
   id: string;
   tenantId: string | null;
   tenantKey: string;
   customerId: string | null;
-  provider: string;
+  provider: string | null;
   providerPaymentId: string | null;
   status: string;
   currency: string;
@@ -156,11 +157,11 @@ export interface PrismaPaymentRow {
   updatedAt: Date;
 }
 
-export interface PrismaRefundRow {
+export interface PrismaRefundRow extends PrismaCollectionEvidenceRow {
   id: string;
   tenantId: string | null;
   paymentId: string;
-  provider: string;
+  provider: string | null;
   providerRefundId: string | null;
   status: string;
   currency: string;

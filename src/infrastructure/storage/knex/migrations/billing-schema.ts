@@ -45,7 +45,7 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.uuid('id').primary();
     table.string('tenant_id').nullable();
     table.string('tenant_key').notNullable().defaultTo('');
-    table.string('provider').notNullable();
+    table.string('provider').nullable();
     table.string('provider_price_id').nullable();
     table.uuid('product_id').notNullable();
     table.string('currency').notNullable();
@@ -182,7 +182,7 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.string('tenant_id').nullable();
     table.string('tenant_key').notNullable().defaultTo('');
     table.uuid('customer_id').nullable();
-    table.string('provider').notNullable();
+    table.string('provider').nullable();
     table.string('provider_payment_id').nullable();
     table.string('status').notNullable();
     table.string('currency').notNullable();
@@ -190,9 +190,16 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.bigInteger('refunded_amount').notNullable();
     table.string('reference').nullable();
     table.text('description').nullable();
+    table.string('collection_method').nullable();
+    table.timestamp('occurred_at', { useTz: true }).nullable();
+    table.string('external_reference').nullable();
+    table.string('recorded_by').nullable();
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.timestamp('updated_at', { useTz: true }).notNullable();
     table.unique(['provider', 'provider_payment_id']);
+    table.unique(['tenant_key', 'id'], {
+      indexName: 'payable_payments_tenant_id_unique',
+    });
     table.index('customer_id');
     table.index(['tenant_key', 'created_at', 'id'], 'payable_payments_tenant_page_index');
     table.check(
@@ -211,12 +218,16 @@ export async function createBillingTables(knex: Knex): Promise<void> {
       .references('id')
       .inTable('payable_payments')
       .onDelete('CASCADE');
-    table.string('provider').notNullable();
+    table.string('provider').nullable();
     table.string('provider_refund_id').nullable();
     table.string('status').notNullable();
     table.string('currency').notNullable();
     table.bigInteger('amount').notNullable();
     table.text('reason').nullable();
+    table.string('collection_method').nullable();
+    table.timestamp('occurred_at', { useTz: true }).nullable();
+    table.string('external_reference').nullable();
+    table.string('recorded_by').nullable();
     table.timestamp('created_at', { useTz: true }).notNullable();
     table.timestamp('updated_at', { useTz: true }).notNullable();
     table.unique(['provider', 'provider_refund_id']);

@@ -1,5 +1,6 @@
 import type { CollectionPage } from '../../domain/dtos/collection-page.dto';
 import type { Payment } from '../../domain/entities/payment.entity';
+import type { Refund } from '../../domain/entities/refund.entity';
 import { PayableError } from '../../domain/errors/payable-error';
 import type { CurrencyCode } from '../../domain/value-objects/currency';
 import { CurrencyManager } from '../../domain/value-objects/currency';
@@ -10,6 +11,19 @@ import {
 } from '../services/collections/collection-cursor';
 import { normalizeCollectionLimit } from '../services/collections/normalize-collection-query';
 import type { LocalDependencies } from './local-dependencies';
+import { LocalPaymentActions } from './local-payment-actions';
+import type {
+  RecordLocalPaymentInput,
+  RecordLocalRefundInput,
+  TransitionLocalPaymentInput,
+} from './local-payment-inputs';
+import { LocalRefundActions } from './local-refund-actions';
+
+export type {
+  RecordLocalPaymentInput,
+  RecordLocalRefundInput,
+  TransitionLocalPaymentInput,
+} from './local-payment-inputs';
 
 export interface ListStoredPaymentsInput {
   limit?: number;
@@ -23,7 +37,29 @@ export interface ListStoredPaymentsInput {
 }
 
 export class StoredPaymentResource {
-  constructor(private readonly dependencies: LocalDependencies) {}
+  private readonly localPayments: LocalPaymentActions;
+  private readonly localRefunds: LocalRefundActions;
+
+  constructor(private readonly dependencies: LocalDependencies) {
+    this.localPayments = new LocalPaymentActions(dependencies);
+    this.localRefunds = new LocalRefundActions(dependencies);
+  }
+
+  record(input: RecordLocalPaymentInput): Promise<Payment> {
+    return this.localPayments.record(input);
+  }
+
+  succeed(id: string, input: TransitionLocalPaymentInput = {}): Promise<Payment> {
+    return this.localPayments.succeed(id, input);
+  }
+
+  void(id: string, input: TransitionLocalPaymentInput = {}): Promise<Payment> {
+    return this.localPayments.void(id, input);
+  }
+
+  refundLocal(id: string, input: RecordLocalRefundInput): Promise<Refund> {
+    return this.localRefunds.record(id, input);
+  }
 
   async retrieve(id: string): Promise<Payment> {
     const payment = await this.repository().findById(id, this.dependencies.tenantId ?? null);
@@ -75,13 +111,17 @@ export class StoredPaymentResource {
   }
 
   private repository() {
+    return this.storage().payments;
+  }
+
+  private storage() {
     const storage = this.dependencies.storage;
     if (!storage) {
       throw new PayableError('Stored payment reads require a storage driver', {
         code: 'PAYMENT_STORAGE_REQUIRED',
       });
     }
-    return storage.payments;
+    return storage;
   }
 }
 
