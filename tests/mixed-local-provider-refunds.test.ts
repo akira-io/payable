@@ -37,6 +37,23 @@ describe('confirmed local refunds for provider-backed payments', () => {
     expect(provider.refundCalls).toBe(0);
   });
 
+  it('records the remaining balance when a confirmed provider-backed refund omits amount', async () => {
+    const { payable, payment, provider } = await harness();
+
+    await expect(
+      payable.storedPayments().refundLocal(payment.id, {
+        collectionMethod: 'bank_transfer',
+        externalReference: 'bank-return-full',
+        confirmedExternally: true,
+      }),
+    ).resolves.toMatchObject({ amount: 1000, provider: null });
+    await expect(payable.storedPayments().retrieve(payment.id)).resolves.toMatchObject({
+      refundedAmount: 1000,
+      status: 'refunded',
+    });
+    expect(provider.refundCalls).toBe(0);
+  });
+
   it.each([
     undefined,
     '   ',
