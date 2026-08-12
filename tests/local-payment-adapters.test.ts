@@ -9,6 +9,7 @@ import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-stora
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { KnexIdempotencyRepository } from '../src/infrastructure/storage/knex/repositories/knex-idempotency.repository';
 import { createFastifyPayablePlugin } from '../src/presentation/fastify/create-fastify-payable-plugin';
+import { DEFAULT_BODY_LIMIT } from '../src/presentation/fastify/limits';
 import { createPayableMcpServer } from '../src/presentation/mcp/index';
 import { requireRequestIdempotencyKey } from '../src/presentation/shared/catalog-idempotency';
 import { FakeClock } from '../src/support/clock/fake-clock';
@@ -89,6 +90,85 @@ describe('local payment adapters', () => {
     });
     expect(listed.json()).toMatchObject({ items: [expect.objectContaining({ id: refund.id })] });
     expect(retrieved.json()).toMatchObject({ id: refund.id });
+    await app.close();
+  });
+
+  it('rate-limits canonical local payment recording over Fastify', async () => {
+    const database = createTestDb();
+    databases.push(database);
+    await migrate(database);
+    const payable = createPayable({ storage: new KnexStorageDriver(database, new FakeClock()) });
+    const customer = await payable.customers().create(billable);
+    const app = Fastify();
+    await app.register(
+      createFastifyPayablePlugin(payable, { rateLimit: { max: 1, timeWindow: '1 minute' } }),
+      {
+        prefix: '/payable',
+      },
+    );
+    const request = {
+      method: 'POST' as const,
+      url: '/payable/canonical/payments/local',
+      headers: { 'idempotency-key': 'rate-limit-payment-1' },
+      payload: {
+        customerId: customer.id,
+        amount: 1500,
+        currency: 'EUR',
+        status: 'succeeded',
+        collectionMethod: 'cash',
+        externalReference: 'rate-limit-payment-1',
+      },
+    };
+
+    expect((await app.inject(request)).statusCode).toBe(201);
+    expect((await app.inject(request)).statusCode).toBe(429);
+    await app.close();
+  });
+
+  it('applies the Fastify rate limit to every canonical local-money mutation', async () => {
+    const database = createTestDb();
+    databases.push(database);
+    await migrate(database);
+    const routes: Array<{ url: string; rateLimit: unknown; bodyLimit: number | undefined }> = [];
+    const app = Fastify();
+    app.addHook('onRoute', (route) => {
+      if (route.method === 'POST' && route.url.startsWith('/canonical/payments')) {
+        routes.push({
+          url: route.url,
+          rateLimit: (route.config as { rateLimit?: unknown } | undefined)?.rateLimit,
+          bodyLimit: route.bodyLimit,
+        });
+      }
+    });
+    await app.register(
+      createFastifyPayablePlugin(
+        createPayable({ storage: new KnexStorageDriver(database, new FakeClock()) }),
+        { rateLimit: { max: 1, timeWindow: '1 minute' } },
+      ),
+    );
+
+    expect(routes).toEqual([
+      {
+        url: '/canonical/payments/local',
+        rateLimit: { max: 1, timeWindow: '1 minute' },
+        bodyLimit: DEFAULT_BODY_LIMIT,
+      },
+      {
+        url: '/canonical/payments/:id/refunds/local',
+        rateLimit: { max: 1, timeWindow: '1 minute' },
+        bodyLimit: DEFAULT_BODY_LIMIT,
+      },
+      {
+        url: '/canonical/payments/:id/succeed',
+        rateLimit: { max: 1, timeWindow: '1 minute' },
+        bodyLimit: DEFAULT_BODY_LIMIT,
+      },
+      {
+        url: '/canonical/payments/:id/void',
+        rateLimit: { max: 1, timeWindow: '1 minute' },
+        bodyLimit: DEFAULT_BODY_LIMIT,
+      },
+    ]);
     await app.close();
   });
 
