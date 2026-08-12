@@ -7,13 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.0.0-beta8](https://github.com/akira-io/payable/compare/v1.0.0-beta7...v1.0.0-beta8)
+
 ### Changed
 
 - `Payment.provider` and `Refund.provider` are nullable for canonical local money movements. Consumers
-  that assumed a provider string must handle `null`; migrate generated Prisma clients and update
+  that assumed a provider string must handle `null`. Knex users must run `migrate(knex)` and inspect
+  the `020-canonical-invoices` row in `payable_migration_reports`. Prisma users must sync the beta8
+  models, create and apply the corresponding migration, and regenerate Prisma Client. Update
   provider-routing code to branch before using provider capabilities.
 - Canonical local-money HTTP and MCP mutations now require a valid idempotency key. Send one
   `Idempotency-Key` header per HTTP request or an `idempotencyKey` MCP argument.
+
+### Features
+
+- **subscriptions:** Expose canonical product relationships ([94e1bd0](https://github.com/akira-io/payable/commit/94e1bd00062aa64ed3d528797291ea97864b3517))
+- **payments:** Add the canonical local payment lifecycle ([8302777](https://github.com/akira-io/payable/commit/8302777783b20fb328f292425c44698a01f9d079))
+- **payments:** Record externally confirmed refunds for provider payments without calling the provider ([0c8ccd4](https://github.com/akira-io/payable/commit/0c8ccd4f486cde58c436157036e5ce86a3036223))
+- **invoices:** Add tenant-scoped canonical invoice resources and payment relationships ([e1e0e89](https://github.com/akira-io/payable/commit/e1e0e891ff39a65db513a14f163bc621eb342c68))
+
+### Bug Fixes
+
+- **payments:** Harden canonical local money movements and idempotency ([3d50178](https://github.com/akira-io/payable/commit/3d50178ebb85269267dd458b2f1427d36f342441))
+- **payments:** Rate-limit canonical Fastify money mutations ([85904de](https://github.com/akira-io/payable/commit/85904de85eb44a6549d30b0467afb08d55df5987))
+
+### Continuous Integration
+
+- **release:** Enforce tagged metadata, package-consumer, migration, provenance, and dist-tag integrity ([f4fbf34](https://github.com/akira-io/payable/commit/f4fbf342190ab79f40b77784d68372e8ef387a86))
+- **release:** Fetch immutable release tags for beta upgrade smoke tests ([03fcdcc](https://github.com/akira-io/payable/commit/03fcdccce00d735913529cd1463bba382bcfc259))
 
 ## [1.0.0-beta7](https://github.com/akira-io/payable/compare/v1.0.0-beta6...v1.0.0-beta7) (2026-08-08)
 
