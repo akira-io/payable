@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta8](https://github.com/akira-io/payable/compare/v1.0.0-beta7...v1.0.0-beta8) (2026-08-13)
+
+### Bug Fixes
+
+- **ci:** Fetch release tags for upgrade smoke ([03fcdcc](https://github.com/akira-io/payable/commit/03fcdccce00d735913529cd1463bba382bcfc259))
+- **payments:** Rate-limit canonical Fastify money mutations ([85904de](https://github.com/akira-io/payable/commit/85904de85eb44a6549d30b0467afb08d55df5987))
+
+
+### Features
+
+- **subscriptions:** Expose canonical product relationships ([94e1bd0](https://github.com/akira-io/payable/commit/94e1bd00062aa64ed3d528797291ea97864b3517))
+- **payments:** Add canonical local payment lifecycle ([8302777](https://github.com/akira-io/payable/commit/8302777783b20fb328f292425c44698a01f9d079))
+- **payments:** Harden canonical local money movements ([3d50178](https://github.com/akira-io/payable/commit/3d50178ebb85269267dd458b2f1427d36f342441))
+- **payments:** Confirm external refunds for provider payments ([0c8ccd4](https://github.com/akira-io/payable/commit/0c8ccd4f486cde58c436157036e5ce86a3036223))
+- **invoices:** Add canonical invoice resources ([e1e0e89](https://github.com/akira-io/payable/commit/e1e0e891ff39a65db513a14f163bc621eb342c68))
+
+
+### Other
+
+- **release:** Restore tag-driven pipeline ([60728f9](https://github.com/akira-io/payable/commit/60728f9ba604159c5833aba0d07bab0ba2c976d5))
+
 ## [1.0.0-beta7](https://github.com/akira-io/payable/compare/v1.0.0-beta6...v1.0.0-beta7) (2026-08-08)
 
 ### Bug Fixes
@@ -588,3 +609,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **storage:** Batch subscription items, wrap create in a transaction, order lists ([d878e1d](https://github.com/akira-io/payable/commit/d878e1d25f29a0e2b89a2a807b2dc71622a0fc1d))
 - **storage:** Add composite indexes for the keyset list access path ([893c984](https://github.com/akira-io/payable/commit/893c98483ebb4f7a3cb2deb4e0e0a56f4323b782))
 - **storage:** Use RETURNING to avoid the post-write re-select ([607b13c](https://github.com/akira-io/payable/commit/607b13c71c0ed5f424405be19bb7ee70959ed63c))
+
