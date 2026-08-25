@@ -19,8 +19,9 @@ minor units through a `Money` value object backed by Dinero.js, so monetary logi
 ## Features
 
 - **Providers**: Stripe, Paddle, and SISP (Cabo Verde / vinti4), behind one `PaymentProvider` contract with optional capability interfaces.
-- **Billing**: checkout, subscriptions (trials, coupons, multiple items, swap/cancel/resume), one-off
-  charges, refunds, invoices, and the customer billing portal.
+- **Billing**: checkout, subscriptions (trials, coupons, multiple items, swap/cancel/resume),
+  provider-neutral subscription price migrations, one-off charges, refunds, invoices, and the
+  customer billing portal.
 - **Webhooks**: signature verification, event normalization, deduplication, async processing, local
   state reconciliation, and replay.
 - **Reliability**: idempotency by default, an immutable audit log, and a transactional outbox.
@@ -36,6 +37,21 @@ bundle imports none of them. You install only what you use.
 ```sh
 bun add @akira-io/payable   # or: npm install / pnpm add
 ```
+
+The npm command installs the latest published tag. Canonical subscription price migrations are
+currently available on the development `main` line, not in `1.0.0-beta8`. Development consumers can
+install that moving line while keeping builds reproducible through Bun's lockfile:
+
+```sh
+bun add --exact github:akira-io/payable#main
+bun install --frozen-lockfile
+```
+
+`package.json` records the `main` reference and `bun.lock` records the resolved commit. Review and
+commit both files. CI must use `bun install --frozen-lockfile`; advancing Payable requires an explicit
+dependency refresh and lockfile diff. The Git install runs Payable's `prepare` script to build `dist`.
+Tags and npm versions are created later through the normal release process; installing `main` is not
+a release or a request to publish one.
 
 Then add the optional peers for the features you use:
 
@@ -107,6 +123,11 @@ This storage-only configuration supports canonical local reads. Register a payme
 checkout, charges, refunds, synchronization, billing portals, and provider webhooks. Provider-bound
 operations fail with code `PROVIDER_NOT_FOUND` when no provider is configured.
 
+Upgrades through canonical subscription price migrations apply additive Knex ledger steps
+`021-canonical-subscription-price-migrations` and `022-subscription-mutation-recovery`. Run
+`migrate(db)` before serving migration requests, then run it again to verify replay safety. Existing
+subscriptions and legacy preview tokens remain unchanged.
+
 On a Prisma stack, use the `@akira-io/payable/prisma` driver instead. Prisma owns the schema and
 migrations: copy the bundled models with the `payable-prisma` CLI, then run your own migration.
 
@@ -123,6 +144,10 @@ bunx payable-prisma sync   # writes prisma/schema/payable.prisma
 bunx prisma migrate dev    # you own migrations
 ```
 
+After every Payable dependency update, rerun `payable-prisma sync`, review the model diff, validate
+the application schema, and create or deploy the application-owned Prisma migration before enabling
+the updated runtime.
+
 See [docs/persistence/21b-storage-prisma.md](docs/persistence/21b-storage-prisma.md) for the schema,
 multi-tenancy, and behavior-parity notes.
 For an existing `1.0.0-beta6` database, follow the
@@ -135,7 +160,9 @@ subscription management require one too.
 ## Webhooks and HTTP adapters
 
 Each adapter ships on its own subpath. All three mount the core routes: `POST /webhooks` and
-`POST /webhooks/:provider`, `POST /checkout`, and `POST /subscriptions/:name/{cancel,cancel-now,resume,swap}`.
+`POST /webhooks/:provider`, `POST /checkout`, `POST /subscriptions/:name/{cancel,cancel-now,resume,swap}`,
+and create/list/retrieve/approve/cancel/retry under
+`/canonical/subscription-price-migrations`.
 Adapter coverage is not yet at parity: Express also implements `POST /refunds`, while
 `customers` / `invoices` / `payments` (and `refunds` on Fastify/NestJS) are reserved and respond `501`.
 See [docs/adapters](docs/adapters/23-express.md) for the exact route table per adapter.

@@ -15,7 +15,7 @@ const calculatedAt = new Date('2026-08-07T10:00:00.000Z');
 function changeInput(
   overrides: Partial<ProviderSubscriptionChangeInput> = {},
 ): ProviderSubscriptionChangeInput {
-  return {
+  const input: ProviderSubscriptionChangeInput = {
     providerSubscriptionId: 'subscription_provider',
     currentItems: [
       { itemId: 'item_local', providerItemId: 'item_provider', priceId: 'price_old', quantity: 1 },
@@ -28,8 +28,8 @@ function changeInput(
     paymentFailurePolicy: 'preventChange',
     calculatedAt,
     renewalDate: new Date('2026-09-07T10:00:00.000Z'),
-    ...overrides,
   };
+  return { ...input, ...overrides } as ProviderSubscriptionChangeInput;
 }
 
 describe('Stripe subscription change', () => {

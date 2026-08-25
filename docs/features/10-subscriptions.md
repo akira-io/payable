@@ -5,11 +5,16 @@ period end (grace period), cancel immediately, and resume. Creation runs through
 post-creation operations run through a manager. Every operation persists the new state locally after
 the provider confirms it.
 
+> Version note: canonical subscription price migrations are available on the development `main`
+> line. They are not part of the `1.0.0-beta8` tag or npm package. A version and tag are created only
+> after the development line is approved for release.
+
 ## Three entry points
 
 | Goal | Entry point | Class |
 | --- | --- | --- |
 | Create a provider-independent subscription | `payable.canonicalSubscriptions().create(input)` | `CanonicalSubscriptionResource` |
+| Preview and execute a canonical price migration | `payable.subscriptionPriceMigrations(tenantId)` | `SubscriptionPriceMigrationResource` interface |
 | Create a subscription | `payable.customer(billable).newSubscription(name)` | `SubscriptionBuilder` |
 | Manage an existing one | `payable.customer(billable).subscription(name)` | `SubscriptionManager` |
 
@@ -228,15 +233,161 @@ Each subscriber remains attached to the historical price recorded on its subscri
 explicit successful migration changes the relevant item. Creating a replacement price or marking it
 as the catalog default also leaves existing subscriptions unchanged.
 
+### Canonical migration lifecycle
+
+Use the canonical resource for new administrative migration flows. Inputs contain only tenant-scoped
+Payable IDs. Provider names, provider subscription IDs, and provider price IDs are resolved from the
+persisted bindings and do not enter the public request.
+
+```ts
+const migrations = payable.subscriptionPriceMigrations(tenantId);
+const migration = await migrations.preview({
+  subscriptionId: canonicalSubscriptionId,
+  targetPriceId: canonicalTargetPriceId,
+  itemId: canonicalSubscriptionItemId,
+  timing: { effectiveTiming: 'immediate' },
+  prorationPolicy: 'prorateImmediately',
+  paymentFailurePolicy: 'preventChange',
+  idempotencyKey: `price-migration-preview-${canonicalSubscriptionId}-v1`,
+});
+
+const applied = await migrations.approve(migration.id, {
+  idempotencyKey: `price-migration-approve-${migration.id}-v1`,
+});
+```
+
+`SubscriptionPriceMigrationResource` is an exported TypeScript interface. Its implementation is
+not constructible from the package root; obtain it through the tenant-scoped `Payable` accessor so
+storage, tenancy, provider, clock, and idempotency dependencies remain correctly bound.
+
+`preview()` stores immutable source price, target price, item, adjustment, renewal, policy, and
+timing snapshots. `approve()` operates on that migration ID; it does not silently recalculate the
+preview. Immediate approval executes the provider mutation. `nextRenewal` is also submitted to the
+provider during approval, but the migration becomes `pending_renewal` while the local item keeps its
+historical price. At or after the immutable renewal date, a trusted host calls `settle()` to project
+the approved target locally without another provider call. Only an explicitly dated `scheduled`
+approval moves the resource to `scheduled` without an early provider call.
+
+The public states and transitions are:
+
+```text
+previewed -> scheduled | executing | cancelled
+scheduled -> executing | cancelled
+executing -> applied | pending_renewal | failed | reconciliation_required
+pending_renewal -> applied (explicit boundary settlement only)
+failed -> executing | cancelled
+reconciliation_required -> applied | pending_renewal | failed (explicit resolution only)
+```
+
+`applied` and `cancelled` are terminal. `reconciliation_required` is terminal for automatic work,
+and `pending_renewal` stays fenced until explicit settlement. A retry is available only from
+`failed`. Every lifecycle operation takes a separate durable idempotency key.
+
+```ts
+await migrations.settle(migration.id, {
+  idempotencyKey: `price-migration-settle-${migration.id}-v1`,
+});
+```
+
+The host decides when to invoke settlement; a webhook may advance `currentPeriodEnd`, but it does
+not independently infer or apply the canonical price projection.
+
+### Scheduled migration
+
+An explicit schedule requires a real `Date` in the core API. HTTP and MCP adapters accept the same
+instant as an RFC 3339 string.
+
+```ts
+const migration = await migrations.preview({
+  subscriptionId: canonicalSubscriptionId,
+  targetPriceId: canonicalTargetPriceId,
+  timing: {
+    effectiveTiming: 'scheduled',
+    effectiveAt: new Date('2026-10-01T09:00:00.000Z'),
+  },
+  prorationPolicy: 'prorateImmediately',
+  paymentFailurePolicy: 'preventChange',
+  idempotencyKey: `price-migration-scheduled-preview-${canonicalSubscriptionId}-v1`,
+});
+
+await migrations.approve(migration.id, {
+  idempotencyKey: `price-migration-scheduled-approve-${migration.id}-v1`,
+});
+```
+
+A framework-neutral worker pages due records with `migrations.due({ dueBefore, limit, cursor })` and
+calls `migrations.execute(id, { idempotencyKey })`. Payable supplies the due-page and execution
+contract, but it does not own a scheduler, queue, worker process, or host batch. The worker must use a
+stable operation key for each delivery.
+
+### Eligibility and immutable approval
+
+Before calling a provider, Payable verifies that the canonical customer, subscription, item, source
+price, target price, provider binding, and price bindings all belong to the tenant and still match the
+preview request. A different target must be active, and every target must be recurring; source and target must belong to the same
+canonical product, the subscription must be active or trialing, and the selected timing and policies
+must be supported. Currency or billing-period changes fail unless the provider capability explicitly
+supports them. No display value or provider identifier substitutes for a canonical ID.
+
+Only one active migration may exist for a subscription. Preview expiry, catalog drift, renewal-boundary
+drift, item changes, or binding changes return a stable stale or state-conflict error before another
+provider mutation begins.
+
+### Ambiguous reconciliation
+
+Payable changes the canonical subscription only after confirmed provider success. A thrown provider
+error, timeout, malformed provider outcome, or local projection failure after the remote mutation may
+have side effects. Payable records `reconciliation_required`, retains the execution fence, and returns
+`SUBSCRIPTION_MIGRATION_RECONCILIATION_REQUIRED`. Do not call `retry()` or create an automatic retry
+loop. Compare the provider state with the immutable migration, repair the canonical projection through
+an explicit operator process, and record the result before attempting a new migration. The trusted
+host process resolves ownership through the TypeScript resource; there is no generic remote route:
+
+```ts
+await migrations.resolve(migration.id, {
+  outcome: providerStateShowsApprovedChange ? 'applied' : 'not_applied',
+  evidenceReference: operatorAuditReference,
+  idempotencyKey: `price-migration-resolve-${migration.id}-v1`,
+});
+```
+
+Resolution never calls the provider. Immediate `applied` atomically projects the immutable approved
+change and releases the retained fence; next-renewal `applied` moves to `pending_renewal` and keeps
+the fence until `settle()`. `not_applied` moves to retryable `failed` and releases the fence. Every
+resolution emits audit/outbox records. Repeating the same outcome and evidence reference replays; a
+conflicting resolution is rejected.
+
+Only a provider outcome that explicitly reports `not_applied` with
+`sideEffects: 'definitively_none'` can move execution to retryable `failed`.
+
+Stable migration errors include:
+
+- `SUBSCRIPTION_MIGRATION_NOT_FOUND`;
+- `SUBSCRIPTION_MIGRATION_PREVIEW_STALE`;
+- `SUBSCRIPTION_MIGRATION_TARGET_INELIGIBLE`;
+- `PROVIDER_CAPABILITY_NOT_SUPPORTED`;
+- `SUBSCRIPTION_MIGRATION_STATE_CONFLICT`;
+- `SUBSCRIPTION_MIGRATION_RECONCILIATION_REQUIRED`;
+- `SUBSCRIPTION_MIGRATION_PROVIDER_NOT_APPLIED`.
+
+### Legacy API compatibility
+
 Use `previewChange()` and `applyChange()` when the subscriber must approve the amount, effective
 date, or proration before migration. A direct `swap()` is also explicit, but should be reserved for
 flows where a separate approval preview is unnecessary. In both cases, local state changes only
 after the provider confirms the mutation. `SUBSCRIPTION_CHANGE_PREVIEW_STALE` protects the preview
 flow when the current item set changes between preview and apply.
 
-A next-renewal migration keeps the historical price in the current local items until the provider
-applies the scheduled change. A later provider webhook or reconciliation updates the effective
-items. An audit entry may record the proposed price, but it is not the current price before then.
+The existing `subscription(...).previewChange()` and `applyChange()` signatures remain available.
+For canonical subscriptions they project the canonical migration lifecycle back into the established
+preview DTO and token contract. Stored preview tokens created before migration step 021 remain
+readable. Historical provider-native subscriptions without canonical catalog snapshots keep their
+legacy path because Payable does not invent canonical product, price, or amount data.
+
+A next-renewal migration keeps the historical price in the current local items after the provider
+confirms its pending-renewal instruction. At or after the immutable renewal boundary, the trusted
+host calls `settle()` to update the effective item without another provider call. Webhooks may update
+provider lifecycle dates, but they do not infer this price projection independently.
 
 ### Preview and apply a change
 

@@ -2,6 +2,8 @@ import { createServer, type Server } from 'node:http';
 import type { INestApplication } from '@nestjs/common';
 import { AbstractHttpAdapter, type IEntryNestModule, NestFactory } from '@nestjs/core';
 import express, { type Request, type Response } from 'express';
+import { configureNestExpressPayableBodyParser } from '../../src/presentation/nest/payable-body-parser';
+import type { SubscriptionPriceMigrationLimits } from '../../src/presentation/shared/subscription-migration-boundary';
 
 type ExpressAdapterBase = AbstractHttpAdapter<Server, Request, Response>;
 type ErrorHandler = Parameters<ExpressAdapterBase['setErrorHandler']>[0];
@@ -112,6 +114,15 @@ class ExpressTestAdapter extends AbstractHttpAdapter<Server, Request, Response> 
     this.use(express.urlencoded({ extended: true }));
   }
 
+  useBodyParser(
+    parserType: string,
+    _rawBody: boolean,
+    options?: Parameters<typeof express.json>[0],
+  ): void {
+    if (parserType !== 'json') throw new Error(`Unsupported test body parser: ${parserType}`);
+    this.use(express.json(options));
+  }
+
   enableCors(): void {}
 
   createMiddlewareFactory(..._args: Parameters<MiddlewareFactory>): ReturnType<MiddlewareFactory> {
@@ -139,8 +150,20 @@ class ExpressTestAdapter extends AbstractHttpAdapter<Server, Request, Response> 
 
 export async function createNestExpressApplication(
   module: IEntryNestModule,
+  options: {
+    installPayableBodyParser?: boolean;
+    subscriptionPriceMigrationLimits?: SubscriptionPriceMigrationLimits;
+  } = {},
 ): Promise<INestApplication> {
-  const application = await NestFactory.create(module, new ExpressTestAdapter(), { logger: false });
+  const application = await NestFactory.create(module, new ExpressTestAdapter(), {
+    logger: false,
+    bodyParser: false,
+  });
+  if (options.installPayableBodyParser !== false) {
+    configureNestExpressPayableBodyParser(application, {
+      subscriptionPriceMigrationLimits: options.subscriptionPriceMigrationLimits,
+    });
+  }
   await application.init();
   return application;
 }

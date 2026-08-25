@@ -1,19 +1,15 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { createPayable } from '../src/create-payable';
-import type { OperationContext } from '../src/domain/dtos/common.dto';
-import type {
-  ProviderSubscriptionChangeInput,
-  ProviderSubscriptionChangePreview,
-  SubscriptionChangePreview,
-} from '../src/domain/dtos/subscription-change.dto';
-import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
-import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
-import { KnexIdempotencyRepository } from '../src/infrastructure/storage/knex/repositories/knex-idempotency.repository';
-import { FakeClock } from '../src/support/clock/fake-clock';
-import { FakeProvider } from './support/fake-provider';
-import { createTestDb } from './support/knex';
-
-const billable = { billableType: 'User', billableId: 'preview-user', email: 'user@example.com' };
+import type { SubscriptionChangePreview } from '../src/domain/dtos/subscription-change.dto';
+import type { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
+import {
+  createSubscriptionChangeFixture,
+  subscriptionChangeBillable,
+} from './support/subscription-change';
+import {
+  MIGRATION_TENANT,
+  type MigrationPreviewDatabase,
+  setupMigrationPreview,
+} from './support/subscription-price-migration-preview';
 
 function previewItemId(preview: SubscriptionChangePreview): string {
   const item = preview.currentItems[0];
@@ -23,87 +19,11 @@ function previewItemId(preview: SubscriptionChangePreview): string {
   return item.itemId;
 }
 
-class SubscriptionChangeProvider extends FakeProvider {
-  lastPreview?: ProviderSubscriptionChangeInput;
-  lastApply?: ProviderSubscriptionChangeInput;
-  applyCalls = 0;
-  applyError?: Error;
-
-  override subscriptionOperationCapabilities() {
-    const capabilities = super.subscriptionOperationCapabilities();
-    return {
-      ...capabilities,
-      changePrice: {
-        preview: true,
-        effectiveTimings: ['immediate'] as const,
-        prorationPolicies: ['prorateImmediately'] as const,
-        paymentFailurePolicies: ['preventChange'] as const,
-      },
-      changeQuantity: {
-        preview: true,
-        effectiveTimings: ['immediate'] as const,
-        prorationPolicies: ['prorateImmediately'] as const,
-        paymentFailurePolicies: ['preventChange'] as const,
-      },
-    };
-  }
-
-  async previewSubscriptionChange(
-    input: ProviderSubscriptionChangeInput,
-    _context: OperationContext,
-  ): Promise<ProviderSubscriptionChangePreview> {
-    this.lastPreview = input;
-    return {
-      immediateAdjustment: { direction: 'charge', amount: 500, currency: 'USD' },
-      nextRenewal: { amount: 2_000, date: new Date('2026-09-07T10:00:00.000Z'), currency: 'USD' },
-      warnings: [],
-      providerLimitations: [],
-    };
-  }
-
-  async applySubscriptionChange(input: ProviderSubscriptionChangeInput, context: OperationContext) {
-    this.applyCalls += 1;
-    this.lastApply = input;
-    if (this.applyError) {
-      throw this.applyError;
-    }
-    return this.updateSubscription(
-      {
-        providerSubscriptionId: input.providerSubscriptionId,
-        priceId: input.proposedItems[0]?.priceId,
-        quantity: input.proposedItems[0]?.quantity,
-        providerItemId: input.proposedItems[0]?.providerItemId,
-      },
-      context,
-    );
-  }
-}
-
 describe('subscription change preview and apply', () => {
-  const databases: Array<ReturnType<typeof createTestDb>> = [];
+  const fixture = createSubscriptionChangeFixture();
+  const { setup } = fixture;
 
-  afterEach(async () => {
-    await Promise.all(databases.splice(0).map((database) => database.destroy()));
-  });
-
-  async function setup(tenantId = 'tenant_a') {
-    const database = createTestDb();
-    databases.push(database);
-    await migrate(database);
-    const clock = new FakeClock(new Date('2026-08-07T10:00:00.000Z'));
-    const provider = new SubscriptionChangeProvider();
-    const storage = new KnexStorageDriver(database, clock);
-    const payable = createPayable({
-      providers: { stripe: provider },
-      storage,
-      clock,
-      idempotency: { store: new KnexIdempotencyRepository(database, clock) },
-      tenant: { enabled: true },
-    });
-    const customer = payable.customer(billable, undefined, tenantId);
-    await customer.newSubscription('default').price('price_old').create();
-    return { payable, provider, clock, storage, subscription: customer.subscription('default') };
-  }
+  afterEach(() => fixture.cleanup());
 
   it('binds apply to the exact stored preview and audits both operations', async () => {
     const { payable, provider, subscription } = await setup();
@@ -132,8 +52,8 @@ describe('subscription change preview and apply', () => {
     ]);
   });
 
-  it('does not mutate local state when the provider rejects apply', async () => {
-    const { provider, subscription } = await setup();
+  it('returns cause-free recovery ownership when provider apply is ambiguous', async () => {
+    const { payable, provider, subscription } = await setup();
     const preview = await subscription.previewChange({
       priceId: 'price_new',
       effectiveTiming: 'immediate',
@@ -143,12 +63,39 @@ describe('subscription change preview and apply', () => {
     });
     provider.applyError = new Error('provider rejected');
 
+    const error = await subscription
+      .applyChange({
+        previewToken: preview.previewToken,
+        idempotencyKey: 'apply-failure',
+      })
+      .catch((reason: unknown) => reason);
+
+    expect(error).toMatchObject({
+      code: 'SUBSCRIPTION_MUTATION_RECONCILIATION_REQUIRED',
+      message: 'Subscription mutation requires reconciliation',
+      correlationId: expect.any(String),
+      context: { claimReference: expect.any(String) },
+    });
+    expect((error as Error).cause).toBeUndefined();
+    expect((error as Error).message).not.toContain('provider rejected');
+    const recovery = error as {
+      correlationId: string;
+      context: { claimReference: string };
+    };
+    await expect(
+      payable.subscriptionMutationClaims('tenant_a').retrieve(recovery.context.claimReference),
+    ).resolves.toMatchObject({ status: 'active', operation: 'subscription_change_apply' });
     await expect(
       subscription.applyChange({
         previewToken: preview.previewToken,
-        idempotencyKey: 'apply-failure',
+        idempotencyKey: 'apply-failure-retry',
       }),
-    ).rejects.toThrow('provider rejected');
+    ).rejects.toMatchObject({
+      code: 'SUBSCRIPTION_MUTATION_RECONCILIATION_REQUIRED',
+      correlationId: recovery.correlationId,
+      context: { claimReference: recovery.context.claimReference },
+    });
+    expect(provider.applyCalls).toBe(1);
     expect((await subscription.get())?.priceId).toBe('price_old');
   });
 
@@ -246,7 +193,9 @@ describe('subscription change preview and apply', () => {
       idempotencyKey: 'preview-expiry',
     });
 
-    const foreign = payable.customer(billable, undefined, 'tenant_b').subscription('default');
+    const foreign = payable
+      .customer(subscriptionChangeBillable, undefined, 'tenant_b')
+      .subscription('default');
     await expect(
       foreign.applyChange({ previewToken: preview.previewToken, idempotencyKey: 'foreign' }),
     ).rejects.toMatchObject({ code: 'SUBSCRIPTION_CHANGE_PREVIEW_NOT_FOUND' });
@@ -285,5 +234,40 @@ describe('subscription change preview and apply', () => {
       }),
     ).rejects.toMatchObject({ code: 'SUBSCRIPTION_CHANGE_EMPTY' });
     expect(provider.lastPreview).toBeUndefined();
+  });
+
+  it('routes a legacy quantity-only change through one canonical migration', async () => {
+    const databases: MigrationPreviewDatabase[] = [];
+    try {
+      const { payable, provider, subscription, source, storage } =
+        await setupMigrationPreview(databases);
+      const resource = payable.subscription(subscription.id, MIGRATION_TENANT);
+      const preview = await resource.previewChange({
+        quantity: 3,
+        effectiveTiming: 'immediate',
+        prorationPolicy: 'prorateImmediately',
+        paymentFailurePolicy: 'preventChange',
+        idempotencyKey: 'legacy-canonical-quantity-preview',
+      });
+      await resource.applyChange({
+        previewToken: preview.previewToken,
+        idempotencyKey: 'legacy-canonical-quantity-apply',
+      });
+
+      const [item] = await storage.subscriptionItems.listBySubscription(
+        subscription.id,
+        MIGRATION_TENANT,
+      );
+      const migrations = await payable
+        .subscriptionPriceMigrations(MIGRATION_TENANT)
+        .list({ subscriptionId: subscription.id });
+      expect(item?.quantity).toBe(3);
+      expect(migrations.items).toMatchObject([
+        { sourcePriceId: source.id, targetPriceId: source.id, status: 'applied' },
+      ]);
+      expect(provider.lastPreview?.proposedItems).toMatchObject([{ quantity: 3 }]);
+    } finally {
+      await Promise.all(databases.map((database) => database.destroy()));
+    }
   });
 });

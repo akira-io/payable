@@ -4,8 +4,17 @@ import { INVOICE_STATUSES } from '../../domain/value-objects/invoice-status';
 import { Money } from '../../domain/value-objects/money';
 import { PAYMENT_STATUSES } from '../../domain/value-objects/payment-status';
 import { SUBSCRIPTION_STATUSES } from '../../domain/value-objects/subscription-status';
+import { MAX_LIST_LIMIT, rfc3339DateTimeSchema } from './schema-primitives';
 
-export const MAX_LIST_LIMIT = 100;
+export { MAX_LIST_LIMIT, rfc3339DateTimeSchema } from './schema-primitives';
+export {
+  createSubscriptionPriceMigrationPreviewSchema,
+  subscriptionPriceMigrationIdParamSchema,
+  subscriptionPriceMigrationListInputShape,
+  subscriptionPriceMigrationListQuerySchema,
+  subscriptionPriceMigrationOperationBodySchema,
+  subscriptionPriceMigrationPreviewBodySchema,
+} from './subscription-price-migration-schemas';
 
 export const billableSchema = z.object({
   billableType: z.string().min(1),
@@ -195,23 +204,44 @@ export const priceBodySchema = z.object({
 
 export const manageSubscriptionBodySchema = z.object({ billable: billableSchema });
 
-export const subscriptionChangePoliciesSchema = z.object({
-  effectiveTiming: z.enum(['immediate', 'nextRenewal', 'scheduled']),
-  prorationPolicy: z.enum([
-    'prorateImmediately',
-    'prorateAtNextRenewal',
-    'chargeFullImmediately',
-    'chargeFullAtNextRenewal',
-    'none',
-  ]),
-  paymentFailurePolicy: z.enum(['preventChange', 'applyChange']),
-});
+export const subscriptionChangePoliciesSchema = z
+  .object({
+    effectiveTiming: z.enum(['immediate', 'nextRenewal', 'scheduled']),
+    effectiveAt: rfc3339DateTimeSchema.optional(),
+    prorationPolicy: z.enum([
+      'prorateImmediately',
+      'prorateAtNextRenewal',
+      'chargeFullImmediately',
+      'chargeFullAtNextRenewal',
+      'none',
+    ]),
+    paymentFailurePolicy: z.enum(['preventChange', 'applyChange']),
+  })
+  .superRefine(({ effectiveAt, effectiveTiming }, context) => {
+    if (effectiveTiming === 'scheduled' && effectiveAt === undefined) {
+      context.addIssue({
+        code: 'custom',
+        message: 'effectiveAt is required for scheduled timing',
+        path: ['effectiveAt'],
+      });
+    }
+    if (effectiveTiming !== 'scheduled' && effectiveAt !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        message: 'effectiveAt is only valid for scheduled timing',
+        path: ['effectiveAt'],
+      });
+    }
+  });
 
-export const swapSubscriptionBodySchema = subscriptionChangePoliciesSchema.extend({
-  billable: billableSchema,
-  itemId: z.string().min(1).optional(),
-  price: z.string().min(1),
-});
+export const swapSubscriptionBodySchema = z.intersection(
+  subscriptionChangePoliciesSchema,
+  z.object({
+    billable: billableSchema,
+    itemId: z.string().min(1).optional(),
+    price: z.string().min(1),
+  }),
+);
 
 export const refundBodySchema = z.object({
   paymentId: z.string().min(1),

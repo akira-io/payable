@@ -109,6 +109,9 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.unique(['tenant_key', 'customer_id', 'name'], {
       indexName: 'payable_subscriptions_tenant_customer_name_unique',
     });
+    table.unique(['tenant_key', 'id'], {
+      indexName: 'payable_subscriptions_tenant_id_unique',
+    });
     table.index(['tenant_key', 'created_at', 'id'], 'payable_subscriptions_tenant_page_index');
   });
 
@@ -153,6 +156,9 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     });
     table.unique(['tenant_key', 'provider', 'provider_subscription_id'], {
       indexName: 'payable_subscription_bindings_provider_id_unique',
+    });
+    table.unique(['tenant_key', 'id'], {
+      indexName: 'payable_subscription_bindings_tenant_id_unique',
     });
   });
 

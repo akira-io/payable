@@ -96,6 +96,10 @@ Keep your `datasource` and `generator` blocks in your own file under `prisma/sch
 `payable-prisma sync` after upgrading the package to pull schema changes. The full single-file
 reference (with `datasource`/`generator`) remains at `prisma/schema.prisma` for non-folder setups.
 
+When consuming the development `main` line, commit both the resolved Payable commit in `bun.lock`
+and the synchronized Prisma model diff. CI must install with `bun install --frozen-lockfile` so the
+application schema and Payable runtime cannot advance independently.
+
 The same copy is available programmatically:
 
 ```ts
@@ -301,6 +305,48 @@ HAVING COUNT(*) > 1;
 6. Deploy the synchronized Prisma models and application code after the contract migration succeeds.
    Keep `provider` and `provider_subscription_id` populated on legacy subscription rows during this
    release; provider mutations resolve only through the backfilled binding table.
+
+### Canonical subscription price migration upgrade
+
+`PayableSubscriptionPriceMigration` is additive, but it depends on the tenant-qualified canonical
+subscription, canonical price, and subscription-provider-binding identities from the earlier
+upgrades. Complete and verify those upgrades first.
+
+1. Upgrade the package or refresh the commit-pinned Git dependency, then install from the committed
+   lockfile.
+2. Run `bunx payable-prisma sync` and review the generated
+   `prisma/schema/payable.prisma` diff. It must add `PayableSubscriptionPriceMigration`,
+   `PayableSubscriptionMutationClaim`, their parent relations, and the named tenant, active, page,
+   subscription, due, and claim-owner indexes from the bundled model.
+3. Merge the synchronized model into the application schema and run
+   `bunx prisma validate --schema prisma/schema.prisma` with the real datasource URL configured.
+4. Generate a reviewed Prisma migration. It must create
+   `payable_subscription_price_migrations`, `payable_subscription_mutation_claims`, and the required
+   tenant-qualified foreign keys without
+   dropping or rewriting subscriptions, items, catalog rows, idempotency rows, or legacy preview
+   storage.
+5. Apply the migration with `bunx prisma migrate deploy` before enabling canonical migration
+   requests or due-work execution.
+6. Run `bunx payable-prisma sync` and `bunx prisma migrate deploy` again. The synchronized model and
+   deployment must be unchanged, which proves the model copy and migration replay are stable.
+
+For a fresh project, run `payable-prisma sync` before generating the first application migration.
+Fresh and upgraded schemas must contain the same model, relations, and named indexes. Do not expose
+`providerEvidence`: it is internal execution data used by the built-in storage driver, not a public
+entity or adapter field.
+
+Custom Prisma-backed drivers must implement the same opaque evidence, active lookup,
+reconciliation/settlement CAS, and exact-owner mutation-claim acquire, release, active lookup,
+observation, reference lookup, and resolution contracts as Knex. Mutation intent is a second opaque,
+versioned blob and is never part of an ordinary public claim view. Use the public
+version-validating opaque rehydration factories; raw
+provider evidence types and codecs are not public exports. Reconciliation evidence references use
+unbounded text storage so the public 512-character maximum round-trips unchanged.
+
+Migration steps 021 and 022 are the equivalent Knex ledger steps. Prisma does not write those Knex ledger entries;
+the application-owned Prisma migration is the authority on a Prisma-managed database. Preview tokens
+stored before step 021 remain readable through the compatibility path, and the upgrade does not
+fabricate canonical price snapshots for historical provider-native subscriptions.
 
 ## Usage
 

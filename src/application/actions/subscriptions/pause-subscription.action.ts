@@ -37,29 +37,43 @@ export class PauseSubscriptionAction extends SubscriptionAction {
     );
     assertPauseSubscriptionPolicySupported(provider, policy);
     const subscription = await this.resolve(billable, name);
+    await this.assertNoActiveMigration(subscription.id);
     validatePauseSubscriptionResumeBoundary(policy, subscription.currentPeriodEnd);
     new SubscriptionStateMachine(subscription.status).pause();
-    const dto = await provider.pauseSubscription(
-      { providerSubscriptionId: subscription.providerSubscriptionId, ...policy },
-      this.context('pause', subscription.providerSubscriptionId, JSON.stringify(policy)),
+    const context = this.context(
+      'pause',
+      subscription.providerSubscriptionId,
+      JSON.stringify(policy),
     );
-    return this.storage().transaction(async (repos) => {
-      const updated = await repos.subscriptions.update(
-        subscription.id,
-        this.lifecyclePatch(subscription, dto),
-        this.deps.tenantId ?? null,
-      );
-      await this.auditWith(repos, {
-        action:
-          dto.scheduledChangeAction === 'pause'
-            ? 'subscription.pause_scheduled'
-            : 'subscription.paused',
-        subscriptionId: subscription.id,
-        before: this.lifecycleSnapshot(subscription),
-        after: this.lifecycleSnapshot(updated),
-        authorization,
-      });
-      return updated;
+    return this.mutateSubscription({
+      subscriptionId: subscription.id,
+      operation: 'subscription_pause',
+      context,
+      callProvider: async () => ({
+        kind: 'applied',
+        value: await provider.pauseSubscription(
+          { providerSubscriptionId: subscription.providerSubscriptionId, ...policy },
+          context,
+        ),
+      }),
+      persist: async (repos, dto) => {
+        const updated = await repos.subscriptions.update(
+          subscription.id,
+          this.lifecyclePatch(subscription, dto),
+          this.deps.tenantId ?? null,
+        );
+        await this.auditWith(repos, {
+          action:
+            dto.scheduledChangeAction === 'pause'
+              ? 'subscription.pause_scheduled'
+              : 'subscription.paused',
+          subscriptionId: subscription.id,
+          before: this.lifecycleSnapshot(subscription),
+          after: this.lifecycleSnapshot(updated),
+          authorization,
+        });
+        return updated;
+      },
     });
   }
 }

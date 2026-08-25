@@ -17,6 +17,22 @@ export interface SubscriptionChangeCapable {
   ): Promise<SubscriptionDTO>;
 }
 
+export type SubscriptionChangeApplicationOutcome =
+  | { kind: 'applied'; subscription: SubscriptionDTO }
+  | {
+      kind: 'not_applied';
+      sideEffects: 'definitively_none';
+      code: string;
+      message?: string;
+    };
+
+export interface SubscriptionChangeOutcomeCapable {
+  applySubscriptionChangeWithOutcome(
+    input: ProviderSubscriptionChangeInput,
+    context: OperationContext,
+  ): Promise<SubscriptionChangeApplicationOutcome>;
+}
+
 export function isSubscriptionChangeCapable(
   provider: PaymentProvider,
 ): provider is PaymentProvider & SubscriptionChangeCapable {
@@ -24,5 +40,14 @@ export function isSubscriptionChangeCapable(
   return (
     typeof candidate.previewSubscriptionChange === 'function' &&
     typeof candidate.applySubscriptionChange === 'function'
+  );
+}
+
+export function isSubscriptionChangeOutcomeCapable(
+  provider: PaymentProvider,
+): provider is PaymentProvider & SubscriptionChangeOutcomeCapable {
+  return (
+    typeof (provider as Partial<SubscriptionChangeOutcomeCapable>)
+      .applySubscriptionChangeWithOutcome === 'function'
   );
 }

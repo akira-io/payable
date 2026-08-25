@@ -7,13 +7,20 @@ import type {
 } from '../../../domain/dtos/subscription-change.dto';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import { SubscriptionChangePreviewError } from '../../../domain/errors/subscription-change-preview.error';
+import { assertSubscriptionChangeTiming } from '../../../domain/validation/subscription-change-policies';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
+import { SubscriptionPriceMigrationResource } from '../../builders/subscription-price-migration-resource';
 import type { AuthorizationContext } from '../../policies/authorization-context';
 import { CanUpdateSubscriptionPolicy } from '../../policies/can-update-subscription.policy';
 import { assertSubscriptionChangePolicies } from '../../services/provider-capabilities/assert-subscription-change-policies';
+import { resolveCompatibilityTargetPriceId } from '../../services/subscriptions/price-migration-resolution';
+import {
+  compatibleSubscriptionChangePreviewError,
+  projectCompatibleSubscriptionChangePreview,
+} from '../../services/subscriptions/subscription-change-migration-compatibility';
 import { SubscriptionAction } from './subscription-action';
 
 const PREVIEW_TTL_MS = 15 * 60 * 1_000;
@@ -43,7 +50,15 @@ export class PreviewSubscriptionChangeAction extends SubscriptionAction {
         'SUBSCRIPTION_CHANGE_EMPTY',
       );
     }
+    assertSubscriptionChangeTiming(input);
     const subscription = await this.resolve(billable, name);
+    if (subscription.canonicalPriceId !== null) {
+      try {
+        return await this.previewCanonical(subscription.id, input, authorization);
+      } catch (error) {
+        throw compatibleSubscriptionChangePreviewError(error);
+      }
+    }
     const operation = input.priceId === undefined ? 'changeQuantity' : 'changePrice';
     const provider = this.subscriptionChangeProvider(operation);
     if (!isSubscriptionOperationCapabilitiesProvider(provider)) {
@@ -79,13 +94,12 @@ export class PreviewSubscriptionChangeAction extends SubscriptionAction {
           providerInput,
           this.context('change-preview', subscription.providerSubscriptionId, key),
         );
-        const preview: SubscriptionChangePreview = {
+        const preview: Omit<SubscriptionChangePreview, 'effectiveTiming' | 'effectiveAt'> = {
           previewToken: `scp_${CorrelationId.generate().toString()}`,
           provider: provider.name,
           subscriptionId: subscription.id,
           currentItems: providerInput.currentItems,
           proposedItems: providerInput.proposedItems,
-          effectiveTiming: input.effectiveTiming,
           prorationPolicy: input.prorationPolicy,
           paymentFailurePolicy: input.paymentFailurePolicy,
           calculatedAt: providerInput.calculatedAt,
@@ -93,13 +107,83 @@ export class PreviewSubscriptionChangeAction extends SubscriptionAction {
           currentRenewalDate: providerInput.renewalDate,
           ...providerPreview,
         };
-        await previews.save(preview, tenantId);
-        await this.auditPreview(subscription.id, preview, authorization);
-        return preview;
+        const timedPreview = this.withTiming(preview, input);
+        await previews.save(timedPreview, tenantId);
+        await this.auditPreview(subscription.id, timedPreview, authorization);
+        return timedPreview;
       },
       revive: (response) =>
         previews.load((response as SubscriptionChangePreview).previewToken, tenantId),
     });
+  }
+
+  private async previewCanonical(
+    subscriptionId: string,
+    input: PreviewSubscriptionChangeInput,
+    authorization?: AuthorizationContext,
+  ): Promise<SubscriptionChangePreview> {
+    const tenantId = this.deps.tenantId ?? null;
+    const key = IdempotencyKey.of(input.idempotencyKey).toString();
+    const canonicalStorageKey = `subscription-change-preview-request:${tenantId ?? ''}:${this.deps.providerName}:${subscriptionId}:${key}`;
+    const intrinsicStorageKey = `subscription-change-preview-request:${tenantId ?? ''}:${this.deps.provider.name}:${subscriptionId}:${key}`;
+    const reference = await this.changeIdempotency().execute<
+      { migrationId: string } | { legacyPreviewToken: string }
+    >({
+      key,
+      storageKey: canonicalStorageKey,
+      legacyStorageKeys:
+        intrinsicStorageKey === canonicalStorageKey ? undefined : [intrinsicStorageKey],
+      scope: 'subscription-change-preview-request',
+      operation: 'preview',
+      request: { subscriptionId, ...input },
+      resourceType: 'subscription',
+      resourceId: subscriptionId,
+      tenantId,
+      run: async () => {
+        const resource = new SubscriptionPriceMigrationResource(this.deps);
+        const targetPriceId = await resolveCompatibilityTargetPriceId(this.deps, {
+          subscriptionId,
+          ...(input.priceId === undefined ? {} : { providerPriceId: input.priceId }),
+          ...(input.itemId === undefined ? {} : { itemId: input.itemId }),
+        });
+        const migration = await resource.preview({
+          subscriptionId,
+          targetPriceId,
+          ...(input.quantity === undefined ? {} : { quantity: input.quantity }),
+          ...(input.itemId === undefined ? {} : { itemId: input.itemId }),
+          timing:
+            input.effectiveTiming === 'scheduled'
+              ? {
+                  effectiveTiming: input.effectiveTiming,
+                  effectiveAt: input.effectiveAt,
+                }
+              : { effectiveTiming: input.effectiveTiming },
+          prorationPolicy: input.prorationPolicy,
+          paymentFailurePolicy: input.paymentFailurePolicy,
+          idempotencyKey: key,
+        });
+        const preview = await projectCompatibleSubscriptionChangePreview(this.deps, migration);
+        await this.auditPreview(subscriptionId, preview, authorization);
+        return { migrationId: migration.id };
+      },
+      revive: (response) => {
+        const migrationId = (response as { migrationId?: unknown } | null)?.migrationId;
+        if (typeof migrationId === 'string') return { migrationId };
+        const previewToken = (response as { previewToken?: unknown } | null)?.previewToken;
+        if (typeof previewToken === 'string') return { legacyPreviewToken: previewToken };
+        throw new SubscriptionChangePreviewError(
+          'Subscription change preview contract changed after calculation',
+          'SUBSCRIPTION_CHANGE_PREVIEW_IMMUTABLE',
+        );
+      },
+    });
+    if ('legacyPreviewToken' in reference) {
+      return this.previewStore().load(reference.legacyPreviewToken, tenantId);
+    }
+    const migration = await new SubscriptionPriceMigrationResource(this.deps).retrieve(
+      reference.migrationId,
+    );
+    return projectCompatibleSubscriptionChangePreview(this.deps, migration);
   }
 
   private providerInput(
@@ -126,16 +210,27 @@ export class PreviewSubscriptionChangeAction extends SubscriptionAction {
           }
         : subscriptionItem,
     );
-    return {
+    const base = {
       providerSubscriptionId,
       currentItems,
       proposedItems,
-      effectiveTiming: input.effectiveTiming,
       prorationPolicy: input.prorationPolicy,
       paymentFailurePolicy: input.paymentFailurePolicy,
       calculatedAt: this.deps.clock.now(),
       renewalDate,
     };
+    return input.effectiveTiming === 'scheduled'
+      ? { ...base, effectiveTiming: input.effectiveTiming, effectiveAt: input.effectiveAt }
+      : { ...base, effectiveTiming: input.effectiveTiming };
+  }
+
+  private withTiming(
+    preview: Omit<SubscriptionChangePreview, 'effectiveTiming' | 'effectiveAt'>,
+    input: PreviewSubscriptionChangeInput,
+  ): SubscriptionChangePreview {
+    return input.effectiveTiming === 'scheduled'
+      ? { ...preview, effectiveTiming: input.effectiveTiming, effectiveAt: input.effectiveAt }
+      : { ...preview, effectiveTiming: input.effectiveTiming };
   }
 
   private async auditPreview(
@@ -148,10 +243,20 @@ export class PreviewSubscriptionChangeAction extends SubscriptionAction {
         action: 'subscription.change_previewed',
         subscriptionId,
         before: { items: preview.currentItems },
-        after: { items: preview.proposedItems, previewToken: preview.previewToken },
+        after: {
+          items: preview.proposedItems,
+          previewToken: preview.previewToken,
+          ...this.auditTiming(preview),
+        },
         authorization,
       }),
     );
+  }
+
+  private auditTiming(preview: SubscriptionChangePreview): Record<string, string> {
+    return preview.effectiveTiming === 'scheduled'
+      ? { effectiveTiming: preview.effectiveTiming, effectiveAt: preview.effectiveAt.toISOString() }
+      : { effectiveTiming: preview.effectiveTiming };
   }
 
   private changeIdempotency() {

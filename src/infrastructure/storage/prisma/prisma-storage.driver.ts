@@ -18,6 +18,8 @@ import type {
   ProductRepository,
   RefundRepository,
   SubscriptionItemRepository,
+  SubscriptionMutationClaimRepository,
+  SubscriptionPriceMigrationRepository,
   SubscriptionProviderBindingRepository,
   SubscriptionRepository,
   WebhookDeliveryRepository,
@@ -50,6 +52,8 @@ import { PrismaPriceRepository } from './repositories/prisma-prices.repository';
 import { PrismaProductProviderBindingRepository } from './repositories/prisma-product-provider-bindings.repository';
 import { PrismaProductRepository } from './repositories/prisma-products.repository';
 import { PrismaRefundRepository } from './repositories/prisma-refunds.repository';
+import { PrismaSubscriptionMutationClaimRepository } from './repositories/prisma-subscription-mutation-claims.repository';
+import { PrismaSubscriptionPriceMigrationRepository } from './repositories/prisma-subscription-price-migrations.repository';
 import { PrismaSubscriptionProviderBindingRepository } from './repositories/prisma-subscription-provider-bindings.repository';
 import { PrismaSubscriptionRepository } from './repositories/prisma-subscriptions.repository';
 import { PrismaSubscriptionItemRepository } from './repositories/prisma-subscriptions-items.repository';
@@ -76,6 +80,8 @@ function buildRepositories(
     prices: new PrismaPriceRepository(client, clock),
     priceProviderBindings: new PrismaPriceProviderBindingRepository(client, clock),
     subscriptions: new PrismaSubscriptionRepository(client, clock),
+    subscriptionMutationClaims: new PrismaSubscriptionMutationClaimRepository(client),
+    subscriptionPriceMigrations: new PrismaSubscriptionPriceMigrationRepository(client, clock),
     subscriptionProviderBindings: new PrismaSubscriptionProviderBindingRepository(client, clock),
     subscriptionItems: new PrismaSubscriptionItemRepository(client, clock),
     invoices: new PrismaInvoiceRepository(client, clock),
@@ -104,6 +110,8 @@ export class PrismaStorageDriver implements StorageDriver {
   prices!: PriceRepository;
   priceProviderBindings!: PriceProviderBindingRepository;
   subscriptions!: SubscriptionRepository;
+  subscriptionMutationClaims!: SubscriptionMutationClaimRepository;
+  subscriptionPriceMigrations!: SubscriptionPriceMigrationRepository;
   subscriptionProviderBindings!: SubscriptionProviderBindingRepository;
   subscriptionItems!: SubscriptionItemRepository;
   invoices!: InvoiceRepository;
@@ -159,6 +167,8 @@ export class PrismaStorageDriver implements StorageDriver {
     this.priceProviderBindings =
       repositories.priceProviderBindings as PriceProviderBindingRepository;
     this.subscriptions = repositories.subscriptions;
+    this.subscriptionMutationClaims = repositories.subscriptionMutationClaims;
+    this.subscriptionPriceMigrations = repositories.subscriptionPriceMigrations;
     this.subscriptionProviderBindings = repositories.subscriptionProviderBindings;
     this.subscriptionItems = repositories.subscriptionItems;
     this.invoices = repositories.invoices;

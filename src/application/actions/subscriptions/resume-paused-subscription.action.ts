@@ -35,27 +35,41 @@ export class ResumePausedSubscriptionAction extends SubscriptionAction {
     );
     assertResumePausedSubscriptionPolicySupported(provider, policy);
     const subscription = await this.resolve(billable, name);
-    const dto = await provider.resumePausedSubscription(
-      { providerSubscriptionId: subscription.providerSubscriptionId, ...policy },
-      this.context('resume-paused', subscription.providerSubscriptionId, JSON.stringify(policy)),
+    await this.assertNoActiveMigration(subscription.id);
+    const context = this.context(
+      'resume-paused',
+      subscription.providerSubscriptionId,
+      JSON.stringify(policy),
     );
-    return this.storage().transaction(async (repos) => {
-      const updated = await repos.subscriptions.update(
-        subscription.id,
-        this.lifecyclePatch(subscription, dto),
-        this.deps.tenantId ?? null,
-      );
-      await this.auditWith(repos, {
-        action:
-          dto.scheduledChangeAction === 'resume'
-            ? 'subscription.resume_scheduled'
-            : 'subscription.resumed_from_pause',
-        subscriptionId: subscription.id,
-        before: this.lifecycleSnapshot(subscription),
-        after: this.lifecycleSnapshot(updated),
-        authorization,
-      });
-      return updated;
+    return this.mutateSubscription({
+      subscriptionId: subscription.id,
+      operation: 'subscription_resume_paused',
+      context,
+      callProvider: async () => ({
+        kind: 'applied',
+        value: await provider.resumePausedSubscription(
+          { providerSubscriptionId: subscription.providerSubscriptionId, ...policy },
+          context,
+        ),
+      }),
+      persist: async (repos, dto) => {
+        const updated = await repos.subscriptions.update(
+          subscription.id,
+          this.lifecyclePatch(subscription, dto),
+          this.deps.tenantId ?? null,
+        );
+        await this.auditWith(repos, {
+          action:
+            dto.scheduledChangeAction === 'resume'
+              ? 'subscription.resume_scheduled'
+              : 'subscription.resumed_from_pause',
+          subscriptionId: subscription.id,
+          before: this.lifecycleSnapshot(subscription),
+          after: this.lifecycleSnapshot(updated),
+          authorization,
+        });
+        return updated;
+      },
     });
   }
 }

@@ -1,6 +1,7 @@
 import type { IncomingHttpHeaders } from 'node:http';
 import type { CanActivate, Type } from '@nestjs/common';
 import type { AuthorizationContext } from '../../application/policies/authorization-context';
+import type { SubscriptionPriceMigrationLimits } from '../shared/subscription-migration-boundary';
 
 export { flattenHeaders } from '../shared/payable-http';
 
@@ -20,6 +21,7 @@ export interface NestPayableOptions {
   authenticate?: Type<CanActivate>;
   resolveTenant?: (request: PayableHttpRequest) => string | null | undefined;
   resolveAuthorization?: (request: PayableHttpRequest) => AuthorizationContext | undefined;
+  subscriptionPriceMigrationLimits?: SubscriptionPriceMigrationLimits;
 }
 
 export function resolveTenantId(

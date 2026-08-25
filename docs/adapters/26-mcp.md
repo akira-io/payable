@@ -41,9 +41,10 @@ interface McpPolicy {
 
 ## Tools
 
-Every tool accepts an optional `tenantId` and `provider`. Money amounts are minor units, passed as
-`{ amount, currency }` and converted to the `Money` value object. List tools that accept a `limit`
-cap it at `MAX_LIST_LIMIT = 100` (`src/presentation/mcp/schemas.ts`).
+General tools accept an optional `tenantId` and `provider`. Canonical tools do not accept a provider,
+and canonical subscription price migration tools require a non-empty tenant. Money amounts are minor
+units, passed as `{ amount, currency }` and converted to the `Money` value object. List tools that
+accept a `limit` cap it at `MAX_LIST_LIMIT = 100` (`src/presentation/mcp/schemas.ts`).
 
 | Tool | Kind | Backing call |
 | --- | --- | --- |
@@ -75,6 +76,12 @@ cap it at `MAX_LIST_LIMIT = 100` (`src/presentation/mcp/schemas.ts`).
 | `canonical_payments_list` | read | `payable.storedPayments().list(filters)` |
 | `canonical_invoices_list` | read | `payable.canonicalInvoices().list(filters)` |
 | `canonical_invoice_get` | read | `payable.canonicalInvoices().retrieve(id)` |
+| `canonical_subscription_price_migration_create` | mutate | `payable.subscriptionPriceMigrations().preview(input)` |
+| `canonical_subscription_price_migrations_list` | read | `payable.subscriptionPriceMigrations().list(input)` |
+| `canonical_subscription_price_migration_get` | read | `payable.subscriptionPriceMigrations().retrieve(id)` |
+| `canonical_subscription_price_migration_approve` | mutate | `payable.subscriptionPriceMigrations().approve(id, input)` |
+| `canonical_subscription_price_migration_cancel` | mutate | `payable.subscriptionPriceMigrations().cancel(id, input)` |
+| `canonical_subscription_price_migration_retry` | mutate | `payable.subscriptionPriceMigrations().retry(id, input)` |
 | `product_create` | mutate | `payable.providerCatalog().products.create(...)` |
 | `product_update` | mutate | `payable.providerCatalog().products.update(...)` |
 | `product_activate` | mutate | `payable.providerCatalog().products.activate(id)` |
@@ -96,6 +103,24 @@ cap it at `MAX_LIST_LIMIT = 100` (`src/presentation/mcp/schemas.ts`).
 
 Subscription swap and quantity tools require `effectiveTiming`, `prorationPolicy`, and
 `paymentFailurePolicy`; adapters do not invent provider defaults.
+
+### Canonical subscription price migration tools
+
+The create tool accepts canonical `subscriptionId`, `targetPriceId`, optional canonical `itemId`,
+optional positive `quantity`, explicit timing and policies, `tenantId`, and `idempotencyKey`.
+`scheduled` requires an RFC 3339 `effectiveAt`; other timings reject it. The list supports bounded
+`limit`, opaque `cursor`, canonical `subscriptionId`, and status filters. Every schema is strict and
+rejects unknown keys.
+
+Create, approve, cancel, and retry each require a durable operation-specific `idempotencyKey`.
+All six tools require the authorization callback to return an allowed actor whose `tenantId` matches
+the resolved tenant, even when global `requireAuthorization` is false. Responses contain only the
+allow-listed canonical DTO. Provider identifiers, execution ownership, request hashes, internal
+evidence, and provider diagnostics are not returned.
+
+There is no MCP execute, due-page, scheduler, worker, or queue tool. A host worker uses the core
+resource for due execution. `reconciliation_required` is terminal for automatic work and must be
+resolved explicitly before a new migration is attempted.
 
 Catalog list tools return `{ data, nextCursor }`, treat cursors as opaque, default to active entries,
 and accept limits from 1 through 100. `prices_list` also accepts `providerProductId`. MCP exposes

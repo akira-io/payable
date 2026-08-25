@@ -22,6 +22,8 @@ export interface SubscriptionChangeCapabilities {
   readonly effectiveTimings: readonly SubscriptionEffectiveTiming[];
   readonly prorationPolicies: readonly SubscriptionProrationPolicy[];
   readonly paymentFailurePolicies: readonly SubscriptionPaymentFailurePolicy[];
+  readonly supportsCurrencyChange: boolean;
+  readonly supportsBillingPeriodChange: boolean;
 }
 
 export interface SubscriptionOperationCapabilities {
@@ -52,21 +54,33 @@ export interface SubscriptionOperationCapabilities {
   readonly scheduledChange: Readonly<{ cancel: boolean }>;
 }
 
+type SubscriptionChangeCapabilitiesInput = Omit<
+  SubscriptionChangeCapabilities,
+  'supportsCurrencyChange' | 'supportsBillingPeriodChange'
+> &
+  Partial<
+    Pick<SubscriptionChangeCapabilities, 'supportsCurrencyChange' | 'supportsBillingPeriodChange'>
+  >;
+
 type SubscriptionOperationCapabilitiesInput = Omit<
   SubscriptionOperationCapabilities,
-  'itemIdentity'
+  'itemIdentity' | 'changePrice' | 'changeQuantity'
 > & {
   readonly itemIdentity?: SubscriptionItemIdentity;
+  readonly changePrice: SubscriptionChangeCapabilitiesInput;
+  readonly changeQuantity: SubscriptionChangeCapabilitiesInput;
 };
 
 function freezeChangeCapabilities(
-  capabilities: SubscriptionChangeCapabilities,
+  capabilities: SubscriptionChangeCapabilitiesInput,
 ): SubscriptionChangeCapabilities {
   return Object.freeze({
     preview: capabilities.preview,
     effectiveTimings: Object.freeze([...capabilities.effectiveTimings]),
     prorationPolicies: Object.freeze([...capabilities.prorationPolicies]),
     paymentFailurePolicies: Object.freeze([...capabilities.paymentFailurePolicies]),
+    supportsCurrencyChange: capabilities.supportsCurrencyChange ?? false,
+    supportsBillingPeriodChange: capabilities.supportsBillingPeriodChange ?? false,
   });
 }
 

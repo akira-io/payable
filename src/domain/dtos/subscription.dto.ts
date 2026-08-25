@@ -32,6 +32,7 @@ export interface UpdateSubscriptionInput {
   providerItemId?: string | null;
   items?: SubscriptionLineItem[];
   effectiveTiming?: SubscriptionEffectiveTiming;
+  effectiveAt?: Date;
   prorationPolicy?: SubscriptionProrationPolicy;
   paymentFailurePolicy?: SubscriptionPaymentFailurePolicy;
   calculatedAt?: Date;

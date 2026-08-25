@@ -72,6 +72,37 @@ describe('parseBody', () => {
       }),
     ).toMatchObject({ itemId: 'local_item_1', price: 'price_new' });
   });
+
+  it('parses scheduled subscription swap timing from an RFC 3339 datetime string', () => {
+    expect(
+      parseBody(swapSubscriptionBodySchema, {
+        billable: { billableType: 'User', billableId: '1', email: 'user@example.com' },
+        price: 'price_new',
+        effectiveTiming: 'scheduled',
+        effectiveAt: '2026-09-01T10:00:00.000Z',
+        prorationPolicy: 'prorateImmediately',
+        paymentFailurePolicy: 'preventChange',
+      }).effectiveAt,
+    ).toStrictEqual(new Date('2026-09-01T10:00:00.000Z'));
+  });
+
+  it.each([
+    null,
+    0,
+    '2026/09/01 10:00:00Z',
+    '2026-09-01T10:00:00',
+  ])('rejects non-RFC 3339 scheduled effectiveAt input: %j', (effectiveAt) => {
+    expect(() =>
+      parseBody(swapSubscriptionBodySchema, {
+        billable: { billableType: 'User', billableId: '1', email: 'user@example.com' },
+        price: 'price_new',
+        effectiveTiming: 'scheduled',
+        effectiveAt,
+        prorationPolicy: 'prorateImmediately',
+        paymentFailurePolicy: 'preventChange',
+      }),
+    ).toThrowError(expect.objectContaining({ code: 'VALIDATION_FAILED' }));
+  });
 });
 
 describe('payableErrorBody', () => {

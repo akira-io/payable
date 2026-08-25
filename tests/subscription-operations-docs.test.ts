@@ -12,6 +12,11 @@ import { KnexIdempotencyRepository } from '../src/infrastructure/storage/knex/re
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { createTestDb } from './support/knex';
 import { SubscriptionLifecycleProvider } from './support/subscription-lifecycle-provider';
+import {
+  MIGRATION_TENANT,
+  type MigrationPreviewDatabase,
+  setupMigrationPreview,
+} from './support/subscription-price-migration-preview';
 
 const billable = {
   billableType: 'Team',
@@ -32,6 +37,8 @@ class DocumentationSubscriptionProvider extends SubscriptionLifecycleProvider {
         effectiveTimings: ['immediate', 'nextRenewal'] as const,
         prorationPolicies: ['prorateImmediately', 'none'] as const,
         paymentFailurePolicies: ['preventChange', 'applyChange'] as const,
+        supportsCurrencyChange: false,
+        supportsBillingPeriodChange: false,
       },
     };
   }
@@ -136,7 +143,7 @@ describe('advanced subscription operation documentation', () => {
   });
 
   it('keeps local state after a failed apply and executes pause and resume', async () => {
-    const { provider, subscription } = await setupDocumentationSubscription();
+    const { payable, provider, subscription } = await setupDocumentationSubscription();
     const preview = await subscription.previewChange({
       priceId: 'price_business',
       effectiveTiming: 'immediate',
@@ -145,13 +152,25 @@ describe('advanced subscription operation documentation', () => {
       idempotencyKey: 'preview-failed-team-documentation',
     });
     provider.failApply = true;
-    await expect(
-      subscription.applyChange({
+    const error = await subscription
+      .applyChange({
         previewToken: preview.previewToken,
         idempotencyKey: 'apply-failed-team-documentation',
-      }),
-    ).rejects.toThrow('provider rejected payment');
+      })
+      .catch((failure: unknown) => failure);
+    expect(error).toMatchObject({
+      code: 'SUBSCRIPTION_MUTATION_RECONCILIATION_REQUIRED',
+      context: { claimReference: expect.any(String) },
+    });
     expect((await subscription.retrieve()).priceId).toBe('price_starter');
+
+    await payable
+      .subscriptionMutationClaims('tenant_documentation')
+      .resolve((error as { context: { claimReference: string } }).context.claimReference, {
+        outcome: 'not_applied',
+        evidenceReference: 'documentation-provider-dashboard-no-change',
+        idempotencyKey: 'resolve-failed-team-documentation',
+      });
 
     provider.failApply = false;
     await subscription.pauseSubscription({
@@ -166,6 +185,41 @@ describe('advanced subscription operation documentation', () => {
     expect((await subscription.retrieve()).status).toBe('active');
   });
 
+  it('executes canonical immediate and explicitly scheduled migration recipes', async () => {
+    const fixture = await setupMigrationPreview(databases as MigrationPreviewDatabase[]);
+    const migrations = fixture.payable.subscriptionPriceMigrations(MIGRATION_TENANT);
+    const immediate = await migrations.preview({
+      subscriptionId: fixture.subscription.id,
+      targetPriceId: fixture.target.id,
+      timing: { effectiveTiming: 'immediate' },
+      prorationPolicy: 'prorateImmediately',
+      paymentFailurePolicy: 'preventChange',
+      idempotencyKey: 'docs-canonical-immediate-preview',
+    });
+
+    const applied = await migrations.approve(immediate.id, {
+      idempotencyKey: 'docs-canonical-immediate-approve',
+    });
+    expect(applied.status).toBe('applied');
+
+    const effectiveAt = new Date('2026-09-30T10:00:00.000Z');
+    const scheduled = await migrations.preview({
+      subscriptionId: fixture.subscription.id,
+      targetPriceId: fixture.source.id,
+      timing: { effectiveTiming: 'scheduled', effectiveAt },
+      prorationPolicy: 'prorateImmediately',
+      paymentFailurePolicy: 'preventChange',
+      idempotencyKey: 'docs-canonical-scheduled-preview',
+    });
+    const approved = await migrations.approve(scheduled.id, {
+      idempotencyKey: 'docs-canonical-scheduled-approve',
+    });
+
+    expect(approved.status).toBe('scheduled');
+    expect(approved.effectiveAt).toEqual(effectiveAt);
+    expect(fixture.provider.applyCalls).toBe(1);
+  });
+
   it('documents every recipe and the unsupported-operation guard', () => {
     const documentation = readFileSync('docs/examples/47-subscription-operations.md', 'utf8');
 
@@ -173,6 +227,10 @@ describe('advanced subscription operation documentation', () => {
       'Immediate upgrade',
       'Downgrade at the next renewal',
       'Failed payment behavior',
+      'Canonical migration lifecycle',
+      'Scheduled migration',
+      'Ambiguous reconciliation',
+      'Legacy API compatibility',
       'Pause and resume',
       'Unsupported operations',
     ]) {

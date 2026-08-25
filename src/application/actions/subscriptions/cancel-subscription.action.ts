@@ -25,27 +25,37 @@ export class CancelSubscriptionAction extends SubscriptionAction {
     );
     const provider = this.subscriptionProvider('cancelAtPeriodEnd');
     const subscription = await this.resolve(billable, name);
-    const dto = await provider.cancelSubscription(
-      { providerSubscriptionId: subscription.providerSubscriptionId, immediately: false },
-      this.context('cancel', subscription.providerSubscriptionId),
-    );
-    return this.storage().transaction(async (repos) => {
-      const updated = await repos.subscriptions.update(
-        subscription.id,
-        {
-          status: this.reconcileStatus(subscription.status, dto.status),
-          endsAt: dto.currentPeriodEnd,
-        },
-        this.deps.tenantId ?? null,
-      );
-      await this.auditWith(repos, {
-        action: 'subscription.canceled',
-        subscriptionId: subscription.id,
-        before: { status: subscription.status, endsAt: subscription.endsAt ?? null },
-        after: { status: updated.status, endsAt: updated.endsAt ?? null },
-        authorization,
-      });
-      return updated;
+    await this.assertNoActiveMigration(subscription.id);
+    const context = this.context('cancel', subscription.providerSubscriptionId);
+    return this.mutateSubscription({
+      subscriptionId: subscription.id,
+      operation: 'subscription_cancel',
+      context,
+      callProvider: async () => ({
+        kind: 'applied',
+        value: await provider.cancelSubscription(
+          { providerSubscriptionId: subscription.providerSubscriptionId, immediately: false },
+          context,
+        ),
+      }),
+      persist: async (repos, dto) => {
+        const updated = await repos.subscriptions.update(
+          subscription.id,
+          {
+            status: this.reconcileStatus(subscription.status, dto.status),
+            endsAt: dto.currentPeriodEnd,
+          },
+          this.deps.tenantId ?? null,
+        );
+        await this.auditWith(repos, {
+          action: 'subscription.canceled',
+          subscriptionId: subscription.id,
+          before: { status: subscription.status, endsAt: subscription.endsAt ?? null },
+          after: { status: updated.status, endsAt: updated.endsAt ?? null },
+          authorization,
+        });
+        return updated;
+      },
     });
   }
 }

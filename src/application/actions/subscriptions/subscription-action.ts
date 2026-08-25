@@ -11,6 +11,10 @@ import {
   isSubscriptionChangeCapable,
   type SubscriptionChangeCapable,
 } from '../../../domain/contracts/subscription-change-provider.contract';
+import type {
+  SubscriptionMutationIntentBlob,
+  SubscriptionMutationOperation,
+} from '../../../domain/contracts/subscription-mutation-claim-repository.contract';
 import type { SubscriptionPatch } from '../../../domain/contracts/subscription-repository.contract';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type { SubscriptionDTO } from '../../../domain/dtos/subscription.dto';
@@ -19,6 +23,7 @@ import type { SubscriptionItem } from '../../../domain/entities/subscription-ite
 import { PayableError } from '../../../domain/errors/payable-error';
 import { SubscriptionNotFoundError } from '../../../domain/errors/subscription-not-found.error';
 import { reconcileSubscriptionStatus } from '../../../domain/states/subscription-state-machine';
+import { assertSubscriptionQuantity } from '../../../domain/validation/subscription-quantity';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { SubscriptionStatus } from '../../../domain/value-objects/subscription-status';
@@ -32,6 +37,12 @@ import {
   assertSubscriptionOperation,
   type SubscriptionOperation,
 } from '../../services/provider-capabilities/assert-subscription-operation';
+import { assertNoActivePriceMigration } from '../../services/subscriptions/assert-no-active-price-migration';
+import {
+  executeSubscriptionMutation,
+  type SubscriptionProviderMutationOutcome,
+} from '../../services/subscriptions/execute-subscription-mutation';
+import { ambiguousSubscriptionMutation } from '../../services/subscriptions/subscription-mutation-claim';
 
 export type ManagedSubscription = Subscription & { providerSubscriptionId: string };
 export interface SelectedSubscriptionItem {
@@ -194,13 +205,38 @@ export abstract class SubscriptionAction {
     return { selectedItem, items };
   }
 
+  protected async assertNoActiveMigration(subscriptionId: string): Promise<void> {
+    const tenantId = this.deps.tenantId ?? null;
+    const claim = await this.storage().subscriptionMutationClaims.findActiveBySubscriptionId(
+      subscriptionId,
+      tenantId,
+    );
+    if (claim) throw ambiguousSubscriptionMutation(claim.claimReference, claim.correlationId);
+    await assertNoActivePriceMigration(
+      this.storage().subscriptionPriceMigrations,
+      subscriptionId,
+      tenantId,
+    );
+  }
+
+  protected mutateSubscription<Value, Result>(input: {
+    subscriptionId: string;
+    operation: SubscriptionMutationOperation;
+    context: OperationContext;
+    intent?: SubscriptionMutationIntentBlob | null;
+    callProvider: () => Promise<SubscriptionProviderMutationOutcome<Value>>;
+    persist: (repositories: Repositories, value: Value) => Promise<Result>;
+  }): Promise<Result> {
+    return executeSubscriptionMutation({
+      ...input,
+      storage: this.storage(),
+      tenantId: this.deps.tenantId ?? null,
+      claimedAt: this.deps.clock.now(),
+    });
+  }
+
   protected assertQuantity(quantity: number): void {
-    if (!Number.isInteger(quantity) || quantity < 1) {
-      throw new PayableError(`Subscription quantity must be a positive integer, got ${quantity}`, {
-        code: 'SUBSCRIPTION_INVALID_QUANTITY',
-        context: { quantity },
-      });
-    }
+    assertSubscriptionQuantity(quantity);
   }
 
   protected context(

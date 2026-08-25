@@ -33,6 +33,13 @@ export type { ProductProviderBinding } from './product-provider-binding.entity';
 export type { Refund } from './refund.entity';
 export type { Subscription } from './subscription.entity';
 export type { SubscriptionItem } from './subscription-item.entity';
+export type {
+  SubscriptionPriceMigration,
+  SubscriptionPriceMigrationAdjustment,
+  SubscriptionPriceMigrationItemSnapshot,
+  SubscriptionPriceMigrationRenewal,
+  SubscriptionPriceSnapshot,
+} from './subscription-price-migration.entity';
 export type { SubscriptionProviderBinding } from './subscription-provider-binding.entity';
 export type { WebhookDelivery, WebhookDeliveryStatus } from './webhook-delivery.entity';
 export type { WebhookEndpoint, WebhookEndpointStatus } from './webhook-endpoint.entity';

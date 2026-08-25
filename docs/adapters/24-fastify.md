@@ -90,11 +90,34 @@ These routes use the request tenant and never resolve a payment provider. The un
 routes remain provider-native, while unprefixed subscription and payment reads preserve their
 existing array contract.
 
+### Canonical subscription price migration routes
+
+Fastify exposes the same six routes and provider-neutral DTOs as Express:
+
+| Method | Path |
+| --- | --- |
+| POST | `/canonical/subscription-price-migrations` |
+| GET | `/canonical/subscription-price-migrations` |
+| GET | `/canonical/subscription-price-migrations/:id` |
+| POST | `/canonical/subscription-price-migrations/:id/approve` |
+| POST | `/canonical/subscription-price-migrations/:id/cancel` |
+| POST | `/canonical/subscription-price-migrations/:id/retry` |
+
+The create body requires canonical subscription and target-price IDs, explicit timing and policies,
+and rejects unknown keys. Scheduled requests require an RFC 3339 `effectiveAt`; immediate and
+next-renewal requests reject it. Every POST requires one `Idempotency-Key` header. All routes require
+a non-empty resolved tenant and a matching allowed authorization context.
+
+Mutation routes use Fastify's 64 KiB body limit and route rate-limit configuration. Pages accept
+limits from 1 through 100 and an opaque cursor. Responses exclude provider identifiers, execution
+tokens, request hashes, internal execution evidence, and stored provider diagnostics. Automatic
+execution and due-page work remain core resource operations and are not HTTP routes.
+
 ## Parity with Express
 
 This adapter exposes the same route set as Express: webhooks, checkout, subscription management
 (`cancel`, `cancel-now`, `resume`, `swap`), subscription reads, customers, invoices, payments,
-products, prices, and refunds (create and list).
+products, prices, refunds (create and list), and canonical subscription price migrations.
 
 Every JSON route parses its body or query with the shared Zod schemas in
 `src/presentation/shared/schemas.ts` via `parseBody`, so a malformed body is rejected with
@@ -166,10 +189,11 @@ Status and body follow the same `STATUS_BY_CODE` table and `{ error, message }` 
 
 ## Authentication and catalog authorization
 
-As with Express, the plugin installs no authentication or authorization. The checkout and
-subscription routes are unprotected; webhook routes are protected only by provider signature
-verification. The caller must authenticate the request and verify ownership of the billable. See
-`docs/28-security.md`.
+As with Express, the plugin installs no authentication middleware. Checkout and legacy subscription
+routes are unprotected; webhook routes are protected only by provider signature verification. The
+caller must authenticate the request and verify ownership of the billable. Canonical subscription
+price migration routes also fail closed unless `resolveTenant` and `resolveAuthorization`
+return a matching tenant and allowed actor. See `docs/28-security.md`.
 
 Use the `authenticate` hook to establish the caller before a catalog route runs. For each catalog
 mutation, `resolveAuthorization` runs once and returns an `AuthorizationContext` from that trusted

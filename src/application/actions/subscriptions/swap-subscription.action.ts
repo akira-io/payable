@@ -1,6 +1,7 @@
 import type { SubscriptionChangePolicies } from '../../../domain/dtos/subscription-change.dto';
 import type { Subscription } from '../../../domain/entities/subscription.entity';
 import { SubscriptionChangePreviewError } from '../../../domain/errors/subscription-change-preview.error';
+import { encodeSubscriptionMutationIntent } from '../../../domain/internal/subscription-mutation-intent';
 import type { Billable } from '../../builders/billable';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
 import type { AuthorizationContext } from '../../policies/authorization-context';
@@ -30,60 +31,82 @@ export class SwapSubscriptionAction extends SubscriptionAction {
         'SUBSCRIPTION_CHANGE_POLICY_REQUIRED',
       );
     }
-    const provider = this.subscriptionProvider('changePrice');
     const subscription = await this.resolve(billable, name);
+    await this.assertNoActiveMigration(subscription.id);
+    const provider = this.subscriptionProvider('changePrice');
     const selection = await this.selectItem(subscription, itemId);
     const providerItems = selection.items.map((subscriptionItem) => ({
       priceId:
         subscriptionItem.id === selection.selectedItem.id ? priceId : subscriptionItem.priceId,
       quantity: subscriptionItem.quantity,
     }));
-    const dto = await provider.updateSubscription(
-      {
-        providerSubscriptionId: subscription.providerSubscriptionId,
-        priceId,
-        quantity: selection.selectedItem.quantity,
-        providerItemId: selection.selectedItem.providerItemId,
-        items: providerItems,
-        ...policies,
-        calculatedAt: this.deps.clock.now(),
-      },
-      this.context('swap', subscription.providerSubscriptionId, priceId, true),
-    );
-    return this.storage().transaction(async (repos) => {
-      const appliesImmediately = policies.effectiveTiming === 'immediate';
-      const patch = {
-        ...(appliesImmediately && selection.items.length === 1 ? { priceId } : {}),
-        status: this.reconcileStatus(subscription.status, dto.status),
-      };
-      const updated = await repos.subscriptions.update(
-        subscription.id,
-        patch,
-        this.deps.tenantId ?? null,
-      );
-      if (appliesImmediately) {
-        await repos.subscriptionItems.updateById(
+    const context = this.context('swap', subscription.providerSubscriptionId, priceId, true);
+    return this.mutateSubscription({
+      subscriptionId: subscription.id,
+      operation: 'subscription_swap',
+      context,
+      intent: encodeSubscriptionMutationIntent({
+        itemId: selection.selectedItem.id,
+        source: {
+          priceId: selection.selectedItem.priceId,
+          quantity: selection.selectedItem.quantity,
+        },
+        target: { priceId, quantity: selection.selectedItem.quantity },
+        projectItem: policies.effectiveTiming === 'immediate',
+        projectSubscriptionPrice:
+          policies.effectiveTiming === 'immediate' && selection.items.length === 1,
+        projectSubscriptionQuantity: false,
+      }),
+      callProvider: async () => ({
+        kind: 'applied',
+        value: await provider.updateSubscription(
+          {
+            providerSubscriptionId: subscription.providerSubscriptionId,
+            priceId,
+            quantity: selection.selectedItem.quantity,
+            providerItemId: selection.selectedItem.providerItemId,
+            items: providerItems,
+            ...policies,
+            calculatedAt: this.deps.clock.now(),
+          },
+          context,
+        ),
+      }),
+      persist: async (repos, dto) => {
+        const appliesImmediately = policies.effectiveTiming === 'immediate';
+        const patch = {
+          ...(appliesImmediately && selection.items.length === 1 ? { priceId } : {}),
+          status: this.reconcileStatus(subscription.status, dto.status),
+        };
+        const updated = await repos.subscriptions.update(
           subscription.id,
-          selection.selectedItem.id,
-          { priceId },
+          patch,
           this.deps.tenantId ?? null,
         );
-      }
-      await this.auditWith(repos, {
-        action: 'subscription.swapped',
-        subscriptionId: subscription.id,
-        before: { itemId: selection.selectedItem.id, priceId: selection.selectedItem.priceId },
-        after: appliesImmediately
-          ? { itemId: selection.selectedItem.id, priceId }
-          : {
-              itemId: selection.selectedItem.id,
-              priceId: selection.selectedItem.priceId,
-              proposedPriceId: priceId,
-              effectiveTiming: policies.effectiveTiming,
-            },
-        authorization,
-      });
-      return updated;
+        if (appliesImmediately) {
+          await repos.subscriptionItems.updateById(
+            subscription.id,
+            selection.selectedItem.id,
+            { priceId },
+            this.deps.tenantId ?? null,
+          );
+        }
+        await this.auditWith(repos, {
+          action: 'subscription.swapped',
+          subscriptionId: subscription.id,
+          before: { itemId: selection.selectedItem.id, priceId: selection.selectedItem.priceId },
+          after: appliesImmediately
+            ? { itemId: selection.selectedItem.id, priceId }
+            : {
+                itemId: selection.selectedItem.id,
+                priceId: selection.selectedItem.priceId,
+                proposedPriceId: priceId,
+                effectiveTiming: policies.effectiveTiming,
+              },
+          authorization,
+        });
+        return updated;
+      },
     });
   }
 }

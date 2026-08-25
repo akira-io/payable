@@ -123,6 +123,26 @@ describe('mcp tools', () => {
     await db.destroy();
   });
 
+  it('rejects non-RFC 3339 scheduled subscription timing before the tool action', async () => {
+    const { client, db } = await connect();
+
+    const result = (await client.callTool({
+      name: 'subscription_swap',
+      arguments: {
+        billable,
+        name: 'default',
+        priceId: 'price_new',
+        effectiveTiming: 'scheduled',
+        effectiveAt: 0,
+        prorationPolicy: 'prorateImmediately',
+        paymentFailurePolicy: 'preventChange',
+      },
+    })) as CallToolResult;
+
+    expect(result.isError).toBe(true);
+    await db.destroy();
+  });
+
   it('refuses invoice_pdf for an invoice owned by another billable', async () => {
     const { client, payable, storage, db } = await connect();
     const owner = await payable.customers().create(billable);

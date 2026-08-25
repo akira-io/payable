@@ -97,6 +97,33 @@ customers, products, prices, and subscriptions. The unprefixed product and price
 provider-native; the unprefixed subscription and payment reads retain their array-returning
 billable compatibility contract.
 
+### Canonical subscription price migration routes
+
+| Method | Path | Behavior |
+| --- | --- | --- |
+| POST | `/canonical/subscription-price-migrations` | Create one immutable preview |
+| GET | `/canonical/subscription-price-migrations` | List a bounded page by subscription or status |
+| GET | `/canonical/subscription-price-migrations/:id` | Retrieve one tenant-scoped migration |
+| POST | `/canonical/subscription-price-migrations/:id/approve` | Execute an immediate preview or schedule delayed work |
+| POST | `/canonical/subscription-price-migrations/:id/cancel` | Cancel a previewed, scheduled, or failed migration |
+| POST | `/canonical/subscription-price-migrations/:id/retry` | Retry a confirmed recoverable failure |
+
+Preview bodies use canonical `subscriptionId`, `targetPriceId`, optional canonical `itemId`, optional
+positive `quantity`, explicit `effectiveTiming`, `prorationPolicy`, and `paymentFailurePolicy`.
+`scheduled` also requires an RFC 3339 `effectiveAt`; other timings reject that field. Every body is
+strict, so unknown keys fail validation.
+
+All six routes require a non-empty tenant from `resolveTenant` and an allowed authorization context
+from `resolveAuthorization` whose `tenantId` matches. Every POST requires exactly one valid
+`Idempotency-Key` header. The create, approve, cancel, and retry bodies are limited to 64 KiB by
+default and use the configured fixed-window mutation rate boundary. List limits are 1 through 100
+and cursors are opaque.
+
+The adapter returns allow-listed canonical fields only. Provider identifiers, execution tokens,
+request hashes, internal execution evidence, and provider diagnostics are not response fields.
+There is no HTTP execute, due-page, scheduler, worker, or queue route; applications run due work
+through the core resource.
+
 All routes above are wired to working implementations. `/customers` (POST/PATCH/GET), `/invoices`,
 and `/payments` resolve a `Payable` resource for the request's billable (and tenant, when tenancy is
 on). The `GET` read routes take `billableType` and `billableId` as query parameters; `/invoices`
@@ -185,6 +212,15 @@ Code-to-status table:
 | `PROVIDER_NOT_FOUND` | 404 |
 | `CUSTOMER_NOT_FOUND` | 404 |
 | `SUBSCRIPTION_NOT_FOUND` | 404 |
+| `SUBSCRIPTION_MIGRATION_NOT_FOUND` | 404 |
+| `SUBSCRIPTION_MIGRATION_PREVIEW_STALE` | 409 |
+| `SUBSCRIPTION_MIGRATION_TARGET_INELIGIBLE` | 422 |
+| `SUBSCRIPTION_MIGRATION_STATE_CONFLICT` | 409 |
+| `SUBSCRIPTION_MIGRATION_RECONCILIATION_REQUIRED` | 409 |
+| `SUBSCRIPTION_MIGRATION_PREVIEW_STORAGE_REQUIRED` | 500 |
+| `SUBSCRIPTION_MIGRATION_OPERATION_FAILED` | 500 |
+| `PAYLOAD_TOO_LARGE` | 413 |
+| `RATE_LIMIT_EXCEEDED` | 429 |
 | `IDEMPOTENCY_CONFLICT` | 409 |
 | `IDEMPOTENCY_IN_PROGRESS` | 409 |
 | `INVALID_IDEMPOTENCY_KEY` | 400 |
@@ -206,14 +242,18 @@ Code-to-status table:
 
 ## No built-in authentication
 
-The adapter installs no authentication or authorization middleware. Every route except the webhook
-routes is unprotected at the adapter level:
+The adapter installs no authentication middleware. Most routes except webhooks are unprotected at
+the adapter level:
 
 - `/checkout`, `/subscriptions/:name/*`, and `/refunds` accept whatever `billable` or `paymentId`
   the request supplies. The adapter does not verify that the caller owns the billable record or the
   payment.
 - The webhook routes are protected only by provider signature verification (performed inside
   `payable.receiveWebhook`), not by request authentication.
+
+Canonical subscription price migration routes fail closed unless `resolveTenant` and
+`resolveAuthorization` produce the matching tenant and an allowed actor. Authenticate the request
+before those resolvers run; adapter authorization does not establish caller identity.
 
 Authenticating the request and verifying ownership of the billable or payment is the caller's
 responsibility. Pass an `authenticate` middleware in `ExpressPayableOptions` to have it applied

@@ -131,6 +131,7 @@ export type {
   SubscriptionChangePolicies,
   SubscriptionChangePreview,
   SubscriptionChangeRenewal,
+  SubscriptionChangeTiming,
 } from './subscription-change.dto';
 export type {
   SubscriptionChangeCapabilities,

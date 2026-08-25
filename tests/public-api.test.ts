@@ -6,11 +6,19 @@ import type {
   CreateCanonicalProductInput,
   CreateMarketplaceTransferReversalInput,
   CreatePaymentMethodSetupInput,
+  ListSubscriptionPriceMigrationsInput,
   MarketplaceTransferReversalCapable,
   MarketplaceTransferReversalDTO,
   MarketplaceTransferSourceReference,
   PaymentMethodSetupCapable,
   PaymentMethodSetupDTO,
+  PreviewPriceMigrationInput,
+  ResolveSubscriptionPriceMigrationInput,
+  SubscriptionPriceMigration,
+  SubscriptionPriceMigrationErrorCode,
+  SubscriptionPriceMigrationExecutionEvidenceBlob,
+  SubscriptionPriceMigrationResource,
+  SubscriptionPriceMigrationStatus,
   TaxCalculationDTO,
   TaxCalculationStatus,
   TaxProvider,
@@ -115,6 +123,48 @@ describe('public API surface', () => {
 
     expect(product.name).toBe('Pro');
     expect(price.productId).toBe('product-1');
+  });
+
+  it('exports the canonical migration resource, entity, status, and errors', () => {
+    const preview = {
+      subscriptionId: 'subscription-1',
+      targetPriceId: 'price-2',
+      timing: { effectiveTiming: 'immediate' },
+      prorationPolicy: 'none',
+      paymentFailurePolicy: 'preventChange',
+      idempotencyKey: 'migration-preview-1',
+    } satisfies PreviewPriceMigrationInput;
+    const list = {
+      limit: 25,
+      subscriptionId: preview.subscriptionId,
+    } satisfies ListSubscriptionPriceMigrationsInput;
+    const resolution = {
+      outcome: 'applied',
+      evidenceReference: 'operator-case-1',
+      idempotencyKey: 'migration-resolve-1',
+    } satisfies ResolveSubscriptionPriceMigrationInput;
+    const status = 'pending_renewal' satisfies SubscriptionPriceMigrationStatus;
+    const code =
+      'SUBSCRIPTION_MIGRATION_RECONCILIATION_REQUIRED' satisfies SubscriptionPriceMigrationErrorCode;
+    const migration = { status } as SubscriptionPriceMigration;
+    const resource = {} as SubscriptionPriceMigrationResource;
+    const evidence: SubscriptionPriceMigrationExecutionEvidenceBlob =
+      payable.rehydrateSubscriptionPriceMigrationExecutionEvidenceBlob(
+        'payable:subscription-price-migration-evidence:v1:opaque-storage-value',
+      );
+
+    expect(list.limit).toBe(25);
+    expect(migration.status).toBe('pending_renewal');
+    expect(payable.SUBSCRIPTION_PRICE_MIGRATION_STATUSES).toContain(status);
+    expect(payable.isSubscriptionPriceMigrationStatus(status)).toBe(true);
+    expect(typeof payable.SubscriptionPriceMigrationError).toBe('function');
+    expect(new payable.SubscriptionPriceMigrationError('reconcile', code).code).toBe(code);
+    expect(typeof (payable as Record<string, unknown>).SubscriptionPriceMigrationResource).toBe(
+      'undefined',
+    );
+    expect(typeof resource).toBe('object');
+    expect(resolution.outcome).toBe('applied');
+    expect(evidence).toContain('opaque-storage-value');
   });
 
   it('exports AuthorizationContext on the public surface', () => {

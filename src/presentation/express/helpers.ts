@@ -1,13 +1,14 @@
 import { json, type NextFunction, type Request, type RequestHandler, type Response } from 'express';
 import type { AuthorizationContext } from '../../application/policies/authorization-context';
 import { payableErrorBody, payableErrorStatus } from '../shared/payable-http';
+import type { SubscriptionPriceMigrationLimits } from '../shared/subscription-migration-boundary';
 
 export { flattenHeaders } from '../shared/payable-http';
 
 const DEFAULT_BODY_LIMIT = '64kb';
 
-export function jsonBody(): RequestHandler {
-  return json({ limit: DEFAULT_BODY_LIMIT });
+export function jsonBody(limit: number | string = DEFAULT_BODY_LIMIT): RequestHandler {
+  return json({ limit });
 }
 
 export interface ExpressPayableOptions {
@@ -15,6 +16,7 @@ export interface ExpressPayableOptions {
   authenticate?: RequestHandler;
   resolveTenant?: (req: Request) => string | null | undefined;
   resolveAuthorization?: (req: Request) => AuthorizationContext | undefined;
+  subscriptionPriceMigrationLimits?: SubscriptionPriceMigrationLimits;
 }
 
 export type AsyncRouteHandler = (req: Request, res: Response) => Promise<void>;

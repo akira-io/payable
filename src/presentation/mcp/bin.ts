@@ -7,6 +7,9 @@ import { isLoopbackHost, parseHost } from './cli-args';
 import { isMissingMcpDependency, MCP_DEPENDENCY_HINT } from './dependencies';
 import type { McpPayableOptions } from './options';
 
+const USAGE = `Usage: payable-mcp --config <path> [--http [host:port]]
+`;
+
 async function loadTransport(): Promise<{
   createPayableMcpServer: typeof import('./index').createPayableMcpServer;
   serveHttp: typeof import('./transports/http').serveHttp;
@@ -59,6 +62,11 @@ async function loadConfig(path: string): Promise<PayableMcpConfig> {
 }
 
 async function main(): Promise<void> {
+  if (process.argv.includes('--help') || process.argv.includes('-h')) {
+    process.stdout.write(USAGE);
+    return;
+  }
+
   const configPath = readFlag('--config');
   if (typeof configPath !== 'string') {
     notify('missing required --config <path>');

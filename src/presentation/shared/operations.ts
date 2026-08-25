@@ -4,6 +4,7 @@ import type { AuthorizationContext } from '../../application/policies/authorizat
 import type { CheckoutSessionDTO } from '../../domain/dtos/checkout.dto';
 import type { Refund } from '../../domain/entities/refund.entity';
 import type { Subscription } from '../../domain/entities/subscription.entity';
+import { toSubscriptionChangeTiming } from '../../domain/validation/subscription-change-policies';
 import type { Payable } from '../../payable';
 import {
   type checkoutBodySchema,
@@ -18,6 +19,15 @@ export type RefundBody = z.infer<typeof refundBodySchema>;
 export type ManageSubscriptionBody = z.infer<typeof manageSubscriptionBodySchema>;
 export type SwapSubscriptionBody = z.infer<typeof swapSubscriptionBodySchema>;
 export type ManageSubscriptionAction = 'cancel' | 'cancelNow' | 'resume';
+export {
+  runSubscriptionPriceMigrationAction,
+  runSubscriptionPriceMigrationList,
+  runSubscriptionPriceMigrationPreview,
+  runSubscriptionPriceMigrationRetrieve,
+  type SubscriptionPriceMigrationAction,
+  type SubscriptionPriceMigrationListQuery,
+  type SubscriptionPriceMigrationPreviewBody,
+} from './subscription-price-migration-operations';
 
 export function runCheckout(
   payable: Payable,
@@ -60,14 +70,17 @@ export function runSwapSubscription(
   tenantId: string | null,
   authorization?: AuthorizationContext,
 ): Promise<Subscription> {
-  return payable.customer(body.billable, undefined, tenantId).subscription(name).swap({
-    priceId: body.price,
-    itemId: body.itemId,
-    effectiveTiming: body.effectiveTiming,
-    prorationPolicy: body.prorationPolicy,
-    paymentFailurePolicy: body.paymentFailurePolicy,
-    authorization,
-  });
+  return payable
+    .customer(body.billable, undefined, tenantId)
+    .subscription(name)
+    .swap({
+      priceId: body.price,
+      itemId: body.itemId,
+      ...toSubscriptionChangeTiming(body),
+      prorationPolicy: body.prorationPolicy,
+      paymentFailurePolicy: body.paymentFailurePolicy,
+      authorization,
+    });
 }
 
 export function runRefund(

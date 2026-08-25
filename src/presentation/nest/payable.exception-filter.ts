@@ -35,7 +35,11 @@ export class PayableExceptionFilter implements ExceptionFilter {
     const response = host.switchToHttp().getResponse();
     const frameworkStatus = httpExceptionStatus(error);
     const status = frameworkStatus ?? payableErrorStatus(error);
-    const body = frameworkStatus === undefined ? payableErrorBody(error) : httpExceptionBody(error);
+    const isBoundaryError = frameworkStatus === 413 || frameworkStatus === 429;
+    const body =
+      frameworkStatus === undefined || isBoundaryError
+        ? payableErrorBody(isBoundaryError ? { statusCode: frameworkStatus } : error)
+        : httpExceptionBody(error);
     const httpAdapter = this.adapterHost?.httpAdapter;
     if (httpAdapter) {
       httpAdapter.reply(response, body, status);

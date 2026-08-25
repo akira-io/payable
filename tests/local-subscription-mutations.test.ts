@@ -188,7 +188,7 @@ describe('local subscription mutations', () => {
     await database.destroy();
   });
 
-  it('rolls back the local mutation when its audit write fails', async () => {
+  it('rolls back locally and retains recovery ownership when audit persistence fails', async () => {
     const database = createTestDb();
     await migrate(database);
     const clock = new FakeClock();
@@ -205,11 +205,24 @@ describe('local subscription mutations', () => {
       clock,
     });
 
-    await expect(
-      payable.subscription(subscription.id).updateQuantity({ quantity: 8, ...changePolicies }),
-    ).rejects.toThrow('audit unavailable');
+    const rejected = await payable
+      .subscription(subscription.id)
+      .updateQuantity({ quantity: 8, ...changePolicies })
+      .catch((error: unknown) => error);
+    expect(rejected).toMatchObject({
+      code: 'SUBSCRIPTION_MUTATION_RECONCILIATION_REQUIRED',
+      correlationId: expect.any(String),
+      context: { claimReference: expect.any(String) },
+    });
+    expect((rejected as Error).cause).toBeUndefined();
     await expect(storage.subscriptions.findById(subscription.id)).resolves.toMatchObject({
       quantity: 1,
+    });
+    await expect(
+      storage.subscriptionMutationClaims.findActiveBySubscriptionId(subscription.id, null),
+    ).resolves.toMatchObject({
+      operation: 'subscription_quantity_update',
+      status: 'active',
     });
     await database.destroy();
   });
