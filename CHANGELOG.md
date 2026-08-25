@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta9](https://github.com/akira-io/payable/compare/v1.0.0-beta8...v1.0.0-beta9) (2026-08-25)
+
+### Features
+
+- **subscriptions:** Support scheduled change timing ([be87872](https://github.com/akira-io/payable/commit/be878729b262e2c90ae3b22b124fdece43b7b89c))
+- **subscriptions:** Add canonical price migrations ([7d8cbe8](https://github.com/akira-io/payable/commit/7d8cbe813b5f7617ab2d47d9dac7e4db4aaa8baa))
+
 ## [1.0.0-beta8](https://github.com/akira-io/payable/compare/v1.0.0-beta7...v1.0.0-beta8) (2026-08-13)
 
 ### Bug Fixes
