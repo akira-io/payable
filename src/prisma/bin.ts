@@ -10,6 +10,10 @@ const USAGE = `Usage: payable-prisma <command> [outPath]
 function run(): void {
   const command = process.argv[2];
   switch (command) {
+    case '--help':
+    case '-h':
+      process.stdout.write(USAGE);
+      return;
     case 'print':
       process.stdout.write(readPayableModels());
       return;
