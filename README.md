@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@akira-io/payable"><img src="https://img.shields.io/npm/v/@akira-io/payable.svg" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/@akira-io/payable"><img src="https://img.shields.io/npm/v/@akira-io/payable.svg?tag=beta" alt="npm beta"></a>
   <a href="https://www.npmjs.com/package/@akira-io/payable"><img src="https://img.shields.io/npm/dm/@akira-io/payable.svg" alt="downloads"></a>
   <a href="https://www.npmjs.com/package/@akira-io/payable"><img src="https://img.shields.io/bundlephobia/minzip/@akira-io/payable" alt="size"></a>
   <a href="https://github.com/akira-io/payable/actions/workflows/test.yml"><img src="https://github.com/akira-io/payable/actions/workflows/test.yml/badge.svg" alt="tests"></a>
@@ -35,23 +35,11 @@ bundle imports none of them. You install only what you use.
 ## Install
 
 ```sh
-bun add @akira-io/payable   # or: npm install / pnpm add
+bun add --exact @akira-io/payable@beta   # or: npm install / pnpm add
 ```
 
-The npm command installs the latest published tag. Canonical subscription price migrations are
-currently available on the development `main` line, not in `1.0.0-beta8`. Development consumers can
-install that moving line while keeping builds reproducible through Bun's lockfile:
-
-```sh
-bun add --exact github:akira-io/payable#main
-bun install --frozen-lockfile
-```
-
-`package.json` records the `main` reference and `bun.lock` records the resolved commit. Review and
-commit both files. CI must use `bun install --frozen-lockfile`; advancing Payable requires an explicit
-dependency refresh and lockfile diff. The Git install runs Payable's `prepare` script to build `dist`.
-Tags and npm versions are created later through the normal release process; installing `main` is not
-a release or a request to publish one.
+The `beta` dist-tag follows the current prerelease. `--exact` and the lockfile keep consumer builds
+reproducible; advancing Payable requires an explicit dependency refresh and lockfile review.
 
 Then add the optional peers for the features you use:
 

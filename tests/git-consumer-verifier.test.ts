@@ -6,8 +6,9 @@ import { pathToFileURL } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const packageRoot = process.cwd();
-const packageSpec = pathToFileURL(packageRoot).href;
 let consumerDirectory: string;
+let packageArchiveDirectory: string;
+let packageSpec: string;
 
 function run(command: string, args: string[], cwd: string) {
   const result = spawnSync(command, args, { cwd, encoding: 'utf8' });
@@ -28,9 +29,24 @@ async function createConsumer(): Promise<string> {
   return directory;
 }
 
+async function createPackageArchive(): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), 'payable-package-'));
+  const pack = run(
+    'npm',
+    ['pack', '--ignore-scripts', '--pack-destination', directory],
+    packageRoot,
+  );
+  expect(pack.status, pack.stderr).toBe(0);
+  const archiveName = pack.stdout.trim().split('\n').at(-1);
+  expect(archiveName).toMatch(/\.tgz$/);
+  packageArchiveDirectory = directory;
+  return pathToFileURL(join(directory, archiveName as string)).href;
+}
+
 beforeAll(async () => {
   const build = run('bun', ['run', 'build'], packageRoot);
   expect(build.status, build.stderr).toBe(0);
+  packageSpec = await createPackageArchive();
   consumerDirectory = await createConsumer();
 }, 60_000);
 
@@ -38,9 +54,12 @@ afterAll(async () => {
   if (consumerDirectory) {
     await rm(consumerDirectory, { force: true, recursive: true });
   }
+  if (packageArchiveDirectory) {
+    await rm(packageArchiveDirectory, { force: true, recursive: true });
+  }
 });
 
-describe('installed Git-consumer tooling', () => {
+describe('installed package tooling', () => {
   it('runs installed CLI help commands successfully', () => {
     for (const binary of ['payable-prisma', 'payable-mcp']) {
       const result = run(
@@ -54,15 +73,15 @@ describe('installed Git-consumer tooling', () => {
     }
   });
 
-  it('verifies the installed Prisma asset through the consumer verifier', () => {
+  it('typechecks and imports every installed package export', () => {
     const result = run(
       process.execPath,
-      ['scripts/verify-git-consumer.mjs', packageSpec],
+      ['scripts/verify-package-consumer.mjs', packageSpec],
       packageRoot,
     );
 
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain('Prisma asset verified');
+    expect(result.stdout).toContain('Package consumer verified');
   }, 60_000);
 
   it('copies the installed Prisma models to the requested consumer path', async () => {
