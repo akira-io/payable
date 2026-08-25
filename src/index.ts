@@ -152,6 +152,19 @@ export {
   TenantId,
   type WebhookKeyParts,
 } from './domain/value-objects';
+export {
+  isSubscriptionPriceMigrationFailure,
+  isSubscriptionPriceMigrationFailureCode,
+  SUBSCRIPTION_PRICE_MIGRATION_FAILURES,
+  type SubscriptionPriceMigrationFailure,
+  type SubscriptionPriceMigrationFailureCode,
+  subscriptionPriceMigrationFailure,
+} from './domain/value-objects/subscription-price-migration-failure';
+export {
+  isSubscriptionPriceMigrationStatus,
+  SUBSCRIPTION_PRICE_MIGRATION_STATUSES,
+  type SubscriptionPriceMigrationStatus,
+} from './domain/value-objects/subscription-price-migration-status';
 export { IdentityProviderRegistry } from './identity-provider-registry';
 export { type AuditEntryInput, AuditService } from './infrastructure/audit/audit-service';
 export { MemoryCacheDriver } from './infrastructure/cache/memory/memory-cache-driver';

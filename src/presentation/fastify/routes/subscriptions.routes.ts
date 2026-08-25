@@ -1,13 +1,22 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Payable } from '../../../payable';
+import { requireRequestIdempotencyKey } from '../../shared/catalog-idempotency';
 import {
   type ManageSubscriptionAction as ManageAction,
   runManageSubscription,
+  runSubscriptionPriceMigrationAction,
+  runSubscriptionPriceMigrationList,
+  runSubscriptionPriceMigrationPreview,
+  runSubscriptionPriceMigrationRetrieve,
   runSwapSubscription,
 } from '../../shared/operations';
 import {
   manageSubscriptionBodySchema,
   parseBody,
+  subscriptionPriceMigrationIdParamSchema,
+  subscriptionPriceMigrationListQuerySchema,
+  subscriptionPriceMigrationOperationBodySchema,
+  subscriptionPriceMigrationPreviewBodySchema,
   swapSubscriptionBodySchema,
 } from '../../shared/schemas';
 import type { FastifyPayableOptions } from '../helpers';
@@ -52,5 +61,75 @@ export async function registerSubscriptionRoutes(
       options.resolveAuthorization?.(request),
     );
     reply.status(200).send(result);
+  });
+
+  scope.post('/canonical/subscription-price-migrations', routeOptions, async (request, reply) => {
+    const body = parseBody(subscriptionPriceMigrationPreviewBodySchema, request.body);
+    reply
+      .status(200)
+      .send(
+        await runSubscriptionPriceMigrationPreview(
+          payable,
+          body,
+          options.resolveTenant?.(request) ?? null,
+          options.resolveAuthorization?.(request),
+          requestIdempotencyKey(request),
+        ),
+      );
+  });
+  scope.get('/canonical/subscription-price-migrations', async (request, reply) => {
+    const input = parseBody(subscriptionPriceMigrationListQuerySchema, request.query);
+    reply
+      .status(200)
+      .send(
+        await runSubscriptionPriceMigrationList(
+          payable,
+          input,
+          options.resolveTenant?.(request) ?? null,
+          options.resolveAuthorization?.(request),
+        ),
+      );
+  });
+  scope.get('/canonical/subscription-price-migrations/:id', async (request, reply) => {
+    const { id } = parseBody(subscriptionPriceMigrationIdParamSchema, request.params);
+    reply
+      .status(200)
+      .send(
+        await runSubscriptionPriceMigrationRetrieve(
+          payable,
+          id,
+          options.resolveTenant?.(request) ?? null,
+          options.resolveAuthorization?.(request),
+        ),
+      );
+  });
+  for (const action of ['approve', 'cancel', 'retry'] as const) {
+    scope.post(
+      `/canonical/subscription-price-migrations/:id/${action}`,
+      routeOptions,
+      async (request, reply) => {
+        parseBody(subscriptionPriceMigrationOperationBodySchema, request.body);
+        const { id } = parseBody(subscriptionPriceMigrationIdParamSchema, request.params);
+        reply
+          .status(200)
+          .send(
+            await runSubscriptionPriceMigrationAction(
+              payable,
+              action,
+              id,
+              options.resolveTenant?.(request) ?? null,
+              options.resolveAuthorization?.(request),
+              requestIdempotencyKey(request),
+            ),
+          );
+      },
+    );
+  }
+}
+
+function requestIdempotencyKey(request: FastifyRequest): string {
+  return requireRequestIdempotencyKey({
+    headers: request.headers,
+    rawHeaders: request.raw.rawHeaders,
   });
 }

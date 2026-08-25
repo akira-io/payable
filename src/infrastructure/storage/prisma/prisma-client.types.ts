@@ -1,3 +1,4 @@
+import type { StoredSubscriptionPriceMigrationRow } from '../mappers/subscription-price-migration.mapper';
 import type {
   PrismaCanonicalPriceRow,
   PrismaCanonicalProductRow,
@@ -12,6 +13,7 @@ import type {
   PrismaInvoiceProviderBindingRow,
   PrismaInvoiceRow,
 } from './prisma-invoice-row.types';
+import type { PrismaSubscriptionMutationClaimRow } from './prisma-subscription-mutation-claim-row.types';
 import type { PrismaSubscriptionRow } from './prisma-subscription-row.types';
 import type {
   PrismaWebhookDeliveryRow,
@@ -28,6 +30,7 @@ export type {
   PrismaProductProviderBindingRow,
 } from './prisma-canonical-catalog-row.types';
 export type { PrismaInvoiceRow } from './prisma-invoice-row.types';
+export type { PrismaSubscriptionMutationClaimRow } from './prisma-subscription-mutation-claim-row.types';
 export type { PrismaSubscriptionRow } from './prisma-subscription-row.types';
 export type {
   PrismaWebhookDeliveryRow,
@@ -267,6 +270,8 @@ export interface PrismaModelDelegates {
   payableSubscription: PrismaDelegate<PrismaSubscriptionRow>;
   payableSubscriptionProviderBinding: PrismaDelegate<PrismaSubscriptionProviderBindingRow>;
   payableSubscriptionItem: PrismaDelegate<PrismaSubscriptionItemRow>;
+  payableSubscriptionPriceMigration: PrismaDelegate<StoredSubscriptionPriceMigrationRow>;
+  payableSubscriptionMutationClaim: PrismaDelegate<PrismaSubscriptionMutationClaimRow>;
   payableInvoice: PrismaDelegate<PrismaInvoiceRow>;
   payableCanonicalInvoice: PrismaDelegate<PrismaCanonicalInvoiceRow>;
   payableInvoiceProviderBinding: PrismaDelegate<PrismaInvoiceProviderBindingRow>;

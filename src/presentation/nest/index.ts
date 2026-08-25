@@ -7,3 +7,7 @@ export {
 export { PayableController } from './payable.controller';
 export { PayableExceptionFilter } from './payable.exception-filter';
 export { PayableModule } from './payable.module';
+export {
+  configureNestExpressPayableBodyParser,
+  type NestPayableBodyParserOptions,
+} from './payable-body-parser';

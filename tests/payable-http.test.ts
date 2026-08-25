@@ -86,8 +86,12 @@ describe('parseBody', () => {
     ).toStrictEqual(new Date('2026-09-01T10:00:00.000Z'));
   });
 
-  it.each([null, 0, '2026/09/01 10:00:00Z', '2026-09-01T10:00:00'])
-  ('rejects non-RFC 3339 scheduled effectiveAt input: %j', (effectiveAt) => {
+  it.each([
+    null,
+    0,
+    '2026/09/01 10:00:00Z',
+    '2026-09-01T10:00:00',
+  ])('rejects non-RFC 3339 scheduled effectiveAt input: %j', (effectiveAt) => {
     expect(() =>
       parseBody(swapSubscriptionBodySchema, {
         billable: { billableType: 'User', billableId: '1', email: 'user@example.com' },

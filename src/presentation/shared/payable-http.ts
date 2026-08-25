@@ -15,6 +15,18 @@ const STATUS_BY_CODE: Record<string, number> = {
   PRODUCT_NOT_FOUND: 404,
   PRICE_NOT_FOUND: 404,
   SUBSCRIPTION_NOT_FOUND: 404,
+  SUBSCRIPTION_MIGRATION_NOT_FOUND: 404,
+  SUBSCRIPTION_MIGRATION_PREVIEW_STALE: 409,
+  SUBSCRIPTION_MIGRATION_TARGET_INELIGIBLE: 422,
+  SUBSCRIPTION_MIGRATION_STATE_CONFLICT: 409,
+  SUBSCRIPTION_MIGRATION_RECONCILIATION_REQUIRED: 409,
+  SUBSCRIPTION_MIGRATION_RENEWAL_DATE_REQUIRED: 422,
+  SUBSCRIPTION_MIGRATION_PROVIDER_NOT_APPLIED: 422,
+  SUBSCRIPTION_MUTATION_RECONCILIATION_REQUIRED: 409,
+  SUBSCRIPTION_MIGRATION_PREVIEW_STORAGE_REQUIRED: 500,
+  SUBSCRIPTION_MIGRATION_OPERATION_FAILED: 500,
+  PAYLOAD_TOO_LARGE: 413,
+  RATE_LIMIT_EXCEEDED: 429,
   IDEMPOTENCY_CONFLICT: 409,
   IDEMPOTENCY_IN_PROGRESS: 409,
   INVALID_IDEMPOTENCY_KEY: 400,
@@ -51,20 +63,26 @@ export interface PayableErrorBody {
   message: string;
   fields?: Array<{ field: string; message: string }>;
   correlationId?: string;
+  claimReference?: string;
   guidance?: string;
 }
 
 export function payableErrorStatus(error: unknown): number {
-  return error instanceof PayableError ? (STATUS_BY_CODE[error.code] ?? 500) : 500;
+  if (error instanceof PayableError) return STATUS_BY_CODE[error.code] ?? 500;
+  return frameworkBoundaryStatus(error) ?? 500;
 }
 
 function nonPayableErrorBody(error: unknown): PayableErrorBody {
   const candidate = error as { type?: string; status?: number; statusCode?: number };
-  if (candidate.type === 'entity.too.large') {
+  const boundaryStatus = frameworkBoundaryStatus(error);
+  if (boundaryStatus === 413) {
     return {
       error: 'PAYLOAD_TOO_LARGE',
       message: 'Request body exceeds the configured size limit',
     };
+  }
+  if (boundaryStatus === 429) {
+    return { error: 'RATE_LIMIT_EXCEEDED', message: 'Too many mutation requests' };
   }
   if (candidate.type === 'entity.parse.failed') {
     return { error: 'INVALID_JSON', message: 'Request body is not valid JSON' };
@@ -76,6 +94,14 @@ function nonPayableErrorBody(error: unknown): PayableErrorBody {
   return { error: 'INTERNAL_ERROR', message: 'Unexpected error' };
 }
 
+function frameworkBoundaryStatus(error: unknown): 413 | 429 | undefined {
+  const candidate = error as { type?: string; status?: unknown; statusCode?: unknown };
+  const status = candidate.status ?? candidate.statusCode;
+  if (candidate.type === 'entity.too.large' || status === 413) return 413;
+  if (status === 429) return 429;
+  return undefined;
+}
+
 export function payableErrorBody(error: unknown): PayableErrorBody {
   if (error instanceof PayableError) {
     const body: PayableErrorBody = { error: error.code, message: error.message };
@@ -83,6 +109,14 @@ export function payableErrorBody(error: unknown): PayableErrorBody {
       body.correlationId = error.correlationId;
       body.guidance =
         'Reconcile the provider result and durable local state before retrying with a new idempotency key.';
+    }
+    if (error.code === 'SUBSCRIPTION_MUTATION_RECONCILIATION_REQUIRED') {
+      body.message = 'Subscription mutation requires reconciliation';
+      body.correlationId = error.correlationId;
+      const claimReference = error.context?.claimReference;
+      if (typeof claimReference === 'string') body.claimReference = claimReference;
+      body.guidance =
+        'Resolve the retained subscription mutation claim before attempting another provider mutation.';
     }
     const issues = error.context?.issues;
     if (error.code === 'VALIDATION_FAILED' && Array.isArray(issues)) {

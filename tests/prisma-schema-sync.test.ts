@@ -47,6 +47,7 @@ describe('prisma schema sync', () => {
     expect(models).toContain('model PayableInvoiceProviderBinding');
     expect(models).toContain('model PayableInvoicePayment');
     expect(models).toContain('model PayableMigrationReport');
+    expect(models).toContain('model PayableSubscriptionPriceMigration');
     expect(models).toContain('occurredAt');
     expect(models).not.toMatch(/\bdatasource\s+\w+\s*\{/);
     expect(models).not.toMatch(/\bgenerator\s+\w+\s*\{/);
@@ -73,6 +74,14 @@ describe('prisma schema sync', () => {
     expect(copyPaths.map(subscriptionModelLines)).toEqual([canonicalModel, canonicalModel]);
   });
 
+  it('stores one canonical migration tenant scope and derives the public tenant ID', () => {
+    for (const path of SUBSCRIPTION_SCHEMA_PATHS) {
+      const migration = modelLines(path, 'PayableSubscriptionPriceMigration');
+      expect(migration.some((line) => line.startsWith('tenantKey '))).toBe(true);
+      expect(migration.some((line) => line.startsWith('tenantId '))).toBe(false);
+    }
+  });
+
   it.each([
     'PayableCanonicalProduct',
     'PayableCanonicalPrice',
@@ -81,6 +90,7 @@ describe('prisma schema sync', () => {
     'PayableCatalogSynchronization',
     'PayableCustomerProviderSyncState',
     'PayableSubscriptionProviderBinding',
+    'PayableSubscriptionPriceMigration',
     'PayableCanonicalInvoice',
     'PayableInvoiceProviderBinding',
     'PayableInvoicePayment',

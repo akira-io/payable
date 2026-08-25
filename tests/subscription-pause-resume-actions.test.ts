@@ -150,13 +150,29 @@ describe('subscription pause and resume actions', () => {
     const { payable, storage, subscription } = await setup(provider);
     provider.failPause = true;
 
-    await expect(
-      payable.customer(billable).subscription('default').pauseSubscription({
+    const error = await payable
+      .customer(billable)
+      .subscription('default')
+      .pauseSubscription({
         effectiveTiming: 'immediate',
         resumeAt: null,
         resumeBillingPolicy: 'startNewBillingPeriod',
-      }),
-    ).rejects.toThrow('provider pause failed');
+      })
+      .catch((failure: unknown) => failure);
+    expect(error).toMatchObject({
+      code: 'SUBSCRIPTION_MUTATION_RECONCILIATION_REQUIRED',
+      correlationId: expect.any(String),
+      context: { claimReference: expect.any(String) },
+    });
+    const recovery = error as { correlationId: string; context: { claimReference: string } };
+    await expect(payable.customer(billable).subscription('default').cancel()).rejects.toMatchObject(
+      {
+        code: 'SUBSCRIPTION_MUTATION_RECONCILIATION_REQUIRED',
+        correlationId: recovery.correlationId,
+        context: { claimReference: recovery.context.claimReference },
+      },
+    );
+    expect(provider.pauseCalls).toBe(1);
 
     expect(await storage.subscriptions.findById(subscription.id)).toMatchObject({
       status: 'active',

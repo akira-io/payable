@@ -71,6 +71,8 @@ export class SubscriptionChangeProvider extends FakeProvider {
         : (['immediate'] as const),
       prorationPolicies: ['prorateImmediately'] as const,
       paymentFailurePolicies: ['preventChange'] as const,
+      supportsCurrencyChange: false,
+      supportsBillingPeriodChange: false,
     };
   }
 }

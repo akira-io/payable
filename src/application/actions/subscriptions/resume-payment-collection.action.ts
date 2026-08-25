@@ -29,29 +29,39 @@ export class ResumePaymentCollectionAction extends SubscriptionAction {
     );
     assertSubscriptionOperation(provider, 'resumePaymentCollection');
     const subscription = await this.resolve(billable, name);
-    const dto = await provider.resumePaymentCollection(
-      { providerSubscriptionId: subscription.providerSubscriptionId },
-      this.context('resume-payment-collection', subscription.providerSubscriptionId),
-    );
-    return this.storage().transaction(async (repos) => {
-      const updated = await repos.subscriptions.update(
-        subscription.id,
-        {
-          ...this.lifecyclePatch(subscription, dto),
-          status: subscription.status,
-          paymentCollectionPauseBehavior: null,
-          paymentCollectionResumesAt: null,
-        },
-        this.deps.tenantId ?? null,
-      );
-      await this.auditWith(repos, {
-        action: 'subscription.payment_collection_resumed',
-        subscriptionId: subscription.id,
-        before: this.lifecycleSnapshot(subscription),
-        after: this.lifecycleSnapshot(updated),
-        authorization,
-      });
-      return updated;
+    await this.assertNoActiveMigration(subscription.id);
+    const context = this.context('resume-payment-collection', subscription.providerSubscriptionId);
+    return this.mutateSubscription({
+      subscriptionId: subscription.id,
+      operation: 'subscription_resume_payment_collection',
+      context,
+      callProvider: async () => ({
+        kind: 'applied',
+        value: await provider.resumePaymentCollection(
+          { providerSubscriptionId: subscription.providerSubscriptionId },
+          context,
+        ),
+      }),
+      persist: async (repos, dto) => {
+        const updated = await repos.subscriptions.update(
+          subscription.id,
+          {
+            ...this.lifecyclePatch(subscription, dto),
+            status: subscription.status,
+            paymentCollectionPauseBehavior: null,
+            paymentCollectionResumesAt: null,
+          },
+          this.deps.tenantId ?? null,
+        );
+        await this.auditWith(repos, {
+          action: 'subscription.payment_collection_resumed',
+          subscriptionId: subscription.id,
+          before: this.lifecycleSnapshot(subscription),
+          after: this.lifecycleSnapshot(updated),
+          authorization,
+        });
+        return updated;
+      },
     });
   }
 }

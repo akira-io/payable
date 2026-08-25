@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+This section describes the development `main` line. It is not a tag, npm version, or publication.
+Release metadata is created later through the authorized release process.
+
+### Added
+
+- Provider-neutral canonical subscription price migration previews and lifecycle operations with
+  explicit timing, proration, payment-failure, idempotency, retry, and reconciliation contracts.
+- Equivalent create, list, retrieve, approve, cancel, and retry boundaries for Express, Fastify,
+  NestJS, and MCP.
+- Knex migration steps `021-canonical-subscription-price-migrations` and
+  `022-subscription-mutation-recovery`, plus equivalent synchronized Prisma models and a shared
+  durable per-subscription mutation claim.
+- Ownership-safe TypeScript reconciliation resolution with operator-confirmed `applied`,
+  `not_applied`, or retaining `unknown` outcomes, durable evidence references, exact replay, and no
+  provider call, including recovery from retained `executing` ownership.
+- Provider-confirmed `pending_renewal` lifecycle and explicit boundary settlement that preserves the
+  historical local price, keeps the mutation fence, and never repeats the provider call.
+- Provider-neutral lookup and resolution for ambiguous direct subscription mutation claims, with
+  safe claim references and `applied`, `not_applied`, or retaining `unknown` outcomes.
+- A shared durable mutation executor across every existing-subscription provider write, crash-safe
+  recovery metadata, opaque direct intents, and retained-`executing` operator reconciliation.
+- Git dependency preparation and a consumer verifier for ESM, CommonJS, declarations, package
+  subpaths, binaries, and Prisma model assets.
+
+### Migration
+
+- Knex applications must run `migrate(db)` through additive step
+  `022-subscription-mutation-recovery` before enabling canonical migration requests and rerun it
+  to verify ledger replay.
+- Prisma applications must refresh `payable-prisma sync`, review and validate the schema diff, and
+  deploy an application-owned migration before enabling the updated runtime.
+- Development Git consumers use `github:akira-io/payable#main`, commit the resolved `bun.lock`, and
+  install in CI with `bun install --frozen-lockfile`. Existing builds stay pinned until an explicit
+  dependency refresh.
+- Existing `previewChange()` and `applyChange()` signatures remain available. Preview tokens stored
+  before step 021 remain readable, and historical provider-native subscriptions are not assigned
+  synthetic canonical snapshots.
+- Custom storage drivers must implement the complete migration and mutation-claim repositories.
+  Execution evidence is an opaque `SubscriptionPriceMigrationExecutionEvidenceBlob`; raw provider
+  fields/codecs are internal, and the public rehydration factory validates its storage version.
+  Active lookup, reconciliation/settlement CAS, database-unique claim acquisition, exact-owner
+  release, neutral observation, reference lookup, and resolution are required and type-safe.
+  Direct intent is a separate opaque `SubscriptionMutationIntentBlob`; ordinary claim views do not
+  expose its contents.
+- Provider change descriptors now expose `supportsCurrencyChange` and
+  `supportsBillingPeriodChange`; omitted values default to `false` through the capability builder.
+
 ## [1.0.0-beta8](https://github.com/akira-io/payable/compare/v1.0.0-beta7...v1.0.0-beta8) (2026-08-13)
 
 ### Bug Fixes
@@ -609,4 +658,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **storage:** Batch subscription items, wrap create in a transaction, order lists ([d878e1d](https://github.com/akira-io/payable/commit/d878e1d25f29a0e2b89a2a807b2dc71622a0fc1d))
 - **storage:** Add composite indexes for the keyset list access path ([893c984](https://github.com/akira-io/payable/commit/893c98483ebb4f7a3cb2deb4e0e0a56f4323b782))
 - **storage:** Use RETURNING to avoid the post-write re-select ([607b13c](https://github.com/akira-io/payable/commit/607b13c71c0ed5f424405be19bb7ee70959ed63c))
-

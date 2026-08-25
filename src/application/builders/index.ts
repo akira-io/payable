@@ -79,6 +79,19 @@ export {
   type SwapOptions,
   type UpdateQuantityOptions,
 } from './subscription-manager';
+export type {
+  ResolveSubscriptionMutationClaimInput,
+  SubscriptionMutationClaimResource,
+  SubscriptionMutationClaimView,
+} from './subscription-mutation-claim-resource.contract';
+export type {
+  DueSubscriptionPriceMigrationsInput,
+  ListSubscriptionPriceMigrationsInput,
+  PreviewPriceMigrationInput,
+  ResolveSubscriptionPriceMigrationInput,
+  SubscriptionPriceMigrationOperationInput,
+  SubscriptionPriceMigrationResource,
+} from './subscription-price-migration-resource.contract';
 export type { TreasuryWebhookDependencies } from './treasury-webhook-dependencies';
 export type { WebhookDependencies } from './webhook-dependencies';
 export {

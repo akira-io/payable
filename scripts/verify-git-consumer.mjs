@@ -50,6 +50,7 @@ async function writeConsumerFiles(directory) {
     writeFile(
       join(directory, 'consumer.ts'),
       `import * as core from '${PACKAGE_NAME}';
+import type { SubscriptionPriceMigrationResource } from '${PACKAGE_NAME}';
 import * as express from '${PACKAGE_NAME}/express';
 import * as fastify from '${PACKAGE_NAME}/fastify';
 import * as nest from '${PACKAGE_NAME}/nest';
@@ -57,6 +58,8 @@ import * as mcp from '${PACKAGE_NAME}/mcp';
 import * as prisma from '${PACKAGE_NAME}/prisma';
 import * as sisp from '${PACKAGE_NAME}/sisp';
 
+declare const migrations: SubscriptionPriceMigrationResource;
+void migrations.preview;
 void [core, express, fastify, nest, mcp, prisma, sisp];
 `,
     ),

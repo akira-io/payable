@@ -25,27 +25,37 @@ export class CancelSubscriptionNowAction extends SubscriptionAction {
     );
     const provider = this.subscriptionProvider('cancelImmediately');
     const subscription = await this.resolve(billable, name);
-    const dto = await provider.cancelSubscription(
-      { providerSubscriptionId: subscription.providerSubscriptionId, immediately: true },
-      this.context('cancel-now', subscription.providerSubscriptionId),
-    );
-    return this.storage().transaction(async (repos) => {
-      const updated = await repos.subscriptions.update(
-        subscription.id,
-        {
-          status: this.reconcileStatus(subscription.status, dto.status),
-          endsAt: this.deps.clock.now(),
-        },
-        this.deps.tenantId ?? null,
-      );
-      await this.auditWith(repos, {
-        action: 'subscription.canceled_now',
-        subscriptionId: subscription.id,
-        before: { status: subscription.status, endsAt: subscription.endsAt ?? null },
-        after: { status: updated.status, endsAt: updated.endsAt ?? null },
-        authorization,
-      });
-      return updated;
+    await this.assertNoActiveMigration(subscription.id);
+    const context = this.context('cancel-now', subscription.providerSubscriptionId);
+    return this.mutateSubscription({
+      subscriptionId: subscription.id,
+      operation: 'subscription_cancel_now',
+      context,
+      callProvider: async () => ({
+        kind: 'applied',
+        value: await provider.cancelSubscription(
+          { providerSubscriptionId: subscription.providerSubscriptionId, immediately: true },
+          context,
+        ),
+      }),
+      persist: async (repos, dto) => {
+        const updated = await repos.subscriptions.update(
+          subscription.id,
+          {
+            status: this.reconcileStatus(subscription.status, dto.status),
+            endsAt: this.deps.clock.now(),
+          },
+          this.deps.tenantId ?? null,
+        );
+        await this.auditWith(repos, {
+          action: 'subscription.canceled_now',
+          subscriptionId: subscription.id,
+          before: { status: subscription.status, endsAt: subscription.endsAt ?? null },
+          after: { status: updated.status, endsAt: updated.endsAt ?? null },
+          authorization,
+        });
+        return updated;
+      },
     });
   }
 }

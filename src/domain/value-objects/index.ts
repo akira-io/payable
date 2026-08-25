@@ -38,6 +38,19 @@ export {
   type RefundStatus,
 } from './refund-status';
 export {
+  isSubscriptionPriceMigrationFailure,
+  isSubscriptionPriceMigrationFailureCode,
+  SUBSCRIPTION_PRICE_MIGRATION_FAILURES,
+  type SubscriptionPriceMigrationFailure,
+  type SubscriptionPriceMigrationFailureCode,
+  subscriptionPriceMigrationFailure,
+} from './subscription-price-migration-failure';
+export {
+  isSubscriptionPriceMigrationStatus,
+  SUBSCRIPTION_PRICE_MIGRATION_STATUSES,
+  type SubscriptionPriceMigrationStatus,
+} from './subscription-price-migration-status';
+export {
   isActiveSubscription,
   isCanceledSubscription,
   isSubscriptionStatus,

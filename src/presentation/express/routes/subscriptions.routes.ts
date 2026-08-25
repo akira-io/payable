@@ -1,8 +1,13 @@
 import type { Router } from 'express';
 import type { Payable } from '../../../payable';
+import { requireRequestIdempotencyKey } from '../../shared/catalog-idempotency';
 import {
   type ManageSubscriptionAction as ManageAction,
   runManageSubscription,
+  runSubscriptionPriceMigrationAction,
+  runSubscriptionPriceMigrationList,
+  runSubscriptionPriceMigrationPreview,
+  runSubscriptionPriceMigrationRetrieve,
   runSwapSubscription,
 } from '../../shared/operations';
 import {
@@ -10,8 +15,13 @@ import {
   listSubscriptionsQuerySchema,
   manageSubscriptionBodySchema,
   parseBody,
+  subscriptionPriceMigrationIdParamSchema,
+  subscriptionPriceMigrationListQuerySchema,
+  subscriptionPriceMigrationOperationBodySchema,
+  subscriptionPriceMigrationPreviewBodySchema,
   swapSubscriptionBodySchema,
 } from '../../shared/schemas';
+import { SubscriptionMigrationMutationBoundary } from '../../shared/subscription-migration-boundary';
 import { asyncHandler, type ExpressPayableOptions, jsonBody } from '../helpers';
 
 export function registerSubscriptionRoutes(
@@ -19,6 +29,9 @@ export function registerSubscriptionRoutes(
   payable: Payable,
   options: ExpressPayableOptions = {},
 ): void {
+  const migrationBoundary = new SubscriptionMigrationMutationBoundary(
+    options.subscriptionPriceMigrationLimits,
+  );
   router.get(
     '/subscriptions',
     asyncHandler(async (req, res) => {
@@ -88,4 +101,93 @@ export function registerSubscriptionRoutes(
       res.status(200).json(result);
     }),
   );
+
+  router.post(
+    '/canonical/subscription-price-migrations',
+    jsonBody(migrationBoundary.maxBodyBytes),
+    asyncHandler(async (req, res) => {
+      const body = parseBody(subscriptionPriceMigrationPreviewBodySchema, req.body);
+      const access = mutationAccess(req, options, migrationBoundary);
+      res
+        .status(200)
+        .json(
+          await runSubscriptionPriceMigrationPreview(
+            payable,
+            body,
+            access.tenantId,
+            access.authorization,
+            requireRequestIdempotencyKey({ headers: req.headers, rawHeaders: req.rawHeaders }),
+          ),
+        );
+    }),
+  );
+  router.get(
+    '/canonical/subscription-price-migrations',
+    asyncHandler(async (req, res) => {
+      const input = parseBody(subscriptionPriceMigrationListQuerySchema, req.query);
+      res
+        .status(200)
+        .json(
+          await runSubscriptionPriceMigrationList(
+            payable,
+            input,
+            options.resolveTenant?.(req) ?? null,
+            options.resolveAuthorization?.(req),
+          ),
+        );
+    }),
+  );
+  router.get(
+    '/canonical/subscription-price-migrations/:id',
+    asyncHandler(async (req, res) => {
+      const { id } = parseBody(subscriptionPriceMigrationIdParamSchema, req.params);
+      res
+        .status(200)
+        .json(
+          await runSubscriptionPriceMigrationRetrieve(
+            payable,
+            id,
+            options.resolveTenant?.(req) ?? null,
+            options.resolveAuthorization?.(req),
+          ),
+        );
+    }),
+  );
+  for (const action of ['approve', 'cancel', 'retry'] as const) {
+    router.post(
+      `/canonical/subscription-price-migrations/:id/${action}`,
+      jsonBody(migrationBoundary.maxBodyBytes),
+      asyncHandler(async (req, res) => {
+        parseBody(subscriptionPriceMigrationOperationBodySchema, req.body);
+        const { id } = parseBody(subscriptionPriceMigrationIdParamSchema, req.params);
+        const access = mutationAccess(req, options, migrationBoundary);
+        res
+          .status(200)
+          .json(
+            await runSubscriptionPriceMigrationAction(
+              payable,
+              action,
+              id,
+              access.tenantId,
+              access.authorization,
+              requireRequestIdempotencyKey({ headers: req.headers, rawHeaders: req.rawHeaders }),
+            ),
+          );
+      }),
+    );
+  }
+}
+
+function mutationAccess(
+  request: Parameters<NonNullable<ExpressPayableOptions['resolveTenant']>>[0],
+  options: ExpressPayableOptions,
+  boundary: SubscriptionMigrationMutationBoundary,
+) {
+  const tenantId = options.resolveTenant?.(request) ?? null;
+  const authorization = options.resolveAuthorization?.(request);
+  boundary.enforceRate({
+    tenantId,
+    actorId: authorization?.actorId,
+  });
+  return { tenantId, authorization };
 }

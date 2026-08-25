@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { assertSubscriptionChangePolicies } from '../src/application/services/provider-capabilities/assert-subscription-change-policies';
+import type { SubscriptionChangeApplicationOutcome } from '../src/domain/contracts/subscription-change-provider.contract';
 import {
   defineSubscriptionOperationCapabilities,
   NO_SUBSCRIPTION_OPERATIONS,
@@ -15,6 +16,31 @@ const capabilities = defineSubscriptionOperationCapabilities({
     paymentFailurePolicies: ['preventChange'],
   },
 });
+
+const definitiveNoSideEffects = {
+  kind: 'not_applied',
+  sideEffects: 'definitively_none',
+  code: 'PROVIDER_REJECTED',
+} satisfies SubscriptionChangeApplicationOutcome;
+type MissingSideEffectsRejected = {
+  kind: 'not_applied';
+  code: string;
+} extends SubscriptionChangeApplicationOutcome
+  ? false
+  : true;
+type UncertainSideEffectsRejected = {
+  kind: 'not_applied';
+  sideEffects: 'unknown';
+  code: string;
+} extends SubscriptionChangeApplicationOutcome
+  ? false
+  : true;
+const missingSideEffectsRejected: MissingSideEffectsRejected = true;
+const uncertainSideEffectsRejected: UncertainSideEffectsRejected = true;
+
+void definitiveNoSideEffects;
+void missingSideEffectsRejected;
+void uncertainSideEffectsRejected;
 
 describe('subscription change policy contract', () => {
   it('accepts an explicitly supported policy combination', () => {

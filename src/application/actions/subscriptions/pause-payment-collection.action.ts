@@ -35,28 +35,38 @@ export class PausePaymentCollectionAction extends SubscriptionAction {
     );
     assertPausePaymentCollectionPolicySupported(provider, policy);
     const subscription = await this.resolve(billable, name);
-    const dto = await provider.pausePaymentCollection(
-      { providerSubscriptionId: subscription.providerSubscriptionId, ...policy },
-      this.context(
-        'pause-payment-collection',
-        subscription.providerSubscriptionId,
-        JSON.stringify(policy),
-      ),
+    await this.assertNoActiveMigration(subscription.id);
+    const context = this.context(
+      'pause-payment-collection',
+      subscription.providerSubscriptionId,
+      JSON.stringify(policy),
     );
-    return this.storage().transaction(async (repos) => {
-      const updated = await repos.subscriptions.update(
-        subscription.id,
-        { ...this.lifecyclePatch(subscription, dto), status: subscription.status },
-        this.deps.tenantId ?? null,
-      );
-      await this.auditWith(repos, {
-        action: 'subscription.payment_collection_paused',
-        subscriptionId: subscription.id,
-        before: this.lifecycleSnapshot(subscription),
-        after: this.lifecycleSnapshot(updated),
-        authorization,
-      });
-      return updated;
+    return this.mutateSubscription({
+      subscriptionId: subscription.id,
+      operation: 'subscription_pause_payment_collection',
+      context,
+      callProvider: async () => ({
+        kind: 'applied',
+        value: await provider.pausePaymentCollection(
+          { providerSubscriptionId: subscription.providerSubscriptionId, ...policy },
+          context,
+        ),
+      }),
+      persist: async (repos, dto) => {
+        const updated = await repos.subscriptions.update(
+          subscription.id,
+          { ...this.lifecyclePatch(subscription, dto), status: subscription.status },
+          this.deps.tenantId ?? null,
+        );
+        await this.auditWith(repos, {
+          action: 'subscription.payment_collection_paused',
+          subscriptionId: subscription.id,
+          before: this.lifecycleSnapshot(subscription),
+          after: this.lifecycleSnapshot(updated),
+          authorization,
+        });
+        return updated;
+      },
     });
   }
 }

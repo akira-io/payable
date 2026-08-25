@@ -19,6 +19,8 @@ import type {
   ProductRepository,
   RefundRepository,
   SubscriptionItemRepository,
+  SubscriptionMutationClaimRepository,
+  SubscriptionPriceMigrationRepository,
   SubscriptionProviderBindingRepository,
   SubscriptionRepository,
   WebhookDeliveryRepository,
@@ -52,6 +54,8 @@ import { KnexProductProviderBindingRepository } from './repositories/knex-produc
 import { KnexRefundRepository } from './repositories/knex-refund.repository';
 import { KnexSubscriptionRepository } from './repositories/knex-subscription.repository';
 import { KnexSubscriptionItemRepository } from './repositories/knex-subscription-item.repository';
+import { KnexSubscriptionMutationClaimRepository } from './repositories/knex-subscription-mutation-claim.repository';
+import { KnexSubscriptionPriceMigrationRepository } from './repositories/knex-subscription-price-migration.repository';
 import { KnexSubscriptionProviderBindingRepository } from './repositories/knex-subscription-provider-binding.repository';
 import { KnexWebhookDeliveryRepository } from './repositories/knex-webhook-delivery.repository';
 import { KnexWebhookEndpointRepository } from './repositories/knex-webhook-endpoint.repository';
@@ -76,6 +80,8 @@ function buildRepositories(
     prices: new KnexPriceRepository(qb, clock),
     priceProviderBindings: new KnexPriceProviderBindingRepository(qb, clock),
     subscriptions: new KnexSubscriptionRepository(qb, clock),
+    subscriptionMutationClaims: new KnexSubscriptionMutationClaimRepository(qb),
+    subscriptionPriceMigrations: new KnexSubscriptionPriceMigrationRepository(qb, clock),
     subscriptionProviderBindings: new KnexSubscriptionProviderBindingRepository(qb, clock),
     subscriptionItems: new KnexSubscriptionItemRepository(qb, clock),
     invoices: new KnexInvoiceRepository(qb, clock),
@@ -104,6 +110,8 @@ export class KnexStorageDriver implements StorageDriver {
   prices!: PriceRepository;
   priceProviderBindings!: PriceProviderBindingRepository;
   subscriptions!: SubscriptionRepository;
+  subscriptionMutationClaims!: SubscriptionMutationClaimRepository;
+  subscriptionPriceMigrations!: SubscriptionPriceMigrationRepository;
   subscriptionProviderBindings!: SubscriptionProviderBindingRepository;
   subscriptionItems!: SubscriptionItemRepository;
   invoices!: InvoiceRepository;
@@ -159,6 +167,8 @@ export class KnexStorageDriver implements StorageDriver {
     this.priceProviderBindings =
       repositories.priceProviderBindings as PriceProviderBindingRepository;
     this.subscriptions = repositories.subscriptions;
+    this.subscriptionMutationClaims = repositories.subscriptionMutationClaims;
+    this.subscriptionPriceMigrations = repositories.subscriptionPriceMigrations;
     this.subscriptionProviderBindings = repositories.subscriptionProviderBindings;
     this.subscriptionItems = repositories.subscriptionItems;
     this.invoices = repositories.invoices;

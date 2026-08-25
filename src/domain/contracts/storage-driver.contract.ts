@@ -18,6 +18,8 @@ import type { ProductProviderBindingRepository } from './product-provider-bindin
 import type { ProductRepository } from './product-repository.contract';
 import type { RefundRepository } from './refund-repository.contract';
 import type { SubscriptionItemRepository } from './subscription-item-repository.contract';
+import type { SubscriptionMutationClaimRepository } from './subscription-mutation-claim-repository.contract';
+import type { SubscriptionPriceMigrationRepository } from './subscription-price-migration-repository.contract';
 import type { SubscriptionProviderBindingRepository } from './subscription-provider-binding-repository.contract';
 import type { SubscriptionRepository } from './subscription-repository.contract';
 import type { WebhookDeliveryRepository } from './webhook-delivery-repository.contract';
@@ -37,6 +39,8 @@ export interface Repositories {
   readonly priceProviderBindings?: PriceProviderBindingRepository;
   readonly productProviderBindings?: ProductProviderBindingRepository;
   readonly subscriptions: SubscriptionRepository;
+  readonly subscriptionMutationClaims: SubscriptionMutationClaimRepository;
+  readonly subscriptionPriceMigrations: SubscriptionPriceMigrationRepository;
   readonly subscriptionProviderBindings: SubscriptionProviderBindingRepository;
   readonly subscriptionItems: SubscriptionItemRepository;
   readonly invoices: InvoiceRepository;

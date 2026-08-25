@@ -36,6 +36,14 @@ if (typeof esm.AuditResource !== 'function' || typeof esm.KnexAuditLogRepository
   console.error('ESM core entry does not export the generic audit resource and Knex repository');
   process.exit(1);
 }
+if (
+  typeof esm.SubscriptionPriceMigrationError !== 'function' ||
+  !Array.isArray(esm.SUBSCRIPTION_PRICE_MIGRATION_STATUSES) ||
+  esm.SubscriptionPriceMigrationResource !== undefined
+) {
+  console.error('ESM core entry does not expose the canonical migration contract safely');
+  process.exit(1);
+}
 
 const cjs = require(fileURLToPath(new URL(core.require, root)));
 if (typeof cjs.createPayable !== 'function') {
@@ -44,6 +52,14 @@ if (typeof cjs.createPayable !== 'function') {
 }
 if (typeof cjs.AuditResource !== 'function' || typeof cjs.KnexAuditLogRepository !== 'function') {
   console.error('CJS core entry does not export the generic audit resource and Knex repository');
+  process.exit(1);
+}
+if (
+  typeof cjs.SubscriptionPriceMigrationError !== 'function' ||
+  !Array.isArray(cjs.SUBSCRIPTION_PRICE_MIGRATION_STATUSES) ||
+  cjs.SubscriptionPriceMigrationResource !== undefined
+) {
+  console.error('CJS core entry does not expose the canonical migration contract safely');
   process.exit(1);
 }
 
@@ -58,4 +74,6 @@ if (
   process.exit(1);
 }
 
-console.log('exports verified: subpath files exist; core entry imports under ESM and CJS');
+console.log(
+  'exports verified: subpaths exist; core imports under ESM/CJS; migration implementation is internal',
+);

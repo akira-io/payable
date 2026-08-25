@@ -35,6 +35,7 @@ describe('forward migrations (C5)', () => {
   it('runs idempotently', async () => {
     await migrate(db);
     await expect(migrate(db)).resolves.toBeUndefined();
+    expect(await db.schema.hasTable('payable_subscription_price_migrations')).toBe(true);
   });
 
   it('survives concurrent invocations', async () => {

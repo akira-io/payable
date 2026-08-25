@@ -29,30 +29,40 @@ export class CancelScheduledSubscriptionChangeAction extends SubscriptionAction 
     );
     assertSubscriptionOperation(provider, 'cancelScheduledChange');
     const subscription = await this.resolve(billable, name);
-    const dto = await provider.cancelScheduledSubscriptionChange(
-      { providerSubscriptionId: subscription.providerSubscriptionId },
-      this.context('cancel-scheduled-change', subscription.providerSubscriptionId),
-    );
-    return this.storage().transaction(async (repos) => {
-      const updated = await repos.subscriptions.update(
-        subscription.id,
-        {
-          ...this.lifecyclePatch(subscription, dto),
-          scheduledChangeAction: null,
-          scheduledChangeEffectiveAt: null,
-          scheduledResumeAt: null,
-          resumeBillingPolicy: null,
-        },
-        this.deps.tenantId ?? null,
-      );
-      await this.auditWith(repos, {
-        action: 'subscription.scheduled_change_canceled',
-        subscriptionId: subscription.id,
-        before: this.lifecycleSnapshot(subscription),
-        after: this.lifecycleSnapshot(updated),
-        authorization,
-      });
-      return updated;
+    await this.assertNoActiveMigration(subscription.id);
+    const context = this.context('cancel-scheduled-change', subscription.providerSubscriptionId);
+    return this.mutateSubscription({
+      subscriptionId: subscription.id,
+      operation: 'subscription_cancel_scheduled_change',
+      context,
+      callProvider: async () => ({
+        kind: 'applied',
+        value: await provider.cancelScheduledSubscriptionChange(
+          { providerSubscriptionId: subscription.providerSubscriptionId },
+          context,
+        ),
+      }),
+      persist: async (repos, dto) => {
+        const updated = await repos.subscriptions.update(
+          subscription.id,
+          {
+            ...this.lifecyclePatch(subscription, dto),
+            scheduledChangeAction: null,
+            scheduledChangeEffectiveAt: null,
+            scheduledResumeAt: null,
+            resumeBillingPolicy: null,
+          },
+          this.deps.tenantId ?? null,
+        );
+        await this.auditWith(repos, {
+          action: 'subscription.scheduled_change_canceled',
+          subscriptionId: subscription.id,
+          before: this.lifecycleSnapshot(subscription),
+          after: this.lifecycleSnapshot(updated),
+          authorization,
+        });
+        return updated;
+      },
     });
   }
 }

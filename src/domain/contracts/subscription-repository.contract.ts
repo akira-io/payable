@@ -38,6 +38,7 @@ export type SubscriptionPatch = Partial<
     | 'currentPeriodStart'
     | 'currentPeriodEnd'
     | 'providerSyncedAt'
+    | CanonicalSnapshotKey
     | LifecycleMetadataKey
   >
 >;

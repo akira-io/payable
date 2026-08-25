@@ -27,6 +27,12 @@ The codebase follows clean-architecture layers under `src/`:
 - Keep diffs focused: refactors, feature work, and dependency bumps belong in separate PRs. No
   drive-by refactors in feature PRs.
 
+`main` is the development integration line. A downstream development checkout may depend on
+`github:akira-io/payable#main`, but its committed `bun.lock` must pin the resolved commit and CI must
+install with `bun install --frozen-lockfile`. Move that pin only through an explicit dependency and
+lockfile update. A merged feature does not create a tag, npm version, or release; those remain
+separate authorized release actions.
+
 ## Coding standards
 
 - Biome and `tsc` outputs are the source of truth for style and types.
@@ -91,6 +97,7 @@ The package scripts are run with Bun in CI; locally either Bun or npm works.
 | Build | `bun run build` (`tsup`) |
 | Verify core bundle | `bun run verify:bundle` |
 | Verify exports map | `bun run verify:exports` (`node scripts/check-exports.mjs`) |
+| Verify a Git consumer | `bun run verify:git-consumer -- <git-spec>` |
 
 Vitest's `-t`/`--testNamePattern` selects by test name; `vitest run path/to/file.test.ts` selects by
 file.
@@ -107,6 +114,11 @@ entry must not pull a provider or framework into every consumer's bundle.
 built `dist/`: every subpath's `types`/`import`/`require` target must exist, and the core entry is
 imported under both ESM and CJS to confirm it exports `createPayable`. It runs in CI and in
 `prepublishOnly`, so a broken exports map or unbuilt subpath fails before publish.
+
+`bun run verify:git-consumer -- <git-spec>` creates a temporary ESM consumer, installs the exact Git
+spec, typechecks it, imports every declared subpath through ESM and CommonJS, runs both CLI help
+commands, and verifies the installed Prisma model asset through `payable-prisma sync`. CI supplies
+the checked-out commit SHA rather than a moving branch name.
 
 ## Debugging approaches
 

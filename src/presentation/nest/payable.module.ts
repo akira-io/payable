@@ -7,6 +7,7 @@ import { PayableAuthGuard } from './payable-auth.guard';
 import { PayableCanonicalReadController } from './payable-canonical-read.controller';
 import { PayableCatalogController } from './payable-catalog.controller';
 import { PayableReadController } from './payable-read.controller';
+import { PayableSubscriptionsController } from './payable-subscriptions.controller';
 
 @Module({})
 export class PayableModule {
@@ -27,6 +28,7 @@ export class PayableModule {
         PayableCatalogController,
         PayableCanonicalReadController,
         PayableReadController,
+        PayableSubscriptionsController,
       ],
       providers,
     };

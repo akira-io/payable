@@ -6,24 +6,15 @@ import {
 } from './application/actions/checkout/reconcile-redirect-payment.action';
 import { RefundPaymentAction } from './application/actions/refunds/refund-payment.action';
 import {
-  PROCESS_TREASURY_WEBHOOK_JOB,
-  ProcessTreasuryWebhookAction,
-  type ProcessTreasuryWebhookJobPayload,
-} from './application/actions/treasury-webhooks/process-treasury-webhook.action';
-import {
   ReceiveTreasuryWebhookAction,
   type ReceiveTreasuryWebhookInput,
 } from './application/actions/treasury-webhooks/receive-treasury-webhook.action';
-import {
-  PROCESS_WEBHOOK_JOB,
-  ProcessWebhookAction,
-  type ProcessWebhookJobPayload,
-} from './application/actions/webhooks/process-webhook.action';
 import {
   ReceiveWebhookAction,
   type ReceiveWebhookInput,
   type ReceiveWebhookResult,
 } from './application/actions/webhooks/receive-webhook.action';
+import { registerPayableWebhookProcessors } from './application/actions/webhooks/register-payable-webhook-processors';
 import { ReplayWebhookAction } from './application/actions/webhooks/replay-webhook.action';
 import { AuditResource } from './application/builders/audit-resource';
 import type { Billable } from './application/builders/billable';
@@ -40,6 +31,10 @@ import type { LocalSubscriptionResource } from './application/builders/local-sub
 import { ProviderCatalogResource } from './application/builders/provider-catalog-resource';
 import { RefundResource } from './application/builders/refund-resource';
 import { StoredPaymentResource } from './application/builders/stored-payment-resource';
+import { SubscriptionMutationClaimResource as InternalSubscriptionMutationClaimResource } from './application/builders/subscription-mutation-claim-resource';
+import type { SubscriptionMutationClaimResource } from './application/builders/subscription-mutation-claim-resource.contract';
+import { SubscriptionPriceMigrationResource as InternalSubscriptionPriceMigrationResource } from './application/builders/subscription-price-migration-resource';
+import type { SubscriptionPriceMigrationResource } from './application/builders/subscription-price-migration-resource.contract';
 import { WebhookEndpointResource } from './application/builders/webhook-endpoint-resource';
 import { WebhookEventResource } from './application/builders/webhook-event-resource';
 import type { ReplayWebhookContext } from './application/policies/can-replay-webhook.policy';
@@ -54,7 +49,6 @@ import type { Clock } from './domain/contracts/clock.contract';
 import type { EventBus } from './domain/contracts/event-bus.contract';
 import type { ListOptions } from './domain/contracts/list-options.contract';
 import type { Logger } from './domain/contracts/logger.contract';
-import type { QueueJob } from './domain/contracts/queue-driver.contract';
 import type { Payment } from './domain/entities/payment.entity';
 import type { Refund } from './domain/entities/refund.entity';
 import type { Subscription } from './domain/entities/subscription.entity';
@@ -74,12 +68,7 @@ export class Payable extends ProviderRegistries {
   constructor(private readonly resolved: ResolvedConfig) {
     super(resolved);
     this.factory = new DependencyFactory(resolved, this.registry, this.treasuryRegistry);
-    this.resolved.queue.process(PROCESS_WEBHOOK_JOB, (job: QueueJob) =>
-      this.processWebhookJob(job),
-    );
-    this.resolved.queue.process(PROCESS_TREASURY_WEBHOOK_JOB, (job: QueueJob) =>
-      this.processTreasuryWebhookJob(job),
-    );
+    registerPayableWebhookProcessors(this.resolved.queue, this.factory);
     registerCatalogSyncProcessor(this.resolved.queue, this.factory);
   }
   events(): EventBus {
@@ -118,6 +107,12 @@ export class Payable extends ProviderRegistries {
   canonicalSubscriptions(tenantId?: string | null): CanonicalSubscriptionResource {
     return new CanonicalSubscriptionResource(this.factory.local(tenantId));
   }
+  subscriptionPriceMigrations(tenantId?: string | null): SubscriptionPriceMigrationResource {
+    return new InternalSubscriptionPriceMigrationResource(this.factory.local(tenantId));
+  }
+  subscriptionMutationClaims(tenantId?: string | null): SubscriptionMutationClaimResource {
+    return new InternalSubscriptionMutationClaimResource(this.factory.local(tenantId));
+  }
   canonicalInvoices(tenantId?: string | null): CanonicalInvoiceResource {
     return new CanonicalInvoiceResource(this.factory.local(tenantId));
   }
@@ -127,13 +122,11 @@ export class Payable extends ProviderRegistries {
   invoices(providerName?: string, tenantId?: string | null): InvoiceResource {
     return new InvoiceResource(this.factory.billing(providerName, tenantId));
   }
-
   async receiveWebhook(
     input: ReceiveWebhookInput & { provider?: string },
   ): Promise<ReceiveWebhookResult> {
     return new ReceiveWebhookAction(this.factory.webhook(input.provider)).handle(input);
   }
-
   receiveTreasuryWebhook(
     input: ReceiveTreasuryWebhookInput & { provider?: string },
   ): Promise<ReceiveWebhookResult> {
@@ -141,7 +134,6 @@ export class Payable extends ProviderRegistries {
       input,
     );
   }
-
   async receiveRedirectCallback(
     input: RedirectCallbackInput & { provider?: string },
   ): Promise<ReconcileRedirectPaymentResult> {
@@ -149,7 +141,6 @@ export class Payable extends ProviderRegistries {
       this.factory.billing(input.provider, input.tenantId),
     ).handle(input);
   }
-
   replayWebhook(
     webhookEventId: string,
     context?: ReplayWebhookContext,
@@ -263,18 +254,6 @@ export class Payable extends ProviderRegistries {
     return new ListAuditLogsQuery(this.resolved.storage.auditLogs, tenantId ?? null);
   }
 
-  private async processWebhookJob(job: QueueJob): Promise<void> {
-    const payload = job.payload as ProcessWebhookJobPayload;
-    await new ProcessWebhookAction(this.factory.webhook(payload.providerName)).handle(payload);
-  }
-
-  private async processTreasuryWebhookJob(job: QueueJob): Promise<void> {
-    const payload = job.payload as ProcessTreasuryWebhookJobPayload;
-    await new ProcessTreasuryWebhookAction(
-      this.factory.treasuryWebhook(payload.providerName),
-    ).handle(payload);
-  }
-
   async refund(request: RefundRequest, tenantId?: string | null): Promise<Refund> {
     const providerName = await this.resolveRefundProvider(request.paymentId, tenantId ?? null);
     return new RefundPaymentAction(this.factory.billing(providerName, tenantId)).handle({
@@ -285,7 +264,6 @@ export class Payable extends ProviderRegistries {
       authorization: request.authorization,
     });
   }
-
   private async resolveRefundProvider(
     paymentId: string,
     tenantId: string | null,

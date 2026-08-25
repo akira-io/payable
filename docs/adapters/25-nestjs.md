@@ -24,7 +24,7 @@ export class PayableModule {
 
 `forRoot` returns a `DynamicModule` that registers:
 
-- `controllers: [PayableController, PayableCatalogController, PayableCanonicalReadController, PayableReadController]`
+- `controllers: [PayableController, PayableCatalogController, PayableCanonicalReadController, PayableReadController, PayableSubscriptionsController]`
 - `providers`:
   - `{ provide: PAYABLE_INSTANCE, useValue: payable }`
   - `{ provide: PAYABLE_OPTIONS, useValue: options }`
@@ -32,10 +32,11 @@ export class PayableModule {
   - `PayableAuthGuard`
   - `options.authenticate`, only when supplied (so the guard class can be resolved from DI)
 
-The route handlers are split across four controllers. `PayableController` holds non-catalog writes,
+The route handlers are split across five controllers. `PayableController` holds non-catalog writes,
 `PayableCatalogController` holds provider product and price mutations,
 `PayableCanonicalReadController` holds provider-neutral collection reads, and
 `PayableReadController` holds the compatibility and provider-native reads.
+`PayableSubscriptionsController` owns the canonical subscription price migration routes.
 
 ```ts
 interface NestPayableOptions {
@@ -43,6 +44,10 @@ interface NestPayableOptions {
   authenticate?: Type<CanActivate>; // optional guard class, resolved via PayableAuthGuard
   resolveTenant?: (request: PayableHttpRequest) => string | null | undefined;
   resolveAuthorization?: (request: PayableHttpRequest) => AuthorizationContext | undefined;
+  subscriptionPriceMigrationLimits?: {
+    bodyLimit?: number;
+    rateLimit?: { max?: number; windowMs?: number };
+  };
 }
 ```
 
@@ -114,11 +119,30 @@ constructor(
 four resources. These routes default to 25 items, accept at most 100, use the request tenant, and do
 not resolve a provider.
 
+`PayableSubscriptionsController` is mounted at `canonical/subscription-price-migrations`:
+
+| Method | Path | Behavior |
+| --- | --- | --- |
+| POST | `canonical/subscription-price-migrations` | Create an immutable canonical preview |
+| GET | `canonical/subscription-price-migrations` | List a bounded tenant page |
+| GET | `canonical/subscription-price-migrations/:id` | Retrieve one migration |
+| POST | `canonical/subscription-price-migrations/:id/approve` | Execute or schedule the preview |
+| POST | `canonical/subscription-price-migrations/:id/cancel` | Cancel an eligible migration |
+| POST | `canonical/subscription-price-migrations/:id/retry` | Retry a recoverable failure |
+
+The create body requires canonical IDs and explicit timing, proration, and payment-failure policies.
+Scheduled requests require an RFC 3339 `effectiveAt`; other timings reject it. Every POST requires
+exactly one `Idempotency-Key`. All six routes require a non-empty resolved tenant and a matching
+allowed authorization context. Lists accept limits from 1 through 100 and opaque cursors. Responses
+exclude provider identifiers, execution tokens, request hashes, internal evidence, and provider
+diagnostics. Execute and due-page operations are core-only and are not Nest routes.
+
 ## Scope and parity with Express
 
 The NestJS adapter exposes the same route set as Express: webhooks, checkout,
 subscription management (`cancel`, `cancel-now`, `resume`, `swap`), subscription reads, customers,
-invoices, payments, products, prices, and refunds (create and list).
+invoices, payments, products, prices, refunds (create and list), and canonical subscription price
+migrations.
 
 Every JSON route validates its body or query with the shared Zod schemas in
 `src/presentation/shared/schemas.ts` via `parseBody`, so a malformed body is rejected with
@@ -131,50 +155,38 @@ a replacement price.
 
 ## Request body limits
 
-Unlike the Express and Fastify adapters - which apply a built-in 64KB cap on JSON routes and a 1MB
-cap on webhook routes - the NestJS adapter sets no body-size limit of its own. NestJS owns the HTTP
-server and its body parser, so the controller relies entirely on the host application's parser
-configuration. A default Nest deployment is bounded by the platform parser's default (~100KB for
-the Express platform), but you do not get the adapter's 64KB/1MB DoS guard automatically.
-
-Configure equivalent limits on the host app to match the other adapters:
+Subscription price migration mutations require the Payable raw-byte parser boundary. Disable Nest's
+default parser, install the exported Express-platform helper before initialization, and give the
+module and helper the same limits:
 
 ```ts
-// Express platform (Nest 10+): set per-parser limits
-const app = await NestFactory.create<NestExpressApplication>(AppModule);
-app.useBodyParser('json', { limit: '64kb' });
-app.useBodyParser('raw', { limit: '1mb' }); // for the raw webhook route
+import { configureNestExpressPayableBodyParser } from '@akira-io/payable/nest';
 
-// Fastify platform: cap the body at registration
-const app = await NestFactory.create<NestFastifyApplication>(
-  AppModule,
-  new FastifyAdapter({ bodyLimit: 1024 * 1024 }),
-);
+const subscriptionPriceMigrationLimits = {
+  bodyLimit: 64 * 1024,
+  rateLimit: { max: 100, windowMs: 60_000 },
+};
+
+// Pass subscriptionPriceMigrationLimits to PayableModule.forRoot(...) in AppModule.
+const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+  bodyParser: false,
+});
+configureNestExpressPayableBodyParser(app, {
+  subscriptionPriceMigrationLimits,
+});
+await app.init();
 ```
 
-Keep the webhook route's limit (1MB) higher than the JSON routes' limit (64KB), and remember the
-webhook route also requires `{ rawBody: true }` (see below).
+The helper enforces the limit on streamed raw bytes, including chunked requests, before JSON parsing.
+The controller fails closed when the helper is missing or its configured limit differs from the
+module limit. It preserves `request.rawBody` by default for webhook signature verification.
 
 ## Raw body requirement
 
-Webhook signature verification needs the raw request body. The controller reads it from
-`request.rawBody`, falling back to a string body, then an empty string:
-
-```ts
-private extractPayload(request: PayableHttpRequest): string {
-  if (Buffer.isBuffer(request.rawBody)) {
-    return request.rawBody.toString('utf8');
-  }
-  if (typeof request.body === 'string') {
-    return request.body;
-  }
-  return '';
-}
-```
-
-`request.rawBody` is populated by NestJS only when the application is bootstrapped with
-`rawBody: true`. Without it, signature verification receives an empty payload and fails. Bootstrap
-the app like this:
+Webhook signature verification requires `request.rawBody`; the controller fails closed when it is
+not a `Buffer`. `configureNestExpressPayableBodyParser(...)` preserves that buffer by default while
+also enforcing the migration JSON limit. If the application does not use that helper, bootstrap
+Nest's own parser with `rawBody: true`:
 
 ```ts
 import { NestFactory } from '@nestjs/core';
@@ -214,6 +226,11 @@ are never guarded.
 
 Pass your guard class via `authenticate` to authenticate the read and write routes, and verify
 ownership of the billable yourself. See `docs/28-security.md`.
+
+Canonical subscription price migration routes fail closed even when the optional guard is absent:
+`resolveTenant` must return a non-empty tenant and `resolveAuthorization` must return an allowed actor
+with that same tenant. The guard or an upstream boundary must authenticate the identity used by those
+resolvers.
 
 `PayableAuthGuard` runs before each catalog controller method. After the guard succeeds,
 `resolveAuthorization` runs once for the catalog mutation and maps the trusted request identity to an

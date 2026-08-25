@@ -29,6 +29,10 @@ export {
   type SubscriptionChangePreviewErrorCode,
 } from './subscription-change-preview.error';
 export { SubscriptionNotFoundError } from './subscription-not-found.error';
+export {
+  SubscriptionPriceMigrationError,
+  type SubscriptionPriceMigrationErrorCode,
+} from './subscription-price-migration.error';
 export { TaxProviderNotFoundError } from './tax-provider-not-found.error';
 export { TerminalProviderNotFoundError } from './terminal-provider-not-found.error';
 export { TreasuryProviderNotFoundError } from './treasury-provider-not-found.error';

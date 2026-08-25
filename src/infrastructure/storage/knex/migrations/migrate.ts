@@ -6,6 +6,7 @@ import { addCanonicalCatalogTables } from './canonical-catalog-schema';
 import { addCanonicalInvoices } from './canonical-invoices';
 import { addCanonicalLocalSubscriptions } from './canonical-local-subscriptions';
 import { backfillCanonicalProviderCatalog } from './canonical-provider-catalog-backfill';
+import { addCanonicalSubscriptionPriceMigrations } from './canonical-subscription-price-migrations';
 import { addCanonicalSubscriptionProducts } from './canonical-subscription-products';
 import { addCatalogSynchronizationTable } from './catalog-synchronization-schema';
 import { addCatalogTenantKeys } from './catalog-tenant-keys';
@@ -17,6 +18,7 @@ import { runStep } from './migration-ledger';
 import { convergePostLedgerSchema } from './post-ledger-convergence';
 import { addProviderNeutralPageIndexes } from './provider-neutral-page-indexes';
 import { addSubscriptionLifecycleMetadata } from './subscription-lifecycle-metadata';
+import { addSubscriptionMutationRecovery } from './subscription-mutation-recovery';
 import { addSubscriptionProviderSyncedAt } from './subscription-provider-synced-at';
 import { createSystemTables } from './system-schema';
 import { addWebhookOccurredAt } from './webhook-occurred-at';
@@ -132,6 +134,12 @@ export async function migrate(knex: Knex): Promise<void> {
     await runStep(knex, '019-local-payment-evidence', () => addLocalPaymentEvidence(knex));
     await runStep(knex, '020-canonical-invoices', () =>
       addCanonicalInvoices(knex).then(() => undefined),
+    );
+    await runStep(knex, '021-canonical-subscription-price-migrations', () =>
+      addCanonicalSubscriptionPriceMigrations(knex),
+    );
+    await runStep(knex, '022-subscription-mutation-recovery', () =>
+      addSubscriptionMutationRecovery(knex),
     );
   });
 }

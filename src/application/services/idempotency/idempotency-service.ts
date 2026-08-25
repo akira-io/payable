@@ -22,6 +22,7 @@ interface ResolvedIdempotencyPolicy {
 export interface IdempotentExecution<T> {
   key: string;
   storageKey?: string;
+  legacyStorageKeys?: readonly string[];
   scope: string;
   operation: string;
   request: unknown;
@@ -64,6 +65,15 @@ export class IdempotencyService {
   async execute<T>(execution: IdempotentExecution<T>): Promise<T> {
     const requestHash = await hashRequest(execution.request);
     const executionPolicy = this.resolvePolicy(execution);
+    for (const legacyStorageKey of execution.legacyStorageKeys ?? []) {
+      const legacy = await this.store.find(legacyStorageKey, execution.tenantId);
+      const legacyReplay = this.replay<T>(legacy, requestHash, execution.key, executionPolicy);
+      if (legacyReplay.handled) {
+        return execution.revive
+          ? await execution.revive(legacyReplay.value)
+          : (legacyReplay.value as T);
+      }
+    }
     const existing = await this.store.find(this.scopedKey(execution), execution.tenantId);
     const replay = this.replay<T>(existing, requestHash, execution.key, executionPolicy);
     if (replay.handled) {

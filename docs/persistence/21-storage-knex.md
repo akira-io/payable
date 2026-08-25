@@ -147,6 +147,37 @@ cross-provider, or conflicting rows before recording the ledger entry. It can re
 interrupted batch without duplicating canonical rows or bindings. See
 [Upgrading from 1.0.0-beta6](../32a-upgrading-from-beta6.md) for verification and recovery.
 
+### Canonical subscription price migration schema
+
+Migration step `021-canonical-subscription-price-migrations` creates
+`payable_subscription_price_migrations` and `payable_subscription_mutation_claims`. The migration
+table stores tenant-qualified canonical subscription,
+source price, target price, and provider-binding references; immutable JSON snapshots; explicit
+timing and policies; lifecycle state; ownership; stable failures; and timestamps. Provider execution
+evidence is an internal persistence field and is never returned by the public resource or adapters.
+The claim table uses a stable claim reference, a database-enforced unique active tenant/subscription
+key, an exact owner token, a provider-neutral operation, opaque intent, and replayable observation
+and resolution fields. Step `022-subscription-mutation-recovery` upgrades pre-recovery step-021
+tables idempotently, including the opaque-intent rename and neutral observation columns.
+
+Custom storage drivers must implement the complete public `SubscriptionPriceMigrationRepository`
+and `SubscriptionMutationClaimRepository` contracts. Execution evidence crosses the repository
+boundary only as the opaque `SubscriptionPriceMigrationExecutionEvidenceBlob`; provider fields and
+codecs remain internal. Persistent drivers use the public version-validating rehydration factory.
+Migration creation, tenant-scoped evidence reads, active lookup, reconciliation/settlement CAS,
+unique claim acquisition, tenant-scoped active lookup, exact-owner release, observation, reference
+lookup, and claim resolution are all
+required. This is an explicit custom-driver contract addition with no runtime cast or optional
+fallback.
+
+The table enforces one active migration per tenant and subscription, exact scheduled-date shape,
+non-negative attempts, and execution-token correspondence. Indexes cover tenant/status pages,
+subscription pages, and due work ordered by `effective_at, id`. `applied` and `cancelled` release the
+active-subscription key. `reconciliation_required` retains it until explicit resolution, and
+`pending_renewal` retains it until explicit boundary settlement.
+Operator-confirmed `not_applied` resolves to `failed` while releasing the active key and shared
+mutation claim; a later retry must reacquire both fences.
+
 #### Referential integrity
 
 The split between hard foreign keys and plain indexed columns is deliberate, not an oversight:
@@ -214,6 +245,21 @@ export async function migrate(knex: Knex): Promise<void> {
     );
     await runStep(knex, '017-canonical-provider-catalog-backfill', () =>
       backfillCanonicalProviderCatalog(knex),
+    );
+    await runStep(knex, '018-canonical-subscription-products', () =>
+      addCanonicalSubscriptionProducts(knex).then(() => undefined),
+    );
+    await runStep(knex, '019-local-payment-evidence', () =>
+      addLocalPaymentEvidence(knex),
+    );
+    await runStep(knex, '020-canonical-invoices', () =>
+      addCanonicalInvoices(knex).then(() => undefined),
+    );
+    await runStep(knex, '021-canonical-subscription-price-migrations', () =>
+      addCanonicalSubscriptionPriceMigrations(knex),
+    );
+    await runStep(knex, '022-subscription-mutation-recovery', () =>
+      addSubscriptionMutationRecovery(knex),
     );
   });
 }
@@ -283,6 +329,17 @@ complete sequence is:
   provider-first products and prices into canonical resources with the same local IDs, then creates
   bindings for non-null provider identifiers. Conflicting fields, orphaned prices, tenant mismatches,
   provider mismatches, and binding collisions stop the step before its ledger entry is recorded.
+- **Canonical subscription products** (`018-canonical-subscription-products`) - stores the immutable
+  canonical product identity accepted by each subscription.
+- **Local payment evidence** (`019-local-payment-evidence`) - adds provider-neutral payment evidence
+  used by canonical projections.
+- **Canonical invoices** (`020-canonical-invoices`) - adds tenant-qualified canonical invoice
+  storage.
+- **Canonical subscription price migrations** (`021-canonical-subscription-price-migrations`) - adds
+  immutable migration previews, lifecycle ownership, due-page indexes, tenant-qualified relations,
+  and active-subscription uniqueness.
+- **Subscription mutation recovery** (`022-subscription-mutation-recovery`) - upgrades opaque direct
+  intent and neutral observation storage for exact retained-owner recovery.
 
 Step `009-catalog-tenant-keys` is fail-closed. The mismatch-driven batches revisit rows inserted below
 an earlier batch boundary. The consistency check validates existing rows when it is added and rejects
@@ -303,13 +360,29 @@ const db = knex({ client: 'pg', connection: process.env.DATABASE_URL });
 await migrate(db);
 ```
 
+### Upgrading through steps 021 and 022
+
+Back up the database, deploy the Payable code that contains both steps, and run `migrate(db)` before a
+worker or request can create canonical migrations. The step is additive: it preserves subscriptions,
+subscription items, canonical catalog rows, and legacy preview tokens. It does not synthesize
+canonical migrations for historical provider-native subscriptions.
+
+Run `migrate(db)` again after the first successful upgrade. The second run must leave the migration
+ledger and schema unchanged. If either step fails, do not write its ledger row by hand. Correct the
+reported foreign-key, tenant-identity, or index conflict and rerun the same migration entry point.
+
+For a fresh database, the same `migrate(db)` call applies steps 001 through 022. Fresh creation,
+upgrade, and replay must converge on the same table, foreign keys, unique constraints, and page
+indexes.
+
 ## Repositories
 
 There is one Knex repository per aggregate, under
 `src/infrastructure/storage/knex/repositories/`: canonical product, canonical price, both canonical
 provider-binding repositories, `knex-customer`, legacy `knex-product`, legacy `knex-price`,
 `knex-subscription`, `knex-subscription-item`, `knex-invoice`, `knex-payment`, `knex-refund`,
-`knex-webhook-event`, `knex-audit-log`, `knex-outbox-event`, plus `knex-idempotency`.
+`knex-webhook-event`, `knex-audit-log`, `knex-outbox-event`, `knex-idempotency`, and the composed
+canonical subscription-price-migration repository.
 
 They share a base class `KnexRepository<Entity, New>` (`knex-repository.ts`) providing:
 

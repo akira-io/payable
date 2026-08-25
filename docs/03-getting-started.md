@@ -12,6 +12,23 @@
 npm install @akira-io/payable   # or: pnpm add / bun add
 ```
 
+That command installs a published version. The repository `main` line is a development integration
+source and can be ahead of the latest tag. To test a main-only contract with Bun:
+
+```sh
+bun add --exact github:akira-io/payable#main
+bun install --frozen-lockfile
+```
+
+Keep the `github:akira-io/payable#main` dependency and the resolved `bun.lock` change together.
+The lockfile pins the exact Payable commit, and CI must use `bun install --frozen-lockfile` so `main`
+cannot move during an existing build. Refresh the dependency explicitly when adopting a newer
+Payable commit and review the lockfile diff. Git installs run `bun run build` through the package's
+`prepare` script, including root and adapter subpath declarations, binaries, and Prisma assets.
+
+`main` is not a released version. Tags and npm packages are created only after separate release
+approval; no tag, package version, or publication is implied by this development install flow.
+
 ## Optional peers
 
 Install only the peers for the features you use:

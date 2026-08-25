@@ -2,6 +2,7 @@ import type { AuditLogRepository } from '../../domain/contracts/audit-log-reposi
 import type { Clock } from '../../domain/contracts/clock.contract';
 import type { EventBus } from '../../domain/contracts/event-bus.contract';
 import type { Logger } from '../../domain/contracts/logger.contract';
+import type { PaymentProvider } from '../../domain/contracts/payment-provider.contract';
 import type { StorageDriver } from '../../domain/contracts/storage-driver.contract';
 import type { IdempotencyService } from '../services/idempotency/idempotency-service';
 import type { SubscriptionChangePreviewStore } from '../services/subscriptions/subscription-change-preview-store';
@@ -18,4 +19,5 @@ export interface LocalDependencies {
   audit?: AuditLogRepository;
   events?: EventBus;
   logger?: Logger;
+  resolveProvider?: (providerName: string) => PaymentProvider;
 }

@@ -38,6 +38,7 @@ export class DependencyFactory {
       audit: this.resolved.storage?.auditLogs,
       events: this.resolved.events,
       logger: this.resolved.logger,
+      resolveProvider: (providerName) => this.registry.get(providerName),
     };
   }
 

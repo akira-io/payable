@@ -7,7 +7,7 @@ provider subscription ID to application code.
 ## Prerequisites
 
 - A storage driver and, for preview/apply, an idempotency store
-- A tenant-scoped local subscription ID returned by Payable
+- A tenant-scoped canonical subscription, item, and target price ID returned by Payable
 - A provider whose granular operation descriptor supports the requested policies
 
 ```ts
@@ -16,11 +16,18 @@ const operations = payable
   .providers()
   .subscriptionOperationCapabilities(providerName);
 const subscription = payable.subscription(localSubscriptionId, tenantId);
+const migrations = payable.subscriptionPriceMigrations(tenantId);
 ```
 
 The examples below use the descriptor before presenting an action. The resource repeats the same
 validation before any provider request, so a stale or bypassed user interface cannot force an
 unsupported operation.
+
+## Canonical migration lifecycle
+
+New price migration flows use `subscriptionPriceMigrations(tenantId)`. The resource accepts
+canonical Payable IDs, persists the financial preview, and uses the returned migration ID for every
+later operation. It does not accept a provider subscription or price identifier.
 
 ## Immediate upgrade
 
@@ -33,26 +40,27 @@ if (
   operations.changePrice.prorationPolicies.includes('prorateImmediately') &&
   operations.changePrice.paymentFailurePolicies.includes('preventChange')
 ) {
-  const preview = await subscription.previewChange({
-    priceId: 'price_business',
-    effectiveTiming: 'immediate',
+  const preview = await migrations.preview({
+    subscriptionId: canonicalSubscriptionId,
+    targetPriceId: canonicalBusinessPriceId,
+    itemId: canonicalSubscriptionItemId,
+    timing: { effectiveTiming: 'immediate' },
     prorationPolicy: 'prorateImmediately',
     paymentFailurePolicy: 'preventChange',
-    idempotencyKey: `preview-upgrade-${localSubscriptionId}`,
+    idempotencyKey: `preview-upgrade-${canonicalSubscriptionId}-v1`,
   });
 
   await presentPreviewForApproval(preview);
 
-  await subscription.applyChange({
-    previewToken: preview.previewToken,
-    idempotencyKey: `apply-upgrade-${localSubscriptionId}`,
+  await migrations.approve(preview.id, {
+    idempotencyKey: `approve-upgrade-${preview.id}-v1`,
   });
 }
 ```
 
-The preview token binds the tenant, subscription, current items, proposed items, policies, and
-calculation time. It expires after 15 minutes. Applying a stale preview fails with
-`SUBSCRIPTION_CHANGE_PREVIEW_STALE`.
+The migration binds the tenant, subscription, current items, proposed items, policies, provider
+binding, renewal boundary, and calculation time. It expires after 15 minutes. Approving a stale
+preview fails with `SUBSCRIPTION_MIGRATION_PREVIEW_STALE`.
 
 ## Downgrade at the next renewal
 
@@ -65,25 +73,63 @@ if (
   operations.changePrice.prorationPolicies.includes('none') &&
   operations.changePrice.paymentFailurePolicies.includes('applyChange')
 ) {
-  const preview = await subscription.previewChange({
-    priceId: 'price_starter',
-    effectiveTiming: 'nextRenewal',
+  const preview = await migrations.preview({
+    subscriptionId: canonicalSubscriptionId,
+    targetPriceId: canonicalStarterPriceId,
+    itemId: canonicalSubscriptionItemId,
+    timing: { effectiveTiming: 'nextRenewal' },
     prorationPolicy: 'none',
     paymentFailurePolicy: 'applyChange',
-    idempotencyKey: `preview-downgrade-${localSubscriptionId}`,
+    idempotencyKey: `preview-downgrade-${canonicalSubscriptionId}-v1`,
   });
 
   await presentPreviewForApproval(preview);
 
-  await subscription.applyChange({
-    previewToken: preview.previewToken,
-    idempotencyKey: `apply-downgrade-${localSubscriptionId}`,
+  await migrations.approve(preview.id, {
+    idempotencyKey: `approve-downgrade-${preview.id}-v1`,
   });
 }
 ```
 
-After a successful apply, `retrieve()` still returns the current historical price until the provider
-applies the scheduled change. Webhook reconciliation then updates the effective local items.
+Approval submits the next-renewal instruction to the provider and records the accepted migration as
+`pending_renewal`. The canonical subscription item still carries its historical local price and the
+active fence remains held. At or after `preview.currentRenewalDate`, a trusted host settles it without
+another provider call:
+
+```ts
+await migrations.settle(preview.id, {
+  idempotencyKey: `settle-downgrade-${preview.id}-v1`,
+});
+```
+
+A webhook may advance lifecycle dates, but it never independently infers this local price change.
+
+## Scheduled migration
+
+`scheduled` always carries an explicit instant. The core API uses a `Date`; HTTP and MCP inputs use
+the equivalent RFC 3339 string.
+
+```ts
+const preview = await migrations.preview({
+  subscriptionId: canonicalSubscriptionId,
+  targetPriceId: canonicalBusinessPriceId,
+  itemId: canonicalSubscriptionItemId,
+  timing: {
+    effectiveTiming: 'scheduled',
+    effectiveAt: new Date('2026-10-01T09:00:00.000Z'),
+  },
+  prorationPolicy: 'prorateImmediately',
+  paymentFailurePolicy: 'preventChange',
+  idempotencyKey: `preview-scheduled-${canonicalSubscriptionId}-v1`,
+});
+
+await migrations.approve(preview.id, {
+  idempotencyKey: `approve-scheduled-${preview.id}-v1`,
+});
+```
+
+Approval records `scheduled` and makes no provider call. A worker reads due pages from
+`migrations.due(...)` and invokes `migrations.execute(...)` with its own durable idempotency key.
 
 ## Failed payment behavior
 
@@ -94,14 +140,13 @@ The payment-failure policy is explicit and provider-specific:
 - `applyChange` allows the provider to apply the subscription change even when collection needs
   separate recovery.
 
-Only offer a policy listed in `operations.changePrice.paymentFailurePolicies`. If the provider
-rejects `applyChange()`, Payable does not mutate the local subscription:
+Only offer a policy listed in `operations.changePrice.paymentFailurePolicies`. If a provider returns
+a confirmed no-side-effect failure, Payable does not mutate the local subscription:
 
 ```ts
 try {
-  await subscription.applyChange({
-    previewToken,
-    idempotencyKey: `apply-change-${localSubscriptionId}`,
+  await migrations.approve(canonicalMigrationId, {
+    idempotencyKey: `approve-change-${canonicalMigrationId}-v1`,
   });
 } catch (error) {
   const unchanged = await subscription.retrieve();
@@ -111,6 +156,66 @@ try {
 
 A provider webhook remains authoritative if the remote system applied a state transition before its
 request failed. Process reconciliation before deciding whether to retry.
+
+## Ambiguous reconciliation
+
+A timeout, thrown provider error, malformed outcome, or local persistence failure after a provider
+mutation moves the migration to `reconciliation_required`. The retained execution token prevents an
+automatic second provider call. Read the provider state, compare it with the immutable canonical
+migration, and complete an explicit operator reconciliation. Do not call `retry()` for this state.
+
+A host crash after durable claim acquisition can leave the migration in `executing` before any
+provider call. The same trusted TypeScript workflow resolves that retained owner: `unknown` records
+the observation and moves it to `reconciliation_required`, while conclusive `not_applied` or
+`applied` completes it without making a provider request.
+
+After a trusted host workflow establishes the remote outcome, resolve it without another provider
+call:
+
+```ts
+await migrations.resolve(canonicalMigrationId, {
+  outcome: 'applied',
+  evidenceReference: 'operator-case-2026-08-25-0042',
+  idempotencyKey: `resolve-change-${canonicalMigrationId}-v1`,
+});
+```
+
+Use `not_applied` only when the host has confirmed no remote application. It transitions to
+retryable `failed` and releases the durable claim. Immediate `applied` also releases it; a
+next-renewal `applied` becomes `pending_renewal` and retains it until `settle()`. Exact repeats replay
+and conflicting resolutions fail.
+
+If any existing-subscription provider mutation throws
+`SUBSCRIPTION_MUTATION_RECONCILIATION_REQUIRED`, preserve its safe `context.claimReference`; do not
+blindly retry. A trusted host can inspect and resolve the provider-neutral claim without a provider
+call:
+
+```ts
+await payable.subscriptionMutationClaims(tenantId).resolve(claimReference, {
+  outcome: providerStateIsConclusive ? 'applied' : 'unknown',
+  evidenceReference: operatorEvidenceReference,
+  idempotencyKey: `resolve-direct-${claimReference}-v1`,
+});
+```
+
+`unknown` keeps the claim active. `not_applied` safely releases it. For swap and quantity claims,
+`applied` projects the stored item intent exactly once and releases it. Cancel, pause, resume,
+scheduled-cancellation, and legacy-apply claims do not contain enough provider-returned state to
+fabricate a local lifecycle projection: `applied` confirms and releases those claims, while the host
+uses its verified provider sync or webhook path to mirror the exact provider state.
+
+Only `failed` migrations are retryable, and each retry requires a new operation key.
+
+Currency and billing-period changes are separately capability-gated. Both default to unsupported;
+offer them only when `operations.changePrice.supportsCurrencyChange` or
+`operations.changePrice.supportsBillingPeriodChange` is explicitly `true`.
+
+## Legacy API compatibility
+
+`subscription(...).previewChange()` and `applyChange()` keep their existing signatures and DTOs.
+Canonical subscriptions delegate those calls to the canonical migration resource. Preview tokens
+stored before migration step 021 and historical provider-native subscriptions remain readable; the
+compatibility path never fabricates canonical catalog IDs.
 
 ## Pause and resume
 
