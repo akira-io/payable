@@ -195,8 +195,24 @@ export const priceBodySchema = z.object({
 
 export const manageSubscriptionBodySchema = z.object({ billable: billableSchema });
 
+const RFC_3339_DATETIME = /^(\d{4})-(\d{2})-(\d{2})[Tt]([01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:[Zz]|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/;
+
+export const rfc3339DateTimeSchema = z.string().refine(
+  (value) => {
+    const match = RFC_3339_DATETIME.exec(value);
+    if (!match) {
+      return false;
+    }
+    const [, year, month, day] = match;
+    const date = new Date(Date.UTC(Number(year), Number(month), 0));
+    return Number(day) <= date.getUTCDate() && !Number.isNaN(new Date(value).getTime());
+  },
+  { message: 'Expected an RFC 3339 datetime string' },
+).transform((value) => new Date(value));
+
 export const subscriptionChangePoliciesSchema = z.object({
   effectiveTiming: z.enum(['immediate', 'nextRenewal', 'scheduled']),
+  effectiveAt: rfc3339DateTimeSchema.optional(),
   prorationPolicy: z.enum([
     'prorateImmediately',
     'prorateAtNextRenewal',
@@ -205,13 +221,23 @@ export const subscriptionChangePoliciesSchema = z.object({
     'none',
   ]),
   paymentFailurePolicy: z.enum(['preventChange', 'applyChange']),
+}).superRefine(({ effectiveAt, effectiveTiming }, context) => {
+  if (effectiveTiming === 'scheduled' && effectiveAt === undefined) {
+    context.addIssue({ code: 'custom', message: 'effectiveAt is required for scheduled timing', path: ['effectiveAt'] });
+  }
+  if (effectiveTiming !== 'scheduled' && effectiveAt !== undefined) {
+    context.addIssue({ code: 'custom', message: 'effectiveAt is only valid for scheduled timing', path: ['effectiveAt'] });
+  }
 });
 
-export const swapSubscriptionBodySchema = subscriptionChangePoliciesSchema.extend({
-  billable: billableSchema,
-  itemId: z.string().min(1).optional(),
-  price: z.string().min(1),
-});
+export const swapSubscriptionBodySchema = z.intersection(
+  subscriptionChangePoliciesSchema,
+  z.object({
+    billable: billableSchema,
+    itemId: z.string().min(1).optional(),
+    price: z.string().min(1),
+  }),
+);
 
 export const refundBodySchema = z.object({
   paymentId: z.string().min(1),

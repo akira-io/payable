@@ -1,22 +1,16 @@
 import type {
   SubscriptionChangeCapabilities,
-  SubscriptionEffectiveTiming,
-  SubscriptionPaymentFailurePolicy,
-  SubscriptionProrationPolicy,
 } from '../../../domain/dtos/subscription-operation-capabilities.dto';
+import type { SubscriptionChangePolicies } from '../../../domain/dtos/subscription-change.dto';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
-
-export interface SubscriptionChangePolicies {
-  effectiveTiming: SubscriptionEffectiveTiming;
-  prorationPolicy: SubscriptionProrationPolicy;
-  paymentFailurePolicy: SubscriptionPaymentFailurePolicy;
-}
+import { assertSubscriptionChangeTiming } from '../../../domain/validation/subscription-change-policies';
 
 export function assertSubscriptionChangePolicies(
   providerName: string,
   capabilities: SubscriptionChangeCapabilities,
   policies: SubscriptionChangePolicies,
 ): void {
+  assertSubscriptionChangeTiming(policies);
   assertSupported(
     providerName,
     capabilities.effectiveTimings,

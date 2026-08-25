@@ -7,6 +7,7 @@ import type {
 } from '../../../domain/dtos/subscription-change.dto';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import { SubscriptionChangePreviewError } from '../../../domain/errors/subscription-change-preview.error';
+import { assertSubscriptionChangeTiming } from '../../../domain/validation/subscription-change-policies';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
 import type { Billable } from '../../builders/billable';
@@ -43,6 +44,7 @@ export class PreviewSubscriptionChangeAction extends SubscriptionAction {
         'SUBSCRIPTION_CHANGE_EMPTY',
       );
     }
+    assertSubscriptionChangeTiming(input);
     const subscription = await this.resolve(billable, name);
     const operation = input.priceId === undefined ? 'changeQuantity' : 'changePrice';
     const provider = this.subscriptionChangeProvider(operation);
@@ -79,13 +81,12 @@ export class PreviewSubscriptionChangeAction extends SubscriptionAction {
           providerInput,
           this.context('change-preview', subscription.providerSubscriptionId, key),
         );
-        const preview: SubscriptionChangePreview = {
+        const preview: Omit<SubscriptionChangePreview, 'effectiveTiming' | 'effectiveAt'> = {
           previewToken: `scp_${CorrelationId.generate().toString()}`,
           provider: provider.name,
           subscriptionId: subscription.id,
           currentItems: providerInput.currentItems,
           proposedItems: providerInput.proposedItems,
-          effectiveTiming: input.effectiveTiming,
           prorationPolicy: input.prorationPolicy,
           paymentFailurePolicy: input.paymentFailurePolicy,
           calculatedAt: providerInput.calculatedAt,
@@ -93,9 +94,10 @@ export class PreviewSubscriptionChangeAction extends SubscriptionAction {
           currentRenewalDate: providerInput.renewalDate,
           ...providerPreview,
         };
-        await previews.save(preview, tenantId);
-        await this.auditPreview(subscription.id, preview, authorization);
-        return preview;
+        const timedPreview = this.withTiming(preview, input);
+        await previews.save(timedPreview, tenantId);
+        await this.auditPreview(subscription.id, timedPreview, authorization);
+        return timedPreview;
       },
       revive: (response) =>
         previews.load((response as SubscriptionChangePreview).previewToken, tenantId),
@@ -126,16 +128,27 @@ export class PreviewSubscriptionChangeAction extends SubscriptionAction {
           }
         : subscriptionItem,
     );
-    return {
+    const base = {
       providerSubscriptionId,
       currentItems,
       proposedItems,
-      effectiveTiming: input.effectiveTiming,
       prorationPolicy: input.prorationPolicy,
       paymentFailurePolicy: input.paymentFailurePolicy,
       calculatedAt: this.deps.clock.now(),
       renewalDate,
     };
+    return input.effectiveTiming === 'scheduled'
+      ? { ...base, effectiveTiming: input.effectiveTiming, effectiveAt: input.effectiveAt }
+      : { ...base, effectiveTiming: input.effectiveTiming };
+  }
+
+  private withTiming(
+    preview: Omit<SubscriptionChangePreview, 'effectiveTiming' | 'effectiveAt'>,
+    input: PreviewSubscriptionChangeInput,
+  ): SubscriptionChangePreview {
+    return input.effectiveTiming === 'scheduled'
+      ? { ...preview, effectiveTiming: input.effectiveTiming, effectiveAt: input.effectiveAt }
+      : { ...preview, effectiveTiming: input.effectiveTiming };
   }
 
   private async auditPreview(
@@ -148,10 +161,20 @@ export class PreviewSubscriptionChangeAction extends SubscriptionAction {
         action: 'subscription.change_previewed',
         subscriptionId,
         before: { items: preview.currentItems },
-        after: { items: preview.proposedItems, previewToken: preview.previewToken },
+        after: {
+          items: preview.proposedItems,
+          previewToken: preview.previewToken,
+          ...this.auditTiming(preview),
+        },
         authorization,
       }),
     );
+  }
+
+  private auditTiming(preview: SubscriptionChangePreview): Record<string, string> {
+    return preview.effectiveTiming === 'scheduled'
+      ? { effectiveTiming: preview.effectiveTiming, effectiveAt: preview.effectiveAt.toISOString() }
+      : { effectiveTiming: preview.effectiveTiming };
   }
 
   private changeIdempotency() {

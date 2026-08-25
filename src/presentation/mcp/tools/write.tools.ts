@@ -1,6 +1,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { Payable } from '../../../payable';
+import { toSubscriptionChangeTiming } from '../../../domain/validation/subscription-change-policies';
+import { rfc3339DateTimeSchema } from '../../shared/schemas';
 import { authorizeTool, providerFrom, respond, tenantFrom } from '../context';
 import type { McpPayableOptions } from '../options';
 import type { ToolGate } from '../policy';
@@ -118,6 +120,7 @@ export function registerSubscriptionTools(
           itemId: z.string().min(1).optional(),
           priceId: z.string().min(1),
           effectiveTiming: z.enum(['immediate', 'nextRenewal', 'scheduled']),
+          effectiveAt: rfc3339DateTimeSchema.optional(),
           prorationPolicy: z.enum([
             'prorateImmediately',
             'prorateAtNextRenewal',
@@ -138,7 +141,7 @@ export function registerSubscriptionTools(
             .swap({
               priceId: args.priceId,
               itemId: args.itemId,
-              effectiveTiming: args.effectiveTiming,
+              ...toSubscriptionChangeTiming(args),
               prorationPolicy: args.prorationPolicy,
               paymentFailurePolicy: args.paymentFailurePolicy,
               authorization: authorizeTool('subscription_swap', args, options),
@@ -158,6 +161,7 @@ export function registerSubscriptionTools(
           itemId: z.string().min(1).optional(),
           quantity: z.number().int().positive(),
           effectiveTiming: z.enum(['immediate', 'nextRenewal', 'scheduled']),
+          effectiveAt: rfc3339DateTimeSchema.optional(),
           prorationPolicy: z.enum([
             'prorateImmediately',
             'prorateAtNextRenewal',
@@ -178,7 +182,7 @@ export function registerSubscriptionTools(
             .updateQuantity({
               quantity: args.quantity,
               itemId: args.itemId,
-              effectiveTiming: args.effectiveTiming,
+              ...toSubscriptionChangeTiming(args),
               prorationPolicy: args.prorationPolicy,
               paymentFailurePolicy: args.paymentFailurePolicy,
               authorization: authorizeTool('subscription_update_quantity', args, options),

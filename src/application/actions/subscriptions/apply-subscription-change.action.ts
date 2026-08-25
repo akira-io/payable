@@ -59,16 +59,23 @@ export class ApplySubscriptionChangeAction extends SubscriptionAction {
       failurePolicy: 'reconciliation-required',
       run: async () => {
         await this.assertCurrentItemsMatchPreview(subscription, preview);
-        const providerInput = {
+        const providerInputBase = {
           providerSubscriptionId: subscription.providerSubscriptionId,
           currentItems: preview.currentItems,
           proposedItems: preview.proposedItems,
-          effectiveTiming: preview.effectiveTiming,
           prorationPolicy: preview.prorationPolicy,
           paymentFailurePolicy: preview.paymentFailurePolicy,
           calculatedAt: preview.calculatedAt,
           renewalDate: preview.currentRenewalDate,
         };
+        const providerInput =
+          preview.effectiveTiming === 'scheduled'
+            ? {
+                ...providerInputBase,
+                effectiveTiming: preview.effectiveTiming,
+                effectiveAt: preview.effectiveAt,
+              }
+            : { ...providerInputBase, effectiveTiming: preview.effectiveTiming };
         const providerSubscription = await provider.applySubscriptionChange(
           providerInput,
           this.context('change-apply', subscription.providerSubscriptionId, input.previewToken),
@@ -124,12 +131,16 @@ export class ApplySubscriptionChangeAction extends SubscriptionAction {
         subscriptionId: subscription.id,
         before: { items: preview.currentItems },
         after: appliesImmediately
-          ? { items: preview.proposedItems, previewToken: preview.previewToken }
+          ? {
+              items: preview.proposedItems,
+              previewToken: preview.previewToken,
+              ...this.auditTiming(preview),
+            }
           : {
               items: preview.currentItems,
               proposedItems: preview.proposedItems,
-              effectiveTiming: preview.effectiveTiming,
               previewToken: preview.previewToken,
+              ...this.auditTiming(preview),
             },
         authorization,
       });
@@ -145,6 +156,12 @@ export class ApplySubscriptionChangeAction extends SubscriptionAction {
       return currentItem?.priceId !== proposedItem.priceId;
     });
     return priceChanged ? 'changePrice' : 'changeQuantity';
+  }
+
+  private auditTiming(preview: SubscriptionChangePreview): Record<string, string> {
+    return preview.effectiveTiming === 'scheduled'
+      ? { effectiveTiming: preview.effectiveTiming, effectiveAt: preview.effectiveAt.toISOString() }
+      : { effectiveTiming: preview.effectiveTiming };
   }
 
   private async assertCurrentItemsMatchPreview(

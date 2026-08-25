@@ -1,14 +1,16 @@
 import type {
-  SubscriptionEffectiveTiming,
   SubscriptionPaymentFailurePolicy,
   SubscriptionProrationPolicy,
 } from './subscription-operation-capabilities.dto';
 
-export interface SubscriptionChangePolicies {
-  effectiveTiming: SubscriptionEffectiveTiming;
+export type SubscriptionChangeTiming =
+  | { effectiveTiming: 'immediate' | 'nextRenewal'; effectiveAt?: never }
+  | { effectiveTiming: 'scheduled'; effectiveAt: Date };
+
+export type SubscriptionChangePolicies = SubscriptionChangeTiming & {
   prorationPolicy: SubscriptionProrationPolicy;
   paymentFailurePolicy: SubscriptionPaymentFailurePolicy;
-}
+};
 
 export interface SubscriptionChangeItem {
   itemId: string;
@@ -29,7 +31,7 @@ export interface SubscriptionChangeRenewal {
   currency: string | null;
 }
 
-export interface SubscriptionChangePreview extends SubscriptionChangePolicies {
+export type SubscriptionChangePreview = SubscriptionChangePolicies & {
   previewToken: string;
   provider: string;
   subscriptionId: string;
@@ -42,27 +44,27 @@ export interface SubscriptionChangePreview extends SubscriptionChangePolicies {
   nextRenewal: SubscriptionChangeRenewal;
   warnings: readonly string[];
   providerLimitations: readonly string[];
-}
+};
 
-export interface PreviewSubscriptionChangeInput extends SubscriptionChangePolicies {
+export type PreviewSubscriptionChangeInput = SubscriptionChangePolicies & {
   priceId?: string;
   quantity?: number;
   itemId?: string;
   idempotencyKey: string;
-}
+};
 
 export interface ApplySubscriptionChangeInput {
   previewToken: string;
   idempotencyKey: string;
 }
 
-export interface ProviderSubscriptionChangeInput extends SubscriptionChangePolicies {
+export type ProviderSubscriptionChangeInput = SubscriptionChangePolicies & {
   providerSubscriptionId: string;
   currentItems: readonly SubscriptionChangeItem[];
   proposedItems: readonly SubscriptionChangeItem[];
   calculatedAt: Date;
   renewalDate: Date | null;
-}
+};
 
 export type ProviderSubscriptionChangePreview = Pick<
   SubscriptionChangePreview,

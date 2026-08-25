@@ -27,17 +27,17 @@ import { FindSubscriptionQuery } from '../queries/subscriptions/find-subscriptio
 import type { Billable } from './billable';
 import type { BillingDependencies } from './billing-dependencies';
 
-export interface SwapOptions extends SubscriptionChangePolicies {
+export type SwapOptions = SubscriptionChangePolicies & {
   priceId: string;
   itemId?: string;
   authorization?: AuthorizationContext;
-}
+};
 
-export interface UpdateQuantityOptions extends SubscriptionChangePolicies {
+export type UpdateQuantityOptions = SubscriptionChangePolicies & {
   quantity: number;
   itemId?: string;
   authorization?: AuthorizationContext;
-}
+};
 
 export class SubscriptionManager {
   constructor(

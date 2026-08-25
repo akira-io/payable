@@ -77,15 +77,22 @@ export class SubscriptionChangePreviewStore {
 
 function revivePreview(response: unknown): SubscriptionChangePreview {
   const preview = response as SubscriptionChangePreview;
-  return {
-    ...preview,
-    calculatedAt: new Date(preview.calculatedAt),
-    expiresAt: new Date(preview.expiresAt),
+  const { effectiveTiming, effectiveAt: storedEffectiveAt, ...untimedPreview } = preview;
+  const revived = {
+    ...untimedPreview,
+    calculatedAt: new Date(untimedPreview.calculatedAt),
+    expiresAt: new Date(untimedPreview.expiresAt),
     currentRenewalDate:
-      preview.currentRenewalDate === null ? null : new Date(preview.currentRenewalDate),
+      untimedPreview.currentRenewalDate === null
+        ? null
+        : new Date(untimedPreview.currentRenewalDate),
     nextRenewal: {
-      ...preview.nextRenewal,
-      date: preview.nextRenewal.date === null ? null : new Date(preview.nextRenewal.date),
+      ...untimedPreview.nextRenewal,
+      date:
+        untimedPreview.nextRenewal.date === null ? null : new Date(untimedPreview.nextRenewal.date),
     },
   };
+  return effectiveTiming === 'scheduled'
+    ? { ...revived, effectiveTiming, effectiveAt: new Date(storedEffectiveAt) }
+    : { ...revived, effectiveTiming };
 }
