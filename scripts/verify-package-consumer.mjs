@@ -45,7 +45,7 @@ async function writeConsumerFiles(directory) {
   await Promise.all([
     writeFile(
       join(directory, 'package.json'),
-      JSON.stringify({ name: 'payable-git-consumer', private: true, type: 'module' }, null, 2),
+      JSON.stringify({ name: 'payable-package-consumer', private: true, type: 'module' }, null, 2),
     ),
     writeFile(
       join(directory, 'consumer.ts'),
@@ -92,6 +92,20 @@ async function installedSpecifiers(directory) {
   );
 }
 
+async function installPeerDependencies(directory, packageSpec) {
+  const packageJsonPath = join(directory, 'node_modules', PACKAGE_NAME, 'package.json');
+  const packageJson = JSON.parse(await readFile(packageJsonPath, 'utf8'));
+  const peers = Object.entries(packageJson.peerDependencies ?? {}).map(
+    ([name, range]) => `${name}@${range}`,
+  );
+  if (peers.length > 0) {
+    await runOrThrow('bun', ['add', '--dev', packageSpec, ...peers], {
+      cwd: directory,
+      captureOutput: true,
+    });
+  }
+}
+
 async function verifyBinaries(directory) {
   for (const binary of ['payable-prisma', 'payable-mcp']) {
     const path = join(directory, 'node_modules', '.bin', binary);
@@ -125,15 +139,19 @@ async function verifyPrismaAsset(directory) {
 }
 
 async function main() {
-  const gitSpec = process.argv[2];
-  if (!gitSpec) {
-    throw new Error('Usage: bun run verify:git-consumer -- <git-spec>');
+  const packageSpec = process.argv[2];
+  if (!packageSpec) {
+    throw new Error('Usage: bun run verify:consumer -- <package-spec>');
   }
 
-  const directory = await mkdtemp(join(tmpdir(), 'payable-git-consumer-'));
+  const directory = await mkdtemp(join(tmpdir(), 'payable-package-consumer-'));
   try {
     await writeConsumerFiles(directory);
-    await runOrThrow('bun', ['add', '--exact', gitSpec], { cwd: directory, captureOutput: true });
+    await runOrThrow('bun', ['add', '--exact', packageSpec], {
+      cwd: directory,
+      captureOutput: true,
+    });
+    await installPeerDependencies(directory, packageSpec);
     await runOrThrow('bunx', ['tsc', '--noEmit', '--project', 'tsconfig.json'], {
       cwd: directory,
       captureOutput: true,
@@ -153,7 +171,7 @@ async function main() {
     await verifyBinaries(directory);
     await verifyPrismaAsset(directory);
 
-    console.log(`Git consumer verified from ${gitSpec}`);
+    console.log(`Package consumer verified from ${packageSpec}`);
   } finally {
     await rm(directory, { force: true, recursive: true });
   }

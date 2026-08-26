@@ -34,9 +34,6 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Verify Git consumer
-        run: bun run verify:git-consumer -- "github:${GITHUB_REPOSITORY}#${GITHUB_SHA}"
-
       - name: Verify core bundle excludes optional peers
         run: bun run verify:bundle
 

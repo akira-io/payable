@@ -272,22 +272,21 @@ routing.
 
 ## Development dependency flow
 
-Payable `main` is the development integration source. Tags and packages are created later only
-through a separately authorized release process.
+Payable `main` is the development integration source. Downstream integration starts from an
+authorized beta package.
 
 During development:
 
 - Payable changes merge to `main` through the normal review process;
-- a development consumer declares `github:akira-io/payable#main`;
-- `bun.lock` resolves and records the exact Payable commit;
+- a development consumer declares an exact `@akira-io/payable` beta version;
+- the lockfile records the exact package resolution;
 - CI installs with `bun install --frozen-lockfile`;
 - advancing Payable requires an explicit dependency update and lockfile diff;
-- Payable provides a `prepare` build so a Git dependency contains its generated `dist`;
-- a consumer smoke test installs Payable from a Git commit and verifies ESM, CJS, types,
+- a consumer smoke test installs the packed beta artifact and verifies ESM, CJS, types,
   subpaths, binaries, and Prisma schema tooling.
 
-Installing `main` is not a release request. No tag, package version, publication, or downstream
-dependency replacement is implied; those actions happen later only with explicit authorization.
+Creating a tag, publishing a package, or updating a downstream dependency remains an explicitly
+authorized action.
 
 ## Verification strategy
 
