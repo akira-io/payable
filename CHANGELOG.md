@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-beta10](https://github.com/akira-io/payable/compare/v1.0.0-beta9...v1.0.0-beta10) (2026-08-26)
+
+### Bug Fixes
+
+- **ci:** Isolate consumer package verification ([119728c](https://github.com/akira-io/payable/commit/119728c83d0e1b2d9679c45c3b93948a8006bcb6))
+
 ## [1.0.0-beta9](https://github.com/akira-io/payable/compare/v1.0.0-beta8...v1.0.0-beta9) (2026-08-25)
 
 ### Features
