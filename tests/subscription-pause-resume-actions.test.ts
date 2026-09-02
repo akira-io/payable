@@ -20,8 +20,9 @@ async function setup(provider = new SubscriptionLifecycleProvider()) {
   const database = createTestDb();
   databases.push(database);
   await migrate(database);
-  const storage = new KnexStorageDriver(database, new FakeClock(now));
-  const payable = createPayable({ providers: { stripe: provider }, storage });
+  const clock = new FakeClock(now);
+  const storage = new KnexStorageDriver(database, clock);
+  const payable = createPayable({ providers: { stripe: provider }, storage, clock });
   const subscription = await payable
     .customer(billable)
     .newSubscription('default')
