@@ -1,0 +1,89 @@
+import { PayableError } from '../../../domain/errors/payable-error';
+import { toTmtPayableError, withTmtErrors } from './trust-my-travel-errors';
+
+const TRUST_MY_TRAVEL_BASE_URL = 'https://tmtprotects.com';
+
+export interface TrustMyTravelClientOptions {
+  path: string;
+  apiToken: string;
+  baseUrl?: string;
+  fetch?: typeof globalThis.fetch;
+}
+
+export interface TrustMyTravelRequestOptions {
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  body?: unknown;
+}
+
+export type TrustMyTravelRequest = <T>(
+  path: string,
+  options: TrustMyTravelRequestOptions,
+) => Promise<T>;
+
+export class TrustMyTravelClient {
+  constructor(private readonly options: TrustMyTravelClientOptions) {}
+
+  request<T>(path: string, options: TrustMyTravelRequestOptions): Promise<T> {
+    return withTmtErrors(async () => {
+      const response = await this.fetch(this.url(path), {
+        method: options.method,
+        headers: this.headers(options.body !== undefined),
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      });
+      const body = await parseResponseBody(response);
+
+      if (!response.ok) {
+        throw toTmtPayableError(response.status, body);
+      }
+
+      return body as T;
+    });
+  }
+
+  private headers(hasBody: boolean): Record<string, string> {
+    const headers: Record<string, string> = {
+      accept: 'application/json',
+      authorization: `Bearer ${this.options.apiToken}`,
+    };
+
+    if (hasBody) {
+      headers['content-type'] = 'application/json';
+    }
+
+    return headers;
+  }
+
+  private url(resourcePath: string): string {
+    const baseUrl = (this.options.baseUrl ?? TRUST_MY_TRAVEL_BASE_URL).replace(/\/+$/, '');
+    const sitePath = this.options.path.replace(/^\/+|\/+$/g, '');
+    const endpoint = resourcePath.replace(/^\/+/, '');
+    return `${baseUrl}/${sitePath}/wp-json/tmt/v2/${endpoint}`;
+  }
+
+  private fetch(input: string | URL, init: RequestInit): Promise<Response> {
+    const request = this.options.fetch ?? globalThis.fetch;
+
+    if (!request) {
+      throw new PayableError('No fetch implementation available for Trust My Travel', {
+        code: 'PROVIDER_HTTP_CLIENT_UNAVAILABLE',
+        context: { provider: 'trust-my-travel' },
+      });
+    }
+
+    return request(input, init);
+  }
+}
+
+async function parseResponseBody(response: Response): Promise<unknown> {
+  const text = await response.text();
+
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
+}
