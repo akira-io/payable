@@ -195,6 +195,16 @@ export type {
 } from './product-provider-binding-repository.contract';
 export type { NewProduct, ProductPatch, ProductRepository } from './product-repository.contract';
 export type { JobHandler, QueueDriver, QueueJob } from './queue-driver.contract';
+export type {
+  RecurringPaymentReconciliationCapable,
+  RecurringPaymentReconciliationCursor,
+  RecurringPaymentReconciliationExhausted,
+  RecurringPaymentReconciliationInput,
+  RecurringPaymentReconciliationResult,
+  RecurringPaymentReconciliationRetry,
+  RecurringPaymentReconciliationTerminal,
+} from './recurring-payment-reconciliation.contract';
+export { isRecurringPaymentReconciliationCapable } from './recurring-payment-reconciliation.contract';
 export type { NewRefund, RefundRepository } from './refund-repository.contract';
 export type { Repositories, StorageDriver } from './storage-driver.contract';
 export * from './subscription-contracts';

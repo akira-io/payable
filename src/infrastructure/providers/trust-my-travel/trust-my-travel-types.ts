@@ -1,5 +1,6 @@
 import type { Clock } from '../../../domain/contracts/clock.contract';
 import type { Logger } from '../../../domain/contracts/logger.contract';
+import type { TrustMyTravelReconciliationOptions } from './trust-my-travel-reconciliation';
 
 export const TRUST_MY_TRAVEL_ENVIRONMENTS = ['test', 'live'] as const;
 
@@ -97,4 +98,5 @@ export interface TrustMyTravelProviderOptions {
   logger?: Logger;
   clock?: Clock;
   directCharge?: { psp: string };
+  reconciliation?: TrustMyTravelReconciliationOptions;
 }

@@ -146,6 +146,11 @@ describe('Trust My Travel types', () => {
       logger?: Logger;
       clock?: Clock;
       directCharge?: { psp: string };
+      reconciliation?: {
+        maxAttempts?: number;
+        baseDelayMs?: number;
+        maxDelayMs?: number;
+      };
     }>();
   });
 });
