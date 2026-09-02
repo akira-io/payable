@@ -17,6 +17,7 @@ export interface CreateCheckoutSessionInput {
   trialDays?: number;
   coupon?: string;
   amount?: Money;
+  providerData?: Record<string, unknown>;
 }
 
 export interface CheckoutSessionDTO {

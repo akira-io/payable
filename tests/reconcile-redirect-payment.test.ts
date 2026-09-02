@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
+import type {
+  PaymentProvider,
+  RedirectCallbackCapable,
+  RedirectCallbackResult,
+} from '../src/domain/contracts/payment-provider.contract';
+import type { ProviderCapabilities } from '../src/domain/dtos/capabilities.dto';
+import type {
+  CheckoutSessionDTO,
+  CreateCheckoutSessionInput,
+} from '../src/domain/dtos/checkout.dto';
+import type { OperationContext } from '../src/domain/dtos/common.dto';
+import type { RefundInput, RefundResultDTO } from '../src/domain/dtos/refund.dto';
 import { Money } from '../src/domain/value-objects/money';
 import {
   SispProvider,
@@ -138,4 +150,89 @@ describe('reconcile redirect payment', () => {
     });
     await db.destroy();
   });
+
+  it('rebinds a checkout booking id to the provider transaction id', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new DeferredTransactionProvider();
+    const payable = createPayable({
+      providers: { deferred: provider },
+      storage: new KnexStorageDriver(db, new FakeClock()),
+    });
+    const session = await payable
+      .customer(billable)
+      .redirectCheckout(Money.of(9999, 'EUR'))
+      .create();
+
+    const result = await payable.receiveRedirectCallback({
+      provider: 'deferred',
+      payload: { transactionId: 'tx-77' },
+    });
+
+    expect(result).toMatchObject({
+      providerPaymentId: 'tx-77',
+      checkoutSessionId: session.id,
+      status: 'succeeded',
+      paymentUpdated: true,
+    });
+    const [payment] = await payable.customer(billable).payments();
+    expect(payment).toMatchObject({ providerPaymentId: 'tx-77', status: 'succeeded' });
+    await db.destroy();
+  });
+
+  it('rejects a callback whose authoritative amount differs from the pending payment', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new DeferredTransactionProvider();
+    const payable = createPayable({
+      providers: { deferred: provider },
+      storage: new KnexStorageDriver(db, new FakeClock()),
+    });
+    await payable.customer(billable).redirectCheckout(Money.of(9999, 'EUR')).create();
+    provider.callbackAmount = Money.of(3000, 'EUR');
+
+    await expect(
+      payable.receiveRedirectCallback({
+        provider: 'deferred',
+        payload: { transactionId: 'tx-77' },
+      }),
+    ).rejects.toMatchObject({ code: 'REDIRECT_CALLBACK_PAYMENT_MISMATCH' });
+
+    const [payment] = await payable.customer(billable).payments();
+    expect(payment).toMatchObject({ providerPaymentId: 'booking-44', status: 'pending' });
+    await db.destroy();
+  });
 });
+
+class DeferredTransactionProvider implements PaymentProvider, RedirectCallbackCapable {
+  readonly name = 'deferred';
+  callbackAmount = Money.of(9999, 'EUR');
+
+  capabilities(): ProviderCapabilities {
+    return new Set(['checkout']);
+  }
+
+  createCheckoutSession(
+    _input: CreateCheckoutSessionInput,
+    _ctx: OperationContext,
+  ): Promise<CheckoutSessionDTO> {
+    return Promise.resolve({ id: 'booking-44', url: 'https://provider.test/checkout' });
+  }
+
+  refund(_input: RefundInput, _ctx: OperationContext): Promise<RefundResultDTO> {
+    throw new Error('not used');
+  }
+
+  verifyCallback(): boolean {
+    return true;
+  }
+
+  handleRedirectCallback(): Promise<RedirectCallbackResult> {
+    return Promise.resolve({
+      providerPaymentId: 'tx-77',
+      checkoutSessionId: 'booking-44',
+      status: 'succeeded',
+      amount: this.callbackAmount,
+    });
+  }
+}

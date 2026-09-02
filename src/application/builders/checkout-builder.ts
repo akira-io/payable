@@ -11,6 +11,7 @@ export interface CheckoutRequest {
   successUrl: string;
   cancelUrl: string;
   reference?: string;
+  providerData?: Record<string, unknown>;
   authorization?: AuthorizationContext;
 }
 
@@ -62,6 +63,7 @@ export class CheckoutBuilder {
       cancelUrl: request.cancelUrl,
       subscriptionName: this.state.subscriptionName,
       reference: request.reference,
+      providerData: request.providerData,
     });
   }
 }

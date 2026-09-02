@@ -7,5 +7,6 @@ export interface ChargeRequest {
   description?: string;
   paymentMethodId?: string;
   offSession?: boolean;
+  providerData?: Record<string, unknown>;
   authorization?: AuthorizationContext;
 }

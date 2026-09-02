@@ -87,6 +87,109 @@ describe('refund TOCTOU guard', () => {
     await db.destroy();
   });
 
+  it('keeps a conflicted release pending instead of claiming it was released', async () => {
+    let blockRelease = false;
+    class FailingRefundProvider extends FakeProvider {
+      override refund(): Promise<never> {
+        blockRelease = true;
+        return Promise.reject(new Error('provider refund failed'));
+      }
+    }
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const transact = storage.transaction.bind(storage);
+    storage.transaction = (work) =>
+      transact(async (repositories) => {
+        if (blockRelease) {
+          repositories.payments.updateRefundedAmountIfUnchanged = () => Promise.resolve(false);
+        }
+        return work(repositories);
+      });
+    const payable = createPayable({ providers: { stripe: new FailingRefundProvider() }, storage });
+    const payment = await seedPayment(storage);
+
+    await expect(
+      payable.refund({ paymentId: payment.id, amount: Money.of(10_000, 'USD') }),
+    ).rejects.toMatchObject({ code: 'REFUND_RELEASE_CONFLICT' });
+
+    expect(await storage.payments.findById(payment.id)).toMatchObject({
+      refundedAmount: 10_000,
+      status: 'refunded',
+    });
+    const [refund] = await storage.refunds.listByPayment(payment.id);
+    expect(refund).toMatchObject({ providerRefundId: null, status: 'pending' });
+    await db.destroy();
+  });
+
+  it('retains a provider-confirmed mismatched refund for reconciliation', async () => {
+    class MismatchedRefundProvider extends FakeProvider {
+      override refund() {
+        this.refundCalls += 1;
+        return Promise.resolve({
+          providerRefundId: 're_mismatch',
+          status: 'succeeded' as const,
+          amount: Money.of(9_999, 'EUR'),
+        });
+      }
+    }
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const provider = new MismatchedRefundProvider();
+    const payable = createPayable({ providers: { stripe: provider }, storage });
+    const payment = await seedPayment(storage);
+
+    await expect(
+      payable.refund({ paymentId: payment.id, amount: Money.of(4_000, 'USD') }),
+    ).rejects.toMatchObject({ code: 'REFUND_PROVIDER_RESPONSE_MISMATCH' });
+
+    const fresh = await storage.payments.findById(payment.id);
+    expect(fresh).toMatchObject({ refundedAmount: 4_000, status: 'partially_refunded' });
+    const refunds = await storage.refunds.listByPayment(payment.id);
+    expect(refunds).toHaveLength(1);
+    expect(refunds[0]).toMatchObject({ providerRefundId: 're_mismatch', status: 'pending' });
+    expect(provider.refundCalls).toBe(1);
+    await expect(
+      payable.refund({ paymentId: payment.id, amount: Money.of(4_000, 'USD') }),
+    ).rejects.toMatchObject({ code: 'REFUND_RECONCILIATION_REQUIRED' });
+    expect(provider.refundCalls).toBe(1);
+    await db.destroy();
+  });
+
+  it.each([
+    'failed',
+    'canceled',
+  ] as const)('releases the reservation when the provider returns a %s refund', async (status) => {
+    class TerminalRefundProvider extends FakeProvider {
+      override refund() {
+        return Promise.resolve({
+          providerRefundId: `re_${status}`,
+          status,
+          amount: Money.of(4_000, 'USD'),
+        });
+      }
+    }
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const payable = createPayable({ providers: { stripe: new TerminalRefundProvider() }, storage });
+    const payment = await seedPayment(storage);
+
+    const refund = await payable.refund({
+      paymentId: payment.id,
+      amount: Money.of(4_000, 'USD'),
+    });
+
+    expect(await storage.payments.findById(payment.id)).toMatchObject({
+      refundedAmount: 0,
+      status: 'succeeded',
+    });
+    expect(refund).toMatchObject({ providerRefundId: `re_${status}`, status });
+    expect(await storage.auditLogs.list({ actions: ['payment.refunded'] })).toHaveLength(0);
+    await db.destroy();
+  });
+
   it('locks the payment row for update', async () => {
     const db = createTestDb();
     await migrate(db);

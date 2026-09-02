@@ -37,11 +37,18 @@ export class ReconcileRedirectPaymentAction {
     if (!storage) {
       return { ...result, paymentUpdated: false };
     }
-    const existing = await storage.payments.findByProviderId(
+    let existing = await storage.payments.findByProviderId(
       this.deps.providerName,
       result.providerPaymentId,
       tenantId,
     );
+    if (!existing && result.checkoutSessionId) {
+      existing = await storage.payments.findByProviderId(
+        this.deps.providerName,
+        result.checkoutSessionId,
+        tenantId,
+      );
+    }
     if (!existing) {
       return { ...result, paymentUpdated: false };
     }
@@ -51,12 +58,31 @@ export class ReconcileRedirectPaymentAction {
       if (!fresh) {
         return false;
       }
+      if (
+        result.amount &&
+        (result.amount.amount() !== fresh.amount || result.amount.currency() !== fresh.currency)
+      ) {
+        throw new PayableError('Redirect callback amount does not match the pending payment', {
+          code: 'REDIRECT_CALLBACK_PAYMENT_MISMATCH',
+          context: {
+            paymentId: fresh.id,
+            expectedAmount: fresh.amount,
+            expectedCurrency: fresh.currency,
+            actualAmount: result.amount.amount(),
+            actualCurrency: result.amount.currency(),
+          },
+        });
+      }
       const machine = new PaymentStateMachine(fresh.status);
       if (!machine.tryTransitionTo(result.status)) {
         return false;
       }
       const next = machine.current();
-      await repos.payments.update(fresh.id, { status: next }, tenantId);
+      await repos.payments.update(
+        fresh.id,
+        { status: next, providerPaymentId: result.providerPaymentId },
+        tenantId,
+      );
       await repos.auditLogs.create({
         tenantId,
         correlationId,
@@ -65,8 +91,8 @@ export class ReconcileRedirectPaymentAction {
         action: 'payment.reconciled',
         resourceType: 'payment',
         resourceId: fresh.id,
-        before: { status: fresh.status },
-        after: { status: next },
+        before: { status: fresh.status, providerPaymentId: fresh.providerPaymentId },
+        after: { status: next, providerPaymentId: result.providerPaymentId },
         metadata: { providerPaymentId: result.providerPaymentId, source: 'redirect_callback' },
         ipAddress: null,
         userAgent: null,

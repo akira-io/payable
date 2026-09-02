@@ -30,6 +30,7 @@ import type {
   UpdateSubscriptionInput,
 } from '../dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../dtos/webhook.dto';
+import type { Money } from '../value-objects/money';
 import type { PaymentStatus } from '../value-objects/payment-status';
 
 export type {
@@ -92,7 +93,9 @@ export interface BillingPortalCapable {
 
 export interface RedirectCallbackResult {
   providerPaymentId: string;
+  checkoutSessionId?: string;
   status: PaymentStatus;
+  amount?: Money;
 }
 
 export interface PaymentWebhookReconciliation {

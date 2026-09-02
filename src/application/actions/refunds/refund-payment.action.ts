@@ -4,19 +4,22 @@ import { PaymentStateMachine } from '../../../domain/states/payment-state-machin
 import { resolveInitialRefundStatus } from '../../../domain/states/refund-state-machine';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { IdempotencyKey } from '../../../domain/value-objects/idempotency-key';
-import type { Money } from '../../../domain/value-objects/money';
+import { Money } from '../../../domain/value-objects/money';
 import type { PaymentStatus } from '../../../domain/value-objects/payment-status';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
 import { assertAuthorized } from '../../policies/assert-authorized';
 import type { AuthorizationContext } from '../../policies/authorization-context';
 import { CanRefundPaymentPolicy } from '../../policies/can-refund-payment.policy';
 import { assertProviderCapability } from '../../services/provider-capabilities/assert-provider-capability';
+import { assertRefundResponse } from './assert-refund-response';
+import { releaseRefundReservation } from './release-refund-reservation';
 
 export interface RefundPaymentActionInput {
   paymentId: string;
   amount?: Money;
   reason?: string;
   reference?: string;
+  providerData?: Record<string, unknown>;
   authorization?: AuthorizationContext;
 }
 
@@ -66,6 +69,13 @@ export class RefundPaymentAction {
       throw new PayableError(`Payment ${payment.id} is not refundable`, {
         code: 'PAYMENT_NOT_REFUNDABLE',
         context: { paymentId: payment.id, status: payment.status },
+      });
+    }
+    const existingRefunds = await storage.refunds.listByPayment(payment.id, this.deps.tenantId);
+    if (existingRefunds.some((refund) => refund.status === 'pending')) {
+      throw new PayableError(`Payment ${payment.id} has a refund awaiting reconciliation`, {
+        code: 'REFUND_RECONCILIATION_REQUIRED',
+        context: { paymentId: payment.id },
       });
     }
     if (input.amount && input.amount.currency() !== payment.currency) {
@@ -134,27 +144,45 @@ export class RefundPaymentAction {
       dto = await this.deps.provider.refund(
         {
           providerPaymentId: payment.providerPaymentId,
-          amount: input.amount,
+          amount: Money.of(reservation.requested, payment.currency),
           reason: input.reason,
           reference: input.reference,
+          providerData: input.providerData,
         },
         { correlationId, idempotencyKey: key.toString() },
       );
     } catch (error) {
-      await this.releaseReservation(storage, payment.id, reservation);
+      await releaseRefundReservation(storage, this.deps.tenantId, payment.id, reservation);
       throw error;
     }
-    if (dto.amount.currency() !== payment.currency) {
-      await this.releaseReservation(storage, payment.id, reservation);
-      throw new PayableError(
-        `Refund currency ${dto.amount.currency()} does not match payment currency ${payment.currency}`,
-        { code: 'REFUND_CURRENCY_MISMATCH', context: { paymentId: payment.id } },
-      );
+    await assertRefundResponse(
+      storage.refunds,
+      {
+        paymentId: payment.id,
+        refundId: reservation.refundId,
+        amount: reservation.requested,
+        currency: payment.currency,
+      },
+      dto,
+    );
+    const refundStatus = resolveInitialRefundStatus(dto.status);
+    if (refundStatus === 'failed' || refundStatus === 'canceled') {
+      await releaseRefundReservation(storage, this.deps.tenantId, payment.id, reservation, {
+        providerRefundId: dto.providerRefundId,
+        status: refundStatus,
+      });
+      const refund = await storage.refunds.findById(reservation.refundId, this.deps.tenantId);
+      if (!refund) {
+        throw new PayableError(`Refund not found: ${reservation.refundId}`, {
+          code: 'REFUND_NOT_FOUND',
+        });
+      }
+      return refund;
     }
     return storage.transaction(async (repos) => {
       const finalized = await repos.refunds.update(reservation.refundId, {
         providerRefundId: dto.providerRefundId,
-        status: resolveInitialRefundStatus(dto.status),
+        status: refundStatus,
       });
       await repos.auditLogs.create({
         tenantId: this.deps.tenantId ?? null,
@@ -241,40 +269,6 @@ export class RefundPaymentAction {
         afterRefunded: refundedAmount,
         afterStatus: updated.current(),
       };
-    });
-  }
-
-  private async releaseReservation(
-    storage: NonNullable<BillingDependencies['storage']>,
-    paymentId: string,
-    reservation: RefundReservation,
-  ): Promise<void> {
-    for (let attempt = 0; attempt < MAX_RESERVATION_ATTEMPTS; attempt += 1) {
-      const released = await storage.transaction(async (repos) => {
-        const fresh = await repos.payments.findByIdForUpdate(paymentId, this.deps.tenantId);
-        if (!fresh) {
-          await repos.refunds.update(reservation.refundId, { status: 'failed' });
-          return true;
-        }
-        const refundedAmount = Math.max(0, fresh.refundedAmount - reservation.requested);
-        const status: PaymentStatus = refundedAmount <= 0 ? 'succeeded' : 'partially_refunded';
-        const reverted = await repos.payments.updateRefundedAmountIfUnchanged(
-          fresh.id,
-          fresh.refundedAmount,
-          { refundedAmount, status },
-          this.deps.tenantId,
-        );
-        if (reverted) {
-          await repos.refunds.update(reservation.refundId, { status: 'failed' });
-        }
-        return reverted;
-      });
-      if (released) {
-        return;
-      }
-    }
-    await storage.transaction(async (repos) => {
-      await repos.refunds.update(reservation.refundId, { status: 'failed' });
     });
   }
 }

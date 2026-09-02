@@ -6,6 +6,7 @@ export interface RefundInput {
   amount?: Money;
   reason?: string;
   reference?: string;
+  providerData?: Record<string, unknown>;
 }
 
 export interface RefundResultDTO {

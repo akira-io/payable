@@ -237,6 +237,9 @@ export {
   type StripeTreasuryProviderOptions,
 } from './infrastructure/providers/stripe/stripe-treasury-provider';
 export { StripeWebhookVerifier } from './infrastructure/providers/stripe/stripe-webhook-verifier';
+export type { TrustMyTravelCheckoutData } from './infrastructure/providers/trust-my-travel/trust-my-travel-checkout';
+export { TrustMyTravelProvider } from './infrastructure/providers/trust-my-travel/trust-my-travel-provider';
+export type { TrustMyTravelProviderOptions } from './infrastructure/providers/trust-my-travel/trust-my-travel-types';
 export {
   BullMQQueueDriver,
   type BullMQQueueOptions,
