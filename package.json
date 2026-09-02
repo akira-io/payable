@@ -73,7 +73,7 @@
     "verify:bundle": "node scripts/check-core-bundle.mjs",
     "verify:consumer": "node scripts/verify-package-consumer.mjs",
     "verify:exports": "node scripts/check-exports.mjs",
-    "prepare": "npm run build",
+    "prepare": "node scripts/prepare-package.mjs",
     "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run build && npm run verify:bundle && npm run verify:exports"
   },
   "keywords": [

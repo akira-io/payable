@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { cp, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -22,13 +22,12 @@ async function packSourceWithoutPrebuild(): Promise<string> {
     'bun.lock',
     'tsconfig.json',
     'tsup.config.ts',
+    'scripts/prepare-package.mjs',
     'src',
     'prisma',
   ]) {
     await cp(join(packageRoot, path), join(fixtureRoot, path), { recursive: true });
   }
-  await symlink(join(packageRoot, 'node_modules'), join(fixtureRoot, 'node_modules'), 'dir');
-
   archiveRoot = await mkdtemp(join(tmpdir(), 'payable-source-archive-'));
   const pack = run('npm', ['pack', '--pack-destination', archiveRoot], fixtureRoot);
   expect(pack.status, pack.stderr).toBe(0);
@@ -38,14 +37,14 @@ async function packSourceWithoutPrebuild(): Promise<string> {
 }
 
 beforeAll(async () => {
-  const packageArchive = await packSourceWithoutPrebuild();
+  const packageSpec = process.env.PAYABLE_GIT_INSTALL_SPEC ?? (await packSourceWithoutPrebuild());
   consumerRoot = await mkdtemp(join(tmpdir(), 'payable-source-consumer-'));
   await writeFile(
     join(consumerRoot, 'package.json'),
     JSON.stringify({ name: 'payable-source-consumer', private: true, type: 'module' }),
   );
 
-  const install = run('bun', ['add', '--exact', packageArchive], consumerRoot);
+  const install = run('bun', ['add', '--trust', '--exact', packageSpec], consumerRoot);
   expect(install.status, install.stderr).toBe(0);
 }, 120_000);
 
