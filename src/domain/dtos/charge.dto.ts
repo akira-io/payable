@@ -8,6 +8,7 @@ export interface ChargeInput {
   description?: string;
   paymentMethodId?: string;
   offSession?: boolean;
+  providerData?: Record<string, unknown>;
 }
 
 export interface ChargeResultDTO {

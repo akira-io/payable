@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
+import type { Clock } from '../src/domain/contracts/clock.contract';
 import type { Logger } from '../src/domain/contracts/logger.contract';
 import { resolveTrustMyTravelEnvironment } from '../src/infrastructure/providers/trust-my-travel/trust-my-travel-environment';
 import type {
@@ -137,11 +138,13 @@ describe('Trust My Travel types', () => {
       apiToken: string;
       channelId: number;
       channelSecret: string;
+      currency: string;
       environment: TrustMyTravelEnvironment;
       modalVersion?: string;
       baseUrl?: string;
       fetch?: typeof fetch;
       logger?: Logger;
+      clock?: Clock;
       directCharge?: { psp: string };
     }>();
   });

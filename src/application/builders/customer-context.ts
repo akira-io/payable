@@ -51,6 +51,7 @@ export class CustomerContext {
       description: request.description,
       paymentMethodId: request.paymentMethodId,
       offSession: request.offSession,
+      providerData: request.providerData,
       authorization: request.authorization,
     });
   }

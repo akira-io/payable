@@ -40,6 +40,7 @@ tree.
     - [integrations/18a-stripe-treasury.md](integrations/18a-stripe-treasury.md) - Stripe Financial Accounts, transactions, and Outbound Transfers through the separate Treasury contract.
 19. [integrations/19-paddle.md](integrations/19-paddle.md) - The Paddle provider, webhook verifier, and normalizer.
 20. [integrations/20-sisp.md](integrations/20-sisp.md) - The SISP (Cabo Verde · vinti4) provider: redirect checkout, callback reconciliation, and the optional `@akira-io/payable/sisp` subpath.
+    - [integrations/20a-trust-my-travel.md](integrations/20a-trust-my-travel.md) - Trust My Travel Payment Modal checkout, browser callback reconciliation, bookings, and refunds.
 21. [integrations/21-revolut.md](integrations/21-revolut.md) - The Revolut Merchant provider: amount checkout, refunds, webhooks, and payment reconciliation.
     - [integrations/21a-revolut-disputes.md](integrations/21a-revolut-disputes.md) - Production-only dispute listing, retrieval, and acceptance.
     - [integrations/21b-revolut-payouts.md](integrations/21b-revolut-payouts.md) - Merchant payout listing, retrieval, and status mapping.

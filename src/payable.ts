@@ -261,6 +261,7 @@ export class Payable extends ProviderRegistries {
       amount: request.amount,
       reason: request.reason,
       reference: request.reference,
+      providerData: request.providerData,
       authorization: request.authorization,
     });
   }

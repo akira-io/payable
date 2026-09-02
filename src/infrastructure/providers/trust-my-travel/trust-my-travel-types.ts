@@ -1,3 +1,4 @@
+import type { Clock } from '../../../domain/contracts/clock.contract';
 import type { Logger } from '../../../domain/contracts/logger.contract';
 
 export const TRUST_MY_TRAVEL_ENVIRONMENTS = ['test', 'live'] as const;
@@ -88,10 +89,12 @@ export interface TrustMyTravelProviderOptions {
   apiToken: string;
   channelId: number;
   channelSecret: string;
+  currency: string;
   environment: TrustMyTravelEnvironment;
   modalVersion?: string;
   baseUrl?: string;
   fetch?: typeof fetch;
   logger?: Logger;
+  clock?: Clock;
   directCharge?: { psp: string };
 }

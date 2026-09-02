@@ -14,6 +14,7 @@ export interface CreateCheckoutInput {
   cancelUrl: string;
   subscriptionName: string;
   reference?: string;
+  providerData?: Record<string, unknown>;
   trialDays?: number;
   coupon?: string;
 }
@@ -49,6 +50,7 @@ export class CreateCheckoutPipeline {
         successUrl: input.successUrl,
         cancelUrl: input.cancelUrl,
         reference: input.reference,
+        providerData: input.providerData,
         trialDays: input.trialDays,
         coupon: input.coupon,
       },

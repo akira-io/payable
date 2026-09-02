@@ -15,6 +15,7 @@ export interface RedirectCheckoutRequest {
   successUrl?: string;
   cancelUrl?: string;
   reference?: string;
+  providerData?: Record<string, unknown>;
   authorization?: AuthorizationContext;
 }
 
@@ -56,6 +57,7 @@ export class RedirectCheckoutBuilder {
         cancelUrl: request.cancelUrl ?? '',
         reference: request.reference,
         amount: this.amount,
+        providerData: request.providerData,
       },
       idempotencyKey: key.toString(),
     });

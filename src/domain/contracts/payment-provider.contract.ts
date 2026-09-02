@@ -92,6 +92,7 @@ export interface BillingPortalCapable {
 
 export interface RedirectCallbackResult {
   providerPaymentId: string;
+  checkoutSessionId?: string;
   status: PaymentStatus;
 }
 

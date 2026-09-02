@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
+import { Money } from '../src/domain/value-objects/money';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { FakeClock } from '../src/support/clock/fake-clock';
@@ -15,6 +16,20 @@ const billable = {
 const urls = { successUrl: 'https://app.test/s', cancelUrl: 'https://app.test/c' };
 
 describe('fluent subscription checkout', () => {
+  it('forwards provider-specific checkout data unchanged', async () => {
+    const provider = new FakeProvider();
+    const payable = createPayable({ providers: { stripe: provider } });
+    const providerData = { bookingId: 44 };
+
+    await payable
+      .customer(billable)
+      .newSubscription('default')
+      .price('price_pro')
+      .checkout({ ...urls, providerData });
+
+    expect(provider.lastCheckout?.input.providerData).toBe(providerData);
+  });
+
   it('syncs the customer and creates a checkout session', async () => {
     const provider = new FakeProvider();
     const payable = createPayable({ providers: { stripe: provider } });
@@ -65,6 +80,19 @@ describe('fluent subscription checkout', () => {
 });
 
 describe('payment-mode checkout builder', () => {
+  it('forwards provider-specific checkout data unchanged', async () => {
+    const provider = new FakeProvider();
+    const payable = createPayable({ providers: { stripe: provider } });
+    const providerData = { bookingId: 44 };
+
+    await payable
+      .customer(billable)
+      .redirectCheckout(Money.of(9999, 'EUR'))
+      .create({ ...urls, providerData });
+
+    expect(provider.lastCheckout?.input.providerData).toBe(providerData);
+  });
+
   it('builds a one-time payment checkout', async () => {
     const provider = new FakeProvider();
     const payable = createPayable({ providers: { stripe: provider } });
@@ -79,6 +107,21 @@ describe('payment-mode checkout builder', () => {
     expect(session).toEqual({ id: 'cs_fake', url: 'https://fake.test/cs' });
     expect(provider.lastCheckout?.input.mode).toBe('payment');
     expect(provider.lastCheckout?.input.lineItems).toEqual([{ priceId: 'price_one', quantity: 1 }]);
+  });
+
+  it('forwards provider-specific data through standard checkout', async () => {
+    const provider = new FakeProvider();
+    const payable = createPayable({ providers: { stripe: provider } });
+    const providerData = { bookingId: 45 };
+
+    await payable
+      .customer(billable)
+      .checkout()
+      .mode('payment')
+      .addPrice('price_one')
+      .create({ ...urls, providerData });
+
+    expect(provider.lastCheckout?.input.providerData).toBe(providerData);
   });
 
   it('keys distinct line-item sets distinctly', async () => {
