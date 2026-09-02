@@ -58,6 +58,21 @@ export class ReconcileRedirectPaymentAction {
       if (!fresh) {
         return false;
       }
+      if (
+        result.amount &&
+        (result.amount.amount() !== fresh.amount || result.amount.currency() !== fresh.currency)
+      ) {
+        throw new PayableError('Redirect callback amount does not match the pending payment', {
+          code: 'REDIRECT_CALLBACK_PAYMENT_MISMATCH',
+          context: {
+            paymentId: fresh.id,
+            expectedAmount: fresh.amount,
+            expectedCurrency: fresh.currency,
+            actualAmount: result.amount.amount(),
+            actualCurrency: result.amount.currency(),
+          },
+        });
+      }
       const machine = new PaymentStateMachine(fresh.status);
       if (!machine.tryTransitionTo(result.status)) {
         return false;

@@ -63,6 +63,7 @@ export class TrustMyTravelTransactions {
       providerPaymentId: String(transaction.id),
       ...(bookingId === undefined ? {} : { checkoutSessionId: String(bookingId) }),
       status: this.paymentStatus(transaction),
+      amount: trustMyTravelMoney(transaction.total, transaction.currencies),
     };
   }
 

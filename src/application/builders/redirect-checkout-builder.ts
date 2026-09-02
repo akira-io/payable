@@ -1,5 +1,7 @@
 import type { CheckoutSessionDTO } from '../../domain/dtos/checkout.dto';
 import type { Customer } from '../../domain/entities/customer.entity';
+import type { Payment } from '../../domain/entities/payment.entity';
+import { PayableError } from '../../domain/errors/payable-error';
 import { IdempotencyKey } from '../../domain/value-objects/idempotency-key';
 import type { Money } from '../../domain/value-objects/money';
 import { CreateCheckoutSessionAction } from '../actions/checkout/create-checkout-session.action';
@@ -7,6 +9,7 @@ import { SyncCustomerWithProviderAction } from '../actions/customers/sync-custom
 import { assertAuthorized } from '../policies/assert-authorized';
 import type { AuthorizationContext } from '../policies/authorization-context';
 import { CanCreateCheckoutPolicy } from '../policies/can-create-checkout.policy';
+import { isUniqueConstraintViolation } from '../services/storage/is-unique-constraint-violation';
 import type { Billable } from './billable';
 import type { BillingDependencies } from './billing-dependencies';
 import { CustomerResource } from './customer-resource';
@@ -82,19 +85,53 @@ export class RedirectCheckoutBuilder {
       this.deps.tenantId ?? null,
     );
     if (existing) {
+      this.assertPendingPaymentMatches(existing, customer, providerPaymentId, reference);
       return;
     }
-    await storage.payments.create({
-      tenantId: this.deps.tenantId ?? null,
-      customerId: customer.id,
-      provider: this.deps.providerName,
-      providerPaymentId,
-      status: 'pending',
-      currency: this.amount.currency(),
-      amount: this.amount.amount(),
-      refundedAmount: 0,
-      reference,
-      description: null,
-    });
+    try {
+      await storage.payments.create({
+        tenantId: this.deps.tenantId ?? null,
+        customerId: customer.id,
+        provider: this.deps.providerName,
+        providerPaymentId,
+        status: 'pending',
+        currency: this.amount.currency(),
+        amount: this.amount.amount(),
+        refundedAmount: 0,
+        reference,
+        description: null,
+      });
+    } catch (error) {
+      if (!isUniqueConstraintViolation(error)) throw error;
+      const concurrent = await storage.payments.findByProviderId(
+        this.deps.providerName,
+        providerPaymentId,
+        this.deps.tenantId ?? null,
+      );
+      if (!concurrent) throw error;
+      this.assertPendingPaymentMatches(concurrent, customer, providerPaymentId, reference);
+    }
+  }
+
+  private assertPendingPaymentMatches(
+    existing: Payment | null,
+    customer: Customer,
+    providerPaymentId: string,
+    reference: string | null,
+  ): void {
+    const matchesPendingPayment =
+      existing?.status === 'pending' &&
+      existing.customerId === customer.id &&
+      existing.amount === this.amount.amount() &&
+      existing.currency === this.amount.currency() &&
+      existing.reference === reference;
+    if (matchesPendingPayment) return;
+    throw new PayableError(
+      `Checkout session ${providerPaymentId} already identifies another payment`,
+      {
+        code: 'CHECKOUT_PAYMENT_CONFLICT',
+        context: { provider: this.deps.providerName, providerPaymentId },
+      },
+    );
   }
 }

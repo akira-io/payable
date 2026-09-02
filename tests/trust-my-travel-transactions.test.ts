@@ -43,11 +43,14 @@ describe('Trust My Travel transactions', () => {
     };
 
     expect(await provider.verifyCallback(payload)).toBe(true);
-    await expect(provider.handleRedirectCallback(payload)).resolves.toEqual({
+    const result = await provider.handleRedirectCallback(payload);
+    expect(result).toMatchObject({
       providerPaymentId: '77',
       checkoutSessionId: '44',
       status: 'succeeded',
     });
+    expect(result.amount?.amount()).toBe(9999);
+    expect(result.amount?.currency()).toBe('EUR');
     expect(fetch).toHaveBeenCalledWith(
       'https://tmt.test/merchant/wp-json/tmt/v2/transactions/77',
       expect.objectContaining({ method: 'GET' }),

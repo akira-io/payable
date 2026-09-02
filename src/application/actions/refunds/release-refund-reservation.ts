@@ -1,3 +1,4 @@
+import { PayableError } from '../../../domain/errors/payable-error';
 import type { PaymentStatus } from '../../../domain/value-objects/payment-status';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
 
@@ -44,5 +45,12 @@ export async function releaseRefundReservation(
     });
     if (released) return;
   }
-  await storage.refunds.update(reservation.refundId, refundPatch);
+  await storage.refunds.update(reservation.refundId, {
+    providerRefundId: providerResult?.providerRefundId,
+    status: 'pending',
+  });
+  throw new PayableError(`Refund reservation could not be released for payment ${paymentId}`, {
+    code: 'REFUND_RELEASE_CONFLICT',
+    context: { paymentId, refundId: reservation.refundId, reconciliationRequired: true },
+  });
 }

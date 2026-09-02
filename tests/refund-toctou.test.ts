@@ -87,6 +87,41 @@ describe('refund TOCTOU guard', () => {
     await db.destroy();
   });
 
+  it('keeps a conflicted release pending instead of claiming it was released', async () => {
+    let blockRelease = false;
+    class FailingRefundProvider extends FakeProvider {
+      override refund(): Promise<never> {
+        blockRelease = true;
+        return Promise.reject(new Error('provider refund failed'));
+      }
+    }
+    const db = createTestDb();
+    await migrate(db);
+    const storage = new KnexStorageDriver(db, new FakeClock());
+    const transact = storage.transaction.bind(storage);
+    storage.transaction = (work) =>
+      transact(async (repositories) => {
+        if (blockRelease) {
+          repositories.payments.updateRefundedAmountIfUnchanged = () => Promise.resolve(false);
+        }
+        return work(repositories);
+      });
+    const payable = createPayable({ providers: { stripe: new FailingRefundProvider() }, storage });
+    const payment = await seedPayment(storage);
+
+    await expect(
+      payable.refund({ paymentId: payment.id, amount: Money.of(10_000, 'USD') }),
+    ).rejects.toMatchObject({ code: 'REFUND_RELEASE_CONFLICT' });
+
+    expect(await storage.payments.findById(payment.id)).toMatchObject({
+      refundedAmount: 10_000,
+      status: 'refunded',
+    });
+    const [refund] = await storage.refunds.listByPayment(payment.id);
+    expect(refund).toMatchObject({ providerRefundId: null, status: 'pending' });
+    await db.destroy();
+  });
+
   it('retains a provider-confirmed mismatched refund for reconciliation', async () => {
     class MismatchedRefundProvider extends FakeProvider {
       override refund() {

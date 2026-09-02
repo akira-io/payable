@@ -179,10 +179,34 @@ describe('reconcile redirect payment', () => {
     expect(payment).toMatchObject({ providerPaymentId: 'tx-77', status: 'succeeded' });
     await db.destroy();
   });
+
+  it('rejects a callback whose authoritative amount differs from the pending payment', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new DeferredTransactionProvider();
+    const payable = createPayable({
+      providers: { deferred: provider },
+      storage: new KnexStorageDriver(db, new FakeClock()),
+    });
+    await payable.customer(billable).redirectCheckout(Money.of(9999, 'EUR')).create();
+    provider.callbackAmount = Money.of(3000, 'EUR');
+
+    await expect(
+      payable.receiveRedirectCallback({
+        provider: 'deferred',
+        payload: { transactionId: 'tx-77' },
+      }),
+    ).rejects.toMatchObject({ code: 'REDIRECT_CALLBACK_PAYMENT_MISMATCH' });
+
+    const [payment] = await payable.customer(billable).payments();
+    expect(payment).toMatchObject({ providerPaymentId: 'booking-44', status: 'pending' });
+    await db.destroy();
+  });
 });
 
 class DeferredTransactionProvider implements PaymentProvider, RedirectCallbackCapable {
   readonly name = 'deferred';
+  callbackAmount = Money.of(9999, 'EUR');
 
   capabilities(): ProviderCapabilities {
     return new Set(['checkout']);
@@ -208,6 +232,7 @@ class DeferredTransactionProvider implements PaymentProvider, RedirectCallbackCa
       providerPaymentId: 'tx-77',
       checkoutSessionId: 'booking-44',
       status: 'succeeded',
+      amount: this.callbackAmount,
     });
   }
 }
