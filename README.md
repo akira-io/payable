@@ -41,6 +41,16 @@ bun add --exact @akira-io/payable@beta   # or: npm install / pnpm add
 The `beta` dist-tag follows the current prerelease. `--exact` and the lockfile keep consumer builds
 reproducible; advancing Payable requires an explicit dependency refresh and lockfile review.
 
+To consume an unreleased branch or commit, install the Git dependency as trusted so Bun can run the
+package's build lifecycle:
+
+```sh
+bun add --trust --exact @akira-io/payable@github:akira-io/payable#<branch-or-commit>
+```
+
+Projects may instead list `@akira-io/payable` in `trustedDependencies` before installing. npm and
+pnpm run the Git dependency preparation lifecycle without Bun's explicit trust flag.
+
 Then add the optional peers for the features you use:
 
 | Feature         | Install                                              |
