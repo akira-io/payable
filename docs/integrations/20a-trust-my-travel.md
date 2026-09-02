@@ -119,6 +119,73 @@ TMT statuses map as follows: `complete -> succeeded`, `failed -> failed`, `pendi
 and `expired -> failed`. `locked` throws `PROVIDER_TRANSACTION_LOCKED`; `incomplete` throws
 `PROVIDER_RESULT_UNKNOWN` because neither has an honest canonical payment state.
 
+## Recurring transaction reconciliation
+
+Browser callbacks are only hints that a transaction may be ready. They cannot report a customer who
+abandons 3DS, an empty gateway response, expiry cleanup, or a later chargeback. Run recurring
+reconciliation in a server worker for every TMT payment that remains unresolved. The provider makes
+one authoritative `GET /transactions/{id}` request per invocation.
+
+The optional provider capability keeps persistence and scheduling in the host application:
+
+```ts
+import { isRecurringPaymentReconciliationCapable } from '@akira-io/payable';
+
+const provider = payable.providers().get('tmt-eur');
+if (!isRecurringPaymentReconciliationCapable(provider)) {
+  throw new Error('The provider cannot reconcile recurring payment state');
+}
+
+const result = await provider.reconcilePaymentRecurring({
+  providerPaymentId,
+  cursor: await reconciliationStore.load(providerPaymentId),
+});
+
+if (result.outcome === 'retry') {
+  await reconciliationStore.save(providerPaymentId, result.cursor);
+  await scheduler.enqueue(providerPaymentId, result.cursor.nextAttemptAt);
+} else {
+  await reconciliationStore.finish(providerPaymentId, result);
+}
+```
+
+Persist the returned cursor before scheduling its next execution. The cursor is plain JSON and
+contains the provider payment ID, completed attempt count, next eligible execution time, and last
+observed provider and canonical states. A new process can pass a JSON-round-tripped cursor back to
+the provider without any in-memory state. Calling before `nextAttemptAt`, changing the transaction
+ID, or passing a malformed cursor fails before a network request.
+
+The default policy allows 35 GET attempts, starts at one minute, doubles the delay, and caps each
+delay at 24 hours. Override it when constructing the provider:
+
+```ts
+import type { TrustMyTravelReconciliationOptions } from '@akira-io/payable';
+
+const reconciliation = {
+  maxAttempts: 20,
+  baseDelayMs: 30_000,
+  maxDelayMs: 3_600_000,
+} satisfies TrustMyTravelReconciliationOptions;
+```
+
+Pass `reconciliation` with the server-only provider options shown above.
+
+`complete`, `failed`, and `expired` return `terminal` with `succeeded`, `failed`, and `failed`
+respectively. `pending` returns `retry` with `processing`. `incomplete` and `locked` return `retry`
+with canonical `pending`: neither is forced into a misleading success or failure. If the last
+allowed GET is still unresolved, `exhausted` preserves the final observation and reports
+`attempt_limit`; it does not fabricate a terminal payment state.
+
+Transport and API errors reject the invocation and return no replacement cursor, so the host keeps
+its last durable cursor. Repeating an invocation with the same cursor is safe from Payable's side:
+it performs a read only and derives the same attempt number. The host should still use a durable
+claim or compare-and-set when multiple workers may process the same record.
+
+Locked responses expose the current `chargebackStatus`, `outcomeStatus`, `reasonCode`, and
+`challengeDate` under `providerData`. These values come from the private GET, never from the browser.
+Long-lived chargeback monitoring may start fresh bounded reads for settled transactions according to
+the host's retention policy; a browser return page is never required for that observation.
+
 ## Refunds
 
 `payable.refund(...)` reads the original TMT transaction before creating a refund. This recovers the

@@ -19,6 +19,10 @@ export interface TmtTransactionResponse {
   bookings: TmtTransactionBooking[];
   transaction_types?: string;
   linked_id?: number;
+  chargeback_status?: string;
+  outcome_status?: string;
+  reason_code?: string;
+  challenge_date?: string;
 }
 
 export interface TmtTransactionBooking {
@@ -103,6 +107,12 @@ export class TrustMyTravelTransactions {
     return this.request<TmtTransactionResponse>(`/transactions/${encodeURIComponent(String(id))}`, {
       method: 'GET',
     });
+  }
+
+  async findScoped(id: string | number): Promise<TmtTransactionResponse> {
+    const transaction = await this.find(id);
+    this.assertTransactionScope(transaction);
+    return transaction;
   }
 
   private refundError(message: string): PayableError {

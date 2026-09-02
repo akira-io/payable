@@ -60,6 +60,7 @@ describe('public API surface', () => {
     expect(typeof payable.isPayoutCapable).toBe('function');
     expect(typeof payable.isProviderWebhookEndpointManagementCapable).toBe('function');
     expect(typeof payable.isPaymentWebhookCapable).toBe('function');
+    expect(typeof payable.isRecurringPaymentReconciliationCapable).toBe('function');
     expect(typeof payable.isTreasuryWebhookCapable).toBe('function');
     expect(typeof payable.isTaxCalculationCapable).toBe('function');
     expect(typeof payable.isTaxTransactionCapable).toBe('function');

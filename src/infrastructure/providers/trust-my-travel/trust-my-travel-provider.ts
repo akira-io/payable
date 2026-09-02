@@ -3,6 +3,11 @@ import type {
   RedirectCallbackCapable,
   RedirectCallbackResult,
 } from '../../../domain/contracts/payment-provider.contract';
+import type {
+  RecurringPaymentReconciliationCapable,
+  RecurringPaymentReconciliationInput,
+  RecurringPaymentReconciliationResult,
+} from '../../../domain/contracts/recurring-payment-reconciliation.contract';
 import type { SubscriptionOperationCapabilitiesProvider } from '../../../domain/contracts/subscription-operation-capabilities-provider.contract';
 import type { ProviderCapabilities } from '../../../domain/dtos/capabilities.dto';
 import type {
@@ -12,19 +17,26 @@ import type {
 import type { OperationContext } from '../../../domain/dtos/common.dto';
 import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import { NO_SUBSCRIPTION_OPERATIONS } from '../../../domain/dtos/subscription-operation-capabilities.dto';
+import { SystemClock } from '../../../support/clock/system-clock';
 import { TrustMyTravelBookings } from './trust-my-travel-bookings';
 import { TrustMyTravelCheckout } from './trust-my-travel-checkout';
 import { TrustMyTravelClient } from './trust-my-travel-client';
+import { TrustMyTravelReconciliation } from './trust-my-travel-reconciliation';
 import { TrustMyTravelTransactions } from './trust-my-travel-transactions';
 import type { TrustMyTravelProviderOptions } from './trust-my-travel-types';
 
 export class TrustMyTravelProvider
-  implements PaymentProvider, RedirectCallbackCapable, SubscriptionOperationCapabilitiesProvider
+  implements
+    PaymentProvider,
+    RedirectCallbackCapable,
+    RecurringPaymentReconciliationCapable,
+    SubscriptionOperationCapabilitiesProvider
 {
   readonly name = 'trust-my-travel';
   readonly bookings: TrustMyTravelBookings;
   private readonly checkout: TrustMyTravelCheckout;
   private readonly transactions: TrustMyTravelTransactions;
+  private readonly reconciliation: TrustMyTravelReconciliation;
 
   constructor(options: TrustMyTravelProviderOptions) {
     const client = new TrustMyTravelClient(options);
@@ -39,6 +51,11 @@ export class TrustMyTravelProvider
       options.channelSecret,
       { id: options.channelId, currency: options.currency },
       options.logger,
+    );
+    this.reconciliation = new TrustMyTravelReconciliation(
+      (id) => this.transactions.findScoped(id),
+      options.clock ?? new SystemClock(),
+      options.reconciliation,
     );
   }
 
@@ -75,5 +92,11 @@ export class TrustMyTravelProvider
 
   handleRedirectCallback(payload: Record<string, unknown>): Promise<RedirectCallbackResult> {
     return this.transactions.reconcile(payload);
+  }
+
+  reconcilePaymentRecurring(
+    input: RecurringPaymentReconciliationInput,
+  ): Promise<RecurringPaymentReconciliationResult> {
+    return this.reconciliation.reconcile(input);
   }
 }
