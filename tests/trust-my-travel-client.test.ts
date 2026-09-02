@@ -67,6 +67,23 @@ describe('TrustMyTravelClient', () => {
     expect(requests[0]?.url).toBe('https://tmt.test/sandbox/wp-json/tmt/v2/channels/2452');
   });
 
+  it('normalizes large slash sequences in configurable URL segments without excessive work', async () => {
+    const slashes = '/'.repeat(25_000);
+    const { fetch, requests } = recordFetch(Response.json({ id: 2452 }));
+    const client = new TrustMyTravelClient({
+      path: `${slashes}sandbox${slashes}`,
+      apiToken: 'token',
+      baseUrl: `https://tmt.test/${slashes}api`,
+      fetch,
+    });
+
+    await client.request(`${slashes}channels/2452`, { method: 'GET' });
+
+    expect(requests[0]?.url).toBe(
+      `https://tmt.test/${slashes}api/sandbox/wp-json/tmt/v2/channels/2452`,
+    );
+  }, 100);
+
   it('parses a successful empty response as null', async () => {
     const { fetch } = recordFetch(new Response(null, { status: 204 }));
     const client = new TrustMyTravelClient({ path: 'site', apiToken: 'token', fetch });

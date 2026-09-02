@@ -54,9 +54,13 @@ export class TrustMyTravelClient {
   }
 
   private url(resourcePath: string): string {
-    const baseUrl = (this.options.baseUrl ?? TRUST_MY_TRAVEL_BASE_URL).replace(/\/+$/, '');
-    const sitePath = this.options.path.replace(/^\/+|\/+$/g, '');
-    const endpoint = resourcePath.replace(/^\/+/, '');
+    const baseUrl = trimBoundarySlashes(
+      this.options.baseUrl ?? TRUST_MY_TRAVEL_BASE_URL,
+      false,
+      true,
+    );
+    const sitePath = trimBoundarySlashes(this.options.path, true, true);
+    const endpoint = trimBoundarySlashes(resourcePath, true, false);
     return `${baseUrl}/${sitePath}/wp-json/tmt/v2/${endpoint}`;
   }
 
@@ -72,6 +76,21 @@ export class TrustMyTravelClient {
 
     return request(input, init);
   }
+}
+
+function trimBoundarySlashes(value: string, trimLeading: boolean, trimTrailing: boolean): string {
+  let start = 0;
+  let end = value.length;
+
+  while (trimLeading && start < end && value[start] === '/') {
+    start += 1;
+  }
+
+  while (trimTrailing && end > start && value[end - 1] === '/') {
+    end -= 1;
+  }
+
+  return start === 0 && end === value.length ? value : value.slice(start, end);
 }
 
 async function parseResponseBody(response: Response): Promise<unknown> {
