@@ -56,7 +56,11 @@ export class TrustMyTravelRetainedPurchases {
       });
     } catch (error) {
       await this.assertActive(method.transactionId);
-      throw error;
+      throw new PayableError('Trust My Travel retained purchase outcome requires reconciliation', {
+        code: 'PROVIDER_TMT_RETAINED_PURCHASE_OUTCOME_UNCERTAIN',
+        context: { provider: 'trust-my-travel' },
+        cause: error,
+      });
     }
     if (
       !Number.isSafeInteger(transaction.id) ||
@@ -78,6 +82,13 @@ export class TrustMyTravelRetainedPurchases {
 
   idempotencyFingerprint(input: ChargeInput): unknown {
     return { bookings: this.bookings(input) };
+  }
+
+  isFailureOutcomeUncertain(error: unknown): boolean {
+    return (
+      error instanceof PayableError &&
+      error.code === 'PROVIDER_TMT_RETAINED_PURCHASE_OUTCOME_UNCERTAIN'
+    );
   }
 
   private validateInput(input: ChargeInput) {

@@ -5,6 +5,7 @@ import type { PaymentProvider } from './payment-provider.contract';
 export interface ChargeCapable {
   readonly chargeIdempotency?: 'native' | 'unsupported';
   chargeIdempotencyFingerprint?(input: ChargeInput): unknown;
+  isChargeFailureOutcomeUncertain?(error: unknown): boolean;
   charge(input: ChargeInput, context: OperationContext): Promise<ChargeResultDTO>;
 }
 

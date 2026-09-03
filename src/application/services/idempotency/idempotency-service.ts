@@ -33,6 +33,7 @@ export interface IdempotentExecution<T> {
   reclaimStaleProcessing?: boolean;
   lockTtlMs?: number;
   failurePolicy?: IdempotencyFailurePolicy;
+  isFailureOutcomeUncertain?: (error: unknown) => boolean;
   correlationId?: string;
   run: () => Promise<T>;
   revive?: (response: unknown) => Promise<T> | T;
@@ -171,7 +172,9 @@ export class IdempotencyService {
     try {
       executionResult = await execution.run();
     } catch (error) {
-      await this.markFailed(scopedKey, execution, processingRecord, policy.failedTtlMs);
+      const failureTtlMs =
+        execution.isFailureOutcomeUncertain?.(error) === false ? 0 : policy.failedTtlMs;
+      await this.markFailed(scopedKey, execution, processingRecord, failureTtlMs);
       throw error;
     }
 

@@ -225,6 +225,10 @@ export class TrustMyTravelProvider
     return this.retainedPurchases.idempotencyFingerprint(input);
   }
 
+  isChargeFailureOutcomeUncertain(error: unknown): boolean {
+    return this.retainedPurchases.isFailureOutcomeUncertain(error);
+  }
+
   verifyCallback(payload: Record<string, unknown>): boolean {
     return this.transactions.verifyCallback(payload);
   }

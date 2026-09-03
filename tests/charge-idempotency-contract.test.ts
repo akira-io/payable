@@ -111,4 +111,38 @@ describe('charge idempotency contract', () => {
     });
     await db.destroy();
   });
+
+  it('allows a retry when a non-native provider rejects before attempting mutation', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const clock = new FakeClock();
+    const provider = Object.assign(new FakeProvider(), {
+      chargeIdempotency: 'unsupported' as const,
+      isChargeFailureOutcomeUncertain: () => false,
+    });
+    provider.charge = async () => {
+      provider.chargeCalls += 1;
+      if (provider.chargeCalls === 1) throw new PayableError('Preflight unavailable');
+      return {
+        providerPaymentId: 'charge-retried',
+        status: 'succeeded',
+        amount: Money.of(100, 'USD'),
+      };
+    };
+    const payable = createPayable({
+      providers: { tmt: provider },
+      storage: new KnexStorageDriver(db, clock),
+      clock,
+      idempotency: { store: new KnexIdempotencyRepository(db, clock) },
+    });
+    const charge = () =>
+      payable
+        .customer(billable)
+        .charge({ amount: Money.of(100, 'USD'), reference: 'retryable-preflight' });
+
+    await expect(charge()).rejects.toThrow('Preflight unavailable');
+    await expect(charge()).resolves.toMatchObject({ providerPaymentId: 'charge-retried' });
+    expect(provider.chargeCalls).toBe(2);
+    await db.destroy();
+  });
 });

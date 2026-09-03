@@ -152,6 +152,7 @@ export class ChargeAction {
       tenantId: this.deps.tenantId,
       retryFailed: !requiresReconciliation,
       failurePolicy: requiresReconciliation ? 'reconciliation-required' : 'default',
+      isFailureOutcomeUncertain: provider.isChargeFailureOutcomeUncertain?.bind(provider),
       run,
       revive: async (response) => {
         const fresh = await storage.payments.findById(
