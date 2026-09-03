@@ -3,7 +3,7 @@ import type { VerifiedWebhook } from '../../../domain/dtos/webhook.dto';
 import type { PaymentStatus } from '../../../domain/value-objects/payment-status';
 
 const STATUS_BY_EVENT: Record<string, PaymentStatus> = {
-  ORDER_AUTHORISED: 'processing',
+  ORDER_AUTHORISED: 'authorized',
   ORDER_COMPLETED: 'succeeded',
   ORDER_FAILED: 'failed',
   ORDER_PAYMENT_AUTHENTICATED: 'processing',

@@ -89,6 +89,7 @@ export interface RevolutOrder {
   amount?: number;
   currency?: string;
   checkout_url?: string;
+  capture_deadline?: string;
   customer?: { id: string };
   payments?: RevolutOrderPayment[];
   related_order_id?: string;
@@ -100,6 +101,7 @@ export interface RevolutOrderCreationPayload {
   customer?: { id: string };
   merchant_order_data?: { reference: string };
   redirect_url?: string;
+  capture_mode?: 'manual' | 'automatic';
 }
 
 export interface RevolutRefundPayload {

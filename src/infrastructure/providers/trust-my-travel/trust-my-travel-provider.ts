@@ -1,3 +1,9 @@
+import type { Clock } from '../../../domain/contracts/clock.contract';
+import type {
+  AuthorizeCapable,
+  CaptureCapable,
+  VoidCapable,
+} from '../../../domain/contracts/payment-lifecycle-provider.contract';
 import type {
   PaymentProvider,
   RedirectCallbackCapable,
@@ -15,6 +21,14 @@ import type {
   CreateCheckoutSessionInput,
 } from '../../../domain/dtos/checkout.dto';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
+import type {
+  AuthorizationResultDTO,
+  AuthorizePaymentInput,
+  CapturePaymentInput,
+  CaptureResultDTO,
+  VoidPaymentInput,
+  VoidResultDTO,
+} from '../../../domain/dtos/payment-lifecycle.dto';
 import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import { NO_SUBSCRIPTION_OPERATIONS } from '../../../domain/dtos/subscription-operation-capabilities.dto';
 import { SystemClock } from '../../../support/clock/system-clock';
@@ -28,17 +42,30 @@ import type { TrustMyTravelProviderOptions } from './trust-my-travel-types';
 export class TrustMyTravelProvider
   implements
     PaymentProvider,
+    AuthorizeCapable,
+    CaptureCapable,
+    VoidCapable,
     RedirectCallbackCapable,
     RecurringPaymentReconciliationCapable,
     SubscriptionOperationCapabilitiesProvider
 {
   readonly name = 'trust-my-travel';
+  readonly authorizeIdempotency = 'unsupported';
+  readonly captureIdempotency = 'unsupported';
+  readonly voidIdempotency = 'unsupported';
   readonly bookings: TrustMyTravelBookings;
   private readonly checkout: TrustMyTravelCheckout;
   private readonly transactions: TrustMyTravelTransactions;
   private readonly reconciliation: TrustMyTravelReconciliation;
+  private readonly clock: Clock;
+  private readonly authorizationWindowMs: number;
 
   constructor(options: TrustMyTravelProviderOptions) {
+    this.clock = options.clock ?? new SystemClock();
+    this.authorizationWindowMs = options.authorizationWindowMs ?? 5 * 24 * 60 * 60 * 1000;
+    if (!Number.isSafeInteger(this.authorizationWindowMs) || this.authorizationWindowMs <= 0) {
+      throw new TypeError('Trust My Travel authorizationWindowMs must be a positive integer');
+    }
     const client = new TrustMyTravelClient(options);
     const request = client.request.bind(client);
     this.bookings = new TrustMyTravelBookings(request, {
@@ -54,7 +81,7 @@ export class TrustMyTravelProvider
     );
     this.reconciliation = new TrustMyTravelReconciliation(
       (id) => this.transactions.findScoped(id),
-      options.clock ?? new SystemClock(),
+      this.clock,
       options.reconciliation,
     );
   }
@@ -68,7 +95,7 @@ export class TrustMyTravelProvider
   }
 
   capabilities(): ProviderCapabilities {
-    return new Set(['checkout', 'refunds', 'x-tmt-bookings']);
+    return new Set(['checkout', 'refunds', 'authorize', 'capture', 'void', 'x-tmt-bookings']);
   }
 
   subscriptionOperationCapabilities() {
@@ -84,6 +111,39 @@ export class TrustMyTravelProvider
 
   refund(input: RefundInput, _ctx: OperationContext): Promise<RefundResultDTO> {
     return this.transactions.refund(input);
+  }
+
+  async authorize(
+    input: AuthorizePaymentInput,
+    _ctx: OperationContext,
+  ): Promise<AuthorizationResultDTO> {
+    const checkout = await this.checkout.create(
+      {
+        providerCustomerId: input.providerCustomerId ?? '',
+        mode: 'payment',
+        lineItems: [],
+        successUrl: input.successUrl ?? '',
+        cancelUrl: input.cancelUrl ?? '',
+        reference: input.reference,
+        amount: input.amount,
+        providerData: input.providerData,
+      },
+      'authorize',
+    );
+    return {
+      status: 'processing',
+      amount: input.amount,
+      checkout,
+      expiresAt: new Date(this.clock.now().getTime() + this.authorizationWindowMs),
+    };
+  }
+
+  capture(input: CapturePaymentInput, _ctx: OperationContext): Promise<CaptureResultDTO> {
+    return this.transactions.capture(input);
+  }
+
+  void(input: VoidPaymentInput, _ctx: OperationContext): Promise<VoidResultDTO> {
+    return this.transactions.void(input);
   }
 
   verifyCallback(payload: Record<string, unknown>): boolean {

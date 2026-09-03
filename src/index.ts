@@ -15,9 +15,19 @@ export {
 export { DownloadInvoicePdfAction } from './application/actions/invoices/download-invoice-pdf.action';
 export { ListInvoicesAction } from './application/actions/invoices/list-invoices.action';
 export {
+  AuthorizePaymentAction,
+  type AuthorizePaymentActionInput,
+  type AuthorizePaymentResult,
+} from './application/actions/payments/authorize-payment.action';
+export {
   ChargeAction,
   type ChargeActionInput,
 } from './application/actions/payments/charge.action';
+export {
+  type CaptureAuthorizationRequest,
+  SettleAuthorizationAction,
+  type VoidAuthorizationRequest,
+} from './application/actions/payments/settle-authorization.action';
 export {
   RefundPaymentAction,
   type RefundPaymentActionInput,

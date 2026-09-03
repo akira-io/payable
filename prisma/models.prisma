@@ -459,6 +459,9 @@ model PayablePayment {
   currency          String
   amount            BigInt
   refundedAmount    BigInt                  @map("refunded_amount")
+  capturedAmount    BigInt                  @default(0) @map("captured_amount")
+  authorizedAt      DateTime?               @map("authorized_at")
+  authorizationExpiresAt DateTime?          @map("authorization_expires_at")
   reference         String?
   description       String?
   collectionMethod  String?                 @map("collection_method")

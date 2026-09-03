@@ -66,6 +66,18 @@ function fakeStripe() {
         amount: 9900,
         currency: 'usd',
       }),
+      capture: record('paymentIntents.capture', {
+        id: 'pi_1',
+        status: 'succeeded',
+        amount: 9900,
+        currency: 'usd',
+      }),
+      cancel: record('paymentIntents.cancel', {
+        id: 'pi_1',
+        status: 'canceled',
+        amount: 9900,
+        currency: 'usd',
+      }),
     },
     refunds: {
       create: record('refunds.create', {
@@ -91,6 +103,39 @@ const provider = (client: Stripe) =>
   new StripeProvider({ secretKey: 'sk_test', webhookSecret: 'wh_test' }, client);
 
 describe('StripeProvider', () => {
+  it('authorizes, captures and voids with manual PaymentIntents', async () => {
+    const { client, calls } = fakeStripe();
+    const instance = provider(client);
+    await instance.authorize(
+      {
+        amount: Money.of(9900, 'USD'),
+        reference: 'order-1',
+        providerCustomerId: 'cus_1',
+        paymentMethodId: 'pm_1',
+      },
+      ctx,
+    );
+    await instance.capture({ providerPaymentId: 'pi_1', amount: Money.of(4900, 'USD') }, ctx);
+    await instance.void({ providerPaymentId: 'pi_1' }, ctx);
+
+    expect(calls.get('paymentIntents.create')?.params).toMatchObject({
+      capture_method: 'manual',
+      confirm: true,
+      amount: 9900,
+      currency: 'usd',
+    });
+    expect(calls.get('paymentIntents.capture')?.args).toEqual([
+      'pi_1',
+      { amount_to_capture: 4900 },
+      { idempotencyKey: 'idem-1' },
+    ]);
+    expect(calls.get('paymentIntents.cancel')?.args).toEqual([
+      'pi_1',
+      {},
+      { idempotencyKey: 'idem-1' },
+    ]);
+  });
+
   it('reports Stripe capabilities', () => {
     const { client } = fakeStripe();
     expect(provider(client).capabilities().has('checkout')).toBe(true);

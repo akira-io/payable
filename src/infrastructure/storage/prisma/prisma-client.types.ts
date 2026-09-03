@@ -142,6 +142,9 @@ export interface PrismaPaymentRow extends PrismaCollectionEvidenceRow {
   currency: string;
   amount: bigint;
   refundedAmount: bigint;
+  capturedAmount: bigint;
+  authorizedAt: Date | null;
+  authorizationExpiresAt: Date | null;
   reference: string | null;
   description: string | null;
   createdAt: Date;

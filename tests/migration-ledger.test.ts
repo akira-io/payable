@@ -35,6 +35,7 @@ describe('migration ledger', () => {
       '020-canonical-invoices',
       '021-canonical-subscription-price-migrations',
       '022-subscription-mutation-recovery',
+      '023-payment-authorization-lifecycle',
     ]);
     await db.destroy();
   });

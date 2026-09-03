@@ -31,6 +31,7 @@ tree.
 14. [features/14-idempotency.md](features/14-idempotency.md) - Idempotency strategies, the store, and the key resolver.
 15. [features/15-reliability.md](features/15-reliability.md) - Audit log, transactional outbox, locks, and cache.
 16. [features/16-multi-tenancy.md](features/16-multi-tenancy.md) - Tenant config, resolver, and scoping.
+17. [features/17-payment-authorization.md](features/17-payment-authorization.md) - Provider-neutral authorization, capture, void, locking, recovery, and provider support.
 
 ## Integrations
 

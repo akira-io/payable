@@ -145,6 +145,7 @@ describe('Trust My Travel types', () => {
       fetch?: typeof fetch;
       logger?: Logger;
       clock?: Clock;
+      authorizationWindowMs?: number;
       directCharge?: { psp: string };
       reconciliation?: {
         maxAttempts?: number;

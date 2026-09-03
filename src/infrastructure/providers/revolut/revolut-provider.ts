@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import type { Logger } from '../../../domain/contracts/logger.contract';
 import type {
   CustomerCapable,
   DirectSubscriptionCapable,
@@ -58,16 +57,16 @@ import { RevolutCustomers } from './revolut-customers';
 import { RevolutDisputes } from './revolut-disputes';
 import { RevolutEventNormalizer } from './revolut-event-normalizer';
 import { toRevolutCheckoutSessionDTO, toRevolutRefundResultDTO } from './revolut-mappers';
+import { RevolutPaymentLifecycle } from './revolut-payment-lifecycle';
 import { RevolutPaymentMethodSetup } from './revolut-payment-method-setup';
 import { RevolutPaymentMethods } from './revolut-payment-methods';
 import { reconcileRevolutPaymentWebhook } from './revolut-payment-webhook-reconciliation';
 import { RevolutPayouts } from './revolut-payouts';
+import type { RevolutProviderOptions } from './revolut-provider-options';
 import { revolutSubscriptionOperationCapabilities } from './revolut-subscription-operation-capabilities';
 import { reconcileRevolutSubscriptionWebhook } from './revolut-subscription-webhook-reconciliation';
 import { RevolutSubscriptions } from './revolut-subscriptions';
 import type {
-  RevolutEnvironment,
-  RevolutFetch,
   RevolutOrder,
   RevolutOrderCreationPayload,
   RevolutRefundPayload,
@@ -76,18 +75,7 @@ import { RevolutWebhookEndpoints } from './revolut-webhook-endpoints';
 import { RevolutWebhookVerifier } from './revolut-webhook-verifier';
 
 export { REVOLUT_MERCHANT_API_VERSION } from './revolut-client';
-
-export interface RevolutProviderOptions {
-  secretKey: string;
-  webhookSecret: string;
-  environment?: RevolutEnvironment;
-  baseUrl?: string;
-  apiVersion?: string;
-  webhookToleranceMs?: number;
-  logger?: Logger;
-  fetch?: RevolutFetch;
-  timeoutMs?: number;
-}
+export type { RevolutProviderOptions } from './revolut-provider-options';
 
 export class RevolutProvider
   implements
@@ -105,6 +93,9 @@ export class RevolutProvider
 {
   readonly name = 'revolut';
   readonly customerCreateIdempotency = 'unsupported';
+  readonly authorizeIdempotency = 'native';
+  readonly captureIdempotency = 'native';
+  readonly voidIdempotency = 'native';
   private readonly normalizer: RevolutEventNormalizer;
   private readonly verifier: RevolutWebhookVerifier;
   private readonly client: RevolutClient;
@@ -117,6 +108,9 @@ export class RevolutProvider
   private readonly disputes: RevolutDisputes;
   private readonly payouts: RevolutPayouts;
   private readonly webhookEndpoints: RevolutWebhookEndpoints;
+  readonly authorize: RevolutPaymentLifecycle['authorize'];
+  readonly capture: RevolutPaymentLifecycle['capture'];
+  readonly void: RevolutPaymentLifecycle['void'];
   constructor(options: RevolutProviderOptions) {
     this.client = new RevolutClient(options);
     const request = this.client.request.bind(this.client);
@@ -129,6 +123,10 @@ export class RevolutProvider
     this.disputes = new RevolutDisputes(request, this.client.environment);
     this.payouts = new RevolutPayouts(request);
     this.webhookEndpoints = new RevolutWebhookEndpoints(request);
+    const lifecycle = new RevolutPaymentLifecycle(request);
+    this.authorize = lifecycle.authorize.bind(lifecycle);
+    this.capture = lifecycle.capture.bind(lifecycle);
+    this.void = lifecycle.void.bind(lifecycle);
     this.normalizer = new RevolutEventNormalizer(options.logger);
     this.verifier = new RevolutWebhookVerifier(options.webhookSecret, options.webhookToleranceMs);
   }
@@ -257,6 +255,7 @@ export class RevolutProvider
     );
     return toRevolutRefundResultDTO(order, input.amount);
   }
+
   createSubscription(
     input: CreateSubscriptionInput,
     ctx: OperationContext,

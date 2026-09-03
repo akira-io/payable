@@ -1,6 +1,7 @@
 import type { AuditLogRepository } from '../../domain/contracts/audit-log-repository.contract';
 import type { Clock } from '../../domain/contracts/clock.contract';
 import type { EventBus } from '../../domain/contracts/event-bus.contract';
+import type { LockDriver } from '../../domain/contracts/lock-driver.contract';
 import type { Logger } from '../../domain/contracts/logger.contract';
 import type { PaymentProvider } from '../../domain/contracts/payment-provider.contract';
 import type { StorageDriver } from '../../domain/contracts/storage-driver.contract';
@@ -19,5 +20,6 @@ export interface LocalDependencies {
   audit?: AuditLogRepository;
   events?: EventBus;
   logger?: Logger;
+  locks?: LockDriver;
   resolveProvider?: (providerName: string) => PaymentProvider;
 }

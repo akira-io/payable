@@ -133,13 +133,14 @@ export class ProcessWebhookPipeline {
       return;
     }
     assertCapableProvider(provider, 'webhooks', isWebhookCapable);
-    await this.reconcilePayment(repos, verified, tenantId);
+    await this.reconcilePayment(repos, verified, occurredAt, tenantId);
     await this.reconcileSubscription(repos, verified, occurredAt, tenantId);
   }
 
   private async reconcilePayment(
     repos: Repositories,
     verified: VerifiedWebhook,
+    occurredAt: Date,
     tenantId: string | null,
   ): Promise<void> {
     const { provider, providerName } = this.deps;
@@ -162,7 +163,15 @@ export class ProcessWebhookPipeline {
     if (!machine.tryTransitionTo(dto.status)) {
       return;
     }
-    await repos.payments.update(local.id, { status: machine.current() }, tenantId);
+    const status = machine.current();
+    await repos.payments.update(
+      local.id,
+      {
+        status,
+        ...(status === 'authorized' && !local.authorizedAt ? { authorizedAt: occurredAt } : {}),
+      },
+      tenantId,
+    );
   }
 
   private async reconcileSubscription(

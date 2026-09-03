@@ -54,6 +54,9 @@ guard (duck-typing on method presence). Calling code narrows first, then either 
 | `BillingPortalCapable` | `billingPortal(input, ctx)` | `isBillingPortalCapable(provider)` |
 | `RedirectCallbackCapable` | `verifyCallback(payload)`, `handleRedirectCallback(payload)` | `isRedirectCallbackCapable(provider)` |
 | `ChargeCapable` | `charge(input, ctx)` | `isChargeCapable(provider)` |
+| `AuthorizeCapable` | `authorize(input, ctx)` | `isAuthorizeCapable(provider)` |
+| `CaptureCapable` | `capture(input, ctx)` | `isCaptureCapable(provider)` |
+| `VoidCapable` | `void(input, ctx)` | `isVoidCapable(provider)` |
 | `DirectSubscriptionCapable` | `createSubscription(input, ctx)` | `isDirectSubscriptionCapable(provider)` |
 | `InvoiceCapable` | `listInvoices(input)`, `downloadInvoicePdf(id)` | `isInvoiceCapable(provider)` |
 | `PaymentMethodCapable` | `listPaymentMethods(input)`, `deletePaymentMethod(input, ctx)` | `isPaymentMethodCapable(provider)` |
@@ -134,6 +137,9 @@ by the external provider. A `no` cell only means that this adapter does not expo
 | `PaymentWebhookCapable` | yes | no | no | yes |
 | `RedirectCallbackCapable` | no | no | yes | no |
 | `charges` (`ChargeCapable`) | yes | no | no | no |
+| `authorize` (`AuthorizeCapable`) | yes | no | no | yes |
+| `capture` (`CaptureCapable`) | yes | no | no | yes |
+| `void` (`VoidCapable`) | yes | no | no | yes |
 | `invoicePdf` (`InvoiceCapable`) | yes | no | no | no |
 | `paymentMethods` (`PaymentMethodCapable`) | yes | no | no | yes |
 | `paymentMethodSetup` (`PaymentMethodSetupCapable`) | yes | no | no | yes |

@@ -235,10 +235,10 @@ contracts. Cache and lock contracts remain available for direct composition outs
 | `LockDriver` | `acquire(key, ttlMs)`, `withLock(key, ttlMs, work)` | `MemoryLockDriver` (public, working); `RedisLockDriver` (internal, unusable) |
 | `Encryption` | `encrypt(plaintext)`, `decrypt(ciphertext)` | `NodeEncryptionDriver` |
 
-`MemoryCacheDriver` and `MemoryLockDriver` can be instantiated and used directly outside
-`createPayable`. The Redis classes are internal scaffolds, not external backends available to the
-engine. Each Redis constructor throws `NOT_IMPLEMENTED` before cache operations, `acquire`, or
-`withLock` can run.
+`MemoryCacheDriver` and `MemoryLockDriver` can be instantiated directly. `MemoryLockDriver` is not
+distributed and cannot protect capture or void. The Redis classes are internal scaffolds, not
+external backends available to the engine. Each Redis constructor throws `NOT_IMPLEMENTED` before
+cache operations, `acquire`, or `withLock` can run.
 
 `StorageDriver` exposes the full `Repositories` bag both directly and inside `transaction`, so a unit of work commits or rolls back atomically:
 
@@ -287,6 +287,9 @@ export interface PaymentProvider {
 | `ScheduledSubscriptionChangeCapable` | `cancelScheduledSubscriptionChange` | `isScheduledSubscriptionChangeCapable` |
 | `DirectSubscriptionCapable` | `createSubscription` | `isDirectSubscriptionCapable` |
 | `ChargeCapable` | `charge` | `isChargeCapable` |
+| `AuthorizeCapable` | `authorize` | `isAuthorizeCapable` |
+| `CaptureCapable` | `capture` | `isCaptureCapable` |
+| `VoidCapable` | `void` | `isVoidCapable` |
 | `InvoiceCapable` | `listInvoices`, `downloadInvoicePdf` | `isInvoiceCapable` |
 | `BillingPortalCapable` | `billingPortal` | `isBillingPortalCapable` |
 | `PaymentMethodSetupCapable` | `createPaymentMethodSetup`, `retrievePaymentMethodSetup`, `cancelPaymentMethodSetup` | `isPaymentMethodSetupCapable` |

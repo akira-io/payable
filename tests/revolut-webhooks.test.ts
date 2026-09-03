@@ -86,7 +86,7 @@ describe('RevolutProvider webhooks', () => {
         normalizedType: null,
         data: { event: 'ORDER_AUTHORISED', order_id: 'ord_1' },
       }),
-    ).toEqual({ providerPaymentId: 'ord_1', status: 'processing' });
+    ).toEqual({ providerPaymentId: 'ord_1', status: 'authorized' });
     expect(
       instance.reconcilePayment({
         providerEventId: 'evt_auth_2',

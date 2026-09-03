@@ -3,6 +3,9 @@ import { applyTransition, canTransition, type TransitionMap } from './transition
 
 export type PaymentEvent =
   | 'process'
+  | 'authorize'
+  | 'capture'
+  | 'void'
   | 'succeed'
   | 'fail'
   | 'cancel'
@@ -10,8 +13,15 @@ export type PaymentEvent =
   | 'partially_refund';
 
 const MAP: TransitionMap<PaymentStatus, PaymentEvent> = {
-  pending: { process: 'processing', succeed: 'succeeded', fail: 'failed', cancel: 'canceled' },
-  processing: { succeed: 'succeeded', fail: 'failed', cancel: 'canceled' },
+  pending: {
+    process: 'processing',
+    authorize: 'authorized',
+    succeed: 'succeeded',
+    fail: 'failed',
+    cancel: 'canceled',
+  },
+  processing: { authorize: 'authorized', succeed: 'succeeded', fail: 'failed', cancel: 'canceled' },
+  authorized: { capture: 'succeeded', void: 'canceled', fail: 'failed' },
   failed: { process: 'processing', succeed: 'succeeded' },
   succeeded: { refund: 'refunded', partially_refund: 'partially_refunded' },
   partially_refunded: { refund: 'refunded', partially_refund: 'partially_refunded' },
@@ -19,6 +29,7 @@ const MAP: TransitionMap<PaymentStatus, PaymentEvent> = {
 
 const EVENT_BY_TARGET: Partial<Record<PaymentStatus, PaymentEvent>> = {
   processing: 'process',
+  authorized: 'authorize',
   succeeded: 'succeed',
   failed: 'fail',
   canceled: 'cancel',
@@ -41,7 +52,12 @@ export class PaymentStateMachine {
     if (this.state === target) {
       return false;
     }
-    const event = EVENT_BY_TARGET[target];
+    const event =
+      this.state === 'authorized' && target === 'succeeded'
+        ? 'capture'
+        : this.state === 'authorized' && target === 'canceled'
+          ? 'void'
+          : EVENT_BY_TARGET[target];
     if (!event || !this.can(event)) {
       return false;
     }
@@ -56,6 +72,18 @@ export class PaymentStateMachine {
 
   process(): this {
     return this.to('process');
+  }
+
+  authorize(): this {
+    return this.to('authorize');
+  }
+
+  capture(): this {
+    return this.to('capture');
+  }
+
+  void(): this {
+    return this.to('void');
   }
 
   succeed(): this {

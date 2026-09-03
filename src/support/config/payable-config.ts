@@ -6,6 +6,7 @@ import type { EventBus } from '../../domain/contracts/event-bus.contract';
 import type { IdempotencyStore } from '../../domain/contracts/idempotency-store.contract';
 import type { IdentityProvider } from '../../domain/contracts/identity-provider.contract';
 import type { IssuingProvider } from '../../domain/contracts/issuing-provider.contract';
+import type { LockDriver } from '../../domain/contracts/lock-driver.contract';
 import type { Logger } from '../../domain/contracts/logger.contract';
 import type { MarketplaceProvider } from '../../domain/contracts/marketplace-provider.contract';
 import type { PaymentProvider } from '../../domain/contracts/payment-provider.contract';
@@ -56,6 +57,7 @@ export interface PayableConfig {
   events?: EventBus;
   encryption?: Encryption;
   idempotency?: IdempotencyConfig;
+  locks?: LockDriver;
 }
 
 export interface ResolvedIdempotency {
@@ -83,10 +85,11 @@ export interface ResolvedConfig {
   events: EventBus;
   encryption?: Encryption;
   idempotency: ResolvedIdempotency;
+  locks?: LockDriver;
 }
 
 function rejectUnwiredDrivers(config: PayableConfig): void {
-  const unwired = ['cache', 'locks'].filter(
+  const unwired = ['cache'].filter(
     (option) => (config as unknown as Record<string, unknown>)[option] !== undefined,
   );
   if (unwired.length > 0) {
@@ -160,5 +163,6 @@ export function resolveConfig(config: PayableConfig): ResolvedConfig {
     events: config.events ?? new InMemoryEventBus(),
     encryption: config.encryption,
     idempotency,
+    locks: config.locks,
   };
 }

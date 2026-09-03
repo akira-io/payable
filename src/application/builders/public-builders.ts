@@ -1,6 +1,7 @@
 export {
   type AttachCanonicalSubscriptionProviderInput,
   type AttachInvoiceProviderInput,
+  type AuthorizePaymentRequest,
   type Billable,
   type BillingDependencies,
   type CanonicalInvoiceDetails,
@@ -39,6 +40,7 @@ export {
   type ListWebhookEventsInput,
   type LocalDependencies,
   LocalSubscriptionResource,
+  PaymentResource,
   type PreviewPriceMigrationInput,
   type PriceBindingMetadata,
   type ProductBindingMetadata,

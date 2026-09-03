@@ -3,6 +3,9 @@ import type { NormalizedEventName } from '../../../domain/events/domain-event';
 
 const EVENT_MAP: Record<string, NormalizedEventName> = {
   ORDER_COMPLETED: 'payment.succeeded',
+  ORDER_AUTHORISED: 'payment.authorized',
+  ORDER_CAPTURED: 'payment.captured',
+  ORDER_CANCELLED: 'payment.voided',
   ORDER_FAILED: 'payment.failed',
   ORDER_PAYMENT_DECLINED: 'payment.failed',
   ORDER_PAYMENT_FAILED: 'payment.failed',

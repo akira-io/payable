@@ -5,6 +5,12 @@ export { InvoiceCreatedEvent, type InvoiceCreatedPayload } from './invoice-creat
 export { InvoiceFailedEvent, type InvoiceFailedPayload } from './invoice-failed.event';
 export { InvoicePaidEvent, type InvoicePaidPayload } from './invoice-paid.event';
 export { PaymentFailedEvent, type PaymentFailedPayload } from './payment-failed.event';
+export {
+  PaymentAuthorizedEvent,
+  PaymentCapturedEvent,
+  type PaymentLifecyclePayload,
+  PaymentVoidedEvent,
+} from './payment-lifecycle.event';
 export { PaymentSucceededEvent, type PaymentSucceededPayload } from './payment-succeeded.event';
 export { RefundCreatedEvent, type RefundCreatedPayload } from './refund-created.event';
 export {

@@ -1,6 +1,14 @@
 import type Stripe from 'stripe';
 import type { ChargeInput, ChargeResultDTO } from '../../../domain/dtos/charge.dto';
 import type { OperationContext } from '../../../domain/dtos/common.dto';
+import type {
+  AuthorizationResultDTO,
+  AuthorizePaymentInput,
+  CapturePaymentInput,
+  CaptureResultDTO,
+  VoidPaymentInput,
+  VoidResultDTO,
+} from '../../../domain/dtos/payment-lifecycle.dto';
 import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { stripeAmount } from './stripe-amounts';
@@ -53,6 +61,68 @@ export class StripePayments {
       });
     }
     return toChargeResultDTO(intent);
+  }
+
+  async authorize(
+    input: AuthorizePaymentInput,
+    ctx: OperationContext,
+  ): Promise<AuthorizationResultDTO> {
+    const stripe = await this.client();
+    const intent = await withStripeErrors(() =>
+      stripe.paymentIntents.create(
+        {
+          amount: stripeAmount(input.amount),
+          currency: input.amount.currency().toLowerCase(),
+          customer: input.providerCustomerId,
+          description: input.description,
+          metadata: { reference: input.reference },
+          payment_method: input.paymentMethodId,
+          capture_method: 'manual',
+          confirm: true,
+          automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
+        },
+        { idempotencyKey: ctx.idempotencyKey },
+      ),
+    );
+    if (intent.status === 'requires_action') {
+      throw new PayableError('Stripe authorization requires customer action', {
+        code: 'PAYMENT_AUTHORIZATION_REQUIRES_ACTION',
+        context: { provider: 'stripe', providerPaymentId: intent.id },
+      });
+    }
+    return {
+      providerPaymentId: intent.id,
+      status: toChargeResultDTO(intent).status,
+      amount: input.amount,
+    };
+  }
+
+  async capture(input: CapturePaymentInput, ctx: OperationContext): Promise<CaptureResultDTO> {
+    const stripe = await this.client();
+    const intent = await withStripeErrors(() =>
+      stripe.paymentIntents.capture(
+        input.providerPaymentId,
+        { amount_to_capture: input.amount ? stripeAmount(input.amount) : undefined },
+        { idempotencyKey: ctx.idempotencyKey },
+      ),
+    );
+    return {
+      providerPaymentId: intent.id,
+      status: toChargeResultDTO(intent).status,
+      amount: input.amount ?? toChargeResultDTO(intent).amount,
+    };
+  }
+
+  async void(input: VoidPaymentInput, ctx: OperationContext): Promise<VoidResultDTO> {
+    const stripe = await this.client();
+    const intent = await withStripeErrors(() =>
+      stripe.paymentIntents.cancel(
+        input.providerPaymentId,
+        {},
+        { idempotencyKey: ctx.idempotencyKey },
+      ),
+    );
+    return { providerPaymentId: intent.id, status: toChargeResultDTO(intent).status };
   }
 
   async refund(input: RefundInput, ctx: OperationContext): Promise<RefundResultDTO> {

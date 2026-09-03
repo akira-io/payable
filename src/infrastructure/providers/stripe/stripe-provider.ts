@@ -1,5 +1,4 @@
 import type Stripe from 'stripe';
-import type { Logger } from '../../../domain/contracts/logger.contract';
 import type {
   ChargeCapable,
   DirectSubscriptionCapable,
@@ -67,6 +66,7 @@ import { StripePaymentMethodSetup } from './stripe-payment-method-setup';
 import { StripePaymentMethods } from './stripe-payment-methods';
 import { StripePayments } from './stripe-payments';
 import { StripePayouts } from './stripe-payouts';
+import type { StripeProviderOptions } from './stripe-provider-options';
 import { StripeSubscriptionChanges } from './stripe-subscription-changes';
 import { stripeSubscriptionOperationCapabilities } from './stripe-subscription-operation-capabilities';
 import { StripeSubscriptions } from './stripe-subscriptions';
@@ -74,12 +74,7 @@ import { StripeWebhookEndpoints } from './stripe-webhook-endpoints';
 import { StripeWebhooks } from './stripe-webhooks';
 
 export { STRIPE_API_VERSION } from './stripe-api-version';
-
-export interface StripeProviderOptions {
-  secretKey: string;
-  webhookSecret: string;
-  logger?: Logger;
-}
+export type { StripeProviderOptions } from './stripe-provider-options';
 
 export class StripeProvider
   implements
@@ -99,6 +94,9 @@ export class StripeProvider
   readonly name = 'stripe';
   readonly catalogSyncSemantics = STRIPE_CATALOG_SYNC_SEMANTICS;
   readonly customerCreateIdempotency = 'native';
+  readonly authorizeIdempotency = 'native';
+  readonly captureIdempotency = 'native';
+  readonly voidIdempotency = 'native';
   private client?: Stripe;
   private readonly webhooks: StripeWebhooks;
   private readonly subscriptions = new StripeSubscriptions(() => this.stripe());
@@ -136,6 +134,9 @@ export class StripeProvider
   readonly cancelPaymentMethodSetup = this.paymentMethodSetup.cancel.bind(this.paymentMethodSetup);
   private readonly billingPortalSessions = new StripeBillingPortal(() => this.stripe());
   private readonly payments = new StripePayments(() => this.stripe());
+  readonly authorize = this.payments.authorize.bind(this.payments);
+  readonly capture = this.payments.capture.bind(this.payments);
+  readonly void = this.payments.void.bind(this.payments);
   private readonly disputes = new StripeDisputes(() => this.stripe());
   private readonly payouts = new StripePayouts(() => this.stripe());
   private readonly checkout = new StripeCheckout(() => this.stripe());

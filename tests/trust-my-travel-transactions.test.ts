@@ -23,6 +23,72 @@ function callbackHash(id: number, status: string, total: number): string {
 }
 
 describe('Trust My Travel transactions', () => {
+  it('captures with linked_id and provider-neutral allocations', async () => {
+    const original = {
+      id: 77,
+      status: 'complete',
+      total: 9999,
+      currencies: 'EUR',
+      channels: 2452,
+      bookings: [{ id: 44, currencies: 'EUR', total: 9999 }],
+      transaction_types: 'authorize',
+    };
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(jsonResponse(original))
+      .mockResolvedValueOnce(
+        jsonResponse({ ...original, id: 88, transaction_types: 'capture', linked_id: 77 }),
+      );
+    const result = await new TrustMyTravelProvider({ ...OPTIONS, fetch }).capture(
+      {
+        providerPaymentId: '77',
+        amount: Money.of(9999, 'EUR'),
+        allocations: [{ reference: '44', amount: Money.of(9999, 'EUR') }],
+      },
+      { correlationId: 'corr-1', idempotencyKey: 'capture-1' },
+    );
+    expect(result.status).toBe('succeeded');
+    expect(JSON.parse(String(fetch.mock.calls[1]?.[1]?.body))).toEqual({
+      channels: 2452,
+      currencies: 'EUR',
+      total: 9999,
+      transaction_types: 'capture',
+      bookings: [{ id: 44, currencies: 'EUR', total: 9999 }],
+      linked_id: 77,
+    });
+  });
+
+  it('voids an authorization with linked_id and no allocations', async () => {
+    const original = {
+      id: 77,
+      status: 'complete',
+      total: 9999,
+      currencies: 'EUR',
+      channels: 2452,
+      bookings: [{ id: 44, currencies: 'EUR', total: 9999 }],
+      transaction_types: 'authorize',
+    };
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(jsonResponse(original))
+      .mockResolvedValueOnce(
+        jsonResponse({ ...original, id: 89, transaction_types: 'void', linked_id: 77 }),
+      );
+    const result = await new TrustMyTravelProvider({ ...OPTIONS, fetch }).void(
+      { providerPaymentId: '77' },
+      { correlationId: 'corr-1', idempotencyKey: 'void-1' },
+    );
+    expect(result.status).toBe('canceled');
+    expect(JSON.parse(String(fetch.mock.calls[1]?.[1]?.body))).toEqual({
+      channels: 2452,
+      currencies: 'EUR',
+      total: 9999,
+      transaction_types: 'void',
+      bookings: original.bookings,
+      linked_id: 77,
+    });
+  });
+
   it('verifies the callback locally then reconciles from the provider transaction', async () => {
     const transaction = {
       id: 77,

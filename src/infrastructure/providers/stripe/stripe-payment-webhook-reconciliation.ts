@@ -75,7 +75,7 @@ function paymentStatus(verified: VerifiedWebhook): PaymentWebhookReconciliation[
     return 'processing';
   }
   if (verified.type === 'payment_intent.amount_capturable_updated') {
-    return 'processing';
+    return 'authorized';
   }
   if (verified.type === 'charge.pending') {
     return 'processing';

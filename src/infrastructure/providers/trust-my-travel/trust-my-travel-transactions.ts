@@ -1,13 +1,25 @@
 import type { Logger } from '../../../domain/contracts/logger.contract';
 import type { RedirectCallbackResult } from '../../../domain/contracts/payment-provider.contract';
+import type {
+  CapturePaymentInput,
+  CaptureResultDTO,
+  VoidPaymentInput,
+  VoidResultDTO,
+} from '../../../domain/dtos/payment-lifecycle.dto';
 import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { CurrencyManager } from '../../../domain/value-objects/currency';
 import type { PaymentStatus } from '../../../domain/value-objects/payment-status';
-import type { RefundStatus } from '../../../domain/value-objects/refund-status';
 import { trustMyTravelMoney } from './trust-my-travel-amounts';
 import { validateTmtTransactionHash } from './trust-my-travel-authentication';
 import type { TrustMyTravelRequest } from './trust-my-travel-client';
+import {
+  asyncCallbackPayload,
+  callbackPayload,
+  isTransactionBooking,
+  positiveInteger,
+  refundStatus,
+} from './trust-my-travel-transaction-values';
 
 export interface TmtTransactionResponse {
   id: number;
@@ -29,13 +41,6 @@ export interface TmtTransactionBooking {
   id: number;
   currencies: string;
   total: number;
-}
-
-interface TmtCallbackPayload {
-  id: string | number;
-  status: string;
-  total: string | number;
-  hash: string;
 }
 
 export class TrustMyTravelTransactions {
@@ -63,9 +68,15 @@ export class TrustMyTravelTransactions {
     const transaction = await this.find(callback.id);
     this.assertTransactionScope(transaction);
     const bookingId = transaction.bookings[0]?.id;
+    const linkedAuthorizationId =
+      transaction.transaction_types === 'authorize' ? undefined : transaction.linked_id;
     return {
       providerPaymentId: String(transaction.id),
-      ...(bookingId === undefined ? {} : { checkoutSessionId: String(bookingId) }),
+      ...(linkedAuthorizationId !== undefined
+        ? { checkoutSessionId: String(linkedAuthorizationId) }
+        : bookingId === undefined
+          ? {}
+          : { checkoutSessionId: String(bookingId) }),
       status: this.paymentStatus(transaction),
       amount: trustMyTravelMoney(transaction.total, transaction.currencies),
     };
@@ -101,6 +112,79 @@ export class TrustMyTravelTransactions {
       status: refundStatus(refund.status),
       amount: trustMyTravelMoney(refund.total, refund.currencies),
     };
+  }
+
+  async capture(input: CapturePaymentInput): Promise<CaptureResultDTO> {
+    const original = await this.authorizedTransaction(input.providerPaymentId);
+    const amount = input.amount?.amount() ?? original.total;
+    const currency = input.amount?.currency() ?? original.currencies;
+    if (CurrencyManager.normalize(currency) !== CurrencyManager.normalize(original.currencies)) {
+      throw this.lifecycleError('Capture currency does not match the authorization');
+    }
+    const bookings = (input.allocations ?? []).map((allocation) => ({
+      id: positiveInteger(allocation.reference, 'allocation reference'),
+      currencies: allocation.amount.currency(),
+      total: allocation.amount.amount(),
+    }));
+    if (
+      bookings.length === 0 ||
+      bookings.reduce((sum, booking) => sum + booking.total, 0) !== amount
+    ) {
+      throw this.lifecycleError('Capture allocations must equal the captured amount');
+    }
+    const transaction = await this.request<TmtTransactionResponse>('/transactions', {
+      method: 'POST',
+      body: {
+        channels: original.channels,
+        currencies: original.currencies,
+        total: amount,
+        transaction_types: 'capture',
+        bookings,
+        linked_id: original.id,
+      },
+    });
+    this.assertTransactionScope(transaction);
+    return {
+      providerPaymentId: String(transaction.id),
+      status: transaction.status === 'complete' ? 'succeeded' : this.paymentStatus(transaction),
+      amount: trustMyTravelMoney(transaction.total, transaction.currencies),
+    };
+  }
+
+  async void(input: VoidPaymentInput): Promise<VoidResultDTO> {
+    const original = await this.authorizedTransaction(input.providerPaymentId);
+    const transaction = await this.request<TmtTransactionResponse>('/transactions', {
+      method: 'POST',
+      body: {
+        channels: original.channels,
+        currencies: original.currencies,
+        total: original.total,
+        transaction_types: 'void',
+        bookings: original.bookings,
+        linked_id: original.id,
+      },
+    });
+    this.assertTransactionScope(transaction);
+    return {
+      providerPaymentId: String(transaction.id),
+      status: transaction.status === 'complete' ? 'canceled' : this.paymentStatus(transaction),
+    };
+  }
+
+  private async authorizedTransaction(id: string): Promise<TmtTransactionResponse> {
+    const transaction = await this.find(id);
+    this.assertTransactionScope(transaction);
+    if (transaction.transaction_types !== 'authorize') {
+      throw this.lifecycleError('Linked transaction is not an authorization');
+    }
+    return transaction;
+  }
+
+  private lifecycleError(message: string): PayableError {
+    return new PayableError(message, {
+      code: 'PROVIDER_TMT_PAYMENT_LIFECYCLE_INVALID',
+      context: { provider: 'trust-my-travel' },
+    });
   }
 
   find(id: string | number): Promise<TmtTransactionResponse> {
@@ -192,47 +276,16 @@ export class TrustMyTravelTransactions {
         providerStatus: transaction.status,
       });
     }
+    if (transaction.status === 'complete') {
+      if (transaction.transaction_types === 'authorize') return 'authorized';
+      if (transaction.transaction_types === 'void') return 'canceled';
+      return 'succeeded';
+    }
     const statuses: Record<string, PaymentStatus> = {
-      complete: 'succeeded',
       expired: 'failed',
       failed: 'failed',
       pending: 'processing',
     };
     return statuses[transaction.status] ?? 'pending';
   }
-}
-
-function callbackPayload(payload: Record<string, unknown>): TmtCallbackPayload | null {
-  const { id, status, total, hash } = payload;
-  const validId = typeof id === 'string' || typeof id === 'number';
-  const validTotal = typeof total === 'string' || typeof total === 'number';
-  if (!validId || typeof status !== 'string' || !validTotal || typeof hash !== 'string')
-    return null;
-  return { id, status, total, hash } as TmtCallbackPayload;
-}
-
-function asyncCallbackPayload(payload: Record<string, unknown>): { id: string | number } | null {
-  const { id, status, total, hash } = payload;
-  const validId = typeof id === 'string' || typeof id === 'number';
-  if (!validId || status !== undefined || total !== undefined || hash !== undefined) return null;
-  return { id } as { id: string | number };
-}
-
-function isTransactionBooking(value: unknown): value is TmtTransactionBooking {
-  if (!value || typeof value !== 'object') return false;
-  const booking = value as Record<string, unknown>;
-  return (
-    Number.isInteger(booking.id) &&
-    typeof booking.currencies === 'string' &&
-    Number.isInteger(booking.total)
-  );
-}
-
-function refundStatus(status: string): RefundStatus {
-  const statuses: Record<string, RefundStatus> = {
-    complete: 'succeeded',
-    expired: 'canceled',
-    failed: 'failed',
-  };
-  return statuses[status] ?? 'pending';
 }

@@ -45,6 +45,7 @@ const documentedConfigKeys = [
   'events',
   'encryption',
   'idempotency',
+  'locks',
 ] as const satisfies readonly (keyof PayableConfig)[];
 
 type MissingDocumentedConfigKey = Exclude<
@@ -168,15 +169,15 @@ describe('documentation stays aligned with runtime', () => {
     expect(documentedConfig.providers.fake).toBeInstanceOf(FakeProvider);
     expect(documentsEveryConfigKey).toBe(true);
     expect(documentedPayableConfigKeys(configuration)).toEqual(documentedConfigKeys);
-    expect(configuration).not.toMatch(/^### `(?:cache|locks)\??:/m);
-    expect(configuration).not.toMatch(/^\| `(?:cache|locks)` \|/m);
+    expect(configuration).not.toMatch(/^### `cache\??:/m);
+    expect(configuration).not.toMatch(/^\| `cache` \|/m);
     expect(configuration).toContain('CONFIG_OPTION_UNSUPPORTED');
     expect(configuration).toContain('direct composition');
     expect(gettingStarted).not.toContain('Storage, cache, locks, and encryption stay');
-    expect(reliability).not.toContain('`locks` on `PayableConfig`');
+    expect(reliability).toContain('`locks` on `PayableConfig`');
     expect(reliability).not.toContain('`cache` on `PayableConfig`');
     expect(reliability).not.toContain('integrating application can supply its own driver');
-    expect(reliability).toContain('not accepted by `createPayable`');
+    expect(configuration).toContain('PAYMENT_DISTRIBUTED_LOCK_REQUIRED');
     expect(reliability).toContain(
       '`MemoryLockDriver` is a working single-process direct-composition utility',
     );
@@ -191,11 +192,9 @@ describe('documentation stays aligned with runtime', () => {
     expect(reliability).toMatch(
       /`RedisCacheDriver`[\s\S]+?constructor throws `NOT_IMPLEMENTED` before `get`, `set`,\s+`delete`, or `has` can run\./,
     );
+    expect(contracts).toContain('`MemoryLockDriver` is not');
     expect(contracts).toMatch(
-      /`MemoryCacheDriver` and `MemoryLockDriver` can be instantiated and used directly outside\s+`createPayable`/,
-    );
-    expect(contracts).toMatch(
-      /Each Redis constructor throws `NOT_IMPLEMENTED` before cache operations, `acquire`, or\s+`withLock` can run\./,
+      /Each Redis constructor throws `NOT_IMPLEMENTED` before\s+cache operations, `acquire`, or `withLock` can run\./,
     );
   });
 
@@ -203,7 +202,7 @@ describe('documentation stays aligned with runtime', () => {
     for (const path of publicMarkdownFiles('docs')) {
       const markdown = readFileSync(path, 'utf8');
       for (const code of createPayableCodeFences(markdown)) {
-        expect(code, path).not.toMatch(/^\s*(?:cache|locks)\s*:/m);
+        expect(code, path).not.toMatch(/^\s*cache\s*:/m);
       }
     }
   });
