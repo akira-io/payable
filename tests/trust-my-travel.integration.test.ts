@@ -34,7 +34,11 @@ credentialed('Trust My Travel Test integration', () => {
     if (resolution.kind !== 'ready') throw new Error(skipReason);
     config = resolution.config;
     network = (operation) =>
-      runWithSanitizedTmtErrors(operation, [config.apiToken, config.channelSecret]);
+      runWithSanitizedTmtErrors(
+        operation,
+        [config.apiToken, config.channelSecret],
+        ledger.trackedResourceIds(),
+      );
     client = new TrustMyTravelClient(config);
     const channel = await network(() =>
       client.request<TrustMyTravelChannelResponse>(`/channels/${config.channelId}`, {

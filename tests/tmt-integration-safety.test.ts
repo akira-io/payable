@@ -53,6 +53,23 @@ describe('TMT integration evidence safety', () => {
       '{"code":"PROVIDER_RESOURCE_NOT_FOUND","context":{"body":{"id":"[provider-resource-id]","email":"[email]"},"hostedUrl":"[url]"}}',
     );
   });
+
+  it('redacts run-owned resource IDs from generic fields and messages', async () => {
+    await expect(
+      runWithSanitizedTmtErrors(
+        async () => {
+          throw {
+            reference: 'booking 8123 failed',
+            detail: 'resource 8123 could not be loaded',
+          };
+        },
+        [],
+        ['8123'],
+      ),
+    ).rejects.toThrow(
+      '{"reference":"booking [provider-resource-id] failed","detail":"resource [provider-resource-id] could not be loaded"}',
+    );
+  });
 });
 
 describe('TMT integration cleanup ledger', () => {
@@ -86,5 +103,12 @@ describe('TMT integration cleanup ledger', () => {
       { resource: 'booking', message: 'Failed for booking [provider-resource-id] at [url]' },
     ]);
     expect(JSON.stringify(failures)).not.toContain('8123');
+  });
+
+  it('exposes only tracked IDs in the format required by the sanitizer', () => {
+    const ledger = new TmtResourceLedger();
+    ledger.trackBooking(8123);
+
+    expect(ledger.trackedResourceIds()).toEqual(['8123']);
   });
 });

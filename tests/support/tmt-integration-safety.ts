@@ -41,6 +41,7 @@ export function sanitizeTmtEvidence(
 export async function runWithSanitizedTmtErrors<T>(
   operation: () => Promise<T>,
   secrets: readonly string[] = [],
+  resourceIds: readonly string[] = [],
 ): Promise<T> {
   try {
     return await operation();
@@ -49,7 +50,7 @@ export async function runWithSanitizedTmtErrors<T>(
       error instanceof Error
         ? { name: error.name, message: error.message, ...Object.fromEntries(Object.entries(error)) }
         : error;
-    throw new Error(JSON.stringify(sanitizeTmtEvidence(value, secrets)));
+    throw new Error(JSON.stringify(sanitizeTmtEvidence(value, secrets, resourceIds)));
   }
 }
 
@@ -61,6 +62,10 @@ export class TmtResourceLedger {
       throw new Error('TMT cleanup booking ID must be a positive integer');
     }
     if (!this.bookingIds.includes(id)) this.bookingIds.push(id);
+  }
+
+  trackedResourceIds(): string[] {
+    return this.bookingIds.map(String);
   }
 
   async cleanup(removeBooking: (id: number) => Promise<unknown>): Promise<TmtCleanupFailure[]> {
