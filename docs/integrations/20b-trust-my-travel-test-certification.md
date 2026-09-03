@@ -82,4 +82,4 @@ remains disabled until its separate operational and legal gates are satisfied.
 
 ---
 
-[Previous: Trust My Travel](20a-trust-my-travel.md) · [Index](../00-index.md) · [Next: Revolut](21-revolut.md)
+[Previous: Credentials](20c-trust-my-travel-credentials.md) · [Index](../00-index.md) · [Next: Revolut](21-revolut.md)
