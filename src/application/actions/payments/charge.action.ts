@@ -45,6 +45,17 @@ export class ChargeAction {
     }
     const provider = this.deps.provider;
     assertCapableProvider(provider, 'charges', isChargeCapable);
+    const requiresReconciliation = provider.chargeIdempotency === 'unsupported';
+    if (requiresReconciliation && !this.deps.idempotency) {
+      throw new PayableError('This provider requires persistent charge idempotency', {
+        code: 'PAYMENT_IDEMPOTENCY_REQUIRED',
+      });
+    }
+    if (requiresReconciliation && !input.reference?.trim()) {
+      throw new PayableError('This provider requires a charge reference', {
+        code: 'PAYMENT_REFERENCE_REQUIRED',
+      });
+    }
     const storage = this.deps.storage;
     if (!storage) {
       throw new PayableError('Charging requires a storage driver', {
@@ -69,6 +80,16 @@ export class ChargeAction {
       );
     }
     const dedupReference = input.reference ?? `nonce:${CorrelationId.generate().toString()}`;
+    const chargeInput = {
+      providerCustomerId,
+      amount: input.amount,
+      reference: input.reference,
+      description: input.description,
+      paymentMethodId: input.paymentMethodId,
+      offSession: input.offSession,
+      providerData: input.providerData,
+    };
+    const providerFingerprint = provider.chargeIdempotencyFingerprint?.(chargeInput) ?? null;
     const key = IdempotencyKey.forCharge({
       tenantId: this.deps.tenantId ?? null,
       provider: this.deps.providerName,
@@ -79,18 +100,10 @@ export class ChargeAction {
       currency: input.amount.currency(),
     });
     const run = async (): Promise<Payment> => {
-      const dto = await provider.charge(
-        {
-          providerCustomerId,
-          amount: input.amount,
-          reference: input.reference,
-          description: input.description,
-          paymentMethodId: input.paymentMethodId,
-          offSession: input.offSession,
-          providerData: input.providerData,
-        },
-        { correlationId: CorrelationId.generate().toString(), idempotencyKey: key.toString() },
-      );
+      const dto = await provider.charge(chargeInput, {
+        correlationId: CorrelationId.generate().toString(),
+        idempotencyKey: key.toString(),
+      });
       if (dto.amount.currency() !== input.amount.currency()) {
         throw new PayableError(
           `Charge currency ${dto.amount.currency()} does not match requested currency ${input.amount.currency()}`,
@@ -131,10 +144,15 @@ export class ChargeAction {
         reference: dedupReference,
         amount: input.amount.amount(),
         currency: input.amount.currency(),
+        paymentMethodId: input.paymentMethodId ?? null,
+        offSession: input.offSession ?? false,
+        providerFingerprint,
       },
       resourceType: 'payment',
       tenantId: this.deps.tenantId,
-      retryFailed: true,
+      retryFailed: !requiresReconciliation,
+      failurePolicy: requiresReconciliation ? 'reconciliation-required' : 'default',
+      isFailureOutcomeUncertain: provider.isChargeFailureOutcomeUncertain?.bind(provider),
       run,
       revive: async (response) => {
         const fresh = await storage.payments.findById(

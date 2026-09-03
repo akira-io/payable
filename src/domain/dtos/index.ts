@@ -108,8 +108,10 @@ export type {
   PaymentMethodDTO,
 } from './payment-method.dto';
 export type {
+  ConfirmPaymentMethodSetupInput,
   CreatePaymentMethodSetupInput,
   PaymentMethodSetupDTO,
+  PaymentMethodSetupPaymentMethodDTO,
   PaymentMethodSetupStatus,
   PaymentMethodSetupUsage,
 } from './payment-method-setup.dto';

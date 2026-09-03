@@ -98,6 +98,7 @@ export interface TrustMyTravelProviderOptions {
   logger?: Logger;
   clock?: Clock;
   authorizationWindowMs?: number;
+  vaultReferenceSecrets?: readonly [string, ...string[]];
   directCharge?: { psp: string };
   reconciliation?: TrustMyTravelReconciliationOptions;
 }

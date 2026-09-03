@@ -91,6 +91,27 @@ credentialed('Trust My Travel Test integration', () => {
     expect(updated.content).toBe('Payable integration certification');
   });
 
+  it('acquires a CardVaulter URL and token while server-to-server is disabled', async () => {
+    const setup = await network(() =>
+      provider.createPaymentMethodSetup(
+        {
+          providerCustomerId: `integration-${randomUUID()}`,
+          usage: 'off_session',
+          currency,
+          returnUrl: 'https://example.invalid/tmt-card-vault-return',
+        },
+        { correlationId: randomUUID(), idempotencyKey: randomUUID() },
+      ),
+    );
+    const presentation = new URL(setup.checkoutUrl ?? '');
+    expect(presentation.origin).toBe('https://vault.tmtprotects.com');
+    expect(presentation.pathname).toBe('/1.8.0/');
+    expect(presentation.searchParams.get('auth')).toMatch(/^[^.]+\.[^.]+\.[^.]+$/u);
+    expect(presentation.searchParams.get('env')).toBe('test');
+    expect(JSON.stringify(setup)).not.toContain(config.apiToken);
+    expect(JSON.stringify(setup)).not.toContain(config.channelSecret);
+  });
+
   it('reuses a run-owned booking for checkout without exposing credentials', async () => {
     const booking = await network(() =>
       provider.bookings.create({

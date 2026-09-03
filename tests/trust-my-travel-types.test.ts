@@ -146,6 +146,7 @@ describe('Trust My Travel types', () => {
       logger?: Logger;
       clock?: Clock;
       authorizationWindowMs?: number;
+      vaultReferenceSecrets?: readonly [string, ...string[]];
       directCharge?: { psp: string };
       reconciliation?: {
         maxAttempts?: number;

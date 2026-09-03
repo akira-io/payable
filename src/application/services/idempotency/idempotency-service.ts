@@ -15,7 +15,7 @@ interface ResolvedIdempotencyPolicy {
   retryFailed: boolean;
   reclaimStaleProcessing: boolean;
   lockTtlMs: number;
-  failedTtlMs: number;
+  failedTtlMs: number | null;
   failurePolicy: IdempotencyFailurePolicy;
 }
 
@@ -33,6 +33,7 @@ export interface IdempotentExecution<T> {
   reclaimStaleProcessing?: boolean;
   lockTtlMs?: number;
   failurePolicy?: IdempotencyFailurePolicy;
+  isFailureOutcomeUncertain?: (error: unknown) => boolean;
   correlationId?: string;
   run: () => Promise<T>;
   revive?: (response: unknown) => Promise<T> | T;
@@ -86,9 +87,9 @@ export class IdempotencyService {
     if (execution.failurePolicy === 'reconciliation-required') {
       return {
         retryFailed: false,
-        reclaimStaleProcessing: true,
-        lockTtlMs: this.completedTtlMs,
-        failedTtlMs: this.completedTtlMs,
+        reclaimStaleProcessing: false,
+        lockTtlMs: this.lockTtlMs,
+        failedTtlMs: null,
         failurePolicy: execution.failurePolicy,
       };
     }
@@ -171,7 +172,9 @@ export class IdempotencyService {
     try {
       executionResult = await execution.run();
     } catch (error) {
-      await this.markFailed(scopedKey, execution, processingRecord, policy.failedTtlMs);
+      const failureTtlMs =
+        execution.isFailureOutcomeUncertain?.(error) === false ? 0 : policy.failedTtlMs;
+      await this.markFailed(scopedKey, execution, processingRecord, failureTtlMs);
       throw error;
     }
 
@@ -220,9 +223,10 @@ export class IdempotencyService {
     scopedKey: string,
     execution: IdempotentExecution<T>,
     record: IdempotencyRecord,
-    failedTtlMs: number,
+    failedTtlMs: number | null,
   ): Promise<void> {
-    const failedExpiresAt = new Date(this.clock.now().getTime() + failedTtlMs);
+    const failedExpiresAt =
+      failedTtlMs === null ? null : new Date(this.clock.now().getTime() + failedTtlMs);
     await this.store
       .markFailed(scopedKey, execution.tenantId, record.lockToken, failedExpiresAt)
       .catch(() => {});

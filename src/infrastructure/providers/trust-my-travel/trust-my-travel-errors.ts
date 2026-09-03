@@ -12,12 +12,12 @@ const ERROR_CODE_BY_STATUS: Readonly<Record<number, string | undefined>> = {
 
 export function toTmtPayableError(
   status: number,
-  body: unknown,
+  _body: unknown,
   provider = 'trust-my-travel',
 ): PayableError {
   return new PayableError(`Trust My Travel request failed with status ${status}`, {
     code: ERROR_CODE_BY_STATUS[status] ?? 'PROVIDER_ERROR',
-    context: { provider, status, body },
+    context: { provider, status },
   });
 }
 

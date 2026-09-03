@@ -1,6 +1,5 @@
 import type { BillingPortalDTO, BillingPortalInput } from '../dtos/billing-portal.dto';
 import type { ProviderCapabilities } from '../dtos/capabilities.dto';
-import type { ChargeInput, ChargeResultDTO } from '../dtos/charge.dto';
 import type { CheckoutSessionDTO, CreateCheckoutSessionInput } from '../dtos/checkout.dto';
 import type { OperationContext } from '../dtos/common.dto';
 import type { CreateCustomerInput, CustomerDTO, UpdateCustomerInput } from '../dtos/customer.dto';
@@ -45,6 +44,10 @@ export {
   isCatalogReadCapable,
   isPriceLookupKeyCapable,
 } from './catalog-provider.contract';
+export type { ChargeCapable } from './charge-provider.contract';
+export { isChargeCapable } from './charge-provider.contract';
+export type { PaymentMethodSetupConfirmationCapable } from './payment-method-setup-confirmation.contract';
+export { isPaymentMethodSetupConfirmationCapable } from './payment-method-setup-confirmation.contract';
 
 export interface ResumeSubscriptionInput {
   providerSubscriptionId: string;
@@ -110,10 +113,6 @@ export interface PaymentWebhookCapable {
 export interface RedirectCallbackCapable {
   verifyCallback(payload: Record<string, unknown>): boolean | Promise<boolean>;
   handleRedirectCallback(payload: Record<string, unknown>): Promise<RedirectCallbackResult>;
-}
-
-export interface ChargeCapable {
-  charge(input: ChargeInput, ctx: OperationContext): Promise<ChargeResultDTO>;
 }
 
 export interface DirectSubscriptionCapable {
@@ -221,12 +220,6 @@ export function isPaymentWebhookCapable(
   provider: PaymentProvider,
 ): provider is PaymentProvider & PaymentWebhookCapable {
   return typeof (provider as Partial<PaymentWebhookCapable>).reconcilePayment === 'function';
-}
-
-export function isChargeCapable(
-  provider: PaymentProvider,
-): provider is PaymentProvider & ChargeCapable {
-  return typeof (provider as Partial<ChargeCapable>).charge === 'function';
 }
 
 export function isDirectSubscriptionCapable(
