@@ -41,6 +41,7 @@ tree.
 19. [integrations/19-paddle.md](integrations/19-paddle.md) - The Paddle provider, webhook verifier, and normalizer.
 20. [integrations/20-sisp.md](integrations/20-sisp.md) - The SISP (Cabo Verde · vinti4) provider: redirect checkout, callback reconciliation, and the optional `@akira-io/payable/sisp` subpath.
     - [integrations/20a-trust-my-travel.md](integrations/20a-trust-my-travel.md) - Trust My Travel Payment Modal checkout, browser callback reconciliation, bookings, and refunds.
+    - [integrations/20c-trust-my-travel-credentials.md](integrations/20c-trust-my-travel-credentials.md) - Locate and store the Test-only Site Path, Channel ID, API token, and Channel Secret without exposing private values.
     - [integrations/20b-trust-my-travel-test-certification.md](integrations/20b-trust-my-travel-test-certification.md) - Opt-in real Test-channel certification, safety controls, cleanup, and capability limits.
 21. [integrations/21-revolut.md](integrations/21-revolut.md) - The Revolut Merchant provider: amount checkout, refunds, webhooks, and payment reconciliation.
     - [integrations/21a-revolut-disputes.md](integrations/21a-revolut-disputes.md) - Production-only dispute listing, retrieval, and acceptance.

@@ -214,4 +214,4 @@ adapter.
 
 ---
 
-[Previous: SISP](20-sisp.md) · [Index](../00-index.md) · [Next: Test certification](20b-trust-my-travel-test-certification.md)
+[Previous: SISP](20-sisp.md) · [Index](../00-index.md) · [Next: Credentials](20c-trust-my-travel-credentials.md)
