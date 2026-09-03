@@ -22,6 +22,45 @@ function jsonResponse(body: unknown): Response {
 }
 
 describe('TrustMyTravelProvider', () => {
+  it('starts authorization through the modal without allocations', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      jsonResponse({
+        id: 44,
+        channels: 2452,
+        currencies: 'EUR',
+        total: 9999,
+        total_unpaid: 9999,
+      }),
+    );
+    const result = await new TrustMyTravelProvider({
+      ...OPTIONS,
+      fetch,
+      clock: new FakeClock(new Date('2026-07-01T00:00:00.000Z')),
+    }).authorize(
+      {
+        amount: Money.of(9999, 'EUR'),
+        reference: 'booking-44',
+        successUrl: 'https://shop.test/success',
+        providerData: {
+          bookingId: 44,
+          modal: {
+            payee_name: 'Ada',
+            payee_email: 'ada@example.test',
+            payee_address: '1 Main Street',
+            payee_city: 'London',
+            payee_postcode: 'SW1A',
+            payee_country: 'GB',
+          },
+        },
+      },
+      { correlationId: 'corr-1', idempotencyKey: 'auth-1' },
+    );
+    expect(result.status).toBe('processing');
+    expect(result.expiresAt?.toISOString()).toBe('2026-07-06T00:00:00.000Z');
+    expect(result.checkout?.html).toContain('"transactionType":"authorize"');
+    expect(result.checkout?.html).toContain('"allocations":[]');
+  });
+
   it('creates a booking and returns a pinned Payment Modal configuration', async () => {
     const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
       jsonResponse({
@@ -277,7 +316,14 @@ describe('TrustMyTravelProvider', () => {
   it('advertises checkout, refunds and TMT booking access only', () => {
     const provider = new TrustMyTravelProvider({ ...OPTIONS, fetch: vi.fn() });
 
-    expect([...provider.capabilities()]).toEqual(['checkout', 'refunds', 'x-tmt-bookings']);
+    expect([...provider.capabilities()]).toEqual([
+      'checkout',
+      'refunds',
+      'authorize',
+      'capture',
+      'void',
+      'x-tmt-bookings',
+    ]);
     expect(provider.subscriptionOperationCapabilities().create).toEqual({
       checkout: false,
       direct: false,

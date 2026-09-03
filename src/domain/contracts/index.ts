@@ -134,6 +134,16 @@ export type {
   OutboxStatus,
 } from './outbox-event-repository.contract';
 export type {
+  AuthorizeCapable,
+  CaptureCapable,
+  VoidCapable,
+} from './payment-lifecycle-provider.contract';
+export {
+  isAuthorizeCapable,
+  isCaptureCapable,
+  isVoidCapable,
+} from './payment-lifecycle-provider.contract';
+export type {
   BillingPortalCapable,
   CatalogCapable,
   CatalogLifecycleCapable,

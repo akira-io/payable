@@ -4,6 +4,7 @@ export {
   type AuditRecordInput,
   AuditResource,
 } from './audit-resource';
+export type { AuthorizePaymentRequest } from './authorize-payment-request';
 export type { Billable } from './billable';
 export type { BillingDependencies } from './billing-dependencies';
 export {
@@ -57,6 +58,7 @@ export {
   type LocalSubscriptionCapabilities,
   LocalSubscriptionResource,
 } from './local-subscription-resource';
+export { PaymentResource } from './payment-resource';
 export { PriceResource } from './price-resource';
 export { ProductResource } from './product-resource';
 export { ProviderCatalogResource } from './provider-catalog-resource';

@@ -101,6 +101,19 @@ export class PrismaPaymentRepository
     return result.count > 0;
   }
 
+  async updateStatusIfUnchanged(
+    id: string,
+    expectedStatus: Payment['status'],
+    patch: Partial<NewPayment>,
+    tenantId?: string | null,
+  ): Promise<boolean> {
+    const result = await this.delegate.updateMany({
+      where: { ...this.scopedWhere(id, tenantId), status: expectedStatus },
+      data: { ...this.toRow(patch), updatedAt: this.clock.now() },
+    });
+    return result.count > 0;
+  }
+
   protected toEntity(row: PrismaPaymentRow): Payment {
     return paymentToEntity(row);
   }

@@ -4,6 +4,9 @@ export function revolutCapabilities(): ProviderCapabilities {
   return new Set([
     'checkout',
     'refunds',
+    'authorize',
+    'capture',
+    'void',
     'webhooks',
     'customers',
     'paymentMethods',

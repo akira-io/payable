@@ -5,7 +5,13 @@ import type { ListCursor, ListOptions } from './list-options.contract';
 
 type PaymentEvidence = Pick<
   Payment,
-  'collectionMethod' | 'occurredAt' | 'externalReference' | 'recordedBy'
+  | 'collectionMethod'
+  | 'occurredAt'
+  | 'externalReference'
+  | 'recordedBy'
+  | 'capturedAmount'
+  | 'authorizedAt'
+  | 'authorizationExpiresAt'
 >;
 export type NewPayment = Omit<Payment, 'id' | 'createdAt' | 'updatedAt' | keyof PaymentEvidence> &
   Partial<PaymentEvidence>;
@@ -38,6 +44,12 @@ export interface PaymentRepository {
     id: string,
     expectedRefundedAmount: number,
     patch: RefundedAmountPatch,
+    tenantId?: string | null,
+  ): Promise<boolean>;
+  updateStatusIfUnchanged(
+    id: string,
+    expectedStatus: PaymentStatus,
+    patch: Partial<NewPayment>,
     tenantId?: string | null,
   ): Promise<boolean>;
   findById(id: string, tenantId?: string | null): Promise<Payment | null>;

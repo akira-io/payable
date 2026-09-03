@@ -4,8 +4,10 @@ import {
 } from '../../../domain/contracts/payment-provider.contract';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
+import { PaymentAuthorizedEvent } from '../../../domain/events/payment-lifecycle.event';
 import { PaymentStateMachine } from '../../../domain/states/payment-state-machine';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
+import { Money } from '../../../domain/value-objects/money';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
 
 export interface RedirectCallbackInput {
@@ -80,7 +82,11 @@ export class ReconcileRedirectPaymentAction {
       const next = machine.current();
       await repos.payments.update(
         fresh.id,
-        { status: next, providerPaymentId: result.providerPaymentId },
+        {
+          status: next,
+          providerPaymentId: result.providerPaymentId,
+          ...(next === 'authorized' ? { authorizedAt: this.deps.clock.now() } : {}),
+        },
         tenantId,
       );
       await repos.auditLogs.create({
@@ -99,6 +105,15 @@ export class ReconcileRedirectPaymentAction {
       });
       return true;
     });
+    if (paymentUpdated && result.status === 'authorized') {
+      const amount = result.amount ?? Money.of(existing.amount, existing.currency);
+      await this.deps.events?.emit(
+        new PaymentAuthorizedEvent(
+          { paymentId: existing.id, customerId: existing.customerId, amount },
+          { correlationId, occurredAt: this.deps.clock.now() },
+        ),
+      );
+    }
     return { ...result, paymentUpdated };
   }
 }

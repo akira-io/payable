@@ -28,6 +28,7 @@ import type { CustomerResource } from './application/builders/customer-resource'
 import { DependencyFactory } from './application/builders/dependency-factory';
 import { InvoiceResource } from './application/builders/invoice-resource';
 import type { LocalSubscriptionResource } from './application/builders/local-subscription-resource';
+import { PaymentResource } from './application/builders/payment-resource';
 import { ProviderCatalogResource } from './application/builders/provider-catalog-resource';
 import { RefundResource } from './application/builders/refund-resource';
 import { StoredPaymentResource } from './application/builders/stored-payment-resource';
@@ -225,6 +226,9 @@ export class Payable extends ProviderRegistries {
   }
   storedPayments(tenantId?: string | null): StoredPaymentResource {
     return new StoredPaymentResource(this.factory.local(tenantId));
+  }
+  payment(id: string, tenantId?: string | null): PaymentResource {
+    return new PaymentResource(this.factory.local(tenantId), id);
   }
   audit(tenantId?: string | null): AuditResource {
     if (!this.resolved.storage) {

@@ -11,6 +11,9 @@ export interface Payment extends TenantScoped, Timestamps {
   readonly currency: CurrencyCode;
   readonly amount: number;
   readonly refundedAmount: number;
+  readonly capturedAmount: number;
+  readonly authorizedAt: Date | null;
+  readonly authorizationExpiresAt: Date | null;
   readonly reference: string | null;
   readonly description: string | null;
   readonly collectionMethod: CollectionMethod | null;

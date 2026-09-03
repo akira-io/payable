@@ -15,6 +15,7 @@ import { addCustomerProviderSyncStateLeases } from './customer-provider-sync-sta
 import { addCustomerProviderSyncStates } from './customer-provider-sync-states';
 import { addLocalPaymentEvidence } from './local-payment-evidence';
 import { runStep } from './migration-ledger';
+import { addPaymentAuthorizationLifecycle } from './payment-authorization-lifecycle';
 import { convergePostLedgerSchema } from './post-ledger-convergence';
 import { addProviderNeutralPageIndexes } from './provider-neutral-page-indexes';
 import { addSubscriptionLifecycleMetadata } from './subscription-lifecycle-metadata';
@@ -140,6 +141,9 @@ export async function migrate(knex: Knex): Promise<void> {
     );
     await runStep(knex, '022-subscription-mutation-recovery', () =>
       addSubscriptionMutationRecovery(knex),
+    );
+    await runStep(knex, '023-payment-authorization-lifecycle', () =>
+      addPaymentAuthorizationLifecycle(knex),
     );
   });
 }

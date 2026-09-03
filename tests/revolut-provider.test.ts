@@ -52,6 +52,46 @@ function provider(fetch: RevolutProviderOptions['fetch']) {
 }
 
 describe('RevolutProvider', () => {
+  it('authorizes, captures and voids a manual-capture order', async () => {
+    const { fetch, calls } = fakeFetch(
+      { status: 201, body: { id: 'ord_1', state: 'authorised', amount: 500, currency: 'GBP' } },
+      { status: 200, body: { id: 'ord_1', state: 'completed', amount: 500, currency: 'GBP' } },
+      { status: 200, body: { id: 'ord_1', state: 'cancelled', amount: 500, currency: 'GBP' } },
+    );
+    const instance = provider(fetch);
+    const authorized = await instance.authorize(
+      { amount: Money.of(500, 'GBP'), reference: 'order_42', providerCustomerId: 'cus_1' },
+      ctx,
+    );
+    const captured = await instance.capture(
+      { providerPaymentId: 'ord_1', amount: Money.of(500, 'GBP') },
+      ctx,
+    );
+    const voided = await instance.void({ providerPaymentId: 'ord_1' }, ctx);
+
+    expect(authorized.status).toBe('authorized');
+    expect(captured.status).toBe('succeeded');
+    expect(voided.status).toBe('canceled');
+    expect(calls.map(({ url, body }) => ({ url, body }))).toEqual([
+      {
+        url: 'https://sandbox-merchant.revolut.com/api/orders',
+        body: {
+          amount: 500,
+          currency: 'GBP',
+          capture_mode: 'manual',
+          customer: { id: 'cus_1' },
+          merchant_order_data: { reference: 'order_42' },
+        },
+      },
+      {
+        url: 'https://sandbox-merchant.revolut.com/api/orders/ord_1/capture',
+        body: { amount: 500 },
+      },
+      { url: 'https://sandbox-merchant.revolut.com/api/orders/ord_1/cancel', body: undefined },
+    ]);
+    expect(calls.every((call) => call.headers['idempotency-key'] === 'idem-1')).toBe(true);
+  });
+
   it('reports the Merchant capabilities implemented by Revolut', () => {
     const instance = new RevolutProvider({ secretKey: 'sk_rev_test', webhookSecret: 'wsk_test' });
     const capabilities = instance.capabilities();

@@ -1,6 +1,9 @@
 export type ProviderCapability =
   | 'checkout'
   | 'charges'
+  | 'authorize'
+  | 'capture'
+  | 'void'
   | 'subscriptions'
   | 'trials'
   | 'refunds'

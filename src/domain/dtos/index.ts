@@ -94,6 +94,15 @@ export type {
   MarketplaceTransferStatus,
 } from './marketplace.dto';
 export type {
+  AuthorizationResultDTO,
+  AuthorizePaymentInput,
+  CapturePaymentInput,
+  CaptureResultDTO,
+  PaymentAllocationDTO,
+  VoidPaymentInput,
+  VoidResultDTO,
+} from './payment-lifecycle.dto';
+export type {
   DeletePaymentMethodInput,
   ListPaymentMethodsInput,
   PaymentMethodDTO,

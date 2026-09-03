@@ -30,7 +30,7 @@ const PAYMENT_STATUS = {
   requires_payment_method: 'pending',
   requires_confirmation: 'pending',
   requires_action: 'pending',
-  requires_capture: 'pending',
+  requires_capture: 'authorized',
 } satisfies Record<Stripe.PaymentIntent.Status, PaymentStatus>;
 
 const REFUND_STATUS: Record<string, RefundStatus> = {

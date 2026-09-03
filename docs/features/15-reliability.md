@@ -213,8 +213,7 @@ with one, all reads transparently decrypt.
 
 ## Locks
 
-`LockDriver` (`src/domain/contracts/lock-driver.contract.ts`) defines mutual exclusion operations for
-direct composition outside the Payable engine:
+`LockDriver` (`src/domain/contracts/lock-driver.contract.ts`) defines mutual exclusion operations.
 
 ```ts
 export interface LockDriver {
@@ -229,9 +228,10 @@ export interface LockDriver {
 store's atomic `acquire`/`takeOver` (see [Idempotency](14-idempotency.md)) and the outbox's
 `forUpdate().skipLocked()` claim.
 
-**Configuration boundary.** `MemoryLockDriver` and `MemoryCacheDriver` are public direct-composition
-utilities. `RedisLockDriver` and `RedisCacheDriver` remain internal scaffolds. These contracts are
-not accepted by `createPayable`.
+**Configuration boundary.** `locks` on `PayableConfig` is consumed by payment capture and void. Those
+operations require `distributed === true`; `MemoryLockDriver` is intentionally rejected there.
+`MemoryCacheDriver` remains a public direct-composition utility. `RedisLockDriver` and
+`RedisCacheDriver` remain internal scaffolds.
 
 ## Cache
 

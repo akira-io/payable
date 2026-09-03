@@ -94,7 +94,7 @@ describe('Redis drivers fail fast', () => {
   });
 });
 
-describe('unwired driver config rejection', () => {
+describe('driver config wiring', () => {
   it('rejects a configured cache driver until it has a runtime responsibility', () => {
     expect(() =>
       createPayable({
@@ -104,12 +104,12 @@ describe('unwired driver config rejection', () => {
     ).toThrow(expect.objectContaining({ code: 'CONFIG_OPTION_UNSUPPORTED' }));
   });
 
-  it('rejects a configured lock driver until it has a runtime responsibility', () => {
+  it('accepts a lock driver for payment lifecycle operations', () => {
     expect(() =>
       createPayable({
         providers: { stripe: new FakeProvider() },
         locks: new MemoryLockDriver(),
       } as unknown as Parameters<typeof createPayable>[0]),
-    ).toThrow(expect.objectContaining({ code: 'CONFIG_OPTION_UNSUPPORTED' }));
+    ).not.toThrow();
   });
 });

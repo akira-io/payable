@@ -4,6 +4,9 @@ export function stripeCapabilities(): ProviderCapabilities {
   return new Set([
     'checkout',
     'charges',
+    'authorize',
+    'capture',
+    'void',
     'subscriptions',
     'trials',
     'refunds',

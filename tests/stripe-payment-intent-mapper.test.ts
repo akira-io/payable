@@ -12,7 +12,7 @@ describe('stripe payment intent mapper', () => {
       requires_payment_method: 'pending',
       requires_confirmation: 'pending',
       requires_action: 'pending',
-      requires_capture: 'pending',
+      requires_capture: 'authorized',
     };
 
     for (const [stripeStatus, domainStatus] of Object.entries(statusMap)) {

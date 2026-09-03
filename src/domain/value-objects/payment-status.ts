@@ -1,6 +1,7 @@
 export const PAYMENT_STATUSES = [
   'pending',
   'processing',
+  'authorized',
   'succeeded',
   'failed',
   'canceled',

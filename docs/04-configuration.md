@@ -222,13 +222,20 @@ resolved string key to `IdempotencyService`. `IdempotencyStrategy` is available 
 | `idempotency.enabled` | `config.idempotency?.enabled` | `true` |
 | `idempotency.strategy` | `config.idempotency?.strategy` | `'auto'` |
 | `idempotency.store` | `config.idempotency?.store` | `undefined` |
+| `locks` | `config.locks` | `undefined` |
+
+### `locks?: LockDriver`
+
+Supplies the distributed exclusion used by capture and void. Those operations reject a missing or
+single-process driver with `PAYMENT_DISTRIBUTED_LOCK_REQUIRED`. `MemoryLockDriver` remains useful for
+direct single-process composition but deliberately reports `distributed = false`.
 
 ## Cache and lock utilities
 
-`cache` and `locks` are not `PayableConfig` keys. `resolveConfig` rejects either key with
-`CONFIG_OPTION_UNSUPPORTED`. `CacheDriver`, `LockDriver`, `MemoryCacheDriver`, and
-`MemoryLockDriver` remain available for direct composition outside `createPayable`. Internal Redis
-scaffolds are not supported configuration and must not be deep-imported.
+`cache` is not a `PayableConfig` key and is rejected with `CONFIG_OPTION_UNSUPPORTED`. Lock drivers
+are accepted for payment lifecycle coordination. The package does not ship a production distributed
+lock implementation; applications must supply one implementing `LockDriver`.
+`MemoryLockDriver` remains available for direct composition and tests.
 
 ---
 

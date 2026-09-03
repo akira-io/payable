@@ -94,6 +94,19 @@ export class KnexPaymentRepository
     return count > 0;
   }
 
+  async updateStatusIfUnchanged(
+    id: string,
+    expectedStatus: PaymentStatus,
+    patch: Partial<NewPayment>,
+    tenantId?: string | null,
+  ): Promise<boolean> {
+    const count = await this.knex(this.table)
+      .where(this.scopedWhere(id, tenantId))
+      .where({ status: expectedStatus })
+      .update({ ...this.toRow(patch), updated_at: this.clock.now().toISOString() });
+    return count > 0;
+  }
+
   protected toEntity(row: Record<string, unknown>): Payment {
     return {
       id: row.id as string,
@@ -105,6 +118,9 @@ export class KnexPaymentRepository
       currency: CurrencyManager.normalize(row.currency as string),
       amount: toMinor(row.amount, 'amount'),
       refundedAmount: toMinor(row.refunded_amount, 'refunded_amount'),
+      capturedAmount: toMinor(row.captured_amount ?? 0, 'captured_amount'),
+      authorizedAt: toNullableDate(row.authorized_at),
+      authorizationExpiresAt: toNullableDate(row.authorization_expires_at),
       reference: (row.reference as string | null) ?? null,
       description: (row.description as string | null) ?? null,
       collectionMethod: (row.collection_method as CollectionMethod | null) ?? null,
@@ -127,6 +143,9 @@ export class KnexPaymentRepository
       currency: data.currency,
       amount: data.amount,
       refunded_amount: data.refundedAmount,
+      captured_amount: data.capturedAmount,
+      authorized_at: fromDate(data.authorizedAt),
+      authorization_expires_at: fromDate(data.authorizationExpiresAt),
       reference: data.reference,
       description: data.description,
       collection_method: data.collectionMethod,

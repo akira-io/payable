@@ -194,6 +194,9 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     table.string('currency').notNullable();
     table.bigInteger('amount').notNullable();
     table.bigInteger('refunded_amount').notNullable();
+    table.bigInteger('captured_amount').notNullable().defaultTo(0);
+    table.timestamp('authorized_at', { useTz: true }).nullable();
+    table.timestamp('authorization_expires_at', { useTz: true }).nullable();
     table.string('reference').nullable();
     table.text('description').nullable();
     table.string('collection_method').nullable();

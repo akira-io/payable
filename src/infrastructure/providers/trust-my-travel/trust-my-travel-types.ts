@@ -97,6 +97,7 @@ export interface TrustMyTravelProviderOptions {
   fetch?: typeof fetch;
   logger?: Logger;
   clock?: Clock;
+  authorizationWindowMs?: number;
   directCharge?: { psp: string };
   reconciliation?: TrustMyTravelReconciliationOptions;
 }

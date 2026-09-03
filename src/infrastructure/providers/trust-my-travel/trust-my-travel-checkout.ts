@@ -52,7 +52,10 @@ export class TrustMyTravelCheckout {
     private readonly options: TrustMyTravelCheckoutOptions,
   ) {}
 
-  async create(input: CreateCheckoutSessionInput): Promise<CheckoutSessionDTO> {
+  async create(
+    input: CreateCheckoutSessionInput,
+    transactionType?: 'authorize',
+  ): Promise<CheckoutSessionDTO> {
     if (input.mode !== 'payment') {
       throw this.invalid('Trust My Travel only supports one-time payment checkouts');
     }
@@ -93,6 +96,7 @@ export class TrustMyTravelCheckout {
       total: input.amount.amount(),
       allocations: [],
       reference: input.reference,
+      ...(transactionType ? { transactionType } : {}),
     };
     const config = {
       path: this.options.path,
