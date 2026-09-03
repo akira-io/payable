@@ -1,0 +1,36 @@
+name: TMT Test integration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tmt-test-integration
+  cancel-in-progress: false
+
+jobs:
+  integration:
+    name: Trust My Travel Test channel
+    runs-on: ubuntu-latest
+    environment: tmt-test
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run TMT Test integration
+        run: bun run test:integration:tmt
+        env:
+          TMT_PATH: ${{ vars.TMT_PATH }}
+          TMT_CHANNEL_ID: ${{ vars.TMT_CHANNEL_ID }}
+          TMT_API_TOKEN: ${{ secrets.TMT_API_TOKEN }}
+          TMT_CHANNEL_SECRET: ${{ secrets.TMT_CHANNEL_SECRET }}

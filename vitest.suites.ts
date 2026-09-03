@@ -12,10 +12,11 @@ export const PRISMA_SUITES = [
   'tests/prisma-canonical-reset.test.ts',
 ];
 
+export const TMT_INTEGRATION_SUITES = ['tests/trust-my-travel.integration.test.ts'];
+
 const MCP_PROBE = '@modelcontextprotocol/sdk/client/index.js';
 const NEST_PROBES = ['@nestjs/common', '@nestjs/core', 'reflect-metadata'];
 const PRISMA_PROBE = '@prisma/client';
-
 export function optionalSuiteExcludes(isInstalled: (name: string) => boolean): string[] {
   const exclude: string[] = [];
   if (!isInstalled(MCP_PROBE)) {
@@ -27,5 +28,6 @@ export function optionalSuiteExcludes(isInstalled: (name: string) => boolean): s
   if (!isInstalled(PRISMA_PROBE)) {
     exclude.push(...PRISMA_SUITES);
   }
+  exclude.push(...TMT_INTEGRATION_SUITES);
   return exclude;
 }

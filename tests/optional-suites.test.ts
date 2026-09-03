@@ -1,30 +1,42 @@
 import { describe, expect, it } from 'vitest';
-import { MCP_SUITES, NEST_SUITES, optionalSuiteExcludes, PRISMA_SUITES } from '../vitest.suites';
+import {
+  MCP_SUITES,
+  NEST_SUITES,
+  optionalSuiteExcludes,
+  PRISMA_SUITES,
+  TMT_INTEGRATION_SUITES,
+} from '../vitest.suites';
 
 describe('optionalSuiteExcludes', () => {
   it('classifies provider-neutral Prisma pages as an optional Prisma suite', () => {
     expect(PRISMA_SUITES).toContain('tests/prisma-provider-neutral-pages.test.ts');
   });
 
-  it('keeps every suite when all optional peers resolve', () => {
-    expect(optionalSuiteExcludes(() => true)).toEqual([]);
+  it('always excludes the real TMT suite even when all optional peers resolve', () => {
+    expect(optionalSuiteExcludes(() => true)).toEqual(TMT_INTEGRATION_SUITES);
   });
 
   it('excludes the MCP suites when the SDK client is absent', () => {
     const excluded = optionalSuiteExcludes(
       (name) => name !== '@modelcontextprotocol/sdk/client/index.js',
     );
-    expect(excluded).toEqual(MCP_SUITES);
+    expect(excluded).toEqual([...MCP_SUITES, ...TMT_INTEGRATION_SUITES]);
   });
 
   it('excludes the nest suite when any of its peers is absent', () => {
     for (const missing of ['@nestjs/common', '@nestjs/core', 'reflect-metadata']) {
-      expect(optionalSuiteExcludes((name) => name !== missing)).toEqual(NEST_SUITES);
+      expect(optionalSuiteExcludes((name) => name !== missing)).toEqual([
+        ...NEST_SUITES,
+        ...TMT_INTEGRATION_SUITES,
+      ]);
     }
   });
 
   it('excludes the prisma suite when @prisma/client is absent', () => {
-    expect(optionalSuiteExcludes((name) => name !== '@prisma/client')).toEqual(PRISMA_SUITES);
+    expect(optionalSuiteExcludes((name) => name !== '@prisma/client')).toEqual([
+      ...PRISMA_SUITES,
+      ...TMT_INTEGRATION_SUITES,
+    ]);
   });
 
   it('excludes everything when no optional peer resolves', () => {
@@ -32,6 +44,7 @@ describe('optionalSuiteExcludes', () => {
       ...MCP_SUITES,
       ...NEST_SUITES,
       ...PRISMA_SUITES,
+      ...TMT_INTEGRATION_SUITES,
     ]);
   });
 });

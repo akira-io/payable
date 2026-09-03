@@ -80,6 +80,12 @@ Because these probes match the optional peers, `vitest run` passes in a minimal 
 zero-required-peer install) instead of failing on missing modules. Installing the optional peers turns
 the matching suites back on automatically.
 
+The real Trust My Travel suite is always excluded from standard runs, including when credentials
+are present. Run `bun run test:integration:tmt` for an explicit, single-worker invocation. With no
+credentials it reports why it skipped; a partial configuration fails without printing values. See
+`docs/integrations/20b-trust-my-travel-test-certification.md` for the Test-only guard, cleanup policy,
+and supported capability matrix.
+
 ## How to run
 
 The package scripts are run with Bun in CI; locally either Bun or npm works.
@@ -87,6 +93,7 @@ The package scripts are run with Bun in CI; locally either Bun or npm works.
 | Task | Command |
 | --- | --- |
 | Run all tests | `bun run test` (`vitest run`) |
+| Run the real TMT Test suite | `bun run test:integration:tmt` |
 | Tests with coverage | `bun run test:coverage` |
 | A single test by name | `npx vitest run -t "name"` |
 | Typecheck | `bun run typecheck` (`tsc --noEmit`) |
