@@ -293,6 +293,7 @@ export interface PaymentProvider {
 | `InvoiceCapable` | `listInvoices`, `downloadInvoicePdf` | `isInvoiceCapable` |
 | `BillingPortalCapable` | `billingPortal` | `isBillingPortalCapable` |
 | `PaymentMethodSetupCapable` | `createPaymentMethodSetup`, `retrievePaymentMethodSetup`, `cancelPaymentMethodSetup` | `isPaymentMethodSetupCapable` |
+| `PaymentMethodSetupConfirmationCapable` | `confirmPaymentMethodSetup` | `isPaymentMethodSetupConfirmationCapable` |
 | `WebhookCapable` | `verifyWebhook`, `reconcileSubscription` | `isWebhookCapable` |
 | `PaymentWebhookCapable` | `reconcilePayment` | `isPaymentWebhookCapable` |
 | `RedirectCallbackCapable` | `verifyCallback`, `handleRedirectCallback` | `isRedirectCallbackCapable` |
@@ -372,6 +373,11 @@ normalize to `PRODUCT_NOT_FOUND` or `PRICE_NOT_FOUND`.
 supports provider flows that return a client secret, a hosted checkout URL, or a saved payment method
 ID. It remains optional, and a provider advertises `paymentMethodSetup` only after implementing all
 three lifecycle methods.
+
+`PaymentMethodSetupConfirmationCapable` is the provider-neutral seam for hosted setup returns. The
+caller passes its setup reference and an opaque provider return string. The adapter interprets the
+return and performs any authoritative provider read before returning a succeeded setup. Callers must
+not treat browser status fields as confirmation.
 
 ### TaxProvider
 

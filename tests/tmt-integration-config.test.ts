@@ -61,7 +61,9 @@ describe('TMT integration configuration', () => {
         {
           id: 2452,
           account_mode: accountMode,
+          account_type: 'protected-processing',
           currencies: 'EUR',
+          server_to_server: false,
         },
         2452,
       ),
@@ -70,11 +72,50 @@ describe('TMT integration configuration', () => {
 
   it('accepts only the configured test channel and returns its normalized currency', () => {
     expect(
-      assertTmtTestChannel({ id: 2452, account_mode: 'test', currencies: 'eur' }, 2452),
-    ).toEqual({ channelId: 2452, currency: 'EUR' });
+      assertTmtTestChannel(
+        {
+          id: 2452,
+          account_mode: 'test',
+          account_type: 'protected-processing',
+          currencies: 'eur',
+          server_to_server: false,
+        },
+        2452,
+      ),
+    ).toEqual({
+      channelId: 2452,
+      currency: 'EUR',
+      accountType: 'protected-processing',
+      serverToServer: false,
+    });
 
     expect(() =>
-      assertTmtTestChannel({ id: 9999, account_mode: 'test', currencies: 'EUR' }, 2452),
+      assertTmtTestChannel(
+        {
+          id: 9999,
+          account_mode: 'test',
+          account_type: 'protected-processing',
+          currencies: 'EUR',
+          server_to_server: false,
+        },
+        2452,
+      ),
     ).toThrow('configured channel identity');
+  });
+
+  it('requires the certification channel to be protected-processing with server-to-server off', () => {
+    const readiness = {
+      id: 2452,
+      account_mode: 'test',
+      account_type: 'protected-processing',
+      currencies: 'EUR',
+      server_to_server: false,
+    };
+    expect(() => assertTmtTestChannel({ ...readiness, account_type: 'trust' }, 2452)).toThrow(
+      'protected-processing',
+    );
+    expect(() => assertTmtTestChannel({ ...readiness, server_to_server: true }, 2452)).toThrow(
+      'server-to-server disabled',
+    );
   });
 });

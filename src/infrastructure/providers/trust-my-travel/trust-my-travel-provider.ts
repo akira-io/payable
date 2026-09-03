@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Clock } from '../../../domain/contracts/clock.contract';
 import type {
   AuthorizeCapable,
@@ -5,6 +6,9 @@ import type {
   VoidCapable,
 } from '../../../domain/contracts/payment-lifecycle-provider.contract';
 import type {
+  ChargeCapable,
+  PaymentMethodSetupCapable,
+  PaymentMethodSetupConfirmationCapable,
   PaymentProvider,
   RedirectCallbackCapable,
   RedirectCallbackResult,
@@ -16,6 +20,7 @@ import type {
 } from '../../../domain/contracts/recurring-payment-reconciliation.contract';
 import type { SubscriptionOperationCapabilitiesProvider } from '../../../domain/contracts/subscription-operation-capabilities-provider.contract';
 import type { ProviderCapabilities } from '../../../domain/dtos/capabilities.dto';
+import type { ChargeInput, ChargeResultDTO } from '../../../domain/dtos/charge.dto';
 import type {
   CheckoutSessionDTO,
   CreateCheckoutSessionInput,
@@ -29,15 +34,23 @@ import type {
   VoidPaymentInput,
   VoidResultDTO,
 } from '../../../domain/dtos/payment-lifecycle.dto';
+import type {
+  ConfirmPaymentMethodSetupInput,
+  CreatePaymentMethodSetupInput,
+  PaymentMethodSetupDTO,
+} from '../../../domain/dtos/payment-method-setup.dto';
 import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import { NO_SUBSCRIPTION_OPERATIONS } from '../../../domain/dtos/subscription-operation-capabilities.dto';
 import { SystemClock } from '../../../support/clock/system-clock';
 import { TrustMyTravelBookings } from './trust-my-travel-bookings';
+import { TrustMyTravelCardVault } from './trust-my-travel-card-vault';
 import { TrustMyTravelCheckout } from './trust-my-travel-checkout';
 import { TrustMyTravelClient } from './trust-my-travel-client';
 import { TrustMyTravelReconciliation } from './trust-my-travel-reconciliation';
+import { TrustMyTravelRetainedPurchases } from './trust-my-travel-retained-purchases';
 import { TrustMyTravelTransactions } from './trust-my-travel-transactions';
 import type { TrustMyTravelProviderOptions } from './trust-my-travel-types';
+import { TrustMyTravelVaultReferenceCodec } from './trust-my-travel-vault-reference';
 
 export class TrustMyTravelProvider
   implements
@@ -45,12 +58,16 @@ export class TrustMyTravelProvider
     AuthorizeCapable,
     CaptureCapable,
     VoidCapable,
+    ChargeCapable,
+    PaymentMethodSetupCapable,
+    PaymentMethodSetupConfirmationCapable,
     RedirectCallbackCapable,
     RecurringPaymentReconciliationCapable,
     SubscriptionOperationCapabilitiesProvider
 {
   readonly name = 'trust-my-travel';
   readonly authorizeIdempotency = 'unsupported';
+  readonly chargeIdempotency = 'unsupported';
   readonly captureIdempotency = 'unsupported';
   readonly voidIdempotency = 'unsupported';
   readonly bookings: TrustMyTravelBookings;
@@ -59,6 +76,8 @@ export class TrustMyTravelProvider
   private readonly reconciliation: TrustMyTravelReconciliation;
   private readonly clock: Clock;
   private readonly authorizationWindowMs: number;
+  private readonly cardVault: TrustMyTravelCardVault;
+  private readonly retainedPurchases: TrustMyTravelRetainedPurchases;
 
   constructor(options: TrustMyTravelProviderOptions) {
     this.clock = options.clock ?? new SystemClock();
@@ -66,7 +85,13 @@ export class TrustMyTravelProvider
     if (!Number.isSafeInteger(this.authorizationWindowMs) || this.authorizationWindowMs <= 0) {
       throw new TypeError('Trust My Travel authorizationWindowMs must be a positive integer');
     }
+    assertVaultReferenceSecrets(options.vaultReferenceSecrets);
     const client = new TrustMyTravelClient(options);
+    const vaultReferenceCodec = new TrustMyTravelVaultReferenceCodec(
+      options.vaultReferenceSecrets ?? [
+        createHash('sha256').update(options.channelSecret).digest('hex'),
+      ],
+    );
     const request = client.request.bind(client);
     this.bookings = new TrustMyTravelBookings(request, {
       channelId: options.channelId,
@@ -84,6 +109,21 @@ export class TrustMyTravelProvider
       this.clock,
       options.reconciliation,
     );
+    this.cardVault = new TrustMyTravelCardVault(
+      client,
+      vaultReferenceCodec,
+      options.channelId,
+      options.currency,
+      options.environment,
+      this.clock,
+    );
+    this.retainedPurchases = new TrustMyTravelRetainedPurchases(
+      client,
+      vaultReferenceCodec,
+      options.channelId,
+      options.currency,
+      options.environment,
+    );
   }
 
   toJSON(): { name: string } {
@@ -95,7 +135,16 @@ export class TrustMyTravelProvider
   }
 
   capabilities(): ProviderCapabilities {
-    return new Set(['checkout', 'refunds', 'authorize', 'capture', 'void', 'x-tmt-bookings']);
+    return new Set([
+      'checkout',
+      'refunds',
+      'charges',
+      'authorize',
+      'capture',
+      'void',
+      'paymentMethodSetup',
+      'x-tmt-bookings',
+    ]);
   }
 
   subscriptionOperationCapabilities() {
@@ -146,6 +195,36 @@ export class TrustMyTravelProvider
     return this.transactions.void(input);
   }
 
+  createPaymentMethodSetup(
+    input: CreatePaymentMethodSetupInput,
+    context: OperationContext,
+  ): Promise<PaymentMethodSetupDTO> {
+    return this.cardVault.create(input, context);
+  }
+
+  retrievePaymentMethodSetup(providerSetupId: string): Promise<PaymentMethodSetupDTO> {
+    return this.cardVault.retrieve(providerSetupId);
+  }
+
+  cancelPaymentMethodSetup(
+    providerSetupId: string,
+    _context: OperationContext,
+  ): Promise<PaymentMethodSetupDTO> {
+    return this.cardVault.cancel(providerSetupId);
+  }
+
+  confirmPaymentMethodSetup(input: ConfirmPaymentMethodSetupInput): Promise<PaymentMethodSetupDTO> {
+    return this.cardVault.confirm(input);
+  }
+
+  charge(input: ChargeInput, context: OperationContext): Promise<ChargeResultDTO> {
+    return this.retainedPurchases.charge(input, context);
+  }
+
+  chargeIdempotencyFingerprint(input: ChargeInput): unknown {
+    return this.retainedPurchases.idempotencyFingerprint(input);
+  }
+
   verifyCallback(payload: Record<string, unknown>): boolean {
     return this.transactions.verifyCallback(payload);
   }
@@ -158,5 +237,15 @@ export class TrustMyTravelProvider
     input: RecurringPaymentReconciliationInput,
   ): Promise<RecurringPaymentReconciliationResult> {
     return this.reconciliation.reconcile(input);
+  }
+}
+
+function assertVaultReferenceSecrets(secrets: readonly string[] | undefined): void {
+  if (
+    secrets &&
+    (secrets.length === 0 ||
+      secrets.some((secret) => typeof secret !== 'string' || Buffer.byteLength(secret) < 32))
+  ) {
+    throw new TypeError('Trust My Travel vault reference secrets must contain at least 32 bytes');
   }
 }

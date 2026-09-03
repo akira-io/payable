@@ -1,9 +1,9 @@
 # Trust My Travel
 
 `TrustMyTravelProvider` integrates Payable with the Trust My Travel Payment Modal, booking API,
-browser callback reconciliation, and transaction refunds. It supports one-time checkout only. It
-does not declare customers, catalog, subscriptions, charges, webhooks, disputes, or billing portal
-capabilities.
+browser callback reconciliation, CardVaulter payment-method setup, retained purchases, and
+transaction refunds. It does not declare customers, catalog, subscriptions, webhooks, disputes, or
+billing portal capabilities.
 
 ## Server-only configuration
 
@@ -21,6 +21,7 @@ const trustMyTravel = new TrustMyTravelProvider({
   apiToken: process.env.TMT_API_TOKEN!,
   channelId: 2452,
   channelSecret: process.env.TMT_CHANNEL_SECRET!,
+  vaultReferenceSecrets: [process.env.TMT_VAULT_REFERENCE_SECRET!],
   currency: 'EUR',
   environment: 'test',
 });
@@ -32,8 +33,106 @@ const payable = createPayable({
 });
 ```
 
-The provider declares `checkout`, `refunds`, and the provider extension `x-tmt-bookings`.
+The provider declares `checkout`, `refunds`, `charges`, `paymentMethodSetup`, and the provider
+extension `x-tmt-bookings`.
 `subscriptionOperationCapabilities()` returns no supported subscription operations.
+
+`vaultReferenceSecrets` is a server-only keyring independent of the API token. Generate each secret
+from at least 32 random bytes. The first entry encrypts new references; retain previous entries while
+stored references still exist so key rotation can decrypt them. If omitted for compatibility, the
+channel secret is used, so rotating that secret invalidates existing references.
+
+## CardVaulter payment-method setup
+
+CardVaulter is a hosted setup presentation. Create it only on the server:
+
+```ts
+const provider = payable.providers().get('tmt-eur');
+if (
+  !isPaymentMethodSetupCapable(provider) ||
+  !isPaymentMethodSetupConfirmationCapable(provider)
+) {
+  throw new Error('TMT CardVaulter is unavailable');
+}
+
+const setup = await provider.createPaymentMethodSetup(
+  {
+    providerCustomerId: customer.id,
+    usage: 'off_session',
+    currency: 'EUR',
+    returnUrl: 'https://api.example.test/payment-methods/tmt/return',
+  },
+  operationContext,
+);
+```
+
+`checkoutUrl` points to the pinned CardVaulter 1.8.0 application. It contains a dedicated card-vault
+JWT with a maximum lifetime of 15 minutes. That JWT can create the vault verification transaction;
+it is not the API token. The URL never contains the API token, channel secret, or CVV. The browser
+may present the URL and relay the provider return string, but must not surface its provider fields as
+the application's payment-method contract.
+
+The return `status`, card fields, and transaction identifier are hints. Confirm them on the server:
+
+```ts
+const confirmed = await provider.confirmPaymentMethodSetup({
+  providerSetupId: setup.providerSetupId,
+  providerReturn: request.url.search.slice(1),
+});
+```
+
+Payable checks the setup session, reads the referenced transaction through the authenticated TMT
+API, compares the returned card token with the authoritative token without exposing either, and
+accepts only a complete, zero-value `vault` transaction in the expected channel and currency.
+`providerPaymentMethodId` is then an encrypted, authenticated Payable reference. It does
+not reveal TMT's `transaction_id` or card token. The optional `paymentMethod` summary contains only
+the authoritative brand and last four digits. Expiry is `null` because the transaction API does not
+confirm the expiry values supplied in the browser return.
+
+API services such as Bu-Payment/api #260 can encrypt and persist this opaque
+`providerPaymentMethodId` behind their own App-scoped public identifier. Browser clients receive the
+setup presentation and the API-owned identifier, never the opaque provider reference or the raw TMT
+identifier.
+
+CardVaulter itself collects the CVV and does not vault it. Payable has no CVV field and rejects
+retained-purchase provider data containing anything other than booking allocations.
+Because TMT exposes no authoritative setup lookup by session, retrieval returns `unknown` until the
+return is confirmed. TMT also exposes no CardVaulter session cancellation endpoint, so cancellation
+fails explicitly instead of claiming that the hosted URL was revoked.
+
+## Retained purchases
+
+Use the confirmed opaque reference for merchant-initiated charges. TMT requires explicit booking
+allocations, and Payable requires persistent idempotency plus a non-empty reference because TMT does
+not offer native idempotency for this mutation.
+
+```ts
+await payable.customer(billable, 'tmt-eur').charge({
+  amount: Money.of(5000, 'EUR'),
+  reference: 'renewal-2026-09',
+  paymentMethodId: encryptedProviderReference,
+  offSession: true,
+  providerData: {
+    bookings: [{ id: bookingId, currencies: 'EUR', total: 5000 }],
+  },
+});
+```
+
+The provider decrypts the reference only in the TMT adapter, re-reads the original vault transaction,
+and audits `/category-one-declines` filtered by the vault transaction before posting. The retained request contains only `channels`,
+`currencies`, `total`, `transaction_types`, `bookings`, and the internal `linked_id`. No PSP, TMT card
+token, card data, or CVV is sent.
+
+A reference may move to another configured TMT channel only when both channels use the same currency
+and account type. A category-one decline permanently invalidates the vaulted method; subsequent
+attempts stop before any retained-purchase mutation. Failed non-native mutations enter
+reconciliation-required idempotency state without expiry and are not retried automatically.
+
+The deterministic implementation follows the current TMT CardVaulter contract. The opt-in Test
+workflow verifies only channel readiness and dedicated JWT/URL acquisition. Browser presentation, vault completion, and a
+retained purchase with the protected-processing Test channel while `server_to_server=false` still
+require an externally enabled, run-owned test card flow. Do not infer Live readiness from unit tests
+or from successful token acquisition.
 
 ## Payment Modal checkout
 

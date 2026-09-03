@@ -61,6 +61,7 @@ guard (duck-typing on method presence). Calling code narrows first, then either 
 | `InvoiceCapable` | `listInvoices(input)`, `downloadInvoicePdf(id)` | `isInvoiceCapable(provider)` |
 | `PaymentMethodCapable` | `listPaymentMethods(input)`, `deletePaymentMethod(input, ctx)` | `isPaymentMethodCapable(provider)` |
 | `PaymentMethodSetupCapable` | `createPaymentMethodSetup(input, ctx)`, `retrievePaymentMethodSetup(id)`, `cancelPaymentMethodSetup(id, ctx)` | `isPaymentMethodSetupCapable(provider)` |
+| `PaymentMethodSetupConfirmationCapable` | `confirmPaymentMethodSetup(input)` | `isPaymentMethodSetupConfirmationCapable(provider)` |
 | `DisputeCapable` | `listDisputes(input)`, `retrieveDispute(id)`, `acceptDispute(id, ctx)` | `isDisputeCapable(provider)` |
 | `PayoutCapable` | `listPayouts(input)`, `retrievePayout(id)` | `isPayoutCapable(provider)` |
 | `ProviderWebhookEndpointManagementCapable` | provider webhook endpoint CRUD with bounded listing | `isProviderWebhookEndpointManagementCapable(provider)` |
@@ -146,6 +147,12 @@ by the external provider. A `no` cell only means that this adapter does not expo
 | `disputes` (`DisputeCapable`) | yes | no | no | yes (production only) |
 | `payouts` (`PayoutCapable`) | yes | no | no | yes |
 | `webhookEndpointManagement` | yes | no | no | yes |
+
+Trust My Travel is documented separately because its hosted modal and CardVaulter contracts do not
+fit the four-provider comparison above. It declares `checkout`, `refunds`, `charges`, `authorize`,
+`capture`, `void`, and `paymentMethodSetup`. Its payment-method setup also implements
+`PaymentMethodSetupConfirmationCapable`; retained charges require `offSession: true`, a confirmed
+opaque reference, and persistent idempotency.
 
 Canonical catalogue synchronization uses the granular rows rather than inferring one operation from
 another. `catalogRead` supports reconciliation and `catalogIdempotency` enables safe automatic retry.

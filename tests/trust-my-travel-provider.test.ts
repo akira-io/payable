@@ -313,15 +313,17 @@ describe('TrustMyTravelProvider', () => {
     ).rejects.toMatchObject({ code: 'PROVIDER_TMT_BOOKING_MISMATCH' });
   });
 
-  it('advertises checkout, refunds and TMT booking access only', () => {
+  it('advertises the implemented payment and TMT booking capabilities', () => {
     const provider = new TrustMyTravelProvider({ ...OPTIONS, fetch: vi.fn() });
 
     expect([...provider.capabilities()]).toEqual([
       'checkout',
       'refunds',
+      'charges',
       'authorize',
       'capture',
       'void',
+      'paymentMethodSetup',
       'x-tmt-bookings',
     ]);
     expect(provider.subscriptionOperationCapabilities().create).toEqual({

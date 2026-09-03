@@ -14,7 +14,7 @@ const CODE_BY_STATUS = [
 describe('Trust My Travel errors', () => {
   it.each(
     CODE_BY_STATUS,
-  )('maps HTTP %i to %s and preserves the response body', async (status, code) => {
+  )('maps HTTP %i to %s without exposing the response body', async (status, code) => {
     const body = { message: 'Provider rejected the request', reason: 'invalid-field' };
     const client = new TrustMyTravelClient({
       path: 'site',
@@ -24,7 +24,7 @@ describe('Trust My Travel errors', () => {
 
     await expect(client.request('/bookings', { method: 'GET' })).rejects.toMatchObject({
       code,
-      context: { provider: 'trust-my-travel', status, body },
+      context: { provider: 'trust-my-travel', status },
     });
   });
 

@@ -30,9 +30,9 @@ environment variables and the two private values as environment secrets in the p
 ## Test-only readiness
 
 The first network request reads the configured channel. The suite rejects the response unless the
-channel ID matches, `account_mode` is exactly `test`, and the base currency is valid. This guard
-runs before any booking mutation. Modes such as `live`, `draft`, `closed`, and `affiliate` are hard
-failures; the suite has no Live override.
+channel ID matches, `account_mode` is exactly `test`, `account_type` is `protected-processing`,
+`server_to_server` is `false`, and the base currency is valid. This guard runs before any booking
+mutation. Any other mode or scope is a hard failure; the suite has no Live override.
 
 Never pass production application credentials to this command. Rotate either private value if it
 is exposed outside the secret manager or protected CI environment.
@@ -46,16 +46,20 @@ is exposed outside the secret manager or protected CI environment.
 | Checkout authentication | Automated | Reuses a run-owned booking and checks that generated HTML excludes credentials |
 | HTTP error normalization | Automated | Sends an invalid, non-resource booking path |
 | Checkout reuse | Automated | Repeating checkout against one booking must not create another booking |
+| CardVaulter JWT and URL acquisition | Automated | Obtains the dedicated short-lived JWT and validates a pinned Test URL while `server_to_server=false` |
+| CardVaulter browser presentation | Blocked | Requires opening the hosted application in a controlled browser without recording credentials |
+| Card vault completion | Blocked | Requires a run-owned browser/test-card transaction and safe cleanup evidence |
+| Retained purchase | Blocked | Requires a vault transaction created by the same certification run |
 | Callback confirmation | Explicitly skipped | Requires a Payment Modal transaction created by the same run |
 | Non-terminal states and expiry | Explicitly skipped | The API cannot safely force these states without a run-owned modal transaction |
 | Full and partial refunds | Explicitly skipped | Refunds require a completed transaction created by the same run |
 | Chargebacks | Not automatable | TMG staff apply them manually |
 | Settlement and financial protection | Not automatable | The public API cannot exercise these processes |
 
-The known Test channel has server-to-server payments disabled. The suite does not accept an
+The configured Test channel must have server-to-server payments disabled. The suite does not accept an
 external transaction ID because that would weaken resource ownership and cleanup guarantees. If
-TMT enables a safe automated payment flow, extend the suite so it creates the transaction itself,
-then callback, state, expiry, and refund checks can operate on that run-owned transaction.
+TMT enables a safe automated CardVaulter flow, extend the suite so it opens the hosted application and creates the vault transaction
+itself; only then can retained-purchase support with `server_to_server=false` be certified.
 
 ## Cleanup and evidence
 

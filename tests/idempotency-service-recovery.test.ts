@@ -88,7 +88,7 @@ describe('IdempotencyService recovery', () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it('uses the completed TTL for reconciliation locks and failed records', async () => {
+  it('keeps reconciliation-required failures blocked without expiry', async () => {
     const store = new InMemoryIdempotencyStore();
     const clock = new FakeClock(NOW);
     const service = new IdempotencyService(store, clock, { completedTtlMs: COMPLETED_TTL_MS });
@@ -103,9 +103,14 @@ describe('IdempotencyService recovery', () => {
 
     const acquired = acquire.mock.calls[0]?.[0];
     const failedRecord = await store.find('catalog.price.create:price-request');
-    expect(acquired?.lockedUntil?.toISOString()).toBe('2026-06-23T00:00:00.000Z');
-    expect(failedRecord?.expiresAt?.toISOString()).toBe('2026-06-23T00:00:00.000Z');
+    expect(acquired?.lockedUntil?.toISOString()).toBe('2026-06-22T00:00:30.000Z');
+    expect(failedRecord?.expiresAt).toBeNull();
     expect(markFailed).toHaveBeenCalledTimes(1);
+    await expect(service.execute(idempotentExecution)).rejects.toMatchObject({
+      code: 'IDEMPOTENCY_RECONCILIATION_REQUIRED',
+    });
+    expect(run).toHaveBeenCalledTimes(1);
+    clock.advance(COMPLETED_TTL_MS * 2);
     await expect(service.execute(idempotentExecution)).rejects.toMatchObject({
       code: 'IDEMPOTENCY_RECONCILIATION_REQUIRED',
     });

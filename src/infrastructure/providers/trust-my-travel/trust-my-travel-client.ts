@@ -23,6 +23,34 @@ export type TrustMyTravelRequest = <T>(
 export class TrustMyTravelClient {
   constructor(private readonly options: TrustMyTravelClientOptions) {}
 
+  get sitePath(): string {
+    return trimBoundarySlashes(this.options.path, true, true);
+  }
+
+  async cardVaultToken(): Promise<string> {
+    return withTmtErrors(async () => {
+      const baseUrl = trimBoundarySlashes(
+        this.options.baseUrl ?? TRUST_MY_TRAVEL_BASE_URL,
+        false,
+        true,
+      );
+      const response = await this.fetch(
+        `${baseUrl}/${this.sitePath}/wp-json/jwt-auth/v1/token/cardvaultuser`,
+        { method: 'GET', headers: this.headers(false) },
+      );
+      const body = await parseResponseBody(response);
+      if (!response.ok) throw toTmtPayableError(response.status, body);
+      const token = (body as { token?: unknown } | null)?.token;
+      if (typeof token !== 'string' || token.length === 0) {
+        throw new PayableError('Trust My Travel card vault token response is invalid', {
+          code: 'PROVIDER_TMT_CARD_VAULT_TOKEN_INVALID',
+          context: { provider: 'trust-my-travel' },
+        });
+      }
+      return token;
+    });
+  }
+
   request<T>(path: string, options: TrustMyTravelRequestOptions): Promise<T> {
     return withTmtErrors(async () => {
       const response = await this.fetch(this.url(path), {

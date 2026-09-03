@@ -30,6 +30,9 @@ export interface TmtTransactionResponse {
   channels: number;
   bookings: TmtTransactionBooking[];
   transaction_types?: string;
+  card_types?: string;
+  last_four_digits?: string;
+  token?: string;
   linked_id?: number;
   chargeback_status?: string;
   outcome_status?: string;

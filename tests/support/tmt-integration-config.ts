@@ -22,7 +22,9 @@ export type TmtIntegrationConfigResolution =
 export interface TmtReadinessChannel {
   id: number;
   account_mode: string;
+  account_type: string;
   currencies: string;
+  server_to_server: boolean;
 }
 
 export function resolveTmtIntegrationConfig(
@@ -60,18 +62,34 @@ export function resolveTmtIntegrationConfig(
 export function assertTmtTestChannel(
   channel: TmtReadinessChannel,
   configuredChannelId: number,
-): { channelId: number; currency: string } {
+): {
+  channelId: number;
+  currency: string;
+  accountType: 'protected-processing';
+  serverToServer: false;
+} {
   if (channel.id !== configuredChannelId) {
     throw new Error('TMT readiness returned a different configured channel identity');
   }
   if (channel.account_mode !== 'test') {
     throw new Error('TMT integration refusing a non-test channel mode');
   }
+  if (channel.account_type !== 'protected-processing') {
+    throw new Error('TMT integration requires a protected-processing Test channel');
+  }
+  if (channel.server_to_server !== false) {
+    throw new Error('TMT integration certification requires server-to-server disabled');
+  }
   const currency = channel.currencies.trim().toUpperCase();
   if (!/^[A-Z]{3}$/u.test(currency)) {
     throw new Error('TMT readiness returned an invalid channel currency');
   }
-  return { channelId: channel.id, currency };
+  return {
+    channelId: channel.id,
+    currency,
+    accountType: 'protected-processing',
+    serverToServer: false,
+  };
 }
 
 function formatVariableList(names: readonly string[]): string {

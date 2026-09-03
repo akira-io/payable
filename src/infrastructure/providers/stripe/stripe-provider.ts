@@ -91,6 +91,7 @@ export class StripeProvider
     SubscriptionOperationCapabilitiesProvider,
     SubscriptionPaymentCollectionCapable
 {
+  readonly chargeIdempotency = 'native';
   readonly name = 'stripe';
   readonly catalogSyncSemantics = STRIPE_CATALOG_SYNC_SEMANTICS;
   readonly customerCreateIdempotency = 'native';
