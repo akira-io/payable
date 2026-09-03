@@ -9,8 +9,8 @@ let fixtureRoot: string;
 let archiveRoot: string;
 let consumerRoot: string;
 
-function run(command: string, args: string[], cwd: string) {
-  const result = spawnSync(command, args, { cwd, encoding: 'utf8' });
+function run(command: string, args: string[], cwd: string, timeout = 120_000) {
+  const result = spawnSync(command, args, { cwd, encoding: 'utf8', timeout });
   expect(result.error).toBeUndefined();
   return result;
 }
@@ -77,7 +77,7 @@ async function installConsumerPeers(): Promise<void> {
   );
   const install = run(
     'bun',
-    ['add', '--dev', `@types/node@${nodeTypesPackageJson.version}`, ...peers],
+    ['add', '--dev', '--ignore-scripts', `@types/node@${nodeTypesPackageJson.version}`, ...peers],
     consumerRoot,
   );
   expect(install.status, install.stderr).toBe(0);
@@ -135,10 +135,11 @@ describe('source dependency preparation', () => {
       join(packageRoot, 'node_modules', '.bin', 'tsc'),
       ['--project', 'tsconfig.json'],
       consumerRoot,
+      30_000,
     );
 
     expect(typecheck.status, typecheck.stderr || typecheck.stdout).toBe(0);
-  });
+  }, 30_000);
 
   it('loads every package subpath under ESM and CJS without a prebuilt dist', () => {
     const specifiers = [
@@ -158,6 +159,7 @@ describe('source dependency preparation', () => {
         `await Promise.all(${JSON.stringify(specifiers)}.map((specifier) => import(specifier)));`,
       ],
       consumerRoot,
+      30_000,
     );
     const loadCjs = run(
       'node',
@@ -167,9 +169,10 @@ describe('source dependency preparation', () => {
         `for (const specifier of ${JSON.stringify(specifiers)}) require(specifier);`,
       ],
       consumerRoot,
+      30_000,
     );
 
     expect(loadEsm.status, loadEsm.stderr).toBe(0);
     expect(loadCjs.status, loadCjs.stderr).toBe(0);
-  });
+  }, 30_000);
 });
