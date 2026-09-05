@@ -64,6 +64,25 @@ describe('Trust My Travel authentication', () => {
     });
   });
 
+  it('matches an independently computed vector using the vendor allocation schema', () => {
+    const authentication = createTmtAuthentication(
+      {
+        channels: 2,
+        currencies: 'USD',
+        total: 9999,
+        reference: 'ORDER-42',
+        allocations: [{ channels: 24, currencies: 'GBP', operator: 'flat', total: 500 }],
+      },
+      CHANNEL_SECRET,
+      CLOCK,
+    );
+
+    expect(authentication).toEqual({
+      bookingAuth: '126f368a0847692a6c94ea25bfd53450f3b5009f6dfb475414043924c574aa8020190812055213',
+      verify: ['allocations', 'reference'],
+    });
+  });
+
   it('validates the fixed transaction hash and rejects altered values', () => {
     const hash = '40e07b6b997a08f419dd92ee86d3ab051972c9fc13faf057fef70d34050a080e';
 
