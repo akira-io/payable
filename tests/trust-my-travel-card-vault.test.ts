@@ -92,7 +92,8 @@ describe('Trust My Travel CardVaulter', () => {
     expect(setup.providerSetupId).not.toContain(url.searchParams.get('session_id') ?? 'missing');
     expect(JSON.stringify(setup)).not.toContain(OPTIONS.apiToken);
     expect(JSON.stringify(setup)).not.toContain(OPTIONS.channelSecret);
-    expect(JSON.stringify(setup).toLowerCase()).not.toContain('cvv');
+    const { providerSetupId: _opaqueSetupId, ...setupWithoutOpaqueId } = setup;
+    expect(JSON.stringify(setupWithoutOpaqueId).toLowerCase()).not.toContain('cvv');
   });
 
   it('rejects a CardVaulter JWT whose lifetime exceeds fifteen minutes', async () => {

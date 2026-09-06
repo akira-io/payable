@@ -58,7 +58,7 @@ describe('TrustMyTravelProvider', () => {
     expect(result.status).toBe('processing');
     expect(result.expiresAt?.toISOString()).toBe('2026-07-06T00:00:00.000Z');
     expect(result.checkout?.html).toContain('"transactionType":"authorize"');
-    expect(result.checkout?.html).toContain('"allocations":[]');
+    expect(result.checkout?.html).not.toContain('"allocations"');
   });
 
   it('creates a booking and returns a pinned Payment Modal configuration', async () => {
@@ -134,8 +134,8 @@ describe('TrustMyTravelProvider', () => {
     expect(html).toContain('"total":9999');
     expect(html).not.toContain('attacker-controlled');
     expect(html).toContain('"environment":"test"');
-    expect(html).toContain('"allocations":[]');
-    expect(html).toContain('"verify":["allocations","reference"]');
+    expect(html).not.toContain('"allocations"');
+    expect(html).toContain('"verify":["reference"]');
     expect(html).not.toContain(OPTIONS.channelSecret);
     expect(fetch).toHaveBeenCalledWith(
       'https://tmt.test/merchant/wp-json/tmt/v2/bookings',

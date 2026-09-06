@@ -81,7 +81,6 @@ export class TrustMyTravelCheckout {
         channels: this.options.channelId,
         currencies: this.options.currency,
         total: input.amount.amount(),
-        allocations: [],
         reference: input.reference,
       },
       this.options.channelSecret,
@@ -94,7 +93,6 @@ export class TrustMyTravelCheckout {
       channels: this.options.channelId,
       currencies: this.options.currency,
       total: input.amount.amount(),
-      allocations: [],
       reference: input.reference,
       ...(transactionType ? { transactionType } : {}),
     };
