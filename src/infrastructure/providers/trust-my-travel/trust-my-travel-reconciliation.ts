@@ -153,18 +153,16 @@ function chargebackData(
   transaction: TmtTransactionResponse,
 ): { providerData: Readonly<Record<string, unknown>> } | Record<string, never> {
   const providerData = {
-    ...(transaction.chargeback_status === undefined
-      ? {}
-      : { chargebackStatus: transaction.chargeback_status }),
-    ...(transaction.outcome_status === undefined
-      ? {}
-      : { outcomeStatus: transaction.outcome_status }),
-    ...(transaction.reason_code === undefined ? {} : { reasonCode: transaction.reason_code }),
-    ...(transaction.challenge_date === undefined
-      ? {}
-      : { challengeDate: transaction.challenge_date }),
+    ...presentField('chargebackStatus', transaction.chargeback_status),
+    ...presentField('outcomeStatus', transaction.outcome_status),
+    ...presentField('reasonCode', transaction.reason_code),
+    ...presentField('challengeDate', transaction.challenge_date),
   };
   return Object.keys(providerData).length === 0 ? {} : { providerData };
+}
+
+function presentField(key: string, value: string | null | undefined): Record<string, string> {
+  return value === null || value === undefined ? {} : { [key]: value };
 }
 
 function cursorError(

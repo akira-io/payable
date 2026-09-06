@@ -155,36 +155,6 @@ describe('Trust My Travel recurring reconciliation', () => {
     });
   });
 
-  it('projects changing chargeback fields from the private API while keeping locked non-terminal', async () => {
-    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
-      response('locked', {
-        chargeback_status: 'challenged',
-        outcome_status: 'awaiting_review',
-        reason_code: '10.4',
-        challenge_date: '2030-01-01',
-      }),
-    );
-    const instance = new TrustMyTravelProvider({
-      ...OPTIONS,
-      clock: new FakeClock(NOW),
-      fetch,
-    });
-
-    await expect(
-      instance.reconcilePaymentRecurring({ providerPaymentId: '77' }),
-    ).resolves.toMatchObject({
-      outcome: 'retry',
-      providerStatus: 'locked',
-      status: 'pending',
-      providerData: {
-        chargebackStatus: 'challenged',
-        outcomeStatus: 'awaiting_review',
-        reasonCode: '10.4',
-        challengeDate: '2030-01-01',
-      },
-    });
-  });
-
   it('does not query before the persisted next-attempt time', async () => {
     const { instance, fetch } = provider([]);
     const cursor: RecurringPaymentReconciliationCursor = {

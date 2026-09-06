@@ -209,13 +209,16 @@ export class TrustMyTravelCardVault {
   }
 }
 
-function sameVaultToken(returned: string | null, authoritative: string | undefined): boolean {
+function sameVaultToken(
+  returned: string | null,
+  authoritative: string | null | undefined,
+): boolean {
   if (!returned || !authoritative) return false;
   const digest = (value: string) => createHash('sha256').update(value).digest();
   return timingSafeEqual(digest(returned), digest(authoritative));
 }
 
-function lastFourDigits(value: string | undefined): string | null {
+function lastFourDigits(value: string | null | undefined): string | null {
   return value && /^\d{4}$/u.test(value) ? value : null;
 }
 
