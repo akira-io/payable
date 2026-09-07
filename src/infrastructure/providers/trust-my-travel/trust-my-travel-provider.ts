@@ -11,6 +11,7 @@ import type {
   PaymentMethodSetupConfirmationCapable,
   PaymentProvider,
   RedirectCallbackCapable,
+  RedirectCallbackContext,
   RedirectCallbackResult,
 } from '../../../domain/contracts/payment-provider.contract';
 import type {
@@ -43,6 +44,7 @@ import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.d
 import { NO_SUBSCRIPTION_OPERATIONS } from '../../../domain/dtos/subscription-operation-capabilities.dto';
 import { SystemClock } from '../../../support/clock/system-clock';
 import { TrustMyTravelBookings } from './trust-my-travel-bookings';
+import { TrustMyTravelCallbacks } from './trust-my-travel-callbacks';
 import { TrustMyTravelCardVault } from './trust-my-travel-card-vault';
 import { TrustMyTravelCheckout } from './trust-my-travel-checkout';
 import { TrustMyTravelClient } from './trust-my-travel-client';
@@ -73,6 +75,7 @@ export class TrustMyTravelProvider
   readonly bookings: TrustMyTravelBookings;
   private readonly checkout: TrustMyTravelCheckout;
   private readonly transactions: TrustMyTravelTransactions;
+  private readonly callbacks: TrustMyTravelCallbacks;
   private readonly reconciliation: TrustMyTravelReconciliation;
   private readonly clock: Clock;
   private readonly authorizationWindowMs: number;
@@ -100,6 +103,12 @@ export class TrustMyTravelProvider
     this.checkout = new TrustMyTravelCheckout(this.bookings, options);
     this.transactions = new TrustMyTravelTransactions(
       request,
+      { id: options.channelId, currency: options.currency },
+      options.logger,
+    );
+    this.callbacks = new TrustMyTravelCallbacks(
+      this.transactions,
+      this.bookings,
       options.channelSecret,
       { id: options.channelId, currency: options.currency },
       options.logger,
@@ -229,12 +238,15 @@ export class TrustMyTravelProvider
     return this.retainedPurchases.isFailureOutcomeUncertain(error);
   }
 
-  verifyCallback(payload: Record<string, unknown>): boolean {
-    return this.transactions.verifyCallback(payload);
+  verifyCallback(payload: Record<string, unknown>, context?: RedirectCallbackContext): boolean {
+    return this.callbacks.verify(payload, context);
   }
 
-  handleRedirectCallback(payload: Record<string, unknown>): Promise<RedirectCallbackResult> {
-    return this.transactions.reconcile(payload);
+  handleRedirectCallback(
+    payload: Record<string, unknown>,
+    context?: RedirectCallbackContext,
+  ): Promise<RedirectCallbackResult> {
+    return this.callbacks.reconcile(payload, context);
   }
 
   reconcilePaymentRecurring(

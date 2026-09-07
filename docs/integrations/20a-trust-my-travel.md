@@ -218,6 +218,45 @@ TMT statuses map as follows: `complete -> succeeded`, `failed -> failed`, `pendi
 and `expired -> failed`. `locked` throws `PROVIDER_TRANSACTION_LOCKED`; `incomplete` throws
 `PROVIDER_RESULT_UNKNOWN` because neither has an honest canonical payment state.
 
+## Attempts that never became a transaction
+
+`transaction_error` fires when the Payment Modal's `POST /transactions` did not return 201. No
+transaction exists, so the relayed payload is the WordPress REST error envelope and carries neither
+an `id` nor a `hash`:
+
+```json
+{ "code": "auth_invalid", "message": "Invalid API token", "data": { "status": 403 } }
+```
+
+Nothing in that payload identifies the booking, and nothing in it can be authenticated. Payable
+therefore treats it as a hint, never as a result. Pass the checkout session the callback arrived
+for and the provider confirms the outcome against the booking API before reporting anything:
+
+```ts
+const result = await payable.receiveRedirectCallback({
+  provider: 'tmt-eur',
+  checkoutSessionId: providerCheckoutId,
+  payload: modalEventData,
+});
+```
+
+With that context, `verifyCallback` accepts the envelope shape and `handleRedirectCallback` reads
+`GET /bookings/{checkoutSessionId}`, checks the booking belongs to the configured channel and
+currency, and reports `failed` only when the booking still shows `transaction_ids: []` and
+`total_unpaid === total`. A booking that already carries transactions or a partial payment throws
+`PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED`; leave those to recurring reconciliation rather than
+recording an outcome the provider does not confirm.
+
+Without `checkoutSessionId` the envelope stays unverifiable and `verifyCallback` returns `false`, so
+an unauthenticated caller cannot mark a payment as failed by posting a failure-shaped body.
+
+Only the WordPress REST envelope is recognised: a `code` string, a `message` string and an integer
+`data.status` between 400 and 599, with no `id`, `hash` or top-level `status`. A `transaction_timeout`
+payload (`{ name, message, booking_id }`) and a relayed JavaScript error (which serialises to `{}`)
+are deliberately not recognised - neither states that the attempt failed, and the empty object is
+indistinguishable from noise. Those attempts stay pending until recurring reconciliation resolves
+them.
+
 ## Recurring transaction reconciliation
 
 Browser callbacks are only hints that a transaction may be ready. They cannot report a customer who
