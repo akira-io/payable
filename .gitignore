@@ -2,6 +2,7 @@ node_modules
 dist
 coverage
 docs/superpowers/
+.superpowers/
 *.log
 .DS_Store
 .env
