@@ -1,19 +1,14 @@
-import {
-  isPaymentWebhookCapable,
-  isWebhookCapable,
-} from '../../../domain/contracts/payment-provider.contract';
+import { isWebhookCapable } from '../../../domain/contracts/payment-provider.contract';
 import type { Repositories } from '../../../domain/contracts/storage-driver.contract';
-import type { SubscriptionPatch } from '../../../domain/contracts/subscription-repository.contract';
 import type { VerifiedWebhook } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { WebhookProcessedEvent } from '../../../domain/events/webhook-processed.event';
-import { isSupersededAuthorization, PaymentStateMachine } from '../../../domain/states';
-import { reconcileSubscriptionStatus } from '../../../domain/states/subscription-state-machine';
 import type { WebhookDependencies } from '../../builders/webhook-dependencies';
 import { CatalogPriceReconciler } from '../../services/catalog-sync/catalog-price-reconciler';
 import { CatalogReconciler } from '../../services/catalog-sync/catalog-reconciler';
 import { assertCapableProvider } from '../../services/provider-capabilities/assert-provider-capability';
-import { reconcileProviderSubscriptionItems } from '../../services/subscriptions/reconcile-provider-subscription-items';
+import { reconcileWebhookPayment } from '../../services/webhooks/reconcile-webhook-payment';
+import { reconcileWebhookSubscription } from '../../services/webhooks/reconcile-webhook-subscription';
 
 export interface ProcessWebhookInput {
   verified: VerifiedWebhook;
@@ -133,165 +128,9 @@ export class ProcessWebhookPipeline {
       return;
     }
     assertCapableProvider(provider, 'webhooks', isWebhookCapable);
-    await this.reconcilePayment(repos, verified, occurredAt, tenantId);
-    await this.reconcileSubscription(repos, verified, occurredAt, tenantId);
-  }
-
-  private async reconcilePayment(
-    repos: Repositories,
-    verified: VerifiedWebhook,
-    occurredAt: Date,
-    tenantId: string | null,
-  ): Promise<void> {
-    const { provider, providerName } = this.deps;
-    if (!isPaymentWebhookCapable(provider)) {
-      return;
-    }
-    const dto = provider.reconcilePayment(verified);
-    if (!dto) {
-      return;
-    }
-    const local = await repos.payments.findByProviderId(
-      providerName,
-      dto.providerPaymentId,
-      tenantId,
-    );
-    if (!local) {
-      return;
-    }
-    if (isSupersededAuthorization(local, dto)) {
-      return;
-    }
-    const machine = new PaymentStateMachine(local.status);
-    if (!machine.tryTransitionTo(dto.status)) {
-      return;
-    }
-    const status = machine.current();
-    await repos.payments.update(
-      local.id,
-      {
-        status,
-        ...(status === 'authorized' && !local.authorizedAt ? { authorizedAt: occurredAt } : {}),
-      },
-      tenantId,
-    );
-  }
-
-  private async reconcileSubscription(
-    repos: Repositories,
-    verified: VerifiedWebhook,
-    occurredAt: Date,
-    tenantId: string | null,
-  ): Promise<void> {
-    const { provider, providerName } = this.deps;
-    assertCapableProvider(provider, 'webhooks', isWebhookCapable);
-    const dto = provider.reconcileSubscriptionAsync
-      ? await provider.reconcileSubscriptionAsync(verified)
-      : provider.reconcileSubscription(verified);
-    if (!dto) {
-      return;
-    }
-    const subscriptionBinding = await repos.subscriptionProviderBindings.findByProviderId(
-      providerName,
-      dto.providerSubscriptionId,
-      tenantId,
-    );
-    const local = subscriptionBinding
-      ? await repos.subscriptions.findById(subscriptionBinding.subscriptionId, tenantId)
-      : await repos.subscriptions.findByProviderId(
-          providerName,
-          dto.providerSubscriptionId,
-          tenantId,
-        );
-    if (!local) {
-      return;
-    }
-    const providerOccurredAt = verified.occurredAt ?? null;
-    const lastProviderSyncedAt =
-      subscriptionBinding?.providerSyncedAt ?? local.providerSyncedAt ?? null;
-    if (
-      providerOccurredAt &&
-      lastProviderSyncedAt &&
-      providerOccurredAt.getTime() <= lastProviderSyncedAt.getTime()
-    ) {
-      return;
-    }
-    let singleItemPatch: Pick<SubscriptionPatch, 'priceId' | 'quantity'> | null = null;
-    if (dto.items && !local.canonicalPriceId) {
-      const localItems = await repos.subscriptionItems.listBySubscription(local.id, tenantId);
-      const reconciliations = reconcileProviderSubscriptionItems(localItems, dto.items);
-      for (const itemReconciliation of reconciliations) {
-        await repos.subscriptionItems.updateById(
-          local.id,
-          itemReconciliation.itemId,
-          {
-            providerItemId: itemReconciliation.providerItemId,
-            priceId: itemReconciliation.priceId,
-            quantity: itemReconciliation.quantity,
-          },
-          tenantId,
-        );
-      }
-      const [singleProviderItem] = dto.items;
-      if (
-        localItems.length === 1 &&
-        dto.items.length === 1 &&
-        reconciliations.length === 1 &&
-        singleProviderItem
-      ) {
-        singleItemPatch = {
-          priceId: singleProviderItem.priceId,
-          quantity: singleProviderItem.quantity,
-        };
-      }
-    }
-    const reconciliation = reconcileSubscriptionStatus(local.status, dto.status);
-    if (!reconciliation.applied) {
-      return;
-    }
-    const status = reconciliation.status;
-    const completedScheduledLifecycleChange =
-      status === 'active' &&
-      dto.scheduledChangeAction === null &&
-      dto.scheduledChangeEffectiveAt === null &&
-      dto.scheduledResumeAt === null;
-    const patch: SubscriptionPatch = {
-      status,
-      ...(local.canonicalPriceId ? {} : (singleItemPatch ?? {})),
-      currentPeriodEnd: dto.currentPeriodEnd,
-      trialEndsAt: dto.trialEndsAt,
-      ...(providerOccurredAt &&
-      (!subscriptionBinding || (local.provider !== null && local.providerSubscriptionId !== null))
-        ? { providerSyncedAt: providerOccurredAt }
-        : {}),
-      ...(status === 'canceled' ? { endsAt: dto.currentPeriodEnd ?? occurredAt } : {}),
-      ...(dto.scheduledChangeAction !== undefined
-        ? { scheduledChangeAction: dto.scheduledChangeAction }
-        : {}),
-      ...(dto.scheduledChangeEffectiveAt !== undefined
-        ? { scheduledChangeEffectiveAt: dto.scheduledChangeEffectiveAt }
-        : {}),
-      ...(dto.scheduledResumeAt !== undefined ? { scheduledResumeAt: dto.scheduledResumeAt } : {}),
-      ...(dto.resumeBillingPolicy !== undefined
-        ? { resumeBillingPolicy: dto.resumeBillingPolicy }
-        : completedScheduledLifecycleChange
-          ? { resumeBillingPolicy: null }
-          : {}),
-      ...(dto.paymentCollectionPauseBehavior !== undefined
-        ? { paymentCollectionPauseBehavior: dto.paymentCollectionPauseBehavior }
-        : {}),
-      ...(dto.paymentCollectionResumesAt !== undefined
-        ? { paymentCollectionResumesAt: dto.paymentCollectionResumesAt }
-        : {}),
-    };
-    await repos.subscriptions.update(local.id, patch, tenantId);
-    if (providerOccurredAt && subscriptionBinding) {
-      await repos.subscriptionProviderBindings.updateProviderSyncedAt(
-        subscriptionBinding.id,
-        providerOccurredAt,
-        tenantId,
-      );
-    }
+    const context = { deps: this.deps, repos, verified, occurredAt, tenantId };
+    await reconcileWebhookPayment(context);
+    await reconcileWebhookSubscription(context);
   }
 }
 
