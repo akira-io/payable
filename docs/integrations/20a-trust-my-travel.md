@@ -457,7 +457,7 @@ that was asked for and that it belongs to the configured channel and currency, a
 two things. `unsettled` when the booking still shows `transaction_ids: []` and
 `total_unpaid === total`: nothing was ever collected, so the payment is closed as `failed`.
 `settled` when the booking carries transactions, and then it returns their ids in
-`providerPaymentIds` and writes nothing.
+`bookingTransactionIds` and writes nothing.
 
 `settled` is an observation about the booking, not a verdict on your payment, and the difference
 matters on a booking paid in stages. The ids are every transaction the booking carries, including
@@ -479,27 +479,30 @@ write is abandoned with `paymentUpdated: false` if it has since moved on, if its
 is no longer the booking id, or if the compare-and-set on the status loses to a concurrent writer.
 That covers the callback that arrives while the booking is being read: it leaves the payment
 `authorized` or `succeeded`, and this operation will not overwrite either. The status is the only
-column written, guarded by its previous value, and the change is recorded in the audit log as
-`payment.checkout_unsettled` under the payment's own tenant.
+field this operation sets, guarded by its previous value, and the change is recorded in the audit
+log as `payment.checkout_unsettled` under the payment's own tenant.
 
 The booking must cover the payment: same currency, and an amount no smaller than the payment's, or
 `CHECKOUT_RECONCILIATION_PAYMENT_MISMATCH` is raised and nothing is recorded. It is a coverage
 check, not an equality one, because a deposit or balance checkout is worth less than the booking it
 is drawn against, and requiring equality would leave those payments impossible to close.
 
-Four refusals carry no state change. `PAYMENT_STORAGE_REQUIRED` is raised when no storage driver is
+Every refusal below leaves the payment exactly as it was, `CHECKOUT_RECONCILIATION_PAYMENT_MISMATCH`
+included. Four of them are raised before the provider is reached.
+`PROVIDER_CAPABILITY_NOT_SUPPORTED` is raised when the named provider does not implement checkout
+session reconciliation at all. `PAYMENT_STORAGE_REQUIRED` is raised when no storage driver is
 configured, since there would be nothing to reconcile against.
 `CHECKOUT_RECONCILIATION_PAYMENT_NOT_FOUND` is raised when no payment of this tenant carries the
-session id. `PROVIDER_TMT_CHECKOUT_SESSION_INVALID` is raised, before any request, when
-`checkoutSessionId` is not a positive decimal integer, since it must be a booking id.
-`PROVIDER_TMT_BOOKING_SETTLEMENT_UNCLEAR` is raised when the booking reports no transactions and yet
-claims to be partly paid: the two statements contradict each other, and a booking that cannot say
-plainly that it collected nothing is not evidence that the payment failed.
+session id. `PROVIDER_TMT_CHECKOUT_SESSION_INVALID` is raised when `checkoutSessionId` is not a
+positive decimal integer, since it must be a booking id.
 
-Two more come from the booking read itself. `PROVIDER_TMT_BOOKING_ID_MISMATCH` is raised when the
+Three more come from the booking read itself. `PROVIDER_TMT_BOOKING_ID_MISMATCH` is raised when the
 response carries a different booking than the one requested, so a merged or redirected booking
 cannot close the wrong payment. `PROVIDER_TMT_BOOKING_SCOPE_MISMATCH` is raised when the booking
-belongs to another channel or currency.
+belongs to another channel or currency. `PROVIDER_TMT_BOOKING_SETTLEMENT_UNCLEAR` is raised when the
+booking cannot state plainly that it collected nothing: it reports no transactions while claiming to
+be partly paid, it gives no readable transaction list, or its total is not a whole minor unit. None
+of those is evidence that the payment failed.
 
 Nothing here decides that a payment is old enough to give up on. The provider has no idea when the
 checkout was created or how long your modal session lasts, so it reports only what the booking says
@@ -515,14 +518,21 @@ const stale = await payable.storedPayments(tenantId).list({
 });
 ```
 
+A storage adapter of your own has to honour `createdBefore` for this to be safe. The filter is part
+of `PaymentListQuery`, and an adapter that accepts the field and ignores it returns payments seconds
+old, which this operation would then close as `failed` while their modal is still open. Both
+adapters shipped here apply it.
+
 Hold that `cutoff` fixed across the whole sweep. It is part of the cursor context, so recomputing it
 per page invalidates the cursor you were paging with. Walk the results sequentially rather than
 fanning out: each reconciliation appends to the tenant's audit chain, whose tail is a single row
 that parallel writers queue behind.
 
-Callers who were resolving these payments by hand through `trustMyTravel.bookings.find(bookingId)`
-can drop that code. The booking read, the channel and currency check, the settlement decision and
-the canonical write are all done here, and the raw booking API no longer has to be reached for this.
+Callers who were resolving abandoned checkouts by hand through
+`trustMyTravel.bookings.find(bookingId)` can drop that code for the `unsettled` case, which is the
+one that was costing them: the booking read, the channel and currency check, the settlement decision
+and the canonical write are all done here. A `settled` result still hands the question back, as
+described above, and reading the booking yourself is the answer to it.
 
 ## Refunds
 

@@ -124,6 +124,16 @@ describe('Trust My Travel unsettled checkout reconciliation', () => {
     expect(stored?.status).toBe('failed');
   });
 
+  it('never advances the provider payment id off the booking it closed', async () => {
+    const fetch = respondWith(booking());
+    const { payable, storage, payment } = await fixture(databases, fetch);
+
+    await payable.reconcileUnsettledCheckout({ provider: 'tmt', checkoutSessionId: '44' });
+
+    const stored = await storage.payments.findById(payment.id, null);
+    expect(stored?.providerPaymentId).toBe('44');
+  });
+
   it('reads the booking named by the checkout session id', async () => {
     const fetch = respondWith(booking());
     const { payable } = await fixture(databases, fetch);
@@ -187,7 +197,7 @@ describe('Trust My Travel unsettled checkout reconciliation', () => {
     expect(result).toMatchObject({
       outcome: 'settled',
       checkoutSessionId: '44',
-      providerPaymentIds: ['77'],
+      bookingTransactionIds: ['77'],
       paymentUpdated: false,
     });
     const stored = await storage.payments.findById(payment.id, null);

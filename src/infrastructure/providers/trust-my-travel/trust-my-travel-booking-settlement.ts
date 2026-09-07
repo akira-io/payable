@@ -23,7 +23,7 @@ export function settledNothing(booking: TmtBookingResponse): boolean {
   return (
     Array.isArray(booking.transaction_ids) &&
     booking.transaction_ids.length === 0 &&
-    Number.isInteger(booking.total) &&
+    Number.isSafeInteger(booking.total) &&
     booking.total_unpaid === booking.total
   );
 }

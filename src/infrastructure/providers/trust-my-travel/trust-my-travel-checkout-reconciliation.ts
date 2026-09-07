@@ -43,7 +43,7 @@ export class TrustMyTravelCheckoutReconciliation {
       return {
         outcome: 'settled',
         checkoutSessionId: String(booking.id),
-        providerPaymentIds: transactionIds.map((id) => String(id)),
+        bookingTransactionIds: transactionIds.map((id) => String(id)),
       };
     }
     if (!settledNothing(booking)) {

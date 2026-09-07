@@ -15,7 +15,7 @@ export interface UnsettledCheckoutSession {
 export interface SettledCheckoutSession {
   outcome: 'settled';
   checkoutSessionId: string;
-  providerPaymentIds: string[];
+  bookingTransactionIds: string[];
 }
 
 export type CheckoutSessionReconciliationResult = UnsettledCheckoutSession | SettledCheckoutSession;
