@@ -51,6 +51,7 @@ is exposed outside the secret manager or protected CI environment.
 | Card vault completion | Blocked | Requires a run-owned browser/test-card transaction and safe cleanup evidence |
 | Retained purchase | Blocked | Requires a vault transaction created by the same certification run |
 | Callback confirmation | Explicitly skipped | Requires a Payment Modal transaction created by the same run |
+| `transaction_error` envelope capture | Explicitly skipped | Requires the Payment Modal in a controlled browser; see "Capturing a transaction_error envelope" |
 | Non-terminal states and expiry | Explicitly skipped | The API cannot safely force these states without a run-owned modal transaction |
 | Full and partial refunds | Explicitly skipped | Refunds require a completed transaction created by the same run |
 | Chargebacks | Not automatable | TMG staff apply them manually |
@@ -60,6 +61,41 @@ The configured Test channel must have server-to-server payments disabled. The su
 external transaction ID because that would weaken resource ownership and cleanup guarantees. If
 TMT enables a safe automated CardVaulter flow, extend the suite so it opens the hosted application and creates the vault transaction
 itself; only then can retained-purchase support with `server_to_server=false` be certified.
+
+## Capturing a transaction_error envelope
+
+Payable never reports a payment outcome from a `transaction_error` envelope: every one of them
+raises `PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED`. That is the conservative rule, chosen because no
+envelope has ever been captured from Trust My Travel into this repository and Trust My Travel
+documents when this event fires without publishing the statuses or codes it carries. The capture
+below would establish whether a decision can reach this event at all. It confirms or relaxes the
+rule; nothing depends on it, and no payment is misreported while it is outstanding.
+
+The automated suite cannot do it. A `transaction_error` is the response the modal receives from the
+`POST /transactions` it makes in the browser, with a card tokenized there. The certified Test
+channel requires `server_to_server=false`, so a request the suite sent itself would be refused for
+that reason rather than the one under study, and the envelope would not be the one the modal sees.
+The capture is manual, in a controlled browser, and records no card data.
+
+Two runs, against a run-owned booking on the Test channel:
+
+1. **Does an acquirer decline create a transaction row?** Pay with the 3DS2 challenge card the
+   Payment Modal appendix publishes (`developer.trustmy.group/payment-modal/appendix/`) and select
+   a failing outcome in the challenge dropdown. Record which event
+   fires - `transaction_failed` or `transaction_error` - the payload it carries, and
+   `GET /bookings/{id}` afterwards, specifically `transaction_ids` and `total_unpaid`. A decline
+   that creates a transaction row settles the question: no booking read could ever have confirmed
+   one, and the conservative rule is the only correct one.
+2. **What statuses reach `transaction_error`?** Force the two reproducers the modal's
+   troubleshooting page names - allocations included on an authorize transaction, and a modal
+   instantiated in an environment that does not match the channel's. It describes the conditions,
+   not the envelopes they produce, which is what the capture is for. Record `code` and
+   `data.status` for each.
+
+Record the results in this file. Only run 1 showing a decision that reaches `transaction_error`
+against a booking with no transaction row would justify reporting `failed` from this event again,
+and it would have to name the status that carried it. Sanitize as the section below requires: no
+card numbers, no tokens, no channel or transaction identifiers.
 
 ## Cleanup and evidence
 
