@@ -3,6 +3,7 @@ import {
   isCheckoutSessionReconciliationCapable,
   type UnsettledCheckoutSession,
 } from '../../../domain/contracts/checkout-session-reconciliation.contract';
+import type { StorageDriver } from '../../../domain/contracts/storage-driver.contract';
 import type { Payment } from '../../../domain/entities/payment.entity';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
@@ -27,41 +28,55 @@ export class ReconcileUnsettledCheckoutAction {
     if (!isCheckoutSessionReconciliationCapable(provider)) {
       throw new ProviderCapabilityNotSupportedError(provider.name, 'checkoutSessionReconciliation');
     }
+    const storage = this.deps.storage;
+    if (!storage) {
+      throw new PayableError('Checkout session reconciliation requires a storage driver', {
+        code: 'PAYMENT_STORAGE_REQUIRED',
+      });
+    }
+    const tenantId = input.tenantId ?? this.deps.tenantId ?? null;
+    const existing = await this.owned(storage, input.checkoutSessionId, tenantId);
     const result = await provider.reconcileCheckoutSession({
       checkoutSessionId: input.checkoutSessionId,
     });
     if (result.outcome === 'settled') {
       return { ...result, paymentUpdated: false };
     }
-    const tenantId = input.tenantId ?? this.deps.tenantId ?? null;
-    const storage = this.deps.storage;
-    if (!storage) {
-      return { ...result, paymentUpdated: false };
-    }
-    const existing = await storage.payments.findByProviderId(
+    return { ...result, paymentUpdated: await this.close(storage, existing, result, tenantId) };
+  }
+
+  private async owned(
+    storage: StorageDriver,
+    checkoutSessionId: string,
+    tenantId: string | null,
+  ): Promise<Payment> {
+    const payment = await storage.payments.findByProviderId(
       this.deps.providerName,
-      result.checkoutSessionId,
+      checkoutSessionId,
       tenantId,
     );
-    if (!existing) {
-      return { ...result, paymentUpdated: false };
+    if (!payment || payment.tenantId !== tenantId) {
+      throw new PayableError('No stored payment carries this checkout session id', {
+        code: 'CHECKOUT_RECONCILIATION_PAYMENT_NOT_FOUND',
+        context: { provider: this.deps.providerName, checkoutSessionId },
+      });
     }
-    const paymentUpdated = await this.close(existing, result, tenantId);
-    return { ...result, paymentUpdated };
+    return payment;
   }
 
   private async close(
+    storage: StorageDriver,
     existing: Payment,
     result: UnsettledCheckoutSession,
     tenantId: string | null,
   ): Promise<boolean> {
-    const storage = this.deps.storage;
-    if (!storage) return false;
     const correlationId = CorrelationId.generate().toString();
     return await storage.transaction(async (repos) => {
       const fresh = await repos.payments.findByIdForUpdate(existing.id, tenantId);
       if (!fresh) return false;
-      this.assertAmountMatches(fresh, result);
+      if (fresh.providerPaymentId !== result.checkoutSessionId) return false;
+      if (fresh.status !== 'pending') return false;
+      this.assertBookingCovers(fresh, result);
       const machine = new PaymentStateMachine(fresh.status);
       if (!machine.tryTransitionTo(result.status)) return false;
       const updated = await repos.payments.updateStatusIfUnchanged(
@@ -72,7 +87,7 @@ export class ReconcileUnsettledCheckoutAction {
       );
       if (!updated) return false;
       await repos.auditLogs.create({
-        tenantId,
+        tenantId: fresh.tenantId,
         correlationId,
         actorType: null,
         actorId: null,
@@ -93,21 +108,18 @@ export class ReconcileUnsettledCheckoutAction {
     });
   }
 
-  private assertAmountMatches(payment: Payment, result: UnsettledCheckoutSession): void {
-    if (
-      result.amount.amount() === payment.amount &&
-      result.amount.currency() === payment.currency
-    ) {
+  private assertBookingCovers(payment: Payment, result: UnsettledCheckoutSession): void {
+    if (result.amount.currency() === payment.currency && payment.amount <= result.amount.amount()) {
       return;
     }
-    throw new PayableError('Checkout session amount does not match the pending payment', {
+    throw new PayableError('Checkout session does not cover the pending payment', {
       code: 'CHECKOUT_RECONCILIATION_PAYMENT_MISMATCH',
       context: {
         paymentId: payment.id,
-        expectedAmount: payment.amount,
-        expectedCurrency: payment.currency,
-        actualAmount: result.amount.amount(),
-        actualCurrency: result.amount.currency(),
+        paymentAmount: payment.amount,
+        paymentCurrency: payment.currency,
+        checkoutAmount: result.amount.amount(),
+        checkoutCurrency: result.amount.currency(),
       },
     });
   }

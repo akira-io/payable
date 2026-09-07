@@ -5,6 +5,11 @@ export {
   type RedirectCallbackInput,
 } from './application/actions/checkout/reconcile-redirect-payment.action';
 export {
+  ReconcileUnsettledCheckoutAction,
+  type ReconcileUnsettledCheckoutInput,
+  type ReconcileUnsettledCheckoutResult,
+} from './application/actions/checkout/reconcile-unsettled-checkout.action';
+export {
   ExecuteIdempotentOperationAction,
   type ExecuteIdempotentOperationInput,
 } from './application/actions/idempotency/execute-idempotent-operation.action';

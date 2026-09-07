@@ -31,6 +31,12 @@ export class TrustMyTravelCheckoutReconciliation {
       });
     }
     const booking = await this.bookings.find(bookingId);
+    if (booking.id !== bookingId) {
+      throw new PayableError('Trust My Travel returned a different booking', {
+        code: 'PROVIDER_TMT_BOOKING_ID_MISMATCH',
+        context: { provider: 'trust-my-travel', bookingId },
+      });
+    }
     assertBookingScope(booking, this.channel);
     const transactionIds = booking.transaction_ids;
     if (Array.isArray(transactionIds) && transactionIds.length > 0) {

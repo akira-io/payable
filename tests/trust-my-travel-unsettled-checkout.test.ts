@@ -48,7 +48,19 @@ function respondWith(payload: Record<string, unknown>) {
   );
 }
 
-async function fixture(databases: Knex[], fetch: ReturnType<typeof respondWith>) {
+interface PaymentOverrides {
+  tenantId?: string | null;
+  amount?: number;
+  currency?: string;
+  status?: 'pending' | 'authorized' | 'failed' | 'succeeded';
+  providerPaymentId?: string;
+}
+
+async function fixture(
+  databases: Knex[],
+  fetch: ReturnType<typeof respondWith>,
+  payments: PaymentOverrides[] = [{}],
+) {
   const database = createTestDb();
   databases.push(database);
   await migrate(database);
@@ -56,20 +68,34 @@ async function fixture(databases: Knex[], fetch: ReturnType<typeof respondWith>)
   const storage = new KnexStorageDriver(database, clock);
   const provider = new TrustMyTravelProvider({ ...OPTIONS, clock, fetch });
   const payable = createPayable({ providers: { tmt: provider }, storage, clock });
-  const customer = await storage.customers.create(makeCustomer());
-  const payment = await storage.payments.create({
-    tenantId: null,
-    customerId: customer.id,
-    provider: 'tmt',
-    providerPaymentId: '44',
-    status: 'pending',
-    currency: 'EUR',
-    amount: 9999,
-    refundedAmount: 0,
-    reference: null,
-    description: null,
-  });
-  return { payable, storage, provider, payment };
+  const created = [];
+  for (const overrides of payments) {
+    const tenantId = overrides.tenantId ?? null;
+    const customer = await storage.customers.create({ ...makeCustomer(), tenantId });
+    created.push(
+      await storage.payments.create({
+        tenantId,
+        customerId: customer.id,
+        provider: 'tmt',
+        providerPaymentId: overrides.providerPaymentId ?? '44',
+        status: overrides.status ?? 'pending',
+        currency: overrides.currency ?? 'EUR',
+        amount: overrides.amount ?? 9999,
+        refundedAmount: 0,
+        reference: null,
+        description: null,
+      }),
+    );
+  }
+  const payment = created[0];
+  if (!payment) throw new Error('the fixture must create at least one payment');
+  return { payable, storage, provider, payment, payments: created };
+}
+
+function requestedUrls(fetch: ReturnType<typeof respondWith>): string[] {
+  return fetch.mock.calls.map(([target]) =>
+    typeof target === 'string' ? target : target instanceof URL ? target.toString() : target.url,
+  );
 }
 
 describe('Trust My Travel unsettled checkout reconciliation', () => {
@@ -88,7 +114,63 @@ describe('Trust My Travel unsettled checkout reconciliation', () => {
       checkoutSessionId: '44',
     });
 
-    expect(result).toMatchObject({ outcome: 'unsettled', status: 'failed', paymentUpdated: true });
+    expect(result).toMatchObject({
+      outcome: 'unsettled',
+      checkoutSessionId: '44',
+      status: 'failed',
+      paymentUpdated: true,
+    });
+    const stored = await storage.payments.findById(payment.id, null);
+    expect(stored?.status).toBe('failed');
+  });
+
+  it('reads the booking named by the checkout session id', async () => {
+    const fetch = respondWith(booking());
+    const { payable } = await fixture(databases, fetch);
+
+    await payable.reconcileUnsettledCheckout({ provider: 'tmt', checkoutSessionId: '44' });
+
+    expect(requestedUrls(fetch)).toEqual([expect.stringContaining('/bookings/44')]);
+  });
+
+  it('records the closure in the audit log under the payment tenant', async () => {
+    const fetch = respondWith(booking());
+    const { payable, storage, payment } = await fixture(databases, fetch, [{ tenantId: 'acme' }]);
+
+    await payable.reconcileUnsettledCheckout({
+      provider: 'tmt',
+      tenantId: 'acme',
+      checkoutSessionId: '44',
+    });
+
+    const entries = await storage.auditLogs.list({ resourceType: 'payment', tenantId: 'acme' });
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      tenantId: 'acme',
+      action: 'payment.checkout_unsettled',
+      resourceType: 'payment',
+      resourceId: payment.id,
+      before: { status: 'pending' },
+      after: { status: 'failed' },
+      metadata: {
+        provider: 'tmt',
+        checkoutSessionId: '44',
+        source: 'checkout_reconciliation',
+      },
+    });
+    expect(entries[0]?.correlationId).toEqual(expect.any(String));
+  });
+
+  it('closes a deposit payment worth less than the booking it draws against', async () => {
+    const fetch = respondWith(booking());
+    const { payable, storage, payment } = await fixture(databases, fetch, [{ amount: 3000 }]);
+
+    const result = await payable.reconcileUnsettledCheckout({
+      provider: 'tmt',
+      checkoutSessionId: '44',
+    });
+
+    expect(result).toMatchObject({ outcome: 'unsettled', paymentUpdated: true });
     const stored = await storage.payments.findById(payment.id, null);
     expect(stored?.status).toBe('failed');
   });
@@ -104,6 +186,7 @@ describe('Trust My Travel unsettled checkout reconciliation', () => {
 
     expect(result).toMatchObject({
       outcome: 'settled',
+      checkoutSessionId: '44',
       providerPaymentIds: ['77'],
       paymentUpdated: false,
     });
@@ -111,13 +194,37 @@ describe('Trust My Travel unsettled checkout reconciliation', () => {
     expect(stored?.status).toBe('pending');
   });
 
-  it('refuses to close a payment whose amount does not match the booking', async () => {
+  it('refuses a booking that does not cover the payment', async () => {
     const fetch = respondWith(booking({ total: 5000, total_unpaid: 5000 }));
     const { payable, storage, payment } = await fixture(databases, fetch);
 
     await expect(
       payable.reconcileUnsettledCheckout({ provider: 'tmt', checkoutSessionId: '44' }),
     ).rejects.toMatchObject({ code: 'CHECKOUT_RECONCILIATION_PAYMENT_MISMATCH' });
+    const stored = await storage.payments.findById(payment.id, null);
+    expect(stored?.status).toBe('pending');
+  });
+
+  it('refuses a booking whose currency is not the currency of the payment', async () => {
+    const fetch = respondWith(booking());
+    const { payable, storage, payment } = await fixture(databases, fetch, [
+      { currency: 'USD', amount: 3000 },
+    ]);
+
+    await expect(
+      payable.reconcileUnsettledCheckout({ provider: 'tmt', checkoutSessionId: '44' }),
+    ).rejects.toMatchObject({ code: 'CHECKOUT_RECONCILIATION_PAYMENT_MISMATCH' });
+    const stored = await storage.payments.findById(payment.id, null);
+    expect(stored?.status).toBe('pending');
+  });
+
+  it('refuses a response that carries a different booking than the one requested', async () => {
+    const fetch = respondWith(booking({ id: 77 }));
+    const { payable, storage, payment } = await fixture(databases, fetch);
+
+    await expect(
+      payable.reconcileUnsettledCheckout({ provider: 'tmt', checkoutSessionId: '44' }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_TMT_BOOKING_ID_MISMATCH' });
     const stored = await storage.payments.findById(payment.id, null);
     expect(stored?.status).toBe('pending');
   });
@@ -146,9 +253,10 @@ describe('Trust My Travel unsettled checkout reconciliation', () => {
     ['44.5'],
     ['abc'],
     [''],
+    ['9007199254740993'],
   ])('refuses the checkout session id %p without reading a booking', async (checkoutSessionId) => {
     const fetch = respondWith(booking());
-    const { payable } = await fixture(databases, fetch);
+    const { payable } = await fixture(databases, fetch, [{ providerPaymentId: checkoutSessionId }]);
 
     await expect(
       payable.reconcileUnsettledCheckout({ provider: 'tmt', checkoutSessionId }),
@@ -156,10 +264,49 @@ describe('Trust My Travel unsettled checkout reconciliation', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('leaves an already failed payment alone instead of rewriting it', async () => {
+  it('refuses a checkout session no stored payment carries, without reading a booking', async () => {
     const fetch = respondWith(booking());
-    const { payable, storage, payment } = await fixture(databases, fetch);
-    await storage.payments.update(payment.id, { status: 'failed' }, null);
+    const { payable } = await fixture(databases, fetch, [{ providerPaymentId: '45' }]);
+
+    await expect(
+      payable.reconcileUnsettledCheckout({ provider: 'tmt', checkoutSessionId: '44' }),
+    ).rejects.toMatchObject({ code: 'CHECKOUT_RECONCILIATION_PAYMENT_NOT_FOUND' });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('refuses to close the payment of another tenant', async () => {
+    const fetch = respondWith(booking());
+    const { payable, storage, payment } = await fixture(databases, fetch, [{ tenantId: 'acme' }]);
+
+    await expect(
+      payable.reconcileUnsettledCheckout({
+        provider: 'tmt',
+        tenantId: 'other',
+        checkoutSessionId: '44',
+      }),
+    ).rejects.toMatchObject({ code: 'CHECKOUT_RECONCILIATION_PAYMENT_NOT_FOUND' });
+    expect(fetch).not.toHaveBeenCalled();
+    const stored = await storage.payments.findById(payment.id, 'acme');
+    expect(stored?.status).toBe('pending');
+  });
+
+  it('refuses a tenant payment for a caller that names no tenant', async () => {
+    const fetch = respondWith(booking());
+    const { payable, storage, payment } = await fixture(databases, fetch, [{ tenantId: 'acme' }]);
+
+    await expect(
+      payable.reconcileUnsettledCheckout({ provider: 'tmt', checkoutSessionId: '44' }),
+    ).rejects.toMatchObject({ code: 'CHECKOUT_RECONCILIATION_PAYMENT_NOT_FOUND' });
+    expect(fetch).not.toHaveBeenCalled();
+    const stored = await storage.payments.findById(payment.id, 'acme');
+    expect(stored?.status).toBe('pending');
+  });
+
+  it('leaves an authorized payment alone instead of failing a live authorization', async () => {
+    const fetch = respondWith(booking());
+    const { payable, storage, payment } = await fixture(databases, fetch, [
+      { status: 'authorized' },
+    ]);
 
     const result = await payable.reconcileUnsettledCheckout({
       provider: 'tmt',
@@ -167,6 +314,49 @@ describe('Trust My Travel unsettled checkout reconciliation', () => {
     });
 
     expect(result).toMatchObject({ outcome: 'unsettled', paymentUpdated: false });
+    const stored = await storage.payments.findById(payment.id, null);
+    expect(stored?.status).toBe('authorized');
+    expect(await storage.auditLogs.list({ resourceType: 'payment' })).toEqual([]);
+  });
+
+  it('leaves an already failed payment alone instead of rewriting it', async () => {
+    const fetch = respondWith(booking());
+    const { payable, storage, payment } = await fixture(databases, fetch, [{ status: 'failed' }]);
+
+    const result = await payable.reconcileUnsettledCheckout({
+      provider: 'tmt',
+      checkoutSessionId: '44',
+    });
+
+    expect(result).toMatchObject({ outcome: 'unsettled', paymentUpdated: false });
+    const stored = await storage.payments.findById(payment.id, null);
+    expect(stored?.updatedAt).toEqual(payment.updatedAt);
+    expect(await storage.auditLogs.list({ resourceType: 'payment' })).toEqual([]);
+  });
+
+  it('no longer reaches a payment whose provider id a callback already advanced', async () => {
+    const fetch = respondWith(booking());
+    const { payable, storage, payment } = await fixture(databases, fetch);
+    await storage.payments.update(payment.id, { providerPaymentId: '77' }, null);
+
+    await expect(
+      payable.reconcileUnsettledCheckout({ provider: 'tmt', checkoutSessionId: '44' }),
+    ).rejects.toMatchObject({ code: 'CHECKOUT_RECONCILIATION_PAYMENT_NOT_FOUND' });
+    expect(fetch).not.toHaveBeenCalled();
+    const stored = await storage.payments.findById(payment.id, null);
+    expect(stored?.status).toBe('pending');
+  });
+
+  it('refuses to reconcile without a storage driver', async () => {
+    const fetch = respondWith(booking());
+    const clock = new FakeClock(NOW);
+    const provider = new TrustMyTravelProvider({ ...OPTIONS, clock, fetch });
+    const payable = createPayable({ providers: { tmt: provider }, clock });
+
+    await expect(
+      payable.reconcileUnsettledCheckout({ provider: 'tmt', checkoutSessionId: '44' }),
+    ).rejects.toMatchObject({ code: 'PAYMENT_STORAGE_REQUIRED' });
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('is discoverable as a provider capability', async () => {
