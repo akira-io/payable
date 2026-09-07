@@ -12,6 +12,7 @@ import type { BillingDependencies } from '../../builders/billing-dependencies';
 
 export interface RedirectCallbackInput {
   payload: Record<string, unknown>;
+  checkoutSessionId?: string;
   tenantId?: string | null;
 }
 
@@ -27,13 +28,17 @@ export class ReconcileRedirectPaymentAction {
     if (!isRedirectCallbackCapable(provider)) {
       throw new ProviderCapabilityNotSupportedError(provider.name, 'redirectCallback');
     }
-    if (!(await provider.verifyCallback(input.payload))) {
+    const context =
+      input.checkoutSessionId === undefined
+        ? undefined
+        : { checkoutSessionId: input.checkoutSessionId };
+    if (!(await provider.verifyCallback(input.payload, context))) {
       throw new PayableError('Redirect callback failed verification', {
         code: 'REDIRECT_CALLBACK_INVALID',
         context: { provider: provider.name },
       });
     }
-    const result = await provider.handleRedirectCallback(input.payload);
+    const result = await provider.handleRedirectCallback(input.payload, context);
     const tenantId = input.tenantId ?? this.deps.tenantId ?? null;
     const storage = this.deps.storage;
     if (!storage) {

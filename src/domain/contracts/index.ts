@@ -163,6 +163,7 @@ export type {
   PriceLookupKeyCapable,
   ProviderWebhookEndpointManagementCapable,
   RedirectCallbackCapable,
+  RedirectCallbackContext,
   RedirectCallbackResult,
   ResumeSubscriptionInput,
   SubscriptionManagementCapable,
