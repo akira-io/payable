@@ -58,6 +58,14 @@ export type {
   CatalogSynchronizationRepository,
   NewCatalogSynchronization,
 } from './catalog-synchronization-repository.contract';
+export type {
+  CheckoutSessionReconciliationCapable,
+  CheckoutSessionReconciliationInput,
+  CheckoutSessionReconciliationResult,
+  SettledCheckoutSession,
+  UnsettledCheckoutSession,
+} from './checkout-session-reconciliation.contract';
+export { isCheckoutSessionReconciliationCapable } from './checkout-session-reconciliation.contract';
 export type { Clock } from './clock.contract';
 export type {
   CustomerProviderBindingRepository,

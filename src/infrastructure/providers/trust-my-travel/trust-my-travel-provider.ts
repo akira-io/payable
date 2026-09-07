@@ -1,4 +1,9 @@
 import { createHash } from 'node:crypto';
+import type {
+  CheckoutSessionReconciliationCapable,
+  CheckoutSessionReconciliationInput,
+  CheckoutSessionReconciliationResult,
+} from '../../../domain/contracts/checkout-session-reconciliation.contract';
 import type { Clock } from '../../../domain/contracts/clock.contract';
 import type {
   AuthorizeCapable,
@@ -47,6 +52,7 @@ import { TrustMyTravelBookings } from './trust-my-travel-bookings';
 import { TrustMyTravelCallbacks } from './trust-my-travel-callbacks';
 import { TrustMyTravelCardVault } from './trust-my-travel-card-vault';
 import { TrustMyTravelCheckout } from './trust-my-travel-checkout';
+import { TrustMyTravelCheckoutReconciliation } from './trust-my-travel-checkout-reconciliation';
 import { TrustMyTravelClient } from './trust-my-travel-client';
 import { TrustMyTravelReconciliation } from './trust-my-travel-reconciliation';
 import { TrustMyTravelRetainedPurchases } from './trust-my-travel-retained-purchases';
@@ -65,6 +71,7 @@ export class TrustMyTravelProvider
     PaymentMethodSetupConfirmationCapable,
     RedirectCallbackCapable,
     RecurringPaymentReconciliationCapable,
+    CheckoutSessionReconciliationCapable,
     SubscriptionOperationCapabilitiesProvider
 {
   readonly name = 'trust-my-travel';
@@ -77,6 +84,7 @@ export class TrustMyTravelProvider
   private readonly transactions: TrustMyTravelTransactions;
   private readonly callbacks: TrustMyTravelCallbacks;
   private readonly reconciliation: TrustMyTravelReconciliation;
+  private readonly checkoutReconciliation: TrustMyTravelCheckoutReconciliation;
   private readonly clock: Clock;
   private readonly authorizationWindowMs: number;
   private readonly cardVault: TrustMyTravelCardVault;
@@ -115,6 +123,11 @@ export class TrustMyTravelProvider
       (id) => this.transactions.findScoped(id),
       this.clock,
       options.reconciliation,
+    );
+    this.checkoutReconciliation = new TrustMyTravelCheckoutReconciliation(
+      this.bookings,
+      { id: options.channelId, currency: options.currency },
+      options.logger,
     );
     this.cardVault = new TrustMyTravelCardVault(
       client,
@@ -251,6 +264,12 @@ export class TrustMyTravelProvider
     input: RecurringPaymentReconciliationInput,
   ): Promise<RecurringPaymentReconciliationResult> {
     return this.reconciliation.reconcile(input);
+  }
+
+  reconcileCheckoutSession(
+    input: CheckoutSessionReconciliationInput,
+  ): Promise<CheckoutSessionReconciliationResult> {
+    return this.checkoutReconciliation.reconcile(input);
   }
 }
 

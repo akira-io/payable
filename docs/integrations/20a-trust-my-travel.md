@@ -295,7 +295,8 @@ that treats them the same will either chase settled charges or ignore them.
 An unconfirmed attempt is not a failed one. Leave the payment pending and resolve it out of band:
 recurring reconciliation cannot help here, because it is keyed by `providerPaymentId` and an
 attempt that never settled has no transaction id to give it. A payment whose `providerPaymentId` is
-still the booking id has to be resolved through `trustMyTravel.bookings.find(bookingId)`.
+still the booking id is resolved by `payable.reconcileUnsettledCheckout(...)`, described under
+[Unsettled checkout reconciliation](#unsettled-checkout-reconciliation).
 
 Only the WordPress REST envelope is recognised: a non-empty `code` string, a `message` string and an
 integer `data.status` between 400 and 599, with no `id`, `hash` or top-level `status`. A
@@ -313,7 +314,9 @@ Passing that booking id to recurring reconciliation instead is refused rather th
 sequential integers on the same channel, so a booking id reaches a real transaction often enough to
 matter, and that transaction belongs to whichever buyer happens to hold it. A partly paid booking
 makes it worse: the deposit transaction of this very booking is a legitimate transaction of the
-wrong payment. The next section describes what the provider requires to tell the two apart.
+wrong payment. Recurring reconciliation below describes what the provider requires to tell the two
+apart, and unsettled checkout reconciliation after it describes where such a payment does get
+resolved.
 
 ## Recurring transaction reconciliation
 
@@ -420,6 +423,67 @@ Locked responses expose the current `chargebackStatus`, `outcomeStatus`, `reason
 `challengeDate` under `providerData`. These values come from the private GET, never from the browser.
 Long-lived chargeback monitoring may start fresh bounded reads for settled transactions according to
 the host's retention policy; a browser return page is never required for that observation.
+
+## Unsettled checkout reconciliation
+
+Recurring reconciliation answers for a payment that has a transaction. A redirect payment whose
+attempt never settled has none: its `providerPaymentId` is still the booking id, and
+`PROVIDER_TMT_RECONCILIATION_BOOKING_UNSETTLED` is what recurring reconciliation raises for it. This
+is where those payments are resolved, keyed by the checkout session rather than by a transaction:
+
+```ts
+const result = await payable.reconcileUnsettledCheckout({
+  provider: 'tmt-eur',
+  checkoutSessionId,
+});
+
+if (result.outcome === 'unsettled' && result.paymentUpdated) {
+  // the payment is now failed and the checkout can be reopened
+}
+```
+
+The provider reads `GET /bookings/{checkoutSessionId}`, checks the booking belongs to the configured
+channel and currency, and reports one of two things. `unsettled` when the booking still shows
+`transaction_ids: []` and `total_unpaid === total`: nothing was ever collected, so the payment is
+closed as `failed`. `settled` when the booking carries transactions, and then it returns their ids
+in `providerPaymentIds` and writes nothing, because a payment with a transaction belongs to
+recurring reconciliation and this operation would be guessing.
+
+The failure callback once applied these same two conditions and deliberately no longer does. There
+the envelope claims a decision was made, and an untouched booking cannot separate a real decline
+from an expired account token, because a decision that reached the acquirer would have left a
+transaction row. Here nothing claims a decision at all, so a booking that collected nothing is the
+whole of the evidence. This path also does not need a browser to come back, which is exactly what a
+payment abandoned mid-attempt never gets.
+
+The write is guarded the way the redirect callback is. The booking total must match the pending
+payment, or `CHECKOUT_RECONCILIATION_PAYMENT_MISMATCH` is raised and nothing is recorded. The
+transition goes through the payment state machine, so a payment already resolved by a callback that
+arrived first is left alone and `paymentUpdated` comes back `false`. The change is written with a
+compare-and-set on the status and recorded in the audit log as `payment.checkout_unsettled`.
+
+Two refusals carry no state change. `PROVIDER_TMT_CHECKOUT_SESSION_INVALID` is raised, before any
+request, when `checkoutSessionId` is not a positive decimal integer, since it must be a booking id.
+`PROVIDER_TMT_BOOKING_SETTLEMENT_UNCLEAR` is raised when the booking reports no transactions and yet
+claims to be partly paid: the two statements contradict each other, and a booking that cannot say
+plainly that it collected nothing is not evidence that the payment failed.
+
+Nothing here decides that a payment is old enough to give up on. The provider has no idea when the
+checkout was created or how long your modal session lasts, so it reports only what the booking says
+and leaves the timing to you. Find the candidates with the canonical payment list, which takes
+`createdBefore` for exactly this:
+
+```ts
+const stale = await payable.storedPayments(tenantId).list({
+  status: 'pending',
+  createdBefore: new Date(Date.now() - 24 * 60 * 60 * 1000),
+  limit: 100,
+});
+```
+
+Callers who were resolving these payments by hand through `trustMyTravel.bookings.find(bookingId)`
+can drop that code. The booking read, the channel and currency check, the settlement decision and
+the canonical write are all done here, and the raw booking API no longer has to be reached for this.
 
 ## Refunds
 
