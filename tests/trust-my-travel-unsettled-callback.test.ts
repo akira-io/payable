@@ -122,19 +122,45 @@ describe('Trust My Travel unsettled callback reconciliation', () => {
   });
 
   it.each([
-    ['a gateway timeout', { status: 504 }],
-    ['an internal provider error', { status: 500 }],
-  ])('refuses to confirm a failure from %s', async (_label, data) => {
+    ['a malformed request', 'rest_invalid_param', 400],
+    ['an expired account token', 'auth_invalid', 401],
+    ['a forbidden channel', 'auth_invalid', 403],
+    ['an unknown route', 'rest_no_route', 404],
+    ['a conflicting booking state', 'rest_conflict', 409],
+    ['an unprocessable transaction body', 'rest_invalid_param', 422],
+    ['a rate limit', 'too_many_requests', 429],
+    ['an internal provider error', 'rest_upstream', 500],
+    ['a bad gateway', 'rest_upstream', 502],
+    ['an unavailable provider', 'rest_upstream', 503],
+    ['a gateway timeout', 'rest_upstream', 504],
+    ['an unnamed upstream status', 'rest_upstream', 599],
+  ])('refuses to confirm a failure from %s', async (_label, code, status) => {
     const fetch = vi.fn<typeof globalThis.fetch>();
     const provider = new TrustMyTravelProvider({ ...OPTIONS, fetch });
 
     await expect(
       provider.handleRedirectCallback(
-        { code: 'rest_upstream', message: 'upstream failed', data },
+        { code, message: 'the attempt never reached the acquirer', data: { status } },
         { checkoutSessionId: '23278000' },
       ),
-    ).rejects.toMatchObject({ code: 'PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED' });
+    ).rejects.toMatchObject({
+      code: 'PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED',
+      context: expect.objectContaining({ providerCode: code, providerStatus: status }),
+    });
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('confirms 402 whatever the provider code carried alongside it', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(jsonResponse(booking()));
+    const provider = new TrustMyTravelProvider({ ...OPTIONS, fetch });
+
+    await expect(
+      provider.handleRedirectCallback(
+        { code: 'card_declined', message: 'Insufficient funds', data: { status: 402 } },
+        { checkoutSessionId: '23278000' },
+      ),
+    ).resolves.toMatchObject({ status: 'failed' });
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it.each([

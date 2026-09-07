@@ -17,6 +17,8 @@ import {
 } from './trust-my-travel-transaction-values';
 import type { TrustMyTravelTransactions } from './trust-my-travel-transactions';
 
+const ACQUIRER_DECISION_STATUS = 402;
+
 export class TrustMyTravelCallbacks {
   constructor(
     private readonly transactions: TrustMyTravelTransactions,
@@ -71,7 +73,7 @@ export class TrustMyTravelCallbacks {
     failure: TmtFailureCallbackPayload,
     bookingId: number,
   ): Promise<RedirectCallbackResult> {
-    if (failure.status >= 500) {
+    if (failure.status !== ACQUIRER_DECISION_STATUS) {
       throw this.unconfirmed('Trust My Travel did not report a decision on the payment attempt', {
         bookingId,
         providerCode: failure.code,
