@@ -25,19 +25,19 @@ export interface TmtTransactionResponse {
   id: number;
   status: string;
   total: number;
-  total_remaining?: number;
+  total_remaining?: number | null;
   currencies: string;
   channels: number;
   bookings: TmtTransactionBooking[];
-  transaction_types?: string;
-  card_types?: string;
-  last_four_digits?: string;
-  token?: string;
-  linked_id?: number;
-  chargeback_status?: string;
-  outcome_status?: string;
-  reason_code?: string;
-  challenge_date?: string;
+  transaction_types?: string | null;
+  card_types?: string | null;
+  last_four_digits?: string | null;
+  token?: string | null;
+  linked_id?: number | null;
+  chargeback_status?: string | null;
+  outcome_status?: string | null;
+  reason_code?: string | null;
+  challenge_date?: string | null;
 }
 
 export interface TmtTransactionBooking {
@@ -72,7 +72,9 @@ export class TrustMyTravelTransactions {
     this.assertTransactionScope(transaction);
     const bookingId = transaction.bookings[0]?.id;
     const linkedAuthorizationId =
-      transaction.transaction_types === 'authorize' ? undefined : transaction.linked_id;
+      transaction.transaction_types === 'authorize'
+        ? undefined
+        : (transaction.linked_id ?? undefined);
     return {
       providerPaymentId: String(transaction.id),
       ...(linkedAuthorizationId !== undefined
