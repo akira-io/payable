@@ -240,22 +240,41 @@ const result = await payable.receiveRedirectCallback({
 });
 ```
 
+> **`checkoutSessionId` must be derived on the server.** Resolve it from your own checkout record,
+> keyed by whatever secret the browser already proves it holds. It is a Trust My Travel booking id,
+> a small sequential integer, so a caller who supplies it directly can name any booking on the
+> channel. Payable cannot tell the two apart: authenticating the callback endpoint and binding the
+> session to the request is the consuming application's job, and the confirmation below narrows the
+> damage rather than preventing it.
+
 With that context, `verifyCallback` accepts the envelope shape and `handleRedirectCallback` reads
 `GET /bookings/{checkoutSessionId}`, checks the booking belongs to the configured channel and
 currency, and reports `failed` only when the booking still shows `transaction_ids: []` and
-`total_unpaid === total`. A booking that already carries transactions or a partial payment throws
-`PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED`; leave those to recurring reconciliation rather than
-recording an outcome the provider does not confirm.
+`total_unpaid === total`. The result carries the booking total as its amount, so a callback matched
+against a payment for a different amount raises `REDIRECT_CALLBACK_PAYMENT_MISMATCH` instead of
+resolving the wrong row.
 
-Without `checkoutSessionId` the envelope stays unverifiable and `verifyCallback` returns `false`, so
-an unauthenticated caller cannot mark a payment as failed by posting a failure-shaped body.
+`PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED` is raised, and nothing is recorded, when:
 
-Only the WordPress REST envelope is recognised: a `code` string, a `message` string and an integer
-`data.status` between 400 and 599, with no `id`, `hash` or top-level `status`. A `transaction_timeout`
-payload (`{ name, message, booking_id }`) and a relayed JavaScript error (which serialises to `{}`)
-are deliberately not recognised - neither states that the attempt failed, and the empty object is
-indistinguishable from noise. Those attempts stay pending until recurring reconciliation resolves
-them.
+- `data.status` is 5xx. The request failed without a decision, so the card may well have been
+  charged and the booking aggregate may not show it yet.
+- The booking already carries transactions, is partly paid, or does not report both
+  `transaction_ids` and `total_unpaid` as the confirmation needs them.
+- `checkoutSessionId` is not a positive decimal integer.
+
+An unconfirmed attempt is not a failed one. Leave the payment pending and resolve it out of band:
+recurring reconciliation cannot help here, because it is keyed by `providerPaymentId` and an
+attempt that never settled has no transaction id to give it. A payment whose `providerPaymentId` is
+still the booking id has to be resolved through `trustMyTravel.bookings.find(bookingId)`.
+
+Only the WordPress REST envelope is recognised: a non-empty `code` string, a `message` string and an
+integer `data.status` between 400 and 599, with no `id`, `hash` or top-level `status`. A
+`transaction_timeout` payload (`{ name, message, booking_id }`) and a relayed JavaScript error
+(which serialises to `{}`) are deliberately not recognised - neither states that the attempt failed,
+and the empty object is indistinguishable from noise.
+
+A booking that is partly paid never confirms a failure, so a deposit-and-balance booking cannot
+report a failed balance through this path.
 
 ## Recurring transaction reconciliation
 

@@ -52,7 +52,7 @@ guard (duck-typing on method presence). Calling code narrows first, then either 
 | `WebhookCapable` | `verifyWebhook(input)`, `reconcileSubscription(verified)` | `isWebhookCapable(provider)` |
 | `PaymentWebhookCapable` | `reconcilePayment(verified)` | `isPaymentWebhookCapable(provider)` |
 | `BillingPortalCapable` | `billingPortal(input, ctx)` | `isBillingPortalCapable(provider)` |
-| `RedirectCallbackCapable` | `verifyCallback(payload)`, `handleRedirectCallback(payload)` | `isRedirectCallbackCapable(provider)` |
+| `RedirectCallbackCapable` | `verifyCallback(payload, context?)`, `handleRedirectCallback(payload, context?)` | `isRedirectCallbackCapable(provider)` |
 | `ChargeCapable` | `charge(input, ctx)` | `isChargeCapable(provider)` |
 | `AuthorizeCapable` | `authorize(input, ctx)` | `isAuthorizeCapable(provider)` |
 | `CaptureCapable` | `capture(input, ctx)` | `isCaptureCapable(provider)` |

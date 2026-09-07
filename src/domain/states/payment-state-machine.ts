@@ -22,7 +22,7 @@ const MAP: TransitionMap<PaymentStatus, PaymentEvent> = {
   },
   processing: { authorize: 'authorized', succeed: 'succeeded', fail: 'failed', cancel: 'canceled' },
   authorized: { capture: 'succeeded', void: 'canceled', fail: 'failed' },
-  failed: { process: 'processing', succeed: 'succeeded' },
+  failed: { process: 'processing', authorize: 'authorized', succeed: 'succeeded' },
   succeeded: { refund: 'refunded', partially_refund: 'partially_refunded' },
   partially_refunded: { refund: 'refunded', partially_refund: 'partially_refunded' },
 };

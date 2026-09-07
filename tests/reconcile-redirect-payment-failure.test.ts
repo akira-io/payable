@@ -53,6 +53,65 @@ describe('reconcile redirect payment failure', () => {
     await db.destroy();
   });
 
+  it('lets a later authorization advance a payment the callback marked failed', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new UnsettledAttemptProvider();
+    const payable = createPayable({
+      providers: { unsettled: provider },
+      storage: new KnexStorageDriver(db, new FakeClock()),
+    });
+    const session = await payable
+      .customer(billable)
+      .redirectCheckout(Money.of(70000, 'EUR'))
+      .create();
+    await payable.receiveRedirectCallback({
+      provider: 'unsettled',
+      checkoutSessionId: session.id,
+      payload: { code: 'transaction_declined', message: 'declined', data: { status: 402 } },
+    });
+
+    provider.retryStatus = 'authorized';
+    const retry = await payable.receiveRedirectCallback({
+      provider: 'unsettled',
+      checkoutSessionId: session.id,
+      payload: { code: 'transaction_declined', message: 'declined', data: { status: 402 } },
+    });
+
+    expect(retry.paymentUpdated).toBe(true);
+    const [payment] = await payable.customer(billable).payments();
+    expect(payment?.status).toBe('authorized');
+    await db.destroy();
+  });
+
+  it('is idempotent across duplicate failure callbacks', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const payable = createPayable({
+      providers: { unsettled: new UnsettledAttemptProvider() },
+      storage: new KnexStorageDriver(db, new FakeClock()),
+    });
+    const session = await payable
+      .customer(billable)
+      .redirectCheckout(Money.of(70000, 'EUR'))
+      .create();
+    const callback = {
+      provider: 'unsettled',
+      checkoutSessionId: session.id,
+      payload: { code: 'transaction_declined', message: 'declined', data: { status: 402 } },
+    };
+
+    expect((await payable.receiveRedirectCallback(callback)).paymentUpdated).toBe(true);
+    expect((await payable.receiveRedirectCallback(callback)).paymentUpdated).toBe(false);
+
+    const [payment] = await payable.customer(billable).payments();
+    const logs = await payable
+      .auditLogs()
+      .run({ resourceType: 'payment', resourceId: payment?.id });
+    expect(logs.filter((log) => log.action === 'payment.reconciled')).toHaveLength(1);
+    await db.destroy();
+  });
+
   it('rejects the same failure payload when no checkout session accompanies it', async () => {
     const db = createTestDb();
     await migrate(db);
@@ -77,6 +136,7 @@ describe('reconcile redirect payment failure', () => {
 
 class UnsettledAttemptProvider implements PaymentProvider, RedirectCallbackCapable {
   readonly name = 'unsettled';
+  retryStatus: 'failed' | 'authorized' = 'failed';
 
   capabilities(): ProviderCapabilities {
     return new Set(['checkout']);
@@ -106,7 +166,7 @@ class UnsettledAttemptProvider implements PaymentProvider, RedirectCallbackCapab
     return Promise.resolve({
       providerPaymentId: checkoutSessionId,
       checkoutSessionId,
-      status: 'failed',
+      status: this.retryStatus,
     });
   }
 }

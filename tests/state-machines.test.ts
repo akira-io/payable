@@ -150,6 +150,12 @@ describe('PaymentStateMachine', () => {
     expect(machine.refund().current()).toBe('refunded');
   });
 
+  it('lets a retry authorize after a failed attempt', () => {
+    const machine = new PaymentStateMachine('failed');
+    expect(machine.tryTransitionTo('authorized')).toBe(true);
+    expect(machine.current()).toBe('authorized');
+  });
+
   it('treats refunded as terminal', () => {
     expect(() => new PaymentStateMachine('refunded').partiallyRefund()).toThrow(
       InvalidStateTransitionError,

@@ -30,7 +30,7 @@ export class TrustMyTravelCallbacks {
     if (asyncCallbackPayload(payload)) return true;
     const callback = callbackPayload(payload);
     if (callback) return validateTmtTransactionHash(callback, this.channelSecret);
-    return context?.checkoutSessionId !== undefined && failureCallbackPayload(payload) !== null;
+    return bookingReference(context) !== null && failureCallbackPayload(payload) !== null;
   }
 
   async reconcile(
@@ -38,8 +38,9 @@ export class TrustMyTravelCallbacks {
     context?: RedirectCallbackContext,
   ): Promise<RedirectCallbackResult> {
     const failure = failureCallbackPayload(payload);
-    if (failure && context?.checkoutSessionId !== undefined) {
-      return await this.reconcileUnsettledAttempt(failure, context.checkoutSessionId);
+    const unsettledBookingId = bookingReference(context);
+    if (failure && unsettledBookingId !== null) {
+      return await this.reconcileUnsettledAttempt(failure, unsettledBookingId);
     }
     const callback = callbackPayload(payload) ?? asyncCallbackPayload(payload);
     if (!callback || !this.verify(payload)) {
@@ -68,17 +69,18 @@ export class TrustMyTravelCallbacks {
 
   private async reconcileUnsettledAttempt(
     failure: TmtFailureCallbackPayload,
-    checkoutSessionId: string,
+    bookingId: number,
   ): Promise<RedirectCallbackResult> {
-    const bookingId = Number(checkoutSessionId);
-    if (!Number.isInteger(bookingId) || bookingId <= 0) {
-      throw this.unconfirmed('Trust My Travel failure callback has no usable booking reference', {
-        checkoutSessionId,
+    if (failure.status >= 500) {
+      throw this.unconfirmed('Trust My Travel did not report a decision on the payment attempt', {
+        bookingId,
+        providerCode: failure.code,
+        providerStatus: failure.status,
       });
     }
     const booking = await this.bookings.find(bookingId);
     this.assertBookingScope(booking);
-    if (booking.transaction_ids.length > 0 || booking.total_unpaid !== booking.total) {
+    if (!settledNothing(booking)) {
       throw this.unconfirmed('Trust My Travel booking does not confirm the reported failure', {
         bookingId,
         providerCode: failure.code,
@@ -95,6 +97,7 @@ export class TrustMyTravelCallbacks {
       providerPaymentId: String(booking.id),
       checkoutSessionId: String(booking.id),
       status: 'failed',
+      amount: trustMyTravelMoney(booking.total, booking.currencies),
     };
   }
 
@@ -112,9 +115,25 @@ export class TrustMyTravelCallbacks {
         CurrencyManager.normalize(this.channel.currency)
     ) {
       throw new PayableError('Trust My Travel booking is outside the configured channel', {
-        code: 'PROVIDER_TMT_TRANSACTION_SCOPE_MISMATCH',
+        code: 'PROVIDER_TMT_BOOKING_SCOPE_MISMATCH',
         context: { provider: 'trust-my-travel', bookingId: booking.id },
       });
     }
   }
+}
+
+function bookingReference(context: RedirectCallbackContext | undefined): number | null {
+  const checkoutSessionId = context?.checkoutSessionId;
+  if (checkoutSessionId === undefined || !/^[1-9]\d*$/u.test(checkoutSessionId)) return null;
+  const bookingId = Number(checkoutSessionId);
+  return Number.isSafeInteger(bookingId) ? bookingId : null;
+}
+
+function settledNothing(booking: TmtBookingResponse): boolean {
+  return (
+    Array.isArray(booking.transaction_ids) &&
+    booking.transaction_ids.length === 0 &&
+    Number.isInteger(booking.total) &&
+    booking.total_unpaid === booking.total
+  );
 }

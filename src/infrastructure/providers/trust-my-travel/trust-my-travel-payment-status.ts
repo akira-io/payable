@@ -3,7 +3,7 @@ import { PayableError } from '../../../domain/errors/payable-error';
 import type { PaymentStatus } from '../../../domain/value-objects/payment-status';
 import type { TmtTransactionResponse } from './trust-my-travel-transactions';
 
-const TERMINAL_STATUSES: Record<string, PaymentStatus> = {
+const PAYMENT_STATUS_BY_TRANSACTION_STATUS: Record<string, PaymentStatus> = {
   expired: 'failed',
   failed: 'failed',
   pending: 'processing',
@@ -37,5 +37,5 @@ export function trustMyTravelPaymentStatus(
     if (transaction.transaction_types === 'void') return 'canceled';
     return 'succeeded';
   }
-  return TERMINAL_STATUSES[transaction.status] ?? 'pending';
+  return PAYMENT_STATUS_BY_TRANSACTION_STATUS[transaction.status] ?? 'pending';
 }
