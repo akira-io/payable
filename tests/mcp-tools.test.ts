@@ -99,6 +99,24 @@ describe('mcp tools', () => {
     await db.destroy();
   });
 
+  it('filters the canonical payment list by age', async () => {
+    const { client, payable, db } = await connect();
+    await payable.customer(billable).charge({ amount: Money.of(900, 'USD') });
+
+    const included = (await client.callTool({
+      name: 'canonical_payments_list',
+      arguments: { createdBefore: '2100-01-01T00:00:00.000Z' },
+    })) as CallToolResult;
+    const excluded = (await client.callTool({
+      name: 'canonical_payments_list',
+      arguments: { createdBefore: '2000-01-01T00:00:00.000Z' },
+    })) as CallToolResult;
+
+    expect((parse(included) as { items: unknown[] }).items).toHaveLength(1);
+    expect((parse(excluded) as { items: unknown[] }).items).toEqual([]);
+    await db.destroy();
+  });
+
   it('charges via the money tool with coerced Money input', async () => {
     const { client, db } = await connect({ policy: { allowMoneyMovement: true } });
 

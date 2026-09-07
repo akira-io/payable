@@ -200,6 +200,7 @@ export function registerCanonicalReadTools(
           currency: z.string().min(1).optional(),
           reference: z.string().min(1).optional(),
           description: z.string().min(1).optional(),
+          createdBefore: z.string().datetime().optional(),
           ...tenantShape,
         },
       },
@@ -214,6 +215,7 @@ export function registerCanonicalReadTools(
             currency: args.currency,
             reference: args.reference,
             description: args.description,
+            createdBefore: args.createdBefore ? new Date(args.createdBefore) : undefined,
           }),
         ),
     );
