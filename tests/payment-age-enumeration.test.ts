@@ -77,6 +77,7 @@ describe('payment enumeration by age', () => {
     );
 
     expect(result.items).toEqual([]);
+    expect(result.hasMore).toBe(false);
   });
 
   it('refuses a cursor issued for a different cutoff', async () => {
@@ -116,13 +117,58 @@ describe('payment enumeration by age', () => {
     ).rejects.toMatchObject({ code: 'COLLECTION_CURSOR_INVALID' });
   });
 
+  it('pages through one cutoff without losing or repeating a payment', async () => {
+    const database = createTestDb();
+    databases.push(database);
+    await migrate(database);
+    const clock = new FakeClock(OLD);
+    const storage = new KnexStorageDriver(database, clock);
+    const payable = createPayable({ providers: {}, storage, clock });
+    const customer = await storage.customers.create(makeCustomer());
+    const created: string[] = [];
+    for (const [providerPaymentId, createdAt] of [
+      ['44', OLD],
+      ['91', new Date('2026-01-02T00:00:00.000Z')],
+    ] as const) {
+      clock.set(createdAt);
+      const payment = await storage.payments.create({
+        tenantId: null,
+        customerId: customer.id,
+        provider: 'trust-my-travel',
+        providerPaymentId,
+        status: 'pending',
+        currency: 'EUR',
+        amount: 9999,
+        refundedAmount: 0,
+        reference: null,
+        description: null,
+      });
+      created.push(payment.id);
+    }
+    const payments = payable.storedPayments();
+
+    const pageOne = await payments.list({ limit: 1, status: 'pending', createdBefore: CUTOFF });
+    expect(pageOne.nextCursor).not.toBeNull();
+    const pageTwo = await payments.list({
+      limit: 1,
+      status: 'pending',
+      createdBefore: CUTOFF,
+      cursor: pageOne.nextCursor ?? '',
+    });
+
+    expect([...pageOne.items, ...pageTwo.items].map((payment) => payment.id)).toEqual([
+      created[1],
+      created[0],
+    ]);
+  });
+
   it('leaves the enumeration unfiltered when no cutoff is given', async () => {
     const { payments, pending } = await fixture(databases);
-    await pending('44', OLD);
-    await pending('91', RECENT);
+    const stuck = await pending('44', OLD);
+    const recent = await pending('91', RECENT);
 
     const result = await page(payments)({ limit: 10, status: 'pending' }, null);
 
-    expect(result.items).toHaveLength(2);
+    expect(result.items.map((payment) => payment.id)).toEqual([recent, stuck]);
   });
 });
