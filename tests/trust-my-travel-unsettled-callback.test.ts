@@ -136,27 +136,24 @@ describe('Trust My Travel unsettled callback reconciliation', () => {
     ['an unavailable provider', 'rest_upstream', 503],
     ['a gateway timeout', 'rest_upstream', 504],
     ['an unnamed upstream status', 'rest_upstream', 599],
-  ])('refuses to confirm a failure from %s', async (_label, code, status) => {
+  ])('verifies but refuses to confirm a failure from %s', async (_label, code, status) => {
+    const warn = vi.fn();
     const fetch = vi.fn<typeof globalThis.fetch>();
-    const provider = new TrustMyTravelProvider({ ...OPTIONS, fetch });
+    const logger = { debug: vi.fn(), info: vi.fn(), warn, error: vi.fn() };
+    const provider = new TrustMyTravelProvider({ ...OPTIONS, fetch, logger });
+    const payload = { code, message: 'the attempt never reached the acquirer', data: { status } };
+    const context = { checkoutSessionId: '23278000' };
 
-    await expect(
-      provider.handleRedirectCallback(
-        { code, message: 'the attempt never reached the acquirer', data: { status } },
-        { checkoutSessionId: '23278000' },
-      ),
-    ).rejects.toMatchObject({
+    expect(provider.verifyCallback(payload, context)).toBe(true);
+    await expect(provider.handleRedirectCallback(payload, context)).rejects.toMatchObject({
       code: 'PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED',
       context: expect.objectContaining({ providerCode: code, providerStatus: status }),
     });
+    expect(warn).toHaveBeenCalledWith(
+      'Trust My Travel did not report a decision on the payment attempt',
+      expect.objectContaining({ providerCode: code, providerStatus: status }),
+    );
     expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it.each([403, 429, 500])('verifies a %i envelope that reconcile refuses', (status) => {
-    const provider = new TrustMyTravelProvider({ ...OPTIONS, fetch: vi.fn() });
-    const payload = { code: 'auth_invalid', message: 'x', data: { status } };
-
-    expect(provider.verifyCallback(payload, { checkoutSessionId: '23278000' })).toBe(true);
   });
 
   it('confirms 402 whatever the provider code carried alongside it', async () => {
@@ -184,7 +181,10 @@ describe('Trust My Travel unsettled callback reconciliation', () => {
 
     await expect(
       provider.handleRedirectCallback(failurePayload, { checkoutSessionId: '23278000' }),
-    ).rejects.toMatchObject({ code: 'PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED' });
+    ).rejects.toMatchObject({
+      code: 'PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED',
+      context: expect.objectContaining({ providerStatus: 402 }),
+    });
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 

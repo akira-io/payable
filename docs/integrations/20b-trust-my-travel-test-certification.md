@@ -51,7 +51,7 @@ is exposed outside the secret manager or protected CI environment.
 | Card vault completion | Blocked | Requires a run-owned browser/test-card transaction and safe cleanup evidence |
 | Retained purchase | Blocked | Requires a vault transaction created by the same certification run |
 | Callback confirmation | Explicitly skipped | Requires a Payment Modal transaction created by the same run |
-| `transaction_error` envelope capture | Blocked | Requires the Payment Modal in a controlled browser; see "Capturing a transaction_error envelope" |
+| `transaction_error` envelope capture | Explicitly skipped | Requires the Payment Modal in a controlled browser; see "Capturing a transaction_error envelope" |
 | Non-terminal states and expiry | Explicitly skipped | The API cannot safely force these states without a run-owned modal transaction |
 | Full and partial refunds | Explicitly skipped | Refunds require a completed transaction created by the same run |
 | Chargebacks | Not automatable | TMG staff apply them manually |
@@ -67,25 +67,29 @@ itself; only then can retained-purchase support with `server_to_server=false` be
 Payable classifies the `transaction_error` envelope on `data.status` alone, and reports `failed`
 only on `402`. That constant is derived from HTTP semantics, not from anything Trust My Travel has
 been observed to send: no captured envelope exists in this repository, and Trust My Travel
-publishes no list of the statuses the Payment Modal emits on this event. Until the capture below is
-recorded, treat the rule in `20a-trust-my-travel.md` as provisional.
+documents when this event fires without publishing the statuses or codes it carries. Until the
+capture below is recorded, treat the rule in `20a-trust-my-travel.md` as provisional.
 
-The automated suite cannot do it. A `transaction_error` is the response to the `POST /transactions`
-the modal makes in the browser, and the certified Test channel requires `server_to_server=false`,
-so the suite cannot make that request itself. The capture is manual, in a controlled browser, and
-records no card data.
+The automated suite cannot do it. A `transaction_error` is the response the modal receives from the
+`POST /transactions` it makes in the browser, with a card tokenized there. The certified Test
+channel requires `server_to_server=false`, so a request the suite sent itself would be refused for
+that reason rather than the one under study, and the envelope would not be the one the modal sees.
+The capture is manual, in a controlled browser, and records no card data.
 
 Two runs, against a run-owned booking on the Test channel:
 
-1. **Does an acquirer decline create a transaction row?** Pay with the 3DS2 challenge card
-   `4200 0000 0000 0042` and select a failing outcome in the challenge dropdown. Record which event
+1. **Does an acquirer decline create a transaction row?** Pay with the 3DS2 challenge card the
+   Payment Modal appendix publishes (`developer.trustmy.group/payment-modal/appendix/`) and select
+   a failing outcome in the challenge dropdown. Record which event
    fires - `transaction_failed` or `transaction_error` - the payload it carries, and
    `GET /bookings/{id}` afterwards, specifically `transaction_ids` and `total_unpaid`. If a decline
    creates a transaction row, `settledNothing` can never confirm one and the `failed` path in
    `reconcileUnsettledAttempt` is unreachable in production.
-2. **What statuses reach `transaction_error`?** Force the documented reproducers: allocations
-   included on an authorize transaction, and a modal instantiated in an environment that does not
-   match the channel's. Record `code` and `data.status` for each.
+2. **What statuses reach `transaction_error`?** Force the two reproducers the modal's
+   troubleshooting page names - allocations included on an authorize transaction, and a modal
+   instantiated in an environment that does not match the channel's. It describes the conditions,
+   not the envelopes they produce, which is what the capture is for. Record `code` and
+   `data.status` for each.
 
 Record the results in this file, then fix or remove the `402` rule accordingly. Sanitize as the
 section below requires: no card numbers, no tokens, no channel or transaction identifiers.

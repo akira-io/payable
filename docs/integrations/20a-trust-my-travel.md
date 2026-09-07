@@ -191,8 +191,11 @@ window.addEventListener('bu-payment:tmt-modal-ready', (event) => {
 });
 ```
 
-`transaction_error` is the one event whose payload cannot be authenticated, so relay it with the
-checkout session as described under "Attempts that never became a transaction".
+`transaction_error` is the only one of these whose payload resolves against nothing: the others
+carry an id that Payable reads back from the authoritative API, and it carries an error envelope
+that names no resource. Relay it to your backend like the rest, and have the backend supply the
+checkout session from its own checkout record, as described under "Attempts that never became a
+transaction".
 
 ## Browser callback relay
 
@@ -288,8 +291,10 @@ callback matched against a payment for a different amount raises
 `REDIRECT_CALLBACK_PAYMENT_MISMATCH` instead of resolving the wrong row.
 
 No booking request is made at all when the status is not `402`. An expired token or a rate limit
-costs one classification, not one API call per relayed error, and every refusal is logged with its
-`code` and status before the error is raised.
+costs one classification, not one API call per relayed error. Both refusals that carry a provider
+`code` are logged with it and the status before the error is raised;
+`PROVIDER_TMT_BOOKING_SCOPE_MISMATCH` and `PROVIDER_TMT_INVALID_CALLBACK` are not logged, and their
+context carries neither.
 
 `PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED` is raised, and nothing is recorded, when:
 
@@ -299,14 +304,17 @@ costs one classification, not one API call per relayed error, and every refusal 
   proves only that nothing was attempted. 5xx means the request failed without a decision, so the
   card may well have been charged and the booking aggregate may not show it yet. Either way the
   attempt is unresolved, not failed.
-- The booking already carries transactions, is partly paid, or does not report both
-  `transaction_ids` and `total_unpaid` as the confirmation needs them.
+- The booking already carries transactions, is partly paid, or does not report
+  `transaction_ids`, an integer `total` and `total_unpaid` as the confirmation needs them.
 - The booking is read but reports a channel or currency outside the configured one. That raises
   `PROVIDER_TMT_BOOKING_SCOPE_MISMATCH`, not this code.
 
-A `checkoutSessionId` that is not a positive decimal integer raises `PROVIDER_TMT_INVALID_CALLBACK`
-instead: without it the envelope has no session to confirm against and is indistinguishable from an
-unsigned callback.
+A `checkoutSessionId` that is not a positive decimal integer never reaches any of those. Without it
+the envelope has no session to confirm against and is indistinguishable from an unsigned callback,
+so `verifyCallback` returns `false` and `receiveRedirectCallback` raises
+`REDIRECT_CALLBACK_INVALID` before the provider is consulted. Calling `handleRedirectCallback`
+directly raises the provider's own `PROVIDER_TMT_INVALID_CALLBACK`; through the documented entry
+point you will see the former.
 
 The two halves of that first bullet carry opposite risks and share one code. A 4xx means nothing
 was attempted; a 5xx means the card may already have been charged. `context.providerStatus` on the
