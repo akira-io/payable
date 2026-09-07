@@ -171,6 +171,7 @@ credentialed('Trust My Travel Test integration', () => {
   });
 
   it.skip('callback confirmation requires a transaction created by this run', () => {});
+  it.skip('transaction_error envelope capture requires the modal in a controlled browser', () => {});
   it.skip('non-terminal and expiry states require a run-owned Payment Modal transaction', () => {});
   it.skip('full and partial refunds require a completed run-owned transaction', () => {});
 });

@@ -83,6 +83,7 @@ describe('Trust My Travel unsettled callback reconciliation', () => {
     await expect(
       provider.handleRedirectCallback(failurePayload, { checkoutSessionId: '23278000' }),
     ).rejects.toMatchObject({ code: 'PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED' });
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it('refuses to report failed when the booking is already partly paid', async () => {
@@ -94,6 +95,7 @@ describe('Trust My Travel unsettled callback reconciliation', () => {
     await expect(
       provider.handleRedirectCallback(failurePayload, { checkoutSessionId: '23278000' }),
     ).rejects.toMatchObject({ code: 'PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED' });
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it('refuses a booking outside the configured channel', async () => {
@@ -150,6 +152,13 @@ describe('Trust My Travel unsettled callback reconciliation', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it.each([403, 429, 500])('verifies a %i envelope that reconcile refuses', (status) => {
+    const provider = new TrustMyTravelProvider({ ...OPTIONS, fetch: vi.fn() });
+    const payload = { code: 'auth_invalid', message: 'x', data: { status } };
+
+    expect(provider.verifyCallback(payload, { checkoutSessionId: '23278000' })).toBe(true);
+  });
+
   it('confirms 402 whatever the provider code carried alongside it', async () => {
     const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(jsonResponse(booking()));
     const provider = new TrustMyTravelProvider({ ...OPTIONS, fetch });
@@ -176,6 +185,7 @@ describe('Trust My Travel unsettled callback reconciliation', () => {
     await expect(
       provider.handleRedirectCallback(failurePayload, { checkoutSessionId: '23278000' }),
     ).rejects.toMatchObject({ code: 'PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED' });
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it('still reconciles a signed callback that arrives with a checkout session', async () => {

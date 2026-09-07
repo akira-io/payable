@@ -104,6 +104,7 @@ export class TrustMyTravelCallbacks {
   }
 
   private unconfirmed(message: string, context: Record<string, unknown>): PayableError {
+    this.logger?.warn(message, { provider: 'trust-my-travel', ...context });
     return new PayableError(message, {
       code: 'PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED',
       context: { provider: 'trust-my-travel', ...context },

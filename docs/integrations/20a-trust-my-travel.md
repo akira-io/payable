@@ -187,8 +187,12 @@ window.addEventListener('bu-payment:tmt-modal-ready', (event) => {
   modal.on('transaction_logged', relayToApplicationBackend);
   modal.on('transaction_failed', relayToApplicationBackend);
   modal.on('transaction_result_available', relayToApplicationBackend);
+  modal.on('transaction_error', relayToApplicationBackend);
 });
 ```
+
+`transaction_error` is the one event whose payload cannot be authenticated, so relay it with the
+checkout session as described under "Attempts that never became a transaction".
 
 ## Browser callback relay
 
@@ -232,10 +236,17 @@ relayed payload is the WordPress REST error envelope and carries neither an `id`
 { "code": "auth_invalid", "message": "Invalid API token", "data": { "status": 403 } }
 ```
 
-An acquirer decision therefore does not normally arrive here at all. That envelope is what an
-expired account token, a rate limit, a wrong channel, a malformed transaction body or an upstream
-outage look like, and none of them mean the card was charged or refused - they mean the charge was
-never attempted.
+An acquirer decision therefore is not what this envelope normally carries. It is what an expired
+account token, a rate limit, a wrong channel, a malformed transaction body or an upstream outage
+look like, and none of them mean the card was charged or refused - they mean the charge was never
+attempted.
+
+Whether a decision can arrive here at all is not settled. It would require the acquirer to refuse
+before Trust My Travel logged a transaction row, since a booking that carries one never confirms a
+failure below. No such envelope has been captured from Trust My Travel, and the statuses the
+Payment Modal emits on this event are not published, so the rule below is deliberately narrow
+rather than derived from observation. `20b-trust-my-travel-test-certification.md` records the
+capture that would settle it.
 
 Nothing in that payload identifies the booking, and nothing in it can be authenticated. Payable
 therefore treats it as a hint, never as a result. Pass the checkout session the callback arrived
@@ -263,19 +274,22 @@ trusting a value the buyer's browser already holds.
 > the session to the request is the consuming application's job, and the booking read below narrows
 > the damage rather than preventing it.
 
-With that context, `verifyCallback` accepts the envelope shape and `handleRedirectCallback` reports
-`failed` only when both of the following hold. First, `data.status` is exactly `402`, the one status
-whose meaning is a payment decision; WordPress REST core never emits it, so a `402` on this route
-can only have been put there by the transaction endpoint itself. Second, the booking read from
-`GET /bookings/{checkoutSessionId}` belongs to the configured channel and currency and still shows
-`transaction_ids: []` and `total_unpaid === total`. The provider code alongside the status is
-logged but never classifies: Trust My Travel publishes no list of the codes the modal emits, so an
-allowlist of them would turn any decline code nobody anticipated into a stuck payment. The result
-carries the booking total as its amount, so a callback matched against a payment for a different
-amount raises `REDIRECT_CALLBACK_PAYMENT_MISMATCH` instead of resolving the wrong row.
+With that context, `verifyCallback` accepts the envelope shape and `handleRedirectCallback` reads
+`GET /bookings/{checkoutSessionId}` only when `data.status` is exactly `402`. That is the one status
+whose meaning is a payment decision, which makes it the only one worth confirming against the
+booking; it says nothing about where the value came from, because the buyer's browser relayed the
+whole envelope and none of it is authenticated. The booking read then decides: it must belong to
+the configured channel and currency, or `PROVIDER_TMT_BOOKING_SCOPE_MISMATCH` is raised, and it
+must still show `transaction_ids: []` and `total_unpaid === total` for the attempt to be reported
+`failed`. The provider code alongside the status is logged but never classifies: Trust My Travel
+publishes no list of the codes the modal emits, so an allowlist of them would turn any decline code
+nobody anticipated into a stuck payment. The result carries the booking total as its amount, so a
+callback matched against a payment for a different amount raises
+`REDIRECT_CALLBACK_PAYMENT_MISMATCH` instead of resolving the wrong row.
 
 No booking request is made at all when the status is not `402`. An expired token or a rate limit
-costs one classification, not one API call per relayed error.
+costs one classification, not one API call per relayed error, and every refusal is logged with its
+`code` and status before the error is raised.
 
 `PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED` is raised, and nothing is recorded, when:
 
@@ -287,7 +301,17 @@ costs one classification, not one API call per relayed error.
   attempt is unresolved, not failed.
 - The booking already carries transactions, is partly paid, or does not report both
   `transaction_ids` and `total_unpaid` as the confirmation needs them.
-- `checkoutSessionId` is not a positive decimal integer.
+- The booking is read but reports a channel or currency outside the configured one. That raises
+  `PROVIDER_TMT_BOOKING_SCOPE_MISMATCH`, not this code.
+
+A `checkoutSessionId` that is not a positive decimal integer raises `PROVIDER_TMT_INVALID_CALLBACK`
+instead: without it the envelope has no session to confirm against and is indistinguishable from an
+unsigned callback.
+
+The two halves of that first bullet carry opposite risks and share one code. A 4xx means nothing
+was attempted; a 5xx means the card may already have been charged. `context.providerStatus` on the
+raised `PayableError` is what tells them apart, and a host that treats them the same will either
+chase settled charges or ignore them.
 
 An unconfirmed attempt is not a failed one. Leave the payment pending and resolve it out of band:
 recurring reconciliation cannot help here, because it is keyed by `providerPaymentId` and an
