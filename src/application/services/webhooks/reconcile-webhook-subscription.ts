@@ -1,9 +1,9 @@
 import { isWebhookCapable } from '../../../domain/contracts/payment-provider.contract';
 import type { SubscriptionPatch } from '../../../domain/contracts/subscription-repository.contract';
 import { reconcileSubscriptionStatus } from '../../../domain/states/subscription-state-machine';
-import type { WebhookReconciliation } from '../../builders/webhook-dependencies';
-import { assertCapableProvider } from '../../services/provider-capabilities/assert-provider-capability';
-import { reconcileProviderSubscriptionItems } from '../../services/subscriptions/reconcile-provider-subscription-items';
+import { assertCapableProvider } from '../provider-capabilities/assert-provider-capability';
+import { reconcileProviderSubscriptionItems } from '../subscriptions/reconcile-provider-subscription-items';
+import type { WebhookReconciliationContext } from './webhook-reconciliation-context';
 
 export async function reconcileWebhookSubscription({
   deps,
@@ -11,7 +11,7 @@ export async function reconcileWebhookSubscription({
   verified,
   occurredAt,
   tenantId,
-}: WebhookReconciliation): Promise<void> {
+}: WebhookReconciliationContext): Promise<void> {
   const { provider, providerName } = deps;
   assertCapableProvider(provider, 'webhooks', isWebhookCapable);
   const dto = provider.reconcileSubscriptionAsync

@@ -7,8 +7,8 @@ import type { WebhookDependencies } from '../../builders/webhook-dependencies';
 import { CatalogPriceReconciler } from '../../services/catalog-sync/catalog-price-reconciler';
 import { CatalogReconciler } from '../../services/catalog-sync/catalog-reconciler';
 import { assertCapableProvider } from '../../services/provider-capabilities/assert-provider-capability';
-import { reconcileWebhookPayment } from './reconcile-webhook-payment';
-import { reconcileWebhookSubscription } from './reconcile-webhook-subscription';
+import { reconcileWebhookPayment } from '../../services/webhooks/reconcile-webhook-payment';
+import { reconcileWebhookSubscription } from '../../services/webhooks/reconcile-webhook-subscription';
 
 export interface ProcessWebhookInput {
   verified: VerifiedWebhook;
@@ -128,9 +128,9 @@ export class ProcessWebhookPipeline {
       return;
     }
     assertCapableProvider(provider, 'webhooks', isWebhookCapable);
-    const reconciliation = { deps: this.deps, repos, verified, occurredAt, tenantId };
-    await reconcileWebhookPayment(reconciliation);
-    await reconcileWebhookSubscription(reconciliation);
+    const context = { deps: this.deps, repos, verified, occurredAt, tenantId };
+    await reconcileWebhookPayment(context);
+    await reconcileWebhookSubscription(context);
   }
 }
 

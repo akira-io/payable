@@ -3,7 +3,7 @@ import {
   isSupersededAuthorization,
   PaymentStateMachine,
 } from '../../../domain/states/payment-state-machine';
-import type { WebhookReconciliation } from '../../builders/webhook-dependencies';
+import type { WebhookReconciliationContext } from './webhook-reconciliation-context';
 
 export async function reconcileWebhookPayment({
   deps,
@@ -11,7 +11,7 @@ export async function reconcileWebhookPayment({
   verified,
   occurredAt,
   tenantId,
-}: WebhookReconciliation): Promise<void> {
+}: WebhookReconciliationContext): Promise<void> {
   const { provider, providerName } = deps;
   if (!isPaymentWebhookCapable(provider)) {
     return;
