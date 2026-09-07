@@ -283,6 +283,13 @@ and the empty object is indistinguishable from noise.
 A booking that is partly paid never confirms a failure, so a deposit-and-balance booking cannot
 report a failed balance through this path.
 
+Passing that booking id to recurring reconciliation instead is refused rather than guessed at, with
+`PROVIDER_TMT_RECONCILIATION_BOOKING_UNSETTLED`. Booking ids and transaction ids are both small
+sequential integers on the same channel, so a booking id reaches a real transaction often enough to
+matter, and that transaction belongs to whichever buyer happens to hold it. A partly paid booking
+makes it worse: the deposit transaction of this very booking is a legitimate transaction of the
+wrong payment. The next section describes what the provider requires to tell the two apart.
+
 ## Recurring transaction reconciliation
 
 Browser callbacks are only hints that a transaction may be ready. They cannot report a customer who
@@ -302,6 +309,7 @@ if (!isRecurringPaymentReconciliationCapable(provider)) {
 
 const result = await provider.reconcilePaymentRecurring({
   providerPaymentId,
+  providerData: { bookingId },
   cursor: await reconciliationStore.load(providerPaymentId),
 });
 
@@ -313,11 +321,49 @@ if (result.outcome === 'retry') {
 }
 ```
 
+`providerData.bookingId` is required, and it is what binds the read to this payment.
+`providerPaymentId` carries no marker of which identifier space it belongs to: a redirect payment
+holds the booking id until a settled result relinks it to the transaction id, and both spaces are
+small sequential integers on the same channel. Two refusals follow from that, both before anything
+is applied to the payment:
+
+- `PROVIDER_TMT_RECONCILIATION_BOOKING_UNSETTLED`, raised before any request, when
+  `providerPaymentId` still equals the booking id. Nothing has settled for this payment, so there is
+  no transaction to read; resolve it through `trustMyTravel.bookings.find(bookingId)` as the
+  callback section describes. This is what stops a stuck payment from adopting the state of whatever
+  transaction happens to carry the booking's number, including the deposit transaction of its own
+  booking.
+- `PROVIDER_TMT_TRANSACTION_BOOKING_MISMATCH`, raised after the read, when the transaction does not
+  list the booking. A response that is not readable at all - no status, or no `bookings` array -
+  raises `PROVIDER_TMT_TRANSACTION_RESPONSE_INVALID` instead, so the mismatch code always means what
+  it says rather than doubling as a parse failure.
+
+A missing `bookingId` raises `PROVIDER_TMT_RECONCILIATION_BOOKING_REQUIRED`, and one that is not a
+positive integer raises `PROVIDER_TMT_BOOKING_ID_INVALID`, the same code the checkout path uses for
+the same mistake. Both are raised before any request.
+
+> **`bookingId` must come from your own payment record.** Resolve it from the checkout you created,
+> never from the request being handled. The provider can only check that the transaction it read
+> settled the booking you named; a `bookingId` taken from a webhook body, a return URL or a
+> re-enqueued job payload lets whoever supplied it choose which booking the payment is bound to, and
+> reopens exactly the confusion this parameter exists to prevent.
+
+Where to find it: for a redirect payment it is the `id` that `createCheckoutSession` returned, which
+is the booking id. For a retained purchase it is the `id` of any element of the
+`providerData.bookings` you charged - proving one booking is enough to prove the transaction is this
+payment's, and a multi-booking purchase does not need all of them. For a payment whose
+`providerPaymentId` now names a capture, void or refund transaction, it is still the booking of the
+original checkout: those transactions carry the same booking allocations forward. Do not take it
+from the `checkoutSessionId` a callback returned - that field carries the linked authorization's
+transaction id whenever the transaction is not itself an authorization.
+
 Persist the returned cursor before scheduling its next execution. The cursor is plain JSON and
 contains the provider payment ID, completed attempt count, next eligible execution time, and last
 observed provider and canonical states. A new process can pass a JSON-round-tripped cursor back to
-the provider without any in-memory state. Calling before `nextAttemptAt`, changing the transaction
-ID, or passing a malformed cursor fails before a network request.
+the provider without any in-memory state, but the cursor does not carry the booking: pass
+`providerData.bookingId` on every invocation, restored from the payment record rather than from the
+cursor. Calling before `nextAttemptAt`, changing the transaction ID, or passing a malformed cursor
+fails before a network request.
 
 The default policy allows 35 GET attempts, starts at one minute, doubles the delay, and caps each
 delay at 24 hours. Override it when constructing the provider:

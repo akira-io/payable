@@ -40,9 +40,15 @@ export class TrustMyTravelReconciliation {
     input: RecurringPaymentReconciliationInput,
   ): Promise<RecurringPaymentReconciliationResult> {
     this.assertInput(input);
+    const bookingId = this.bookingId(input);
+    this.assertSettled(input.providerPaymentId, bookingId);
     const attempt = (input.cursor?.attempt ?? 0) + 1;
     const transaction = await this.find(input.providerPaymentId);
-    if (typeof transaction.status !== 'string' || transaction.status.length === 0) {
+    if (
+      typeof transaction.status !== 'string' ||
+      transaction.status.length === 0 ||
+      !Array.isArray(transaction.bookings)
+    ) {
       throw new PayableError('Trust My Travel transaction response is invalid', {
         code: 'PROVIDER_TMT_TRANSACTION_RESPONSE_INVALID',
         context: { provider: 'trust-my-travel' },
@@ -52,6 +58,12 @@ export class TrustMyTravelReconciliation {
       throw new PayableError('Trust My Travel returned a different transaction', {
         code: 'PROVIDER_TMT_TRANSACTION_ID_MISMATCH',
         context: { provider: 'trust-my-travel' },
+      });
+    }
+    if (!transaction.bookings.some((booking) => String(booking?.id) === String(bookingId))) {
+      throw new PayableError('Trust My Travel transaction does not belong to the payment booking', {
+        code: 'PROVIDER_TMT_TRANSACTION_BOOKING_MISMATCH',
+        context: { provider: 'trust-my-travel', bookingId },
       });
     }
     const status = recurringStatus(transaction.status);
@@ -82,6 +94,37 @@ export class TrustMyTravelReconciliation {
       lastStatus: status,
     };
     return { outcome: 'retry', ...observation, cursor };
+  }
+
+  private bookingId(input: RecurringPaymentReconciliationInput): number {
+    const bookingId = input.providerData?.bookingId;
+    if (bookingId === undefined) {
+      throw new PayableError(
+        'Trust My Travel recurring reconciliation requires the booking the payment belongs to',
+        {
+          code: 'PROVIDER_TMT_RECONCILIATION_BOOKING_REQUIRED',
+          context: { provider: 'trust-my-travel' },
+        },
+      );
+    }
+    if (typeof bookingId !== 'number' || !Number.isSafeInteger(bookingId) || bookingId <= 0) {
+      throw new PayableError('Trust My Travel bookingId must be a positive integer', {
+        code: 'PROVIDER_TMT_BOOKING_ID_INVALID',
+        context: { provider: 'trust-my-travel' },
+      });
+    }
+    return bookingId;
+  }
+
+  private assertSettled(providerPaymentId: string, bookingId: number): void {
+    if (providerPaymentId !== String(bookingId)) return;
+    throw new PayableError(
+      'Trust My Travel payment still carries its booking id, so no transaction has settled for it',
+      {
+        code: 'PROVIDER_TMT_RECONCILIATION_BOOKING_UNSETTLED',
+        context: { provider: 'trust-my-travel', bookingId },
+      },
+    );
   }
 
   private assertInput(input: RecurringPaymentReconciliationInput): void {

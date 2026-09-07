@@ -61,7 +61,12 @@ describe('Trust My Travel recurring reconciliation', () => {
     const { instance } = provider([providerStatus]);
 
     expect(isRecurringPaymentReconciliationCapable(instance)).toBe(true);
-    await expect(instance.reconcilePaymentRecurring({ providerPaymentId: '77' })).resolves.toEqual({
+    await expect(
+      instance.reconcilePaymentRecurring({
+        providerPaymentId: '77',
+        providerData: { bookingId: 44 },
+      }),
+    ).resolves.toEqual({
       outcome: 'terminal',
       providerPaymentId: '77',
       providerStatus,
@@ -86,7 +91,10 @@ describe('Trust My Travel recurring reconciliation', () => {
   ] as const)('keeps %s non-terminal without inventing an outcome', async (providerStatus, status) => {
     const { instance } = provider([providerStatus]);
 
-    const result = await instance.reconcilePaymentRecurring({ providerPaymentId: '77' });
+    const result = await instance.reconcilePaymentRecurring({
+      providerPaymentId: '77',
+      providerData: { bookingId: 44 },
+    });
 
     expect(result).toEqual({
       outcome: 'retry',
@@ -121,7 +129,11 @@ describe('Trust My Travel recurring reconciliation', () => {
     ) as RecurringPaymentReconciliationCursor;
 
     await expect(
-      instance.reconcilePaymentRecurring({ providerPaymentId: '77', cursor }),
+      instance.reconcilePaymentRecurring({
+        providerPaymentId: '77',
+        cursor,
+        providerData: { bookingId: 44 },
+      }),
     ).resolves.toMatchObject({
       outcome: 'retry',
       attempt: 4,
@@ -144,7 +156,11 @@ describe('Trust My Travel recurring reconciliation', () => {
     };
 
     await expect(
-      instance.reconcilePaymentRecurring({ providerPaymentId: '77', cursor }),
+      instance.reconcilePaymentRecurring({
+        providerPaymentId: '77',
+        cursor,
+        providerData: { bookingId: 44 },
+      }),
     ).resolves.toEqual({
       outcome: 'exhausted',
       providerPaymentId: '77',
@@ -166,7 +182,11 @@ describe('Trust My Travel recurring reconciliation', () => {
     };
 
     await expect(
-      instance.reconcilePaymentRecurring({ providerPaymentId: '77', cursor }),
+      instance.reconcilePaymentRecurring({
+        providerPaymentId: '77',
+        cursor,
+        providerData: { bookingId: 44 },
+      }),
     ).rejects.toMatchObject({ code: 'PROVIDER_RECONCILIATION_NOT_DUE' });
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -194,7 +214,11 @@ describe('Trust My Travel recurring reconciliation', () => {
     };
 
     await expect(
-      instance.reconcilePaymentRecurring({ providerPaymentId: '77', cursor }),
+      instance.reconcilePaymentRecurring({
+        providerPaymentId: '77',
+        cursor,
+        providerData: { bookingId: 44 },
+      }),
     ).rejects.toMatchObject({ code: 'PROVIDER_RECONCILIATION_CURSOR_INVALID' });
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -210,7 +234,11 @@ describe('Trust My Travel recurring reconciliation', () => {
     } as unknown as RecurringPaymentReconciliationCursor;
 
     await expect(
-      instance.reconcilePaymentRecurring({ providerPaymentId: '77', cursor }),
+      instance.reconcilePaymentRecurring({
+        providerPaymentId: '77',
+        cursor,
+        providerData: { bookingId: 44 },
+      }),
     ).rejects.toMatchObject({ code: 'PROVIDER_RECONCILIATION_CURSOR_INVALID' });
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -229,7 +257,10 @@ describe('Trust My Travel recurring reconciliation', () => {
     });
 
     await expect(
-      instance.reconcilePaymentRecurring({ providerPaymentId: '77' }),
+      instance.reconcilePaymentRecurring({
+        providerPaymentId: '77',
+        providerData: { bookingId: 44 },
+      }),
     ).rejects.toMatchObject({ code: 'PROVIDER_TMT_TRANSACTION_ID_MISMATCH' });
   });
 
@@ -245,15 +276,24 @@ describe('Trust My Travel recurring reconciliation', () => {
     });
 
     await expect(
-      instance.reconcilePaymentRecurring({ providerPaymentId: '77' }),
+      instance.reconcilePaymentRecurring({
+        providerPaymentId: '77',
+        providerData: { bookingId: 44 },
+      }),
     ).rejects.toMatchObject({ code: 'PROVIDER_UNAVAILABLE' });
   });
 
   it('is stateless and returns the same transition for the same persisted input', async () => {
     const { instance } = provider(['pending', 'pending']);
 
-    const first = await instance.reconcilePaymentRecurring({ providerPaymentId: '77' });
-    const repeated = await instance.reconcilePaymentRecurring({ providerPaymentId: '77' });
+    const first = await instance.reconcilePaymentRecurring({
+      providerPaymentId: '77',
+      providerData: { bookingId: 44 },
+    });
+    const repeated = await instance.reconcilePaymentRecurring({
+      providerPaymentId: '77',
+      providerData: { bookingId: 44 },
+    });
 
     expect(repeated).toEqual(first);
   });
