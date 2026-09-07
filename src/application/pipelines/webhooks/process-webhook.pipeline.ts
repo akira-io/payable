@@ -7,7 +7,7 @@ import type { SubscriptionPatch } from '../../../domain/contracts/subscription-r
 import type { VerifiedWebhook } from '../../../domain/dtos/webhook.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { WebhookProcessedEvent } from '../../../domain/events/webhook-processed.event';
-import { PaymentStateMachine } from '../../../domain/states/payment-state-machine';
+import { isSupersededAuthorization, PaymentStateMachine } from '../../../domain/states';
 import { reconcileSubscriptionStatus } from '../../../domain/states/subscription-state-machine';
 import type { WebhookDependencies } from '../../builders/webhook-dependencies';
 import { CatalogPriceReconciler } from '../../services/catalog-sync/catalog-price-reconciler';
@@ -157,6 +157,9 @@ export class ProcessWebhookPipeline {
       tenantId,
     );
     if (!local) {
+      return;
+    }
+    if (isSupersededAuthorization(local, dto.status)) {
       return;
     }
     const machine = new PaymentStateMachine(local.status);

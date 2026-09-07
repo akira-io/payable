@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { InvalidStateTransitionError } from '../src/domain/errors/invalid-state-transition.error';
 import { InvoiceStateMachine } from '../src/domain/states/invoice-state-machine';
-import { PaymentStateMachine } from '../src/domain/states/payment-state-machine';
+import {
+  isSupersededAuthorization,
+  PaymentStateMachine,
+} from '../src/domain/states/payment-state-machine';
 import {
   RefundStateMachine,
   resolveInitialRefundStatus,
@@ -154,6 +157,23 @@ describe('PaymentStateMachine', () => {
     const machine = new PaymentStateMachine('failed');
     expect(machine.tryTransitionTo('authorized')).toBe(true);
     expect(machine.current()).toBe('authorized');
+  });
+
+  it.each([
+    ['a payment that was never authorized', null, false],
+    ['a payment that had already been authorized', new Date('2026-01-01T00:00:00.000Z'), true],
+  ] as const)('reads an authorization after %s', (_label, authorizedAt, superseded) => {
+    expect(isSupersededAuthorization({ status: 'failed', authorizedAt }, 'authorized')).toBe(
+      superseded,
+    );
+  });
+
+  it('only guards the authorized target out of a failed payment', () => {
+    const authorized = { authorizedAt: new Date('2026-01-01T00:00:00.000Z') };
+    expect(isSupersededAuthorization({ status: 'failed', ...authorized }, 'succeeded')).toBe(false);
+    expect(isSupersededAuthorization({ status: 'pending', ...authorized }, 'authorized')).toBe(
+      false,
+    );
   });
 
   it('treats refunded as terminal', () => {

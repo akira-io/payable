@@ -37,6 +37,13 @@ const EVENT_BY_TARGET: Partial<Record<PaymentStatus, PaymentEvent>> = {
   partially_refunded: 'partially_refund',
 };
 
+export function isSupersededAuthorization(
+  payment: { status: PaymentStatus; authorizedAt: Date | null },
+  target: PaymentStatus,
+): boolean {
+  return target === 'authorized' && payment.status === 'failed' && payment.authorizedAt !== null;
+}
+
 export class PaymentStateMachine {
   constructor(private state: PaymentStatus = 'pending') {}
 

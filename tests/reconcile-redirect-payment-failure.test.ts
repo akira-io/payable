@@ -85,6 +85,37 @@ describe('reconcile redirect payment failure', () => {
     await db.destroy();
   });
 
+  it('refuses a stale authorization for a payment that already failed once authorized', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new UnsettledAttemptProvider();
+    const payable = createPayable({
+      providers: { unsettled: provider },
+      storage: new KnexStorageDriver(db, new FakeClock()),
+    });
+    const session = await payable
+      .customer(billable)
+      .redirectCheckout(Money.of(70000, 'EUR'))
+      .create();
+    const failure = {
+      provider: 'unsettled',
+      checkoutSessionId: session.id,
+      payload: { code: 'transaction_declined', message: 'declined', data: { status: 402 } },
+    };
+
+    provider.retryStatus = 'authorized';
+    await payable.receiveRedirectCallback(failure);
+    provider.retryStatus = 'failed';
+    await payable.receiveRedirectCallback(failure);
+    provider.retryStatus = 'authorized';
+    const stale = await payable.receiveRedirectCallback(failure);
+
+    expect(stale.paymentUpdated).toBe(false);
+    const [payment] = await payable.customer(billable).payments();
+    expect(payment?.status).toBe('failed');
+    await db.destroy();
+  });
+
   it('is idempotent across duplicate failure callbacks', async () => {
     const db = createTestDb();
     await migrate(db);

@@ -5,7 +5,10 @@ import {
 import { PayableError } from '../../../domain/errors/payable-error';
 import { ProviderCapabilityNotSupportedError } from '../../../domain/errors/provider-capability-not-supported.error';
 import { PaymentAuthorizedEvent } from '../../../domain/events/payment-lifecycle.event';
-import { PaymentStateMachine } from '../../../domain/states/payment-state-machine';
+import {
+  isSupersededAuthorization,
+  PaymentStateMachine,
+} from '../../../domain/states/payment-state-machine';
 import { CorrelationId } from '../../../domain/value-objects/correlation-id';
 import { Money } from '../../../domain/value-objects/money';
 import type { BillingDependencies } from '../../builders/billing-dependencies';
@@ -79,6 +82,9 @@ export class ReconcileRedirectPaymentAction {
             actualCurrency: result.amount.currency(),
           },
         });
+      }
+      if (isSupersededAuthorization(fresh, result.status)) {
+        return false;
       }
       const machine = new PaymentStateMachine(fresh.status);
       if (!machine.tryTransitionTo(result.status)) {
