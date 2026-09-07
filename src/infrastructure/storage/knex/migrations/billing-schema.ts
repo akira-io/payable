@@ -211,6 +211,10 @@ export async function createBillingTables(knex: Knex): Promise<void> {
     });
     table.index('customer_id');
     table.index(['tenant_key', 'created_at', 'id'], 'payable_payments_tenant_page_index');
+    table.index(
+      ['tenant_key', 'status', 'created_at', 'id'],
+      'payable_payments_tenant_status_page_index',
+    );
     table.check(
       "tenant_key = COALESCE(tenant_id, '')",
       {},

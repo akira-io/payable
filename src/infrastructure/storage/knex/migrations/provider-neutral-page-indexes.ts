@@ -95,7 +95,7 @@ async function checkConstraintExists(
   throw new Error(`Unsupported database dialect for constraint introspection: ${dialect}`);
 }
 
-async function indexExists(knex: Knex, table: string, index: string): Promise<boolean> {
+export async function indexExists(knex: Knex, table: string, index: string): Promise<boolean> {
   const dialect = (knex.client as { dialect?: string }).dialect;
   if (dialect === 'sqlite3' || dialect === 'better-sqlite3') {
     return Boolean(await knex('sqlite_master').where({ type: 'index', name: index }).first());
