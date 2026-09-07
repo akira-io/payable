@@ -61,6 +61,9 @@ export class KnexPaymentRepository
         searchPattern(query.description),
       ]);
     }
+    if (query.createdBefore) {
+      payments = payments.where('created_at', '<', query.createdBefore.toISOString());
+    }
     if (query.before) {
       const before = query.before;
       const createdAt = before.createdAt.toISOString();

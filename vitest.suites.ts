@@ -9,6 +9,7 @@ export const NEST_SUITES = ['tests/nest.test.ts'];
 export const PRISMA_SUITES = [
   'tests/prisma-contract.test.ts',
   'tests/prisma-provider-neutral-pages.test.ts',
+  'tests/prisma-payment-age-enumeration.test.ts',
   'tests/prisma-canonical-reset.test.ts',
 ];
 

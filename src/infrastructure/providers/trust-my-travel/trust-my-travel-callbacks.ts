@@ -6,6 +6,7 @@ import type {
 import { PayableError } from '../../../domain/errors/payable-error';
 import { trustMyTravelMoney } from './trust-my-travel-amounts';
 import { validateTmtTransactionHash } from './trust-my-travel-authentication';
+import { bookingReference } from './trust-my-travel-booking-settlement';
 import { trustMyTravelPaymentStatus } from './trust-my-travel-payment-status';
 import {
   asyncCallbackPayload,
@@ -29,7 +30,10 @@ export class TrustMyTravelCallbacks {
     if (asyncCallbackPayload(payload)) return true;
     const callback = callbackPayload(payload);
     if (callback) return validateTmtTransactionHash(callback, this.channelSecret);
-    return bookingReference(context) !== null && failureCallbackPayload(payload) !== null;
+    return (
+      bookingReference(context?.checkoutSessionId) !== null &&
+      failureCallbackPayload(payload) !== null
+    );
   }
 
   async reconcile(
@@ -37,7 +41,7 @@ export class TrustMyTravelCallbacks {
     context?: RedirectCallbackContext,
   ): Promise<RedirectCallbackResult> {
     const failure = failureCallbackPayload(payload);
-    const unsettledBookingId = bookingReference(context);
+    const unsettledBookingId = bookingReference(context?.checkoutSessionId);
     if (failure && unsettledBookingId !== null) {
       this.refuseUnsettledAttempt(failure, unsettledBookingId);
     }
@@ -79,11 +83,4 @@ export class TrustMyTravelCallbacks {
       context,
     });
   }
-}
-
-function bookingReference(context: RedirectCallbackContext | undefined): number | null {
-  const checkoutSessionId = context?.checkoutSessionId;
-  if (checkoutSessionId === undefined || !/^[1-9]\d*$/u.test(checkoutSessionId)) return null;
-  const bookingId = Number(checkoutSessionId);
-  return Number.isSafeInteger(bookingId) ? bookingId : null;
 }

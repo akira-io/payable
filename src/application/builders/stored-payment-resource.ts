@@ -34,6 +34,7 @@ export interface ListStoredPaymentsInput {
   currency?: string;
   reference?: string;
   description?: string;
+  createdBefore?: Date;
 }
 
 export interface ListStoredRefundsInput {
@@ -132,6 +133,7 @@ export class StoredPaymentResource {
       currency: normalizeCurrency(input.currency),
       reference: normalizeSearch(input.reference),
       description: normalizeSearch(input.description),
+      createdBefore: input.createdBefore?.toISOString(),
     };
     const context = { resource: 'payments', tenantId, filters };
     const repository = this.repository();
@@ -147,6 +149,7 @@ export class StoredPaymentResource {
         limit: normalizeCollectionLimit(input.limit),
         before: input.cursor ? decodeCollectionCursor(input.cursor, context) : undefined,
         ...filters,
+        createdBefore: input.createdBefore,
       },
       tenantId,
     );

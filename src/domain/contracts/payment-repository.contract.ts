@@ -30,6 +30,7 @@ export interface PaymentListQuery {
   currency?: CurrencyCode;
   reference?: string;
   description?: string;
+  createdBefore?: Date;
 }
 
 export interface PaymentListResult {

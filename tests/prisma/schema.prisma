@@ -486,6 +486,7 @@ model PayablePayment {
   @@unique([tenantKey, id])
   @@index([customerId, createdAt, id])
   @@index([tenantKey, createdAt, id])
+  @@index([tenantKey, status, createdAt, id], map: "payable_payments_tenant_status_page_index")
   @@map("payable_payments")
 }
 

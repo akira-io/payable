@@ -4,6 +4,11 @@ import {
   type ReconcileRedirectPaymentResult,
   type RedirectCallbackInput,
 } from './application/actions/checkout/reconcile-redirect-payment.action';
+import {
+  ReconcileUnsettledCheckoutAction,
+  type ReconcileUnsettledCheckoutInput,
+  type ReconcileUnsettledCheckoutResult,
+} from './application/actions/checkout/reconcile-unsettled-checkout.action';
 import { RefundPaymentAction } from './application/actions/refunds/refund-payment.action';
 import {
   ReceiveTreasuryWebhookAction,
@@ -139,6 +144,13 @@ export class Payable extends ProviderRegistries {
     input: RedirectCallbackInput & { provider?: string },
   ): Promise<ReconcileRedirectPaymentResult> {
     return new ReconcileRedirectPaymentAction(
+      this.factory.billing(input.provider, input.tenantId),
+    ).handle(input);
+  }
+  reconcileUnsettledCheckout(
+    input: ReconcileUnsettledCheckoutInput & { provider?: string },
+  ): Promise<ReconcileUnsettledCheckoutResult> {
+    return new ReconcileUnsettledCheckoutAction(
       this.factory.billing(input.provider, input.tenantId),
     ).handle(input);
   }
