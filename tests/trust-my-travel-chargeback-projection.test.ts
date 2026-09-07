@@ -44,7 +44,10 @@ describe('Trust My Travel chargeback projection', () => {
     });
 
     await expect(
-      instance.reconcilePaymentRecurring({ providerPaymentId: '77' }),
+      instance.reconcilePaymentRecurring({
+        providerPaymentId: '77',
+        providerData: { bookingId: 44 },
+      }),
     ).resolves.toMatchObject({
       outcome: 'retry',
       providerStatus: 'locked',
@@ -72,7 +75,10 @@ describe('Trust My Travel chargeback projection', () => {
       fetch,
     });
 
-    const result = await instance.reconcilePaymentRecurring({ providerPaymentId: '77' });
+    const result = await instance.reconcilePaymentRecurring({
+      providerPaymentId: '77',
+      providerData: { bookingId: 44 },
+    });
     expect(result.providerData).toEqual({ reasonCode: '10.4' });
   });
   it('reports no provider data when every chargeback field is null', async () => {
@@ -90,7 +96,10 @@ describe('Trust My Travel chargeback projection', () => {
       fetch,
     });
 
-    const result = await instance.reconcilePaymentRecurring({ providerPaymentId: '77' });
+    const result = await instance.reconcilePaymentRecurring({
+      providerPaymentId: '77',
+      providerData: { bookingId: 44 },
+    });
     expect(result.providerData).toBeUndefined();
   });
 });

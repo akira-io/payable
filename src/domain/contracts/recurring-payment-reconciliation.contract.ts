@@ -12,6 +12,7 @@ export interface RecurringPaymentReconciliationCursor {
 export interface RecurringPaymentReconciliationInput {
   providerPaymentId: string;
   cursor?: RecurringPaymentReconciliationCursor;
+  providerData?: Record<string, unknown>;
 }
 
 interface RecurringPaymentReconciliationObservation {
