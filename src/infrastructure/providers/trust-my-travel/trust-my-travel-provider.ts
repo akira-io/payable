@@ -108,9 +108,7 @@ export class TrustMyTravelProvider
     );
     this.callbacks = new TrustMyTravelCallbacks(
       this.transactions,
-      this.bookings,
       options.channelSecret,
-      { id: options.channelId, currency: options.currency },
       options.logger,
     );
     this.reconciliation = new TrustMyTravelReconciliation(

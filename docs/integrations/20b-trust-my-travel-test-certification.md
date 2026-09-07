@@ -64,11 +64,12 @@ itself; only then can retained-purchase support with `server_to_server=false` be
 
 ## Capturing a transaction_error envelope
 
-Payable classifies the `transaction_error` envelope on `data.status` alone, and reports `failed`
-only on `402`. That constant is derived from HTTP semantics, not from anything Trust My Travel has
-been observed to send: no captured envelope exists in this repository, and Trust My Travel
-documents when this event fires without publishing the statuses or codes it carries. Until the
-capture below is recorded, treat the rule in `20a-trust-my-travel.md` as provisional.
+Payable never reports a payment outcome from a `transaction_error` envelope: every one of them
+raises `PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED`. That is the conservative rule, chosen because no
+envelope has ever been captured from Trust My Travel into this repository and Trust My Travel
+documents when this event fires without publishing the statuses or codes it carries. The capture
+below would establish whether a decision can reach this event at all. It confirms or relaxes the
+rule; nothing depends on it, and no payment is misreported while it is outstanding.
 
 The automated suite cannot do it. A `transaction_error` is the response the modal receives from the
 `POST /transactions` it makes in the browser, with a card tokenized there. The certified Test
@@ -82,17 +83,19 @@ Two runs, against a run-owned booking on the Test channel:
    Payment Modal appendix publishes (`developer.trustmy.group/payment-modal/appendix/`) and select
    a failing outcome in the challenge dropdown. Record which event
    fires - `transaction_failed` or `transaction_error` - the payload it carries, and
-   `GET /bookings/{id}` afterwards, specifically `transaction_ids` and `total_unpaid`. If a decline
-   creates a transaction row, `settledNothing` can never confirm one and the `failed` path in
-   `reconcileUnsettledAttempt` is unreachable in production.
+   `GET /bookings/{id}` afterwards, specifically `transaction_ids` and `total_unpaid`. A decline
+   that creates a transaction row settles the question: no booking read could ever have confirmed
+   one, and the conservative rule is the only correct one.
 2. **What statuses reach `transaction_error`?** Force the two reproducers the modal's
    troubleshooting page names - allocations included on an authorize transaction, and a modal
    instantiated in an environment that does not match the channel's. It describes the conditions,
    not the envelopes they produce, which is what the capture is for. Record `code` and
    `data.status` for each.
 
-Record the results in this file, then fix or remove the `402` rule accordingly. Sanitize as the
-section below requires: no card numbers, no tokens, no channel or transaction identifiers.
+Record the results in this file. Only run 1 showing a decision that reaches `transaction_error`
+against a booking with no transaction row would justify reporting `failed` from this event again,
+and it would have to name the status that carried it. Sanitize as the section below requires: no
+card numbers, no tokens, no channel or transaction identifiers.
 
 ## Cleanup and evidence
 
