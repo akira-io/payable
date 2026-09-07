@@ -160,20 +160,33 @@ describe('PaymentStateMachine', () => {
   });
 
   it.each([
-    ['a payment that was never authorized', null, false],
-    ['a payment that had already been authorized', new Date('2026-01-01T00:00:00.000Z'), true],
-  ] as const)('reads an authorization after %s', (_label, authorizedAt, superseded) => {
-    expect(isSupersededAuthorization({ status: 'failed', authorizedAt }, 'authorized')).toBe(
-      superseded,
-    );
+    ['a payment that was never authorized', null, 'tx-1', false],
+    ['the same authorization arriving again', new Date('2026-01-01'), 'tx-1', true],
+    ['a different authorization on a retry', new Date('2026-01-01'), 'tx-2', false],
+  ] as const)('reads %s', (_label, authorizedAt, providerPaymentId, superseded) => {
+    expect(
+      isSupersededAuthorization(
+        { status: 'failed', authorizedAt, providerPaymentId: 'tx-1' },
+        { status: 'authorized', providerPaymentId },
+      ),
+    ).toBe(superseded);
   });
 
   it('only guards the authorized target out of a failed payment', () => {
-    const authorized = { authorizedAt: new Date('2026-01-01T00:00:00.000Z') };
-    expect(isSupersededAuthorization({ status: 'failed', ...authorized }, 'succeeded')).toBe(false);
-    expect(isSupersededAuthorization({ status: 'pending', ...authorized }, 'authorized')).toBe(
-      false,
-    );
+    const failed = {
+      status: 'failed',
+      authorizedAt: new Date('2026-01-01'),
+      providerPaymentId: 'tx-1',
+    } as const;
+    expect(
+      isSupersededAuthorization(failed, { status: 'succeeded', providerPaymentId: 'tx-1' }),
+    ).toBe(false);
+    expect(
+      isSupersededAuthorization(
+        { ...failed, status: 'pending' },
+        { status: 'authorized', providerPaymentId: 'tx-1' },
+      ),
+    ).toBe(false);
   });
 
   it('treats refunded as terminal', () => {

@@ -83,7 +83,7 @@ export class ReconcileRedirectPaymentAction {
           },
         });
       }
-      if (isSupersededAuthorization(fresh, result.status)) {
+      if (isSupersededAuthorization(fresh, result)) {
         return false;
       }
       const machine = new PaymentStateMachine(fresh.status);

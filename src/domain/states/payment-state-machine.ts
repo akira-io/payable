@@ -38,10 +38,15 @@ const EVENT_BY_TARGET: Partial<Record<PaymentStatus, PaymentEvent>> = {
 };
 
 export function isSupersededAuthorization(
-  payment: { status: PaymentStatus; authorizedAt: Date | null },
-  target: PaymentStatus,
+  payment: { status: PaymentStatus; authorizedAt: Date | null; providerPaymentId: string | null },
+  incoming: { status: PaymentStatus; providerPaymentId: string },
 ): boolean {
-  return target === 'authorized' && payment.status === 'failed' && payment.authorizedAt !== null;
+  return (
+    incoming.status === 'authorized' &&
+    payment.status === 'failed' &&
+    payment.authorizedAt !== null &&
+    incoming.providerPaymentId === payment.providerPaymentId
+  );
 }
 
 export class PaymentStateMachine {

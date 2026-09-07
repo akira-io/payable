@@ -159,7 +159,7 @@ export class ProcessWebhookPipeline {
     if (!local) {
       return;
     }
-    if (isSupersededAuthorization(local, dto.status)) {
+    if (isSupersededAuthorization(local, dto)) {
       return;
     }
     const machine = new PaymentStateMachine(local.status);

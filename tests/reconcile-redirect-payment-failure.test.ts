@@ -116,6 +116,39 @@ describe('reconcile redirect payment failure', () => {
     await db.destroy();
   });
 
+  it('lets a new authorization recover a payment whose earlier authorization failed', async () => {
+    const db = createTestDb();
+    await migrate(db);
+    const provider = new UnsettledAttemptProvider();
+    const payable = createPayable({
+      providers: { unsettled: provider },
+      storage: new KnexStorageDriver(db, new FakeClock()),
+    });
+    const session = await payable
+      .customer(billable)
+      .redirectCheckout(Money.of(70000, 'EUR'))
+      .create();
+    const callback = {
+      provider: 'unsettled',
+      checkoutSessionId: session.id,
+      payload: { code: 'transaction_declined', message: 'declined', data: { status: 402 } },
+    };
+
+    provider.retryStatus = 'authorized';
+    await payable.receiveRedirectCallback(callback);
+    provider.retryStatus = 'failed';
+    await payable.receiveRedirectCallback(callback);
+
+    provider.retryStatus = 'authorized';
+    provider.providerPaymentId = 'authorization-2';
+    const retry = await payable.receiveRedirectCallback(callback);
+
+    expect(retry.paymentUpdated).toBe(true);
+    const [payment] = await payable.customer(billable).payments();
+    expect(payment).toMatchObject({ status: 'authorized', providerPaymentId: 'authorization-2' });
+    await db.destroy();
+  });
+
   it('is idempotent across duplicate failure callbacks', async () => {
     const db = createTestDb();
     await migrate(db);
@@ -169,6 +202,7 @@ describe('reconcile redirect payment failure', () => {
 class UnsettledAttemptProvider implements PaymentProvider, RedirectCallbackCapable {
   readonly name = 'unsettled';
   retryStatus: 'failed' | 'authorized' = 'failed';
+  providerPaymentId: string | null = null;
 
   capabilities(): ProviderCapabilities {
     return new Set(['checkout']);
@@ -196,7 +230,7 @@ class UnsettledAttemptProvider implements PaymentProvider, RedirectCallbackCapab
     const checkoutSessionId = context?.checkoutSessionId;
     if (checkoutSessionId === undefined) throw new Error('missing checkout session');
     return Promise.resolve({
-      providerPaymentId: checkoutSessionId,
+      providerPaymentId: this.providerPaymentId ?? checkoutSessionId,
       checkoutSessionId,
       status: this.retryStatus,
     });
