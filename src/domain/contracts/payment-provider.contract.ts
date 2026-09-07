@@ -29,7 +29,6 @@ import type {
   UpdateSubscriptionInput,
 } from '../dtos/subscription.dto';
 import type { VerifiedWebhook, WebhookVerificationInput } from '../dtos/webhook.dto';
-import type { Money } from '../value-objects/money';
 import type { PaymentStatus } from '../value-objects/payment-status';
 
 export type {
@@ -48,6 +47,12 @@ export type { ChargeCapable } from './charge-provider.contract';
 export { isChargeCapable } from './charge-provider.contract';
 export type { PaymentMethodSetupConfirmationCapable } from './payment-method-setup-confirmation.contract';
 export { isPaymentMethodSetupConfirmationCapable } from './payment-method-setup-confirmation.contract';
+export type {
+  RedirectCallbackCapable,
+  RedirectCallbackContext,
+  RedirectCallbackResult,
+} from './redirect-callback-provider.contract';
+export { isRedirectCallbackCapable } from './redirect-callback-provider.contract';
 
 export interface ResumeSubscriptionInput {
   providerSubscriptionId: string;
@@ -94,13 +99,6 @@ export interface BillingPortalCapable {
   billingPortal(input: BillingPortalInput, ctx: OperationContext): Promise<BillingPortalDTO>;
 }
 
-export interface RedirectCallbackResult {
-  providerPaymentId: string;
-  checkoutSessionId?: string;
-  status: PaymentStatus;
-  amount?: Money;
-}
-
 export interface PaymentWebhookReconciliation {
   providerPaymentId: string;
   status: PaymentStatus;
@@ -108,11 +106,6 @@ export interface PaymentWebhookReconciliation {
 
 export interface PaymentWebhookCapable {
   reconcilePayment(verified: VerifiedWebhook): PaymentWebhookReconciliation | null;
-}
-
-export interface RedirectCallbackCapable {
-  verifyCallback(payload: Record<string, unknown>): boolean | Promise<boolean>;
-  handleRedirectCallback(payload: Record<string, unknown>): Promise<RedirectCallbackResult>;
 }
 
 export interface DirectSubscriptionCapable {
@@ -204,16 +197,6 @@ export function isBillingPortalCapable(
   provider: PaymentProvider,
 ): provider is PaymentProvider & BillingPortalCapable {
   return typeof (provider as Partial<BillingPortalCapable>).billingPortal === 'function';
-}
-
-export function isRedirectCallbackCapable(
-  provider: PaymentProvider,
-): provider is PaymentProvider & RedirectCallbackCapable {
-  const candidate = provider as Partial<RedirectCallbackCapable>;
-  return (
-    typeof candidate.verifyCallback === 'function' &&
-    typeof candidate.handleRedirectCallback === 'function'
-  );
 }
 
 export function isPaymentWebhookCapable(

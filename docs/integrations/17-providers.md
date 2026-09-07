@@ -52,7 +52,7 @@ guard (duck-typing on method presence). Calling code narrows first, then either 
 | `WebhookCapable` | `verifyWebhook(input)`, `reconcileSubscription(verified)` | `isWebhookCapable(provider)` |
 | `PaymentWebhookCapable` | `reconcilePayment(verified)` | `isPaymentWebhookCapable(provider)` |
 | `BillingPortalCapable` | `billingPortal(input, ctx)` | `isBillingPortalCapable(provider)` |
-| `RedirectCallbackCapable` | `verifyCallback(payload)`, `handleRedirectCallback(payload)` | `isRedirectCallbackCapable(provider)` |
+| `RedirectCallbackCapable` | `verifyCallback(payload, context?)`, `handleRedirectCallback(payload, context?)` | `isRedirectCallbackCapable(provider)` |
 | `ChargeCapable` | `charge(input, ctx)` | `isChargeCapable(provider)` |
 | `AuthorizeCapable` | `authorize(input, ctx)` | `isAuthorizeCapable(provider)` |
 | `CaptureCapable` | `capture(input, ctx)` | `isCaptureCapable(provider)` |
@@ -79,6 +79,9 @@ Notes on the non-obvious members:
 - `PaymentMethodSetupCapable` manages the setup lifecycle independently from charging. Its normalized
   result can expose a client secret, a hosted checkout URL, or the resulting provider payment method
   ID without exposing vendor SDK types.
+- `verifyCallback` reports that a payload is safe to reconcile, not that it is authentic. A provider
+  that accepts an unsigned shape returns `true` on structure alone and establishes the outcome in
+  `handleRedirectCallback`; treat the pair as one step and never authenticate on `verifyCallback`.
 - `RedirectCallbackCapable` models a synchronous browser-POST callback (SISP), not an asynchronous
   signed webhook. `handleRedirectCallback` returns a normalized `{ providerPaymentId, status }` the
   engine uses to reconcile a local payment. See [SISP](20-sisp.md).

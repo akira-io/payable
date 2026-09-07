@@ -22,7 +22,7 @@ const MAP: TransitionMap<PaymentStatus, PaymentEvent> = {
   },
   processing: { authorize: 'authorized', succeed: 'succeeded', fail: 'failed', cancel: 'canceled' },
   authorized: { capture: 'succeeded', void: 'canceled', fail: 'failed' },
-  failed: { process: 'processing', succeed: 'succeeded' },
+  failed: { process: 'processing', authorize: 'authorized', succeed: 'succeeded' },
   succeeded: { refund: 'refunded', partially_refund: 'partially_refunded' },
   partially_refunded: { refund: 'refunded', partially_refund: 'partially_refunded' },
 };
@@ -36,6 +36,18 @@ const EVENT_BY_TARGET: Partial<Record<PaymentStatus, PaymentEvent>> = {
   refunded: 'refund',
   partially_refunded: 'partially_refund',
 };
+
+export function isSupersededAuthorization(
+  payment: { status: PaymentStatus; authorizedAt: Date | null; providerPaymentId: string | null },
+  incoming: { status: PaymentStatus; providerPaymentId: string },
+): boolean {
+  return (
+    incoming.status === 'authorized' &&
+    payment.status === 'failed' &&
+    payment.authorizedAt !== null &&
+    incoming.providerPaymentId === payment.providerPaymentId
+  );
+}
 
 export class PaymentStateMachine {
   constructor(private state: PaymentStatus = 'pending') {}

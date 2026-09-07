@@ -56,3 +56,24 @@ export function positiveInteger(value: string, field: string): number {
   }
   return parsed;
 }
+
+export interface TmtFailureCallbackPayload {
+  code: string;
+  message: string;
+  status: number;
+}
+
+export function failureCallbackPayload(
+  payload: Record<string, unknown>,
+): TmtFailureCallbackPayload | null {
+  const { code, message, data, id, hash, status } = payload;
+  if (id !== undefined || hash !== undefined || status !== undefined) return null;
+  if (typeof code !== 'string' || code.length === 0 || code.length > 191) return null;
+  if (typeof message !== 'string') return null;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const httpStatus = (data as Record<string, unknown>).status;
+  if (!Number.isInteger(httpStatus)) return null;
+  const parsed = httpStatus as number;
+  if (parsed < 400 || parsed > 599) return null;
+  return { code, message, status: parsed };
+}

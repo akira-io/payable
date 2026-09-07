@@ -1,5 +1,4 @@
 import type { Logger } from '../../../domain/contracts/logger.contract';
-import type { RedirectCallbackResult } from '../../../domain/contracts/payment-provider.contract';
 import type {
   CapturePaymentInput,
   CaptureResultDTO,
@@ -9,13 +8,10 @@ import type {
 import type { RefundInput, RefundResultDTO } from '../../../domain/dtos/refund.dto';
 import { PayableError } from '../../../domain/errors/payable-error';
 import { CurrencyManager } from '../../../domain/value-objects/currency';
-import type { PaymentStatus } from '../../../domain/value-objects/payment-status';
 import { trustMyTravelMoney } from './trust-my-travel-amounts';
-import { validateTmtTransactionHash } from './trust-my-travel-authentication';
 import type { TrustMyTravelRequest } from './trust-my-travel-client';
+import { trustMyTravelPaymentStatus } from './trust-my-travel-payment-status';
 import {
-  asyncCallbackPayload,
-  callbackPayload,
   isTransactionBooking,
   positiveInteger,
   refundStatus,
@@ -49,43 +45,9 @@ export interface TmtTransactionBooking {
 export class TrustMyTravelTransactions {
   constructor(
     private readonly request: TrustMyTravelRequest,
-    private readonly channelSecret: string,
     private readonly channel: { id: number; currency: string },
     private readonly logger?: Logger,
   ) {}
-
-  verifyCallback(payload: Record<string, unknown>): boolean {
-    if (asyncCallbackPayload(payload)) return true;
-    const callback = callbackPayload(payload);
-    return callback ? validateTmtTransactionHash(callback, this.channelSecret) : false;
-  }
-
-  async reconcile(payload: Record<string, unknown>): Promise<RedirectCallbackResult> {
-    const callback = callbackPayload(payload) ?? asyncCallbackPayload(payload);
-    if (!callback || !this.verifyCallback(payload)) {
-      throw new PayableError('Trust My Travel callback signature is invalid', {
-        code: 'PROVIDER_TMT_INVALID_CALLBACK',
-        context: { provider: 'trust-my-travel' },
-      });
-    }
-    const transaction = await this.find(callback.id);
-    this.assertTransactionScope(transaction);
-    const bookingId = transaction.bookings[0]?.id;
-    const linkedAuthorizationId =
-      transaction.transaction_types === 'authorize'
-        ? undefined
-        : (transaction.linked_id ?? undefined);
-    return {
-      providerPaymentId: String(transaction.id),
-      ...(linkedAuthorizationId !== undefined
-        ? { checkoutSessionId: String(linkedAuthorizationId) }
-        : bookingId === undefined
-          ? {}
-          : { checkoutSessionId: String(bookingId) }),
-      status: this.paymentStatus(transaction),
-      amount: trustMyTravelMoney(transaction.total, transaction.currencies),
-    };
-  }
 
   async refund(input: RefundInput): Promise<RefundResultDTO> {
     const original = await this.find(input.providerPaymentId);
@@ -151,7 +113,10 @@ export class TrustMyTravelTransactions {
     this.assertTransactionScope(transaction);
     return {
       providerPaymentId: String(transaction.id),
-      status: transaction.status === 'complete' ? 'succeeded' : this.paymentStatus(transaction),
+      status:
+        transaction.status === 'complete'
+          ? 'succeeded'
+          : trustMyTravelPaymentStatus(transaction, this.logger),
       amount: trustMyTravelMoney(transaction.total, transaction.currencies),
     };
   }
@@ -172,7 +137,10 @@ export class TrustMyTravelTransactions {
     this.assertTransactionScope(transaction);
     return {
       providerPaymentId: String(transaction.id),
-      status: transaction.status === 'complete' ? 'canceled' : this.paymentStatus(transaction),
+      status:
+        transaction.status === 'complete'
+          ? 'canceled'
+          : trustMyTravelPaymentStatus(transaction, this.logger),
     };
   }
 
@@ -259,38 +227,5 @@ export class TrustMyTravelTransactions {
         context: { provider: 'trust-my-travel' },
       });
     }
-  }
-
-  private paymentStatus(transaction: TmtTransactionResponse): PaymentStatus {
-    if (transaction.status === 'locked') {
-      throw new PayableError('Trust My Travel transaction is locked', {
-        code: 'PROVIDER_TRANSACTION_LOCKED',
-        context: { provider: 'trust-my-travel', providerPaymentId: transaction.id },
-      });
-    }
-    if (transaction.status === 'incomplete') {
-      throw new PayableError('Trust My Travel transaction result is unknown', {
-        code: 'PROVIDER_RESULT_UNKNOWN',
-        context: { provider: 'trust-my-travel', providerPaymentId: transaction.id },
-      });
-    }
-    if (transaction.status === 'expired') {
-      this.logger?.warn('Trust My Travel transaction expired', {
-        provider: 'trust-my-travel',
-        providerPaymentId: transaction.id,
-        providerStatus: transaction.status,
-      });
-    }
-    if (transaction.status === 'complete') {
-      if (transaction.transaction_types === 'authorize') return 'authorized';
-      if (transaction.transaction_types === 'void') return 'canceled';
-      return 'succeeded';
-    }
-    const statuses: Record<string, PaymentStatus> = {
-      expired: 'failed',
-      failed: 'failed',
-      pending: 'processing',
-    };
-    return statuses[transaction.status] ?? 'pending';
   }
 }

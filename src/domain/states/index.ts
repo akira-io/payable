@@ -1,5 +1,9 @@
 export { type InvoiceEvent, InvoiceStateMachine } from './invoice-state-machine';
-export { type PaymentEvent, PaymentStateMachine } from './payment-state-machine';
+export {
+  isSupersededAuthorization,
+  type PaymentEvent,
+  PaymentStateMachine,
+} from './payment-state-machine';
 export { type RefundEvent, RefundStateMachine } from './refund-state-machine';
 export {
   type SubscriptionPriceMigrationEvent,

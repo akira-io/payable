@@ -218,6 +218,71 @@ TMT statuses map as follows: `complete -> succeeded`, `failed -> failed`, `pendi
 and `expired -> failed`. `locked` throws `PROVIDER_TRANSACTION_LOCKED`; `incomplete` throws
 `PROVIDER_RESULT_UNKNOWN` because neither has an honest canonical payment state.
 
+## Attempts that never became a transaction
+
+`transaction_error` fires when the Payment Modal's `POST /transactions` did not return 201. No
+transaction exists, so the relayed payload is the WordPress REST error envelope and carries neither
+an `id` nor a `hash`:
+
+```json
+{ "code": "auth_invalid", "message": "Invalid API token", "data": { "status": 403 } }
+```
+
+Nothing in that payload identifies the booking, and nothing in it can be authenticated. Payable
+therefore treats it as a hint, never as a result. Pass the checkout session the callback arrived
+for and the provider confirms the outcome against the booking API before reporting anything:
+
+```ts
+const result = await payable.receiveRedirectCallback({
+  provider: 'tmt-eur',
+  checkoutSessionId: providerCheckoutId,
+  payload: modalEventData,
+});
+```
+
+`verifyCallback` returning `true` for this shape is not proof of anything. On the signed path it
+means the hash checked out; here it means only that the envelope is well formed and a session
+accompanies it. What establishes the outcome is the booking read inside `handleRedirectCallback`,
+and a caller that treats `verifyCallback` alone as authentication is trusting a value the buyer's
+browser already holds.
+
+> **`checkoutSessionId` must be derived on the server.** Resolve it from your own checkout record,
+> keyed by whatever secret the browser already proves it holds. It is a Trust My Travel booking id,
+> a small sequential integer, so a caller who supplies it directly can name any booking on the
+> channel, and the modal config already ships it to that browser as `booking_id`. Payable cannot
+> tell a server-derived value from a relayed one: authenticating the callback endpoint and binding
+> the session to the request is the consuming application's job, and the booking read below narrows
+> the damage rather than preventing it.
+
+With that context, `verifyCallback` accepts the envelope shape and `handleRedirectCallback` reads
+`GET /bookings/{checkoutSessionId}`, checks the booking belongs to the configured channel and
+currency, and reports `failed` only when the booking still shows `transaction_ids: []` and
+`total_unpaid === total`. The result carries the booking total as its amount, so a callback matched
+against a payment for a different amount raises `REDIRECT_CALLBACK_PAYMENT_MISMATCH` instead of
+resolving the wrong row.
+
+`PROVIDER_TMT_CALLBACK_FAILURE_UNCONFIRMED` is raised, and nothing is recorded, when:
+
+- `data.status` is 5xx. The request failed without a decision, so the card may well have been
+  charged and the booking aggregate may not show it yet.
+- The booking already carries transactions, is partly paid, or does not report both
+  `transaction_ids` and `total_unpaid` as the confirmation needs them.
+- `checkoutSessionId` is not a positive decimal integer.
+
+An unconfirmed attempt is not a failed one. Leave the payment pending and resolve it out of band:
+recurring reconciliation cannot help here, because it is keyed by `providerPaymentId` and an
+attempt that never settled has no transaction id to give it. A payment whose `providerPaymentId` is
+still the booking id has to be resolved through `trustMyTravel.bookings.find(bookingId)`.
+
+Only the WordPress REST envelope is recognised: a non-empty `code` string, a `message` string and an
+integer `data.status` between 400 and 599, with no `id`, `hash` or top-level `status`. A
+`transaction_timeout` payload (`{ name, message, booking_id }`) and a relayed JavaScript error
+(which serialises to `{}`) are deliberately not recognised - neither states that the attempt failed,
+and the empty object is indistinguishable from noise.
+
+A booking that is partly paid never confirms a failure, so a deposit-and-balance booking cannot
+report a failed balance through this path.
+
 ## Recurring transaction reconciliation
 
 Browser callbacks are only hints that a transaction may be ready. They cannot report a customer who

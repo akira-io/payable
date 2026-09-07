@@ -140,6 +140,57 @@ describe('Trust My Travel callback reconciliation', () => {
     });
   });
 
+  it('rejects a transaction from another channel on the signed path', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      jsonResponse({
+        id: 77,
+        status: 'complete',
+        total: 9999,
+        currencies: 'EUR',
+        channels: 9999,
+        bookings: [{ id: 44, currencies: 'EUR', total: 9999 }],
+      }),
+    );
+    const provider = new TrustMyTravelProvider({ ...OPTIONS, fetch });
+    const payload = {
+      id: 77,
+      status: 'complete',
+      total: 9999,
+      hash: callbackHash(77, 'complete', 9999),
+    };
+
+    await expect(provider.handleRedirectCallback(payload)).rejects.toMatchObject({
+      code: 'PROVIDER_TMT_TRANSACTION_SCOPE_MISMATCH',
+    });
+  });
+
+  it.each([
+    ['void', 'complete', 'canceled'],
+    [undefined, 'refunded', 'pending'],
+  ] as const)('maps a %s transaction reporting %s to %s', async (types, status, expected) => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      jsonResponse({
+        id: 77,
+        status,
+        total: 9999,
+        currencies: 'EUR',
+        channels: 2452,
+        ...(types === undefined ? {} : { transaction_types: types }),
+        bookings: [{ id: 44, currencies: 'EUR', total: 9999 }],
+      }),
+    );
+    const provider = new TrustMyTravelProvider({ ...OPTIONS, fetch });
+
+    await expect(
+      provider.handleRedirectCallback({
+        id: 77,
+        status,
+        total: 9999,
+        hash: callbackHash(77, status, 9999),
+      }),
+    ).resolves.toMatchObject({ status: expected });
+  });
+
   it('rejects an invalid callback hash before calling the API', async () => {
     const fetch = vi.fn<typeof globalThis.fetch>();
     const provider = new TrustMyTravelProvider({ ...OPTIONS, fetch });

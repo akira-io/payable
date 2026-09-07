@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { InvalidStateTransitionError } from '../src/domain/errors/invalid-state-transition.error';
 import { InvoiceStateMachine } from '../src/domain/states/invoice-state-machine';
-import { PaymentStateMachine } from '../src/domain/states/payment-state-machine';
+import {
+  isSupersededAuthorization,
+  PaymentStateMachine,
+} from '../src/domain/states/payment-state-machine';
 import {
   RefundStateMachine,
   resolveInitialRefundStatus,
@@ -148,6 +151,42 @@ describe('PaymentStateMachine', () => {
     expect(machine.partiallyRefund().current()).toBe('partially_refunded');
     expect(machine.partiallyRefund().current()).toBe('partially_refunded');
     expect(machine.refund().current()).toBe('refunded');
+  });
+
+  it('lets a retry authorize after a failed attempt', () => {
+    const machine = new PaymentStateMachine('failed');
+    expect(machine.tryTransitionTo('authorized')).toBe(true);
+    expect(machine.current()).toBe('authorized');
+  });
+
+  it.each([
+    ['a payment that was never authorized', null, 'tx-1', false],
+    ['the same authorization arriving again', new Date('2026-01-01'), 'tx-1', true],
+    ['a different authorization on a retry', new Date('2026-01-01'), 'tx-2', false],
+  ] as const)('reads %s', (_label, authorizedAt, providerPaymentId, superseded) => {
+    expect(
+      isSupersededAuthorization(
+        { status: 'failed', authorizedAt, providerPaymentId: 'tx-1' },
+        { status: 'authorized', providerPaymentId },
+      ),
+    ).toBe(superseded);
+  });
+
+  it('only guards the authorized target out of a failed payment', () => {
+    const failed = {
+      status: 'failed',
+      authorizedAt: new Date('2026-01-01'),
+      providerPaymentId: 'tx-1',
+    } as const;
+    expect(
+      isSupersededAuthorization(failed, { status: 'succeeded', providerPaymentId: 'tx-1' }),
+    ).toBe(false);
+    expect(
+      isSupersededAuthorization(
+        { ...failed, status: 'pending' },
+        { status: 'authorized', providerPaymentId: 'tx-1' },
+      ),
+    ).toBe(false);
   });
 
   it('treats refunded as terminal', () => {

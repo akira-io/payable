@@ -120,7 +120,7 @@ export class RedirectCheckoutBuilder {
     reference: string | null,
   ): void {
     const matchesPendingPayment =
-      existing?.status === 'pending' &&
+      (existing?.status === 'pending' || existing?.status === 'failed') &&
       existing.customerId === customer.id &&
       existing.amount === this.amount.amount() &&
       existing.currency === this.amount.currency() &&
