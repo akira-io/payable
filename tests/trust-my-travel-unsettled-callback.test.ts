@@ -224,6 +224,10 @@ describe('Trust My Travel unsettled callback reconciliation', () => {
     ['data is an array', { code: 'x', message: 'y', data: [402] }],
     ['data.status is a string', { code: 'x', message: 'y', data: { status: '402' } }],
     ['message is not a string', { code: 'x', message: 7, data: { status: 402 } }],
+    [
+      'code is longer than the provider allows',
+      { code: 'x'.repeat(192), message: 'y', data: { status: 402 } },
+    ],
   ])('does not recognise an envelope where %s', async (_label, payload) => {
     const fetch = vi.fn<typeof globalThis.fetch>();
     const provider = new TrustMyTravelProvider({ ...OPTIONS, fetch });

@@ -61,6 +61,21 @@ describe('redirect checkout session reuse', () => {
     await db.destroy();
   });
 
+  it('reopens a checkout whose previous attempt was recorded as failed', async () => {
+    const { db, payable } = await setup();
+    const request = { reference: 'retry-after-failure' };
+    await payable.customer(firstCustomer).redirectCheckout(Money.of(9999, 'EUR')).create(request);
+    const [pending] = await payable.customer(firstCustomer).payments();
+    if (!pending) throw new Error('expected a pending payment');
+    await db('payable_payments').where('id', pending.id).update({ status: 'failed' });
+
+    await expect(
+      payable.customer(firstCustomer).redirectCheckout(Money.of(9999, 'EUR')).create(request),
+    ).resolves.toMatchObject({ id: 'booking-44' });
+    expect(await payable.customer(firstCustomer).payments()).toHaveLength(1);
+    await db.destroy();
+  });
+
   it('rejects reuse by a different customer', async () => {
     const { db, payable } = await setup();
     const request = { reference: 'shared-reference' };

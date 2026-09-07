@@ -48,6 +48,7 @@ describe('reconcile redirect payment failure', () => {
       .run({ resourceType: 'payment', resourceId: payment?.id });
     expect(logs[0]).toMatchObject({
       action: 'payment.reconciled',
+      before: { status: 'pending' },
       after: { status: 'failed' },
     });
     await db.destroy();

@@ -240,12 +240,19 @@ const result = await payable.receiveRedirectCallback({
 });
 ```
 
+`verifyCallback` returning `true` for this shape is not proof of anything. On the signed path it
+means the hash checked out; here it means only that the envelope is well formed and a session
+accompanies it. What establishes the outcome is the booking read inside `handleRedirectCallback`,
+and a caller that treats `verifyCallback` alone as authentication is trusting a value the buyer's
+browser already holds.
+
 > **`checkoutSessionId` must be derived on the server.** Resolve it from your own checkout record,
 > keyed by whatever secret the browser already proves it holds. It is a Trust My Travel booking id,
 > a small sequential integer, so a caller who supplies it directly can name any booking on the
-> channel. Payable cannot tell the two apart: authenticating the callback endpoint and binding the
-> session to the request is the consuming application's job, and the confirmation below narrows the
-> damage rather than preventing it.
+> channel, and the modal config already ships it to that browser as `booking_id`. Payable cannot
+> tell a server-derived value from a relayed one: authenticating the callback endpoint and binding
+> the session to the request is the consuming application's job, and the booking read below narrows
+> the damage rather than preventing it.
 
 With that context, `verifyCallback` accepts the envelope shape and `handleRedirectCallback` reads
 `GET /bookings/{checkoutSessionId}`, checks the booking belongs to the configured channel and

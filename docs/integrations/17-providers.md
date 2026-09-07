@@ -79,6 +79,9 @@ Notes on the non-obvious members:
 - `PaymentMethodSetupCapable` manages the setup lifecycle independently from charging. Its normalized
   result can expose a client secret, a hosted checkout URL, or the resulting provider payment method
   ID without exposing vendor SDK types.
+- `verifyCallback` reports that a payload is safe to reconcile, not that it is authentic. A provider
+  that accepts an unsigned shape returns `true` on structure alone and establishes the outcome in
+  `handleRedirectCallback`; treat the pair as one step and never authenticate on `verifyCallback`.
 - `RedirectCallbackCapable` models a synchronous browser-POST callback (SISP), not an asynchronous
   signed webhook. `handleRedirectCallback` returns a normalized `{ providerPaymentId, status }` the
   engine uses to reconcile a local payment. See [SISP](20-sisp.md).
