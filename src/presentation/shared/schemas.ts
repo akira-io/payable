@@ -118,6 +118,7 @@ export const canonicalPaymentListQuerySchema = canonicalListQuerySchema.extend({
   currency: z.string().min(1).optional(),
   reference: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
+  createdBefore: z.coerce.date().optional(),
 });
 
 export const canonicalRefundListQuerySchema = canonicalListQuerySchema.extend({

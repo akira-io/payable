@@ -61,6 +61,7 @@ export class PrismaPaymentRepository
       query.currency ? { currency: query.currency } : {},
       query.reference ? { reference: this.textSearch(query.reference) } : {},
       query.description ? { description: this.textSearch(query.description) } : {},
+      query.createdBefore ? { createdAt: { lt: query.createdBefore } } : {},
     ];
     if (query.before) {
       filters.push({

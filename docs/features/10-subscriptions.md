@@ -96,7 +96,11 @@ Both lists return `{ items, nextCursor, hasMore }`, default to 25 records, and r
 `canonicalProductId`, and `name`. `canonicalProductId` is the immutable product associated with
 the accepted canonical price; provider identifiers and current catalogue defaults are never used
 to derive it. Payment filters support exact `id`, `customerId`, `status`, and `currency`, plus
-case-insensitive substring searches for `reference` and `description`.
+case-insensitive substring searches for `reference` and `description`, and `createdBefore` for an
+exclusive upper bound on creation time. `createdBefore` is what makes a sweep of payments left
+behind possible: paired with `status: 'pending'` it enumerates the rows that have been waiting
+longer than whatever your application considers reasonable. It is part of the cursor context like
+every other filter, so a cursor issued under one cutoff is rejected under another.
 
 Set `includeBindings: true` on canonical subscription pages to include safe provider binding
 identifiers and synchronization timestamps. Existing `payable.subscriptions(tenantId, options)` and
