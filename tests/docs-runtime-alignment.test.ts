@@ -58,7 +58,6 @@ const documentsEveryConfigKey: MissingDocumentedConfigKey extends never ? true :
 const sispOptions: SispProviderOptions = {
   posId: '90000045',
   posAutCode: 'aut-code',
-  database: { client: 'better-sqlite3', connection: { filename: ':memory:' } },
 };
 
 const builtInProviders = {

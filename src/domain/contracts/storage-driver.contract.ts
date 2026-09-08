@@ -16,6 +16,7 @@ import type { PriceProviderBindingRepository } from './price-provider-binding-re
 import type { PriceRepository } from './price-repository.contract';
 import type { ProductProviderBindingRepository } from './product-provider-binding-repository.contract';
 import type { ProductRepository } from './product-repository.contract';
+import type { RedirectCorrelationRepository } from './redirect-correlation-repository.contract';
 import type { RefundRepository } from './refund-repository.contract';
 import type { SubscriptionItemRepository } from './subscription-item-repository.contract';
 import type { SubscriptionMutationClaimRepository } from './subscription-mutation-claim-repository.contract';
@@ -47,6 +48,7 @@ export interface Repositories {
   readonly invoicePayments?: InvoicePaymentRepository;
   readonly invoiceProviderBindings?: InvoiceProviderBindingRepository;
   readonly payments: PaymentRepository;
+  readonly redirectCorrelations?: RedirectCorrelationRepository;
   readonly refunds: RefundRepository;
   readonly webhookEvents: WebhookEventRepository;
   readonly webhookEndpoints: WebhookEndpointRepository;

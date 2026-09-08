@@ -12,27 +12,56 @@ export type SispHttpResult =
   | { type: 'json'; status: number; data: unknown }
   | { type: 'redirect'; location: string };
 
-export interface SispTransactionRecord {
-  id: number;
-  merchant_ref: string;
-  amount: number;
-  currency: string;
-  status: string;
-  transaction_id: string | null;
+export type SispCallbackPayload = Record<string, unknown>;
+
+export interface SispNormalizedCallbackPayload {
+  readonly merchantRef: string;
+  readonly merchantSession: string;
+  readonly amount: string | number;
+  readonly currency: string;
+  readonly transactionCode: string;
+  readonly transactionID: string | number;
 }
 
-export interface SispRefundBuilder {
-  amount(value: number): SispRefundBuilder;
-  full(): SispRefundBuilder;
-  reason(reason: string): SispRefundBuilder;
-  process(): Promise<SispTransactionRecord>;
+export interface SispCallbackOutcome {
+  readonly verified: boolean;
+  readonly status: string;
+  readonly reason: string | null;
+  readonly payload: SispNormalizedCallbackPayload;
+}
+
+export interface SispPaymentRequest {
+  readonly merchantRef: string;
+  readonly merchantSession: string;
+  readonly amount: number;
+  readonly currency: string;
+  readonly transactionCode: string;
+}
+
+export interface SispExpectedPayment {
+  readonly amount: string | number;
+  readonly currency?: string;
+  readonly transactionCode?: string;
+}
+
+export type SispCorrelationClaim =
+  | { status: 'claimed'; payment: SispExpectedPayment }
+  | { status: 'missing' }
+  | { status: 'already_processed' };
+
+export interface SispPaymentCorrelationStore {
+  record(request: SispPaymentRequest): Promise<void>;
+  claim(merchantRef: string, merchantSession: string): Promise<SispCorrelationClaim>;
+  markProcessed(
+    merchantRef: string,
+    merchantSession: string,
+    outcome: SispCallbackOutcome,
+  ): Promise<void>;
 }
 
 export interface SispDriver {
   paymentEndpoint(): string;
 }
-
-export type SispCallbackPayload = Record<string, unknown>;
 
 export interface SispConfigView {
   generators: { merchantReference(): string };
@@ -42,10 +71,11 @@ export interface SispClient {
   config: SispConfigView;
   handlers: { handlePayment(request: SispHttpRequestInfo): Promise<SispHttpResult> };
   driver(name?: string | null): SispDriver;
-  models: {
-    transactions: { findByRef(merchantRef: string): Promise<SispTransactionRecord | null> };
-  };
-  refund(transaction: SispTransactionRecord): SispRefundBuilder;
-  validateCallback(payload: SispCallbackPayload): boolean;
-  handlePaymentCallback(payload: SispCallbackPayload): Promise<SispTransactionRecord>;
+  validateCallback(payload: SispNormalizedCallbackPayload): boolean;
+  handleCallback(payload: SispNormalizedCallbackPayload): Promise<SispCallbackOutcome>;
+}
+
+export interface SispModule {
+  createStatelessSisp(config: unknown): SispClient;
+  callbackPayloadFrom(data: Record<string, unknown>): SispNormalizedCallbackPayload;
 }

@@ -11,6 +11,7 @@ import type { ContractContext, StorageHarness } from './contract/harness';
 import { registerIdempotencyContract } from './contract/idempotency-contract';
 import { registerLogicalCustomerContract } from './contract/logical-customer-contract';
 import { registerMoneyContract } from './contract/money-contract';
+import { registerRedirectCorrelationContract } from './contract/redirect-correlation-contract';
 import { registerRepositoryCompatibilityContract } from './contract/repository-compatibility-contract';
 import { registerSystemContract } from './contract/system-contract';
 
@@ -45,6 +46,7 @@ export function describeStorageContract(name: string, create: () => Promise<Stor
     registerIdempotencyContract(ctx);
     registerMoneyContract(ctx);
     registerLogicalCustomerContract(ctx);
+    registerRedirectCorrelationContract(ctx);
     registerRepositoryCompatibilityContract(ctx);
     registerSystemContract(ctx);
   });

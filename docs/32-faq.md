@@ -19,6 +19,14 @@ they did not opt into. Every integration is an optional peer dependency - `strip
 `@fastify/rate-limit` - and the bundle check enforces that none of them is statically imported into
 the core entry. You install only the provider, storage, queue, and framework you actually use.
 
+## Does SISP still keep its own database?
+
+No. payable drives `@akira-io/sisp` in stateless mode, so node-sisp persists nothing. The state a
+SISP payment needs lives in payable storage: the ledger in `payable_payments`, and what payable asked
+the gateway for in `payable_redirect_correlations`. That correlation row is what lets a callback be
+checked for replay and for a tampered amount, not just for an authentic fingerprint. See
+[SISP](integrations/20-sisp.md).
+
 ## Does it read environment variables?
 
 No. The library reads no environment variables. You pass every dependency - providers, storage

@@ -16,6 +16,7 @@ import type {
   PriceRepository,
   ProductProviderBindingRepository,
   ProductRepository,
+  RedirectCorrelationRepository,
   RefundRepository,
   SubscriptionItemRepository,
   SubscriptionMutationClaimRepository,
@@ -51,6 +52,7 @@ import { PrismaPriceProviderBindingRepository } from './repositories/prisma-pric
 import { PrismaPriceRepository } from './repositories/prisma-prices.repository';
 import { PrismaProductProviderBindingRepository } from './repositories/prisma-product-provider-bindings.repository';
 import { PrismaProductRepository } from './repositories/prisma-products.repository';
+import { PrismaRedirectCorrelationsRepository } from './repositories/prisma-redirect-correlations.repository';
 import { PrismaRefundRepository } from './repositories/prisma-refunds.repository';
 import { PrismaSubscriptionMutationClaimRepository } from './repositories/prisma-subscription-mutation-claims.repository';
 import { PrismaSubscriptionPriceMigrationRepository } from './repositories/prisma-subscription-price-migrations.repository';
@@ -88,6 +90,7 @@ function buildRepositories(
     invoicePayments: new PrismaInvoicePaymentRepository(client),
     invoiceProviderBindings: new PrismaInvoiceProviderBindingRepository(client, clock),
     payments: new PrismaPaymentRepository(client, clock),
+    redirectCorrelations: new PrismaRedirectCorrelationsRepository(client),
     refunds: new PrismaRefundRepository(client, clock),
     webhookEvents: new PrismaWebhookEventRepository(client, clock, encryption),
     webhookEndpoints: new PrismaWebhookEndpointRepository(client, clock, encryption),
@@ -118,6 +121,7 @@ export class PrismaStorageDriver implements StorageDriver {
   invoicePayments!: InvoicePaymentRepository;
   invoiceProviderBindings!: InvoiceProviderBindingRepository;
   payments!: PaymentRepository;
+  redirectCorrelations!: RedirectCorrelationRepository;
   refunds!: RefundRepository;
   webhookEvents!: WebhookEventRepository;
   webhookEndpoints!: WebhookEndpointRepository;
@@ -176,6 +180,7 @@ export class PrismaStorageDriver implements StorageDriver {
     this.invoiceProviderBindings =
       repositories.invoiceProviderBindings as InvoiceProviderBindingRepository;
     this.payments = repositories.payments;
+    this.redirectCorrelations = repositories.redirectCorrelations as RedirectCorrelationRepository;
     this.refunds = repositories.refunds;
     this.webhookEvents = repositories.webhookEvents;
     this.webhookEndpoints = repositories.webhookEndpoints;

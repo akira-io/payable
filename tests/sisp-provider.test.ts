@@ -7,42 +7,29 @@ import {
   type SispProviderOptions,
 } from '../src/infrastructure/providers/sisp/sisp-provider';
 import type {
-  SispCallbackPayload,
+  SispCallbackOutcome,
   SispClient,
   SispHttpRequestInfo,
-  SispTransactionRecord,
+  SispNormalizedCallbackPayload,
 } from '../src/infrastructure/providers/sisp/sisp-types';
 
 const ctx: OperationContext = { correlationId: 'corr-1', idempotencyKey: 'idem-1' };
 
-const OPTIONS: SispProviderOptions = {
-  posId: '90000045',
-  posAutCode: 'aut-code',
-  database: { client: 'better-sqlite3', connection: { filename: ':memory:' } },
-};
+const OPTIONS: SispProviderOptions = { posId: '90000045', posAutCode: 'aut-code' };
 
 const GATEWAY = 'https://mc.vinti4net.cv/Client_VbV_v2/biz_vbv_clientdata.jsp';
 
-interface RecordedRefund {
-  amount: number | null;
-  full: boolean;
-  reason?: string;
+const passthrough = (payload: Record<string, unknown>) =>
+  payload as unknown as SispNormalizedCallbackPayload;
+
+interface CallbackState {
+  verified: boolean;
+  status: string;
+  reason: string | null;
 }
 
-function fakeSisp() {
-  const calls: {
-    payment?: SispHttpRequestInfo;
-    refund?: RecordedRefund;
-    callback?: SispCallbackPayload;
-  } = {};
-  const base: SispTransactionRecord = {
-    id: 7,
-    merchant_ref: 'R-existing',
-    amount: 1500,
-    currency: 'CVE',
-    status: 'completed',
-    transaction_id: 'TID-1',
-  };
+function fakeSisp(state: CallbackState = { verified: true, status: 'completed', reason: null }) {
+  const calls: { payment?: SispHttpRequestInfo; callback?: SispNormalizedCallbackPayload } = {};
   const client: SispClient = {
     config: { generators: { merchantReference: () => 'R-DEFAULT' } },
     handlers: {
@@ -52,46 +39,23 @@ function fakeSisp() {
       },
     },
     driver: () => ({ paymentEndpoint: () => GATEWAY }),
-    models: {
-      transactions: {
-        findByRef: async (ref) => (ref === 'missing' ? null : { ...base, merchant_ref: ref }),
-      },
-    },
-    refund: (transaction) => {
-      const recorded: RecordedRefund = { amount: null, full: false };
-      const builder = {
-        amount(value: number) {
-          recorded.amount = value;
-          return builder;
-        },
-        full() {
-          recorded.full = true;
-          return builder;
-        },
-        reason(reason: string) {
-          recorded.reason = reason;
-          return builder;
-        },
-        async process() {
-          calls.refund = recorded;
-          return { ...transaction, status: 'refunded' };
-        },
-      };
-      return builder;
-    },
-    validateCallback: (payload) => payload.ok === true,
-    handlePaymentCallback: async (payload) => {
+    validateCallback: (payload) => (payload as unknown as { ok?: boolean }).ok === true,
+    handleCallback: async (payload): Promise<SispCallbackOutcome> => {
       calls.callback = payload;
-      return { ...base, merchant_ref: String(payload.merchantRef ?? 'R-cb') };
+      return { verified: state.verified, status: state.status, reason: state.reason, payload };
     },
   };
-  return { client, calls };
+  return { client, calls, state };
+}
+
+function provider(client: SispClient): SispProvider {
+  return new SispProvider(OPTIONS, client, passthrough);
 }
 
 describe('SispProvider', () => {
   it('advertises only the checkout capability', () => {
     const { client } = fakeSisp();
-    const capabilities = new SispProvider(OPTIONS, client).capabilities();
+    const capabilities = provider(client).capabilities();
     expect(capabilities.has('checkout')).toBe(true);
     expect(capabilities.has('refunds')).toBe(false);
     expect(capabilities.has('subscriptions')).toBe(false);
@@ -101,7 +65,7 @@ describe('SispProvider', () => {
 
   it('derives the merchant reference from the idempotency key so retries collapse', async () => {
     const { client, calls } = fakeSisp();
-    const dto = await new SispProvider(OPTIONS, client).createCheckoutSession(
+    const dto = await provider(client).createCheckoutSession(
       {
         providerCustomerId: 'local-1',
         mode: 'payment',
@@ -126,7 +90,7 @@ describe('SispProvider', () => {
   it('rejects subscription checkout', async () => {
     const { client } = fakeSisp();
     await expect(
-      new SispProvider(OPTIONS, client).createCheckoutSession(
+      provider(client).createCheckoutSession(
         {
           providerCustomerId: 'local-1',
           mode: 'subscription',
@@ -143,7 +107,7 @@ describe('SispProvider', () => {
   it('rejects checkout without an amount', async () => {
     const { client } = fakeSisp();
     await expect(
-      new SispProvider(OPTIONS, client).createCheckoutSession(
+      provider(client).createCheckoutSession(
         {
           providerCustomerId: 'local-1',
           mode: 'payment',
@@ -156,28 +120,44 @@ describe('SispProvider', () => {
     ).rejects.toMatchObject({ code: 'CHECKOUT_AMOUNT_REQUIRED' });
   });
 
-  it('rejects refunds and never touches the gateway or the local transaction', async () => {
-    const { client, calls } = fakeSisp();
+  it('rejects refunds', async () => {
+    const { client } = fakeSisp();
     await expect(
-      new SispProvider(OPTIONS, client).refund({ providerPaymentId: 'R-abc' }, ctx),
+      provider(client).refund({ providerPaymentId: 'R-abc' }, ctx),
     ).rejects.toMatchObject({ code: 'PROVIDER_CAPABILITY_NOT_SUPPORTED' });
-    expect(calls.refund).toBeUndefined();
   });
 
-  it('verifies callbacks and normalizes the processed transaction', async () => {
-    const { client } = fakeSisp();
-    const provider = new SispProvider(OPTIONS, client);
-    expect(await provider.verifyCallback({ ok: true })).toBe(true);
-    expect(await provider.verifyCallback({ ok: false })).toBe(false);
-    const result = await provider.handleRedirectCallback({ ok: true, merchantRef: 'R-cb' });
+  it('maps an authentic approved callback to a succeeded payment', async () => {
+    const { client } = fakeSisp({ verified: true, status: 'completed', reason: null });
+    const result = await provider(client).handleRedirectCallback({ merchantRef: 'R-cb' });
     expect(result).toEqual({ providerPaymentId: 'R-cb', status: 'succeeded' });
   });
 
-  it('rejects an unsigned redirect callback before completing the payment', async () => {
-    const { client, calls } = fakeSisp();
+  it('maps an authentic declined callback to a failed payment rather than an error', async () => {
+    const { client } = fakeSisp({ verified: true, status: 'failed', reason: null });
+    const result = await provider(client).handleRedirectCallback({ merchantRef: 'R-cb' });
+    expect(result).toEqual({ providerPaymentId: 'R-cb', status: 'failed' });
+  });
+
+  it('carries the rejection reason when the callback is not authentic', async () => {
+    const { client } = fakeSisp({
+      verified: false,
+      status: 'pending',
+      reason: 'invalid_callback_fingerprint',
+    });
     await expect(
-      new SispProvider(OPTIONS, client).handleRedirectCallback({ ok: false, merchantRef: 'R-cb' }),
-    ).rejects.toMatchObject({ code: 'PROVIDER_SISP_INVALID_CALLBACK' });
+      provider(client).handleRedirectCallback({ merchantRef: 'R-cb' }),
+    ).rejects.toMatchObject({
+      code: 'PROVIDER_SISP_INVALID_CALLBACK',
+      context: { reason: 'invalid_callback_fingerprint' },
+    });
+  });
+
+  it('verifies a callback fingerprint without consuming the correlation', async () => {
+    const { client, calls } = fakeSisp();
+    const subject = provider(client);
+    expect(await subject.verifyCallback({ ok: true })).toBe(true);
+    expect(await subject.verifyCallback({ ok: false })).toBe(false);
     expect(calls.callback).toBeUndefined();
   });
 
@@ -186,14 +166,13 @@ describe('SispProvider', () => {
     client.validateCallback = () => {
       throw new Error('malformed payload');
     };
-    const provider = new SispProvider(OPTIONS, client);
-    expect(await provider.verifyCallback({ ok: true })).toBe(false);
+    expect(await provider(client).verifyCallback({ ok: true })).toBe(false);
   });
 
   it('never serializes the wrapped client', () => {
     const { client } = fakeSisp();
-    const provider = new SispProvider(OPTIONS, client);
-    expect(provider.toJSON()).toEqual({ name: 'sisp' });
-    expect(JSON.stringify(provider)).toBe('{"name":"sisp"}');
+    const subject = provider(client);
+    expect(subject.toJSON()).toEqual({ name: 'sisp' });
+    expect(JSON.stringify(subject)).toBe('{"name":"sisp"}');
   });
 });

@@ -17,6 +17,7 @@ import type {
   PriceRepository,
   ProductProviderBindingRepository,
   ProductRepository,
+  RedirectCorrelationRepository,
   RefundRepository,
   SubscriptionItemRepository,
   SubscriptionMutationClaimRepository,
@@ -51,6 +52,7 @@ import { KnexPriceRepository } from './repositories/knex-price.repository';
 import { KnexPriceProviderBindingRepository } from './repositories/knex-price-provider-binding.repository';
 import { KnexProductRepository } from './repositories/knex-product.repository';
 import { KnexProductProviderBindingRepository } from './repositories/knex-product-provider-binding.repository';
+import { KnexRedirectCorrelationRepository } from './repositories/knex-redirect-correlation.repository';
 import { KnexRefundRepository } from './repositories/knex-refund.repository';
 import { KnexSubscriptionRepository } from './repositories/knex-subscription.repository';
 import { KnexSubscriptionItemRepository } from './repositories/knex-subscription-item.repository';
@@ -88,6 +90,7 @@ function buildRepositories(
     invoicePayments: new KnexInvoicePaymentRepository(qb),
     invoiceProviderBindings: new KnexInvoiceProviderBindingRepository(qb, clock),
     payments: new KnexPaymentRepository(qb, clock),
+    redirectCorrelations: new KnexRedirectCorrelationRepository(qb),
     refunds: new KnexRefundRepository(qb, clock),
     webhookEvents: new KnexWebhookEventRepository(qb, clock, encryption),
     webhookEndpoints: new KnexWebhookEndpointRepository(qb, clock, encryption),
@@ -118,6 +121,7 @@ export class KnexStorageDriver implements StorageDriver {
   invoicePayments!: InvoicePaymentRepository;
   invoiceProviderBindings!: InvoiceProviderBindingRepository;
   payments!: PaymentRepository;
+  redirectCorrelations!: RedirectCorrelationRepository;
   refunds!: RefundRepository;
   webhookEvents!: WebhookEventRepository;
   webhookEndpoints!: WebhookEndpointRepository;
@@ -176,6 +180,7 @@ export class KnexStorageDriver implements StorageDriver {
     this.invoiceProviderBindings =
       repositories.invoiceProviderBindings as InvoiceProviderBindingRepository;
     this.payments = repositories.payments;
+    this.redirectCorrelations = repositories.redirectCorrelations as RedirectCorrelationRepository;
     this.refunds = repositories.refunds;
     this.webhookEvents = repositories.webhookEvents;
     this.webhookEndpoints = repositories.webhookEndpoints;

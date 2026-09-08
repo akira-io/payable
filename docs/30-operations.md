@@ -101,6 +101,23 @@ Performance Improvements, `refactor` -> Code Refactoring; `docs`, `style`, `test
 - Reprocess a queued webhook job (BullMQ): the job name is `webhook.process`
   (`PROCESS_WEBHOOK_JOB`). BullMQ applies its own attempts/backoff; persistently failing jobs are
   removed per `removeOnFailCount`.
+- Settle a redirect callback that was claimed but never processed. SISP callbacks are handled
+  at-least-once: node-sisp claims the correlation row before recording the outcome, so a process that
+  dies in between leaves a row with `claimed_at` set and `processed_at` null. That callback cannot be
+  replayed - the gateway's next delivery is reported as `callback_replayed` - and the claim does not
+  expire, because an expiring claim would reopen the replay window it exists to close. List the
+  affected rows and settle each one against the gateway:
+
+  ```ts
+  const orphaned = await payable
+    .orphanedRedirectClaims()
+    .run({ provider: 'sisp', olderThanMinutes: 15 });
+  ```
+
+  For each row, ask SISP for the real verdict (`queryTransactionStatus(merchantRef)` on the node-sisp
+  instance) and set the local payment accordingly. `orphanedRedirectClaims()` throws
+  `REDIRECT_CORRELATION_STORAGE_REQUIRED` when the configured storage driver has no
+  `redirectCorrelations` repository.
 
 ---
 

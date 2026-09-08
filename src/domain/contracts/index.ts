@@ -226,6 +226,16 @@ export type {
   RecurringPaymentReconciliationTerminal,
 } from './recurring-payment-reconciliation.contract';
 export { isRecurringPaymentReconciliationCapable } from './recurring-payment-reconciliation.contract';
+export type {
+  ExpectedRedirectPayment,
+  NewRedirectCorrelation,
+  OrphanedRedirectCorrelationQuery,
+  RedirectCorrelation,
+  RedirectCorrelationClaim,
+  RedirectCorrelationKey,
+  RedirectCorrelationOutcome,
+  RedirectCorrelationRepository,
+} from './redirect-correlation-repository.contract';
 export type { NewRefund, RefundRepository } from './refund-repository.contract';
 export type { Repositories, StorageDriver } from './storage-driver.contract';
 export * from './subscription-contracts';

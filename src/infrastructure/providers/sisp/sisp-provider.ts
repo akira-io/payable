@@ -1,4 +1,4 @@
-import type { SispConfig } from '@akira-io/sisp';
+import type { StatelessSispConfig } from '@akira-io/sisp';
 import type {
   PaymentProvider,
   RedirectCallbackCapable,
@@ -19,21 +19,30 @@ import { sispDecimal } from './sisp-amounts';
 import { withSispErrors } from './sisp-errors';
 import { toCheckoutSessionDTO, toPaymentStatus } from './sisp-mappers';
 import { sispMerchantReference } from './sisp-merchant-reference';
-import type { SispCallbackPayload, SispClient, SispHttpRequestInfo } from './sisp-types';
+import type {
+  SispCallbackPayload,
+  SispClient,
+  SispHttpRequestInfo,
+  SispModule,
+  SispNormalizedCallbackPayload,
+} from './sisp-types';
 
-export type SispProviderOptions = SispConfig;
+export type SispProviderOptions = StatelessSispConfig;
 
 export class SispProvider
   implements PaymentProvider, RedirectCallbackCapable, SubscriptionOperationCapabilitiesProvider
 {
   readonly name = 'sisp';
   private client?: SispClient;
+  private normalizePayload?: SispModule['callbackPayloadFrom'];
 
   constructor(
     private readonly options: SispProviderOptions,
     client?: SispClient,
+    normalizePayload?: SispModule['callbackPayloadFrom'],
   ) {
     this.client = client;
+    this.normalizePayload = normalizePayload;
   }
 
   toJSON(): { name: string } {
@@ -95,31 +104,56 @@ export class SispProvider
   async verifyCallback(payload: SispCallbackPayload): Promise<boolean> {
     const client = await this.sisp();
     try {
-      return await client.validateCallback(payload);
+      return client.validateCallback(await this.normalize(payload));
     } catch {
       return false;
     }
   }
 
   async handleRedirectCallback(payload: SispCallbackPayload): Promise<RedirectCallbackResult> {
-    if (!(await this.verifyCallback(payload))) {
-      throw new PayableError('SISP callback signature is invalid', {
+    const client = await this.sisp();
+    const normalized = await this.normalize(payload);
+    const outcome = await withSispErrors(() => client.handleCallback(normalized));
+    if (!outcome.verified) {
+      throw new PayableError('SISP callback did not match the recorded payment', {
         code: 'PROVIDER_SISP_INVALID_CALLBACK',
-        context: { provider: this.name },
+        context: { provider: this.name, reason: outcome.reason },
       });
     }
-    const client = await this.sisp();
-    const record = await withSispErrors(() => client.handlePaymentCallback(payload));
-    return { providerPaymentId: record.merchant_ref, status: toPaymentStatus(record.status) };
+    return {
+      providerPaymentId: outcome.payload.merchantRef,
+      status: toPaymentStatus(outcome.status),
+    };
   }
 
   private async sisp(): Promise<SispClient> {
     if (this.client) {
       return this.client;
     }
-    const { createSisp } = await import('@akira-io/sisp');
-    this.client = (await createSisp(this.options)) as unknown as SispClient;
+    const sisp = await this.module();
+    this.client = sisp.createStatelessSisp(this.resolvedOptions());
     return this.client;
+  }
+
+  private async normalize(payload: SispCallbackPayload): Promise<SispNormalizedCallbackPayload> {
+    if (!this.normalizePayload) {
+      this.normalizePayload = (await this.module()).callbackPayloadFrom;
+    }
+    return this.normalizePayload(payload);
+  }
+
+  private async module(): Promise<SispModule> {
+    return (await import('@akira-io/sisp')) as unknown as SispModule;
+  }
+
+  private resolvedOptions(): SispProviderOptions {
+    return {
+      ...this.options,
+      paymentValidation: {
+        allowClientMerchantIdentifiers: true,
+        ...this.options.paymentValidation,
+      },
+    };
   }
 
   private paymentRequest(body: Record<string, unknown>): SispHttpRequestInfo {

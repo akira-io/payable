@@ -36,7 +36,6 @@ const stripe = () => new StripeProvider({ secretKey: 'sk_test', webhookSecret: '
 const sispOptions: SispProviderOptions = {
   posId: '90000045',
   posAutCode: 'aut-code',
-  database: { client: 'better-sqlite3', connection: { filename: ':memory:' } },
 };
 const paddleDeps = () =>
   ({ provider: paddle(), providerName: 'paddle', clock: new FakeClock() }) as BillingDependencies;
