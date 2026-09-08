@@ -29,6 +29,16 @@ import type {
 
 export type SispProviderOptions = StatelessSispConfig;
 
+export function sispProviderConfig(options: SispProviderOptions): SispProviderOptions {
+  return {
+    ...options,
+    paymentValidation: {
+      allowClientMerchantIdentifiers: true,
+      ...options.paymentValidation,
+    },
+  };
+}
+
 export class SispProvider
   implements PaymentProvider, RedirectCallbackCapable, SubscriptionOperationCapabilitiesProvider
 {
@@ -111,6 +121,12 @@ export class SispProvider
   }
 
   async handleRedirectCallback(payload: SispCallbackPayload): Promise<RedirectCallbackResult> {
+    if (!this.options.correlation) {
+      throw new PayableError('SISP callbacks require a payment correlation store', {
+        code: 'PROVIDER_SISP_CORRELATION_REQUIRED',
+        context: { provider: this.name },
+      });
+    }
     const client = await this.sisp();
     const normalized = await this.normalize(payload);
     const outcome = await withSispErrors(() => client.handleCallback(normalized));
@@ -131,7 +147,7 @@ export class SispProvider
       return this.client;
     }
     const sisp = await this.module();
-    this.client = sisp.createStatelessSisp(this.resolvedOptions());
+    this.client = sisp.createStatelessSisp(sispProviderConfig(this.options));
     return this.client;
   }
 
@@ -144,16 +160,6 @@ export class SispProvider
 
   private async module(): Promise<SispModule> {
     return (await import('@akira-io/sisp')) as unknown as SispModule;
-  }
-
-  private resolvedOptions(): SispProviderOptions {
-    return {
-      ...this.options,
-      paymentValidation: {
-        allowClientMerchantIdentifiers: true,
-        ...this.options.paymentValidation,
-      },
-    };
   }
 
   private paymentRequest(body: Record<string, unknown>): SispHttpRequestInfo {

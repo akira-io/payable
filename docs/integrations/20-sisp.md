@@ -121,9 +121,14 @@ otherwise the provider loads node-sisp's `callbackPayloadFrom` and your hand-mad
 match the field names SISP actually posts:
 
 ```ts
-const sisp = createStatelessSisp(config);
+const sisp = createStatelessSisp(sispProviderConfig(config));
 new SispProvider(config, sisp); // reuse the same instance the node-sisp adapter is mounted on
 ```
+
+Build that instance from `sispProviderConfig(config)`, not from `config` directly. The provider
+normally applies one adjustment of its own before constructing the client (see the caveat on
+client-supplied merchant identifiers below), and an instance built without it rejects every checkout
+with a 422 instead of returning a form.
 
 ## Starting a payment - `redirectCheckout`
 
@@ -151,7 +156,7 @@ What `redirectCheckout(...).create()` does:
 2. Derives the `merchantRef`. When an `idempotencyKey` is present, it is hashed with SHA-256 and the
    reference becomes `R` + the first 14 hex characters upper-cased (`sispMerchantReference`), so the same
    key always yields the same reference. With no idempotency key it falls back to the configured
-   `generators.merchantReference()` (forwarded from node-sisp; override it through `SispConfig`).
+   `generators.merchantReference()` (forwarded from node-sisp; override it through `StatelessSispConfig`).
 3. Calls node-sisp's `handlePayment`, which records the correlation row through the store you
    configured and renders the signed auto-submit form. The `merchantSession` on that row is generated
    by node-sisp, so a retry of the same `merchantRef` is its own row and its own claim.
@@ -207,10 +212,16 @@ unverified one throws `PROVIDER_SISP_INVALID_CALLBACK` with the reason in the er
 | `unknown_transaction` | no correlation row for this `merchantRef` + `merchantSession` pair |
 | `callback_replayed` | that pair was already claimed; the gateway re-delivered |
 | `callback_details_mismatch` | authentic, but the amount, currency, transaction code or POS id is not what payable asked for |
-| `user_cancelled` | the customer abandoned the hosted page |
 
 The same distinction applies to node-sisp's `callback:verified` event, which fires for every authentic
 callback including declines. If you listen to it, branch on `event.status`, never on the event name.
+
+**Cancellations are not reconciled here.** When the customer abandons the hosted page, vinti4 posts
+`UserCancelled` with a body that carries none of the fields a normal callback does. node-sisp handles
+that case in its own HTTP adapter, not in `handleCallback`, so a cancellation reaching
+`receiveRedirectCallback` fails the fingerprint check and the payment stays `pending`. The correlation
+row is never claimed, so it does not appear in the orphan list either. Mount node-sisp's own callback
+route if you need cancellations reconciled.
 
 SISP transaction status maps to `PaymentStatus` as: `completed -> succeeded`, `failed -> failed`,
 `cancelled -> canceled`, `refunded -> refunded`, `pending -> pending`.
@@ -272,9 +283,12 @@ the fingerprint, so passing minor units would double-scale.
   node-sisp instance is configured with `is3DSec: '1'`, `handlePayment` fails for lack of 3D Secure
   fields. For payable's unified `redirectCheckout`, use `is3DSec: '0'`; for full 3D Secure, mount
   node-sisp's own adapter for the payment route.
-- **Rate limiting.** payable has no HTTP request context, so `handlePayment` runs node-sisp's pipeline
-  with an empty IP. If node-sisp rate limiting is enabled, payable-initiated checkouts share the
-  empty-IP bucket. Configure or disable rate limiting on the instance payable wraps.
+- **One payment per merchant reference.** The correlation store refuses a second checkout that reuses
+  a `merchantRef` under a different `merchantSession`, with
+  `PROVIDER_SISP_DUPLICATE_MERCHANT_REFERENCE`. Since the reference is derived from the idempotency
+  key, that means one live form per key. Without this, two forms could be signed for one pending
+  `Payment` and a customer who submitted both would be charged twice with nothing raised. Stateful
+  node-sisp refused the duplicate for the same reason.
 - **Client-supplied merchant identifiers.** node-sisp rejects a `merchantRef` in the request body by
   default (`paymentValidation.allowClientMerchantIdentifiers: false`), because in its own HTTP adapter
   that field arrives from a browser. Here payable *is* the server and derives the reference from the
@@ -286,6 +300,9 @@ the fingerprint, so passing minor units would double-scale.
   `callback_replayed`. The claim deliberately does not expire, because an expiring claim is a replay
   window. Find these rows with `payable.orphanedRedirectClaims().run({ provider: 'sisp' })` and settle
   them against the gateway; see [Operations](../30-operations.md).
+- **Tenancy.** `payableSispCorrelationStore` binds one `tenantId` when it is built, and the provider
+  is registered once. On a multi-tenant deployment, build one provider per tenant, or leave the tenant
+  null and scope reconciliation another way.
 
 ---
 

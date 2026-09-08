@@ -124,6 +124,7 @@ aggregates.
 | `payable_invoices` | `customer_id`, `subscription_id`, `provider`, `provider_invoice_id`, `status`, `currency`, `total`, `amount_paid`, `amount_due` | unique `(provider, provider_invoice_id)`; index `customer_id` |
 | `payable_payments` | `customer_id`, `provider`, `provider_payment_id`, `status`, `currency`, `amount`, `refunded_amount`, `reference` | unique `(provider, provider_payment_id)`; index `customer_id` |
 | `payable_refunds` | `payment_id`, `provider`, `provider_refund_id`, `status`, `currency`, `amount`, `reason` | unique `(provider, provider_refund_id)`; index `payment_id` |
+| `payable_redirect_correlations` | `provider`, `merchant_ref`, `merchant_session`, `tenant_id`, `amount`, `currency`, `transaction_code`, `recorded_at`, `claimed_at`, `processed_at`, `outcome_verified`, `outcome_status`, `outcome_reason` | primary key `(provider, merchant_ref, merchant_session)`; index `payable_redirect_correlations_orphan_index` |
 
 ### Canonical local catalog schema
 
@@ -340,6 +341,14 @@ complete sequence is:
   and active-subscription uniqueness.
 - **Subscription mutation recovery** (`022-subscription-mutation-recovery`) - upgrades opaque direct
   intent and neutral observation storage for exact retained-owner recovery.
+- **Payment authorization lifecycle** (`023-payment-authorization-lifecycle`) - adds captured amount
+  and authorization timestamps to payments.
+- **Payment status page index** (`024-payment-status-page-index`) - adds the tenant, status and age
+  index behind the canonical payment listing.
+- **Redirect correlations** (`025-redirect-correlations`) - creates `payable_redirect_correlations`,
+  which records what a redirect checkout asked the gateway for and whether that callback has been
+  claimed and processed. It is what makes a SISP callback checkable for replay and for a tampered
+  amount. See [SISP](../integrations/20-sisp.md).
 
 Step `009-catalog-tenant-keys` is fail-closed. The mismatch-driven batches revisit rows inserted below
 an earlier batch boundary. The consistency check validates existing rows when it is added and rejects

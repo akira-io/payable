@@ -12,6 +12,8 @@ const KEY: RedirectCorrelationKey = {
   merchantSession: 'S-1',
 };
 
+const ORPHAN_QUERY = { provider: 'sisp', tenantId: null, limit: 10 };
+
 function newCorrelation(overrides: Partial<NewRedirectCorrelation> = {}): NewRedirectCorrelation {
   return {
     ...KEY,
@@ -55,6 +57,18 @@ export function registerRedirectCorrelationContract(ctx: ContractContext): void 
     });
   });
 
+  it('hands the claim to exactly one of several concurrent deliveries', async () => {
+    const correlations = repository(ctx);
+    await correlations.record(newCorrelation());
+
+    const claims = await Promise.all(
+      Array.from({ length: 5 }, () => correlations.claim(KEY, CONTRACT_BASE_TIME)),
+    );
+
+    expect(claims.filter((claim) => claim.status === 'claimed')).toHaveLength(1);
+    expect(claims.filter((claim) => claim.status === 'already_claimed')).toHaveLength(4);
+  });
+
   it('distinguishes an unknown pair from a claimed one', async () => {
     const correlations = repository(ctx);
     await correlations.record(newCorrelation());
@@ -76,6 +90,17 @@ export function registerRedirectCorrelationContract(ctx: ContractContext): void 
     expect(second).toMatchObject({ status: 'claimed', expected: { amount: '20.00' } });
   });
 
+  it('lists every session recorded against one merchant reference', async () => {
+    const correlations = repository(ctx);
+    await correlations.record(newCorrelation());
+    await correlations.record(newCorrelation({ merchantSession: 'S-2' }));
+    await correlations.record(newCorrelation({ merchantRef: 'R-other', merchantSession: 'S-3' }));
+
+    const sessions = await correlations.findSessionsByReference('sisp', 'R-1');
+
+    expect([...sessions].sort()).toEqual(['S-1', 'S-2']);
+  });
+
   it('ignores a duplicate record for the same merchant reference and session', async () => {
     const correlations = repository(ctx);
     await correlations.record(newCorrelation());
@@ -86,13 +111,57 @@ export function registerRedirectCorrelationContract(ctx: ContractContext): void 
     });
   });
 
+  it('marks only the session whose outcome arrived', async () => {
+    const correlations = repository(ctx);
+    const claimedAt = new Date(CONTRACT_BASE_TIME.getTime() - 60_000);
+    await correlations.record(newCorrelation());
+    await correlations.record(newCorrelation({ merchantSession: 'S-2' }));
+    await correlations.claim(KEY, claimedAt);
+    await correlations.claim({ ...KEY, merchantSession: 'S-2' }, claimedAt);
+
+    await correlations.markProcessed(KEY, {
+      verified: true,
+      status: 'completed',
+      reason: null,
+      processedAt: CONTRACT_BASE_TIME,
+    });
+
+    const orphaned = await correlations.findOrphanedClaims({
+      ...ORPHAN_QUERY,
+      claimedBefore: CONTRACT_BASE_TIME,
+    });
+    expect(orphaned.map((claim) => claim.merchantSession)).toEqual(['S-2']);
+  });
+
+  it('records the whole outcome, not only that one arrived', async () => {
+    const correlations = repository(ctx);
+    await correlations.record(newCorrelation());
+    await correlations.claim(KEY, CONTRACT_BASE_TIME);
+    await correlations.markProcessed(KEY, {
+      verified: false,
+      status: 'failed',
+      reason: 'callback_replayed',
+      processedAt: CONTRACT_BASE_TIME,
+    });
+
+    await correlations.record(newCorrelation({ merchantSession: 'S-2' }));
+    await correlations.claim({ ...KEY, merchantSession: 'S-2' }, CONTRACT_BASE_TIME);
+    const [stored] = await correlations.findOrphanedClaims({
+      ...ORPHAN_QUERY,
+      claimedBefore: new Date(CONTRACT_BASE_TIME.getTime() + 1),
+    });
+
+    expect(stored?.merchantSession).toBe('S-2');
+    expect(stored?.outcomeVerified).toBeNull();
+  });
+
   it('lists a claim that was never processed and drops it once the outcome lands', async () => {
     const correlations = repository(ctx);
     const claimedAt = new Date(CONTRACT_BASE_TIME.getTime() - 60_000);
     await correlations.record(newCorrelation());
     await correlations.claim(KEY, claimedAt);
 
-    const query = { provider: 'sisp', claimedBefore: CONTRACT_BASE_TIME, limit: 10 };
+    const query = { ...ORPHAN_QUERY, claimedBefore: CONTRACT_BASE_TIME };
     const orphaned = await correlations.findOrphanedClaims(query);
     expect(orphaned).toHaveLength(1);
     expect(orphaned[0]).toMatchObject({ merchantRef: 'R-1', processedAt: null });
@@ -107,17 +176,75 @@ export function registerRedirectCorrelationContract(ctx: ContractContext): void 
     expect(await correlations.findOrphanedClaims(query)).toEqual([]);
   });
 
-  it('leaves a claim that is younger than the cutoff out of the orphan list', async () => {
+  it('treats the cutoff as exclusive on both sides', async () => {
     const correlations = repository(ctx);
     await correlations.record(newCorrelation());
     await correlations.claim(KEY, CONTRACT_BASE_TIME);
 
+    const atTheCutoff = await correlations.findOrphanedClaims({
+      ...ORPHAN_QUERY,
+      claimedBefore: CONTRACT_BASE_TIME,
+    });
+    const justAfter = await correlations.findOrphanedClaims({
+      ...ORPHAN_QUERY,
+      claimedBefore: new Date(CONTRACT_BASE_TIME.getTime() + 1),
+    });
+
+    expect(atTheCutoff).toEqual([]);
+    expect(justAfter).toHaveLength(1);
+  });
+
+  it('leaves an unclaimed correlation out of the orphan list', async () => {
+    const correlations = repository(ctx);
+    await correlations.record(newCorrelation());
+
     expect(
       await correlations.findOrphanedClaims({
-        provider: 'sisp',
-        claimedBefore: new Date(CONTRACT_BASE_TIME.getTime() - 1),
-        limit: 10,
+        ...ORPHAN_QUERY,
+        claimedBefore: new Date(CONTRACT_BASE_TIME.getTime() + 60_000),
       }),
     ).toEqual([]);
+  });
+
+  it('returns the oldest claims first and honours the limit', async () => {
+    const correlations = repository(ctx);
+    for (const [index, session] of ['S-1', 'S-2', 'S-3'].entries()) {
+      await correlations.record(newCorrelation({ merchantSession: session }));
+      await correlations.claim(
+        { ...KEY, merchantSession: session },
+        new Date(CONTRACT_BASE_TIME.getTime() - (3 - index) * 60_000),
+      );
+    }
+
+    const page = await correlations.findOrphanedClaims({
+      ...ORPHAN_QUERY,
+      claimedBefore: CONTRACT_BASE_TIME,
+      limit: 2,
+    });
+
+    expect(page.map((claim) => claim.merchantSession)).toEqual(['S-1', 'S-2']);
+  });
+
+  it('scopes the orphan list to one tenant', async () => {
+    const correlations = repository(ctx);
+    const claimedAt = new Date(CONTRACT_BASE_TIME.getTime() - 60_000);
+    await correlations.record(newCorrelation({ tenantId: 'tenant-a' }));
+    await correlations.record(
+      newCorrelation({ tenantId: 'tenant-b', merchantRef: 'R-2', merchantSession: 'S-2' }),
+    );
+    await correlations.claim(KEY, claimedAt);
+    await correlations.claim(
+      { provider: 'sisp', merchantRef: 'R-2', merchantSession: 'S-2' },
+      claimedAt,
+    );
+
+    const forTenantA = await correlations.findOrphanedClaims({
+      provider: 'sisp',
+      tenantId: 'tenant-a',
+      claimedBefore: CONTRACT_BASE_TIME,
+      limit: 10,
+    });
+
+    expect(forTenantA.map((claim) => claim.merchantRef)).toEqual(['R-1']);
   });
 }

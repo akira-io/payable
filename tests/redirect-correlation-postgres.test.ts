@@ -4,7 +4,7 @@ import type { RedirectCorrelationKey } from '../src/domain/contracts/redirect-co
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { KnexRedirectCorrelationRepository } from '../src/infrastructure/storage/knex/repositories/knex-redirect-correlation.repository';
 
-const CONNECTION = process.env.PAYABLE_TEST_POSTGRES_URL;
+const CONNECTION = process.env.PAYABLE_POSTGRES_TEST_URL;
 const CONCURRENT_DELIVERIES = 16;
 const KEY: RedirectCorrelationKey = {
   provider: 'sisp',

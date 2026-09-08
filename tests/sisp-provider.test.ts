@@ -12,10 +12,15 @@ import type {
   SispHttpRequestInfo,
   SispNormalizedCallbackPayload,
 } from '../src/infrastructure/providers/sisp/sisp-types';
+import { inertCorrelationStore } from './support/sisp';
 
 const ctx: OperationContext = { correlationId: 'corr-1', idempotencyKey: 'idem-1' };
 
-const OPTIONS: SispProviderOptions = { posId: '90000045', posAutCode: 'aut-code' };
+const OPTIONS: SispProviderOptions = {
+  posId: '90000045',
+  posAutCode: 'aut-code',
+  correlation: inertCorrelationStore(),
+};
 
 const GATEWAY = 'https://mc.vinti4net.cv/Client_VbV_v2/biz_vbv_clientdata.jsp';
 
@@ -167,6 +172,24 @@ describe('SispProvider', () => {
       throw new Error('malformed payload');
     };
     expect(await provider(client).verifyCallback({ ok: true })).toBe(false);
+  });
+
+  it('rejects a gateway response that is not a payment form', async () => {
+    const { client } = fakeSisp();
+    client.handlers.handlePayment = async () => ({ type: 'json', status: 422, data: {} });
+    await expect(
+      provider(client).createCheckoutSession(
+        {
+          providerCustomerId: 'local-1',
+          mode: 'payment',
+          lineItems: [],
+          successUrl: 'https://shop.cv/ok',
+          cancelUrl: 'https://shop.cv/cancel',
+          amount: Money.of(150000, 'CVE'),
+        },
+        ctx,
+      ),
+    ).rejects.toMatchObject({ code: 'PROVIDER_SISP_NO_FORM' });
   });
 
   it('never serializes the wrapped client', () => {

@@ -39,6 +39,13 @@ export function payableSispCorrelationStore(
 
   return {
     async record(request: SispPaymentRequest): Promise<void> {
+      const sessions = await repository.findSessionsByReference(PROVIDER, request.merchantRef);
+      if (sessions.some((session) => session !== request.merchantSession)) {
+        throw new PayableError('This SISP merchant reference already started a payment', {
+          code: 'PROVIDER_SISP_DUPLICATE_MERCHANT_REFERENCE',
+          context: { provider: PROVIDER, merchantRef: request.merchantRef },
+        });
+      }
       await repository.record({
         provider: PROVIDER,
         merchantRef: request.merchantRef,

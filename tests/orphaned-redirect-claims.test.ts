@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createPayable } from '../src/create-payable';
+import { payableSispCorrelationStore } from '../src/infrastructure/providers/sisp/sisp-correlation-store';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { FakeClock } from '../src/support/clock/fake-clock';
@@ -24,13 +25,14 @@ async function recordClaim(
   storage: KnexStorageDriver,
   merchantSession: string,
   claimedAt: Date | null,
+  tenantId: string | null = null,
 ): Promise<void> {
   const correlations = storage.redirectCorrelations;
   await correlations.record({
     provider: 'sisp',
     merchantRef: 'R-1',
     merchantSession,
-    tenantId: null,
+    tenantId,
     amount: '1500.00',
     currency: '132',
     transactionCode: '1',
@@ -69,6 +71,38 @@ describe('orphaned redirect claims', () => {
       payable.orphanedRedirectClaims().run({ provider: 'sisp', olderThanMinutes: 15 }),
     ).resolves.toEqual([]);
     await db.destroy();
+  });
+
+  it('scopes the list to one tenant', async () => {
+    const { db, storage, payable } = await payableWithStorage();
+    const claimedAt = new Date(NOW.getTime() - 30 * 60_000);
+    await recordClaim(storage, 'S-a', claimedAt, 'tenant-a');
+    await recordClaim(storage, 'S-b', claimedAt, 'tenant-b');
+
+    const forTenantA = await payable
+      .orphanedRedirectClaims()
+      .run({ provider: 'sisp', tenantId: 'tenant-a', olderThanMinutes: 15 });
+
+    expect(forTenantA.map((claim) => claim.merchantSession)).toEqual(['S-a']);
+    await db.destroy();
+  });
+
+  it('rejects a query that would scan the future or return nothing', async () => {
+    const { db, payable } = await payableWithStorage();
+
+    expect(() =>
+      payable.orphanedRedirectClaims().run({ provider: 'sisp', olderThanMinutes: -1 }),
+    ).toThrow(expect.objectContaining({ code: 'REDIRECT_CORRELATION_QUERY_INVALID' }));
+    expect(() => payable.orphanedRedirectClaims().run({ provider: 'sisp', limit: 0 })).toThrow(
+      expect.objectContaining({ code: 'REDIRECT_CORRELATION_QUERY_INVALID' }),
+    );
+    await db.destroy();
+  });
+
+  it('refuses to build a SISP correlation store on a driver without the repository', () => {
+    expect(() => payableSispCorrelationStore({})).toThrow(
+      expect.objectContaining({ code: 'PROVIDER_SISP_CORRELATION_STORAGE_MISSING' }),
+    );
   });
 
   it('refuses to run without a storage driver that tracks correlations', async () => {

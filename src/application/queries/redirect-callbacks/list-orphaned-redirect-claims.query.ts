@@ -6,10 +6,12 @@ import type {
 import { PayableError } from '../../../domain/errors/payable-error';
 
 const DEFAULT_LIMIT = 100;
+const MAX_LIMIT = 1000;
 const DEFAULT_OLDER_THAN_MINUTES = 15;
 
 export interface OrphanedRedirectClaimsInput {
   provider: string;
+  tenantId?: string | null;
   olderThanMinutes?: number;
   limit?: number;
 }
@@ -27,11 +29,33 @@ export class ListOrphanedRedirectClaimsQuery {
         code: 'REDIRECT_CORRELATION_STORAGE_REQUIRED',
       });
     }
-    const minutes = input.olderThanMinutes ?? DEFAULT_OLDER_THAN_MINUTES;
     return correlations.findOrphanedClaims({
       provider: input.provider,
-      claimedBefore: new Date(this.clock.now().getTime() - minutes * 60_000),
-      limit: input.limit ?? DEFAULT_LIMIT,
+      tenantId: input.tenantId ?? null,
+      claimedBefore: new Date(this.clock.now().getTime() - this.minutes(input) * 60_000),
+      limit: this.limit(input),
     });
+  }
+
+  private minutes(input: OrphanedRedirectClaimsInput): number {
+    const minutes = input.olderThanMinutes ?? DEFAULT_OLDER_THAN_MINUTES;
+    if (minutes < 0) {
+      throw new PayableError('olderThanMinutes cannot be negative', {
+        code: 'REDIRECT_CORRELATION_QUERY_INVALID',
+        context: { olderThanMinutes: minutes },
+      });
+    }
+    return minutes;
+  }
+
+  private limit(input: OrphanedRedirectClaimsInput): number {
+    const limit = input.limit ?? DEFAULT_LIMIT;
+    if (limit < 1) {
+      throw new PayableError('limit must be at least 1', {
+        code: 'REDIRECT_CORRELATION_QUERY_INVALID',
+        context: { limit },
+      });
+    }
+    return Math.min(limit, MAX_LIMIT);
   }
 }

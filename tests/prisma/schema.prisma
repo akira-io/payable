@@ -506,7 +506,7 @@ model PayableRedirectCorrelation {
   outcomeReason   String?   @map("outcome_reason")
 
   @@id([provider, merchantRef, merchantSession])
-  @@index([provider, claimedAt, processedAt], map: "payable_redirect_correlations_orphan_index")
+  @@index([provider, processedAt, claimedAt], map: "payable_redirect_correlations_orphan_index")
   @@map("payable_redirect_correlations")
 }
 

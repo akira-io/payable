@@ -20,7 +20,7 @@ export async function addRedirectCorrelations(knex: Knex): Promise<void> {
     table.string('outcome_reason').nullable();
     table.primary(['provider', 'merchant_ref', 'merchant_session']);
     table.index(
-      ['provider', 'claimed_at', 'processed_at'],
+      ['provider', 'processed_at', 'claimed_at'],
       'payable_redirect_correlations_orphan_index',
     );
   });

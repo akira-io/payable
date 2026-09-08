@@ -8,6 +8,7 @@ import type {
   RedirectCorrelationOutcome,
   RedirectCorrelationRepository,
 } from '../../../../domain/contracts/redirect-correlation-repository.contract';
+import { PayableError } from '../../../../domain/errors/payable-error';
 import { fromDate, toBool, toDate, toNullableDate } from '../mappers';
 import { isUniqueViolation } from '../unique-violation';
 
@@ -39,6 +40,13 @@ export class KnexRedirectCorrelationRepository implements RedirectCorrelationRep
     }
   }
 
+  async findSessionsByReference(provider: string, merchantRef: string): Promise<string[]> {
+    const rows = (await this.knex(this.table)
+      .where({ provider, merchant_ref: merchantRef })
+      .select('merchant_session')) as Array<{ merchant_session: string }>;
+    return rows.map((row) => row.merchant_session);
+  }
+
   async claim(key: RedirectCorrelationKey, claimedAt: Date): Promise<RedirectCorrelationClaim> {
     const affected = await this.scope(key)
       .whereNull('claimed_at')
@@ -53,6 +61,12 @@ export class KnexRedirectCorrelationRepository implements RedirectCorrelationRep
           transactionCode: row.transactionCode,
         },
       };
+    }
+    if (affected === 1) {
+      throw new PayableError('The redirect correlation vanished while it was being claimed', {
+        code: 'REDIRECT_CORRELATION_CLAIM_LOST',
+        context: { provider: key.provider, merchantRef: key.merchantRef },
+      });
     }
     return row ? { status: 'already_claimed' } : { status: 'missing' };
   }
@@ -73,7 +87,7 @@ export class KnexRedirectCorrelationRepository implements RedirectCorrelationRep
     query: OrphanedRedirectCorrelationQuery,
   ): Promise<RedirectCorrelation[]> {
     const rows = (await this.knex(this.table)
-      .where({ provider: query.provider })
+      .where({ provider: query.provider, tenant_id: query.tenantId })
       .whereNotNull('claimed_at')
       .whereNull('processed_at')
       .where('claimed_at', '<', fromDate(query.claimedBefore) as string)

@@ -114,10 +114,13 @@ Performance Improvements, `refactor` -> Code Refactoring; `docs`, `style`, `test
     .run({ provider: 'sisp', olderThanMinutes: 15 });
   ```
 
-  For each row, ask SISP for the real verdict (`queryTransactionStatus(merchantRef)` on the node-sisp
-  instance) and set the local payment accordingly. `orphanedRedirectClaims()` throws
-  `REDIRECT_CORRELATION_STORAGE_REQUIRED` when the configured storage driver has no
-  `redirectCorrelations` repository.
+  Pass `tenantId` to scope the list; without it the query returns the rows whose tenant is null. For
+  each row, ask SISP for the real verdict and set the local payment accordingly. node-sisp exposes
+  `queryTransactionStatus(merchantRef)`, but `SispProvider` keeps its client private, so build a
+  client for that call with `createStatelessSisp(sispProviderConfig(config))` using the same
+  configuration the provider was given. `run()` throws `REDIRECT_CORRELATION_STORAGE_REQUIRED` when
+  the configured storage driver has no `redirectCorrelations` repository, and
+  `REDIRECT_CORRELATION_QUERY_INVALID` for a negative `olderThanMinutes` or a limit below 1.
 
 ---
 

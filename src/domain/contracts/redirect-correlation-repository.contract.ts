@@ -39,12 +39,14 @@ export interface RedirectCorrelationOutcome {
 
 export interface OrphanedRedirectCorrelationQuery {
   readonly provider: string;
+  readonly tenantId: string | null;
   readonly claimedBefore: Date;
   readonly limit: number;
 }
 
 export interface RedirectCorrelationRepository {
   record(input: NewRedirectCorrelation): Promise<void>;
+  findSessionsByReference(provider: string, merchantRef: string): Promise<string[]>;
   claim(key: RedirectCorrelationKey, claimedAt: Date): Promise<RedirectCorrelationClaim>;
   markProcessed(key: RedirectCorrelationKey, outcome: RedirectCorrelationOutcome): Promise<void>;
   findOrphanedClaims(query: OrphanedRedirectCorrelationQuery): Promise<RedirectCorrelation[]>;

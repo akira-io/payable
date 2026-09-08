@@ -7,6 +7,7 @@ import type {
   RedirectCorrelationOutcome,
   RedirectCorrelationRepository,
 } from '../../../../domain/contracts/redirect-correlation-repository.contract';
+import { PayableError } from '../../../../domain/errors/payable-error';
 import type {
   PrismaClient,
   PrismaDelegate,
@@ -46,6 +47,11 @@ export class PrismaRedirectCorrelationsRepository implements RedirectCorrelation
     }
   }
 
+  async findSessionsByReference(provider: string, merchantRef: string): Promise<string[]> {
+    const rows = await this.delegate.findMany({ where: { provider, merchantRef } });
+    return rows.map((row) => row.merchantSession);
+  }
+
   async claim(key: RedirectCorrelationKey, claimedAt: Date): Promise<RedirectCorrelationClaim> {
     const result = await this.delegate.updateMany({
       where: { ...identity(key), claimedAt: null },
@@ -61,6 +67,12 @@ export class PrismaRedirectCorrelationsRepository implements RedirectCorrelation
           transactionCode: row.transactionCode ?? null,
         },
       };
+    }
+    if (result.count === 1) {
+      throw new PayableError('The redirect correlation vanished while it was being claimed', {
+        code: 'REDIRECT_CORRELATION_CLAIM_LOST',
+        context: { provider: key.provider, merchantRef: key.merchantRef },
+      });
     }
     return row ? { status: 'already_claimed' } : { status: 'missing' };
   }
@@ -86,6 +98,7 @@ export class PrismaRedirectCorrelationsRepository implements RedirectCorrelation
     const rows = await this.delegate.findMany({
       where: {
         provider: query.provider,
+        tenantId: query.tenantId,
         claimedAt: { not: null, lt: query.claimedBefore },
         processedAt: null,
       },

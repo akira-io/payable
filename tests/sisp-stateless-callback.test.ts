@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { OperationContext } from '../src/domain/dtos/common.dto';
 import { Money } from '../src/domain/value-objects/money';
 import { payableSispCorrelationStore } from '../src/infrastructure/providers/sisp/sisp-correlation-store';
+import { sispMerchantReference } from '../src/infrastructure/providers/sisp/sisp-merchant-reference';
 import { SispProvider } from '../src/infrastructure/providers/sisp/sisp-provider';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
@@ -130,6 +131,60 @@ describe('SISP stateless callbacks', () => {
       code: 'PROVIDER_SISP_INVALID_CALLBACK',
       context: { reason: 'unknown_transaction' },
     });
+  });
+
+  it('refuses a second checkout that reuses the merchant reference', async () => {
+    await startCheckout();
+
+    await expect(
+      provider.createCheckoutSession(
+        {
+          providerCustomerId: 'local-1',
+          mode: 'payment',
+          lineItems: [],
+          successUrl: 'https://shop.cv/ok',
+          cancelUrl: 'https://shop.cv/cancel',
+          amount: AMOUNT,
+        },
+        ctx,
+      ),
+    ).rejects.toMatchObject({ code: 'PROVIDER_SISP_DUPLICATE_MERCHANT_REFERENCE' });
+  });
+
+  it('sends the merchant reference payable derived rather than letting node-sisp reject it', async () => {
+    const correlation = await startCheckout();
+    expect(correlation.merchant_ref).toBe(sispMerchantReference('idem-1'));
+  });
+
+  it('refuses to handle a callback when no correlation store is configured', async () => {
+    const bare = new SispProvider(CREDENTIALS as StatelessSispConfig);
+    await expect(
+      bare.handleRedirectCallback({ merchantRespMerchantRef: 'R-1' }),
+    ).rejects.toMatchObject({ code: 'PROVIDER_SISP_CORRELATION_REQUIRED' });
+  });
+
+  it('records the tenant the store was built for', async () => {
+    const db2 = createTestDb();
+    await migrate(db2);
+    const storage = new KnexStorageDriver(db2, new FakeClock());
+    const tenantProvider = new SispProvider({
+      ...CREDENTIALS,
+      correlation: payableSispCorrelationStore(storage, { tenantId: 'tenant-a' }),
+    });
+    await tenantProvider.createCheckoutSession(
+      {
+        providerCustomerId: 'local-1',
+        mode: 'payment',
+        lineItems: [],
+        successUrl: 'https://shop.cv/ok',
+        cancelUrl: 'https://shop.cv/cancel',
+        amount: AMOUNT,
+      },
+      ctx,
+    );
+    const row = (await db2('payable_redirect_correlations').first()) as { tenant_id: string };
+    expect(row.tenant_id).toBe('tenant-a');
+    await db2.destroy();
   });
 
   it('leaves the processed outcome on the correlation row', async () => {

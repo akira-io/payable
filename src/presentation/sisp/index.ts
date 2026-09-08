@@ -6,11 +6,16 @@ export {
 export {
   SispProvider,
   type SispProviderOptions,
+  sispProviderConfig,
 } from '../../infrastructure/providers/sisp/sisp-provider';
 export type {
   SispCallbackOutcome,
   SispCallbackPayload,
   SispClient,
+  SispCorrelationClaim,
+  SispExpectedPayment,
+  SispModule,
   SispNormalizedCallbackPayload,
   SispPaymentCorrelationStore,
+  SispPaymentRequest,
 } from '../../infrastructure/providers/sisp/sisp-types';

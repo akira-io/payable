@@ -25,10 +25,15 @@ import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-stora
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { createTestDb } from './support/knex';
+import { inertCorrelationStore } from './support/sisp';
 
 const billable = { billableType: 'User', billableId: '1', email: 'user@example.com', name: 'User' };
 
-const OPTIONS: SispProviderOptions = { posId: '90000045', posAutCode: 'aut-code' };
+const OPTIONS: SispProviderOptions = {
+  posId: '90000045',
+  posAutCode: 'aut-code',
+  correlation: inertCorrelationStore(),
+};
 
 const passthrough = (payload: Record<string, unknown>) =>
   payload as unknown as SispNormalizedCallbackPayload;
