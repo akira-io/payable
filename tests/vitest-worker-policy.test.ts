@@ -8,4 +8,10 @@ describe('Vitest worker policy', () => {
 
     expect(resolvedConfiguration.test?.maxWorkers).toBe('50%');
   });
+
+  it('allows a test long enough to spawn the Prisma schema push it needs', () => {
+    const resolvedConfiguration = configuration as UserConfig;
+
+    expect(resolvedConfiguration.test?.testTimeout).toBe(20_000);
+  });
 });

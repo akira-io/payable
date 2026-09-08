@@ -20,6 +20,7 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     exclude,
     maxWorkers: '50%',
+    testTimeout: 20_000,
     passWithNoTests: false,
     coverage: {
       provider: 'v8',
