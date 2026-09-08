@@ -37,6 +37,7 @@ describe('migration ledger', () => {
       '022-subscription-mutation-recovery',
       '023-payment-authorization-lifecycle',
       '024-payment-status-page-index',
+      '025-redirect-correlations',
     ]);
     await db.destroy();
   });

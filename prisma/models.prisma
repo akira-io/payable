@@ -481,6 +481,26 @@ model PayablePayment {
   @@map("payable_payments")
 }
 
+model PayableRedirectCorrelation {
+  provider        String
+  merchantRef     String    @map("merchant_ref")
+  merchantSession String    @map("merchant_session")
+  tenantId        String?   @map("tenant_id")
+  amount          String
+  currency        String?
+  transactionCode String?   @map("transaction_code")
+  recordedAt      DateTime  @map("recorded_at")
+  claimedAt       DateTime? @map("claimed_at")
+  processedAt     DateTime? @map("processed_at")
+  outcomeVerified Boolean?  @map("outcome_verified")
+  outcomeStatus   String?   @map("outcome_status")
+  outcomeReason   String?   @map("outcome_reason")
+
+  @@id([provider, merchantRef, merchantSession])
+  @@index([provider, processedAt, claimedAt], map: "payable_redirect_correlations_orphan_index")
+  @@map("payable_redirect_correlations")
+}
+
 model PayableRefund {
   id                String         @id
   tenantId          String?        @map("tenant_id")

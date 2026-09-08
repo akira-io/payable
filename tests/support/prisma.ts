@@ -27,6 +27,7 @@ const TRUNCATE_ORDER = [
   'payableInvoicePayment',
   'payableInvoiceProviderBinding',
   'payableCanonicalInvoice',
+  'payableRedirectCorrelation',
   'payableRefund',
   'payableSubscription',
   'payablePayment',

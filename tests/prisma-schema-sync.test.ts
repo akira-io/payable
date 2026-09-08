@@ -96,6 +96,7 @@ describe('prisma schema sync', () => {
     'PayableInvoicePayment',
     'PayableProduct',
     'PayablePayment',
+    'PayableRedirectCorrelation',
     'PayableRefund',
     'PayableMigrationReport',
     'PayableOutboxEvent',

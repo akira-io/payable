@@ -46,6 +46,7 @@ import { WebhookEventResource } from './application/builders/webhook-event-resou
 import type { ReplayWebhookContext } from './application/policies/can-replay-webhook.policy';
 import { ListAuditLogsQuery } from './application/queries/audit/list-audit-logs.query';
 import { ListAllPaymentsQuery } from './application/queries/payments/list-all-payments.query';
+import { ListOrphanedRedirectClaimsQuery } from './application/queries/redirect-callbacks/list-orphaned-redirect-claims.query';
 import { ListAllSubscriptionsQuery } from './application/queries/subscriptions/list-all-subscriptions.query';
 import {
   DEFAULT_WEBHOOK_DELIVERY_ATTEMPTS,
@@ -254,6 +255,13 @@ export class Payable extends ProviderRegistries {
       });
     }
     return new AuditResource(this.resolved.storage.auditLogs, tenantId ?? null);
+  }
+
+  orphanedRedirectClaims(): ListOrphanedRedirectClaimsQuery {
+    return new ListOrphanedRedirectClaimsQuery(
+      this.resolved.storage?.redirectCorrelations,
+      this.clock(),
+    );
   }
 
   auditLogs(tenantId?: string | null): ListAuditLogsQuery {

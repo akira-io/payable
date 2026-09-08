@@ -26,62 +26,78 @@ package, and surfacing those from the main entry would force **every** payable c
 `@akira-io/sisp` just to type-check. Keeping SISP on its own subpath means:
 
 - Consumers who do not use SISP import only `@akira-io/payable` and never need `@akira-io/sisp`.
-- Consumers who use SISP install `@akira-io/sisp` (an optional peer, `>=1.0.0-beta.1`) and import
+- Consumers who use SISP install `@akira-io/sisp` (an optional peer, `>=1.0.0-beta.5`) and import
   `SispProvider` from `@akira-io/payable/sisp`.
 
 `@akira-io/sisp` is declared in `peerDependenciesMeta` as optional; it is never a hard dependency of
 payable.
 
-## Two-layer model: who stores what
+## One store: payable owns the state
 
-SISP wrapping uses two stores, by design - the same provider-store vs ledger split Stripe and Paddle
-already use, except the SISP "provider store" is self-hosted by you (node-sisp) rather than in the
-provider's cloud.
+payable drives node-sisp in **stateless mode**. node-sisp keeps no database of its own; it signs
+requests, validates fingerprints, and hands the verdict back. Everything durable lives in payable
+storage, so a SISP payment has exactly one source of truth, the same as Stripe and Paddle.
 
-| Layer | Owner | Holds |
-| --- | --- | --- |
-| Protocol store | `node-sisp` (its own knex DB) | fingerprints, gateway transaction id, retry attempts, raw callback payload, 3D Secure data, refund tracking |
-| Canonical ledger | payable storage (`payments`, `customers`) | the normalized `Payment` (amount, status, `providerPaymentId`), the local customer, cross-provider listing |
+| Table | Holds |
+| --- | --- |
+| `payable_payments` | the normalized `Payment` (amount, status, `providerPaymentId`), the local customer, cross-provider listing |
+| `payable_redirect_correlations` | what payable asked the gateway for (`merchant_ref`, `merchant_session`, amount, currency, transaction code) and whether that callback has been claimed and processed |
 
-The two are joined by the **`merchantRef`**: payable stores it as `Payment.providerPaymentId`, and
-node-sisp stores the transaction under the same reference. Overlap is limited to the reference fields
-payable needs for a unified view - not a duplicated source of truth.
+The correlation row is what makes a callback trustworthy. A fingerprint proves the message came from
+SISP; the correlation proves it is *the message payable is waiting for*, carrying the amount payable
+asked for, and that it has not already been processed. Without it, verification degrades to
+fingerprint-only: a replayed callback and a callback with a tampered amount both pass. Gateways
+re-emit callbacks on timeout, so this is not hypothetical.
 
 ## Installation
 
 ```bash
 npm install @akira-io/payable @akira-io/sisp
-# plus a knex driver node-sisp will use, e.g. better-sqlite3 / pg / mysql2
 ```
+
+node-sisp no longer needs a database driver of its own. payable's storage driver carries the
+correlation table, added by the `025-redirect-correlations` migration (knex) or the
+`PayableRedirectCorrelation` model (Prisma).
 
 ## Registering the provider
 
-`SispProvider` takes the full `SispConfig` (the same object `@akira-io/sisp`'s `createSisp` accepts), so
-**every** SISP setting is available and configurable - nothing is decided by payable. On first use the
-provider lazily calls `createSisp(config)` and reuses the instance.
+`SispProvider` takes the full `StatelessSispConfig` (the same object `@akira-io/sisp`'s
+`createStatelessSisp` accepts), so **every** SISP setting is available and configurable. On first use
+the provider lazily calls `createStatelessSisp(config)` and reuses the instance.
+
+The one setting you must supply is `correlation`. `payableSispCorrelationStore(storage)` implements
+node-sisp's `PaymentCorrelationStore` over payable's own tables:
 
 ```ts
 import { createPayable } from '@akira-io/payable';
-import { SispProvider } from '@akira-io/payable/sisp';
+import { SispProvider, payableSispCorrelationStore } from '@akira-io/payable/sisp';
 
 const payable = createPayable({
   providers: {
     sisp: new SispProvider({
       posId: process.env.SISP_POS_ID!,
       posAutCode: process.env.SISP_POS_AUT_CODE!,
-      database: { client: 'better-sqlite3', connection: { filename: './sisp.db' }, autoMigrate: true },
+      correlation: payableSispCorrelationStore(storage),
       currency: '132',                 // CVE (ISO 4217 numeric)
       is3DSec: '0',
       urlMerchantResponse: 'https://shop.cv/sisp/callback',
-      // generators, rateLimiting, transactionStatus, sandbox, ... all optional and forwarded
+      // generators, transactionStatus, sandbox, ... all optional and forwarded
     }),
   },
   storage,
 });
 ```
 
-`SispProviderOptions` is an alias for `@akira-io/sisp`'s `SispConfig`. Required: `posId`, `posAutCode`,
-`database`. Everything else is optional and forwarded verbatim to node-sisp.
+`SispProviderOptions` is an alias for `@akira-io/sisp`'s `StatelessSispConfig`. Required: `posId`,
+`posAutCode`, `correlation`. Everything else is optional and forwarded verbatim to node-sisp.
+
+`payableSispCorrelationStore` takes the storage driver plus an optional `{ clock, tenantId }`. It
+throws `PROVIDER_SISP_CORRELATION_STORAGE_MISSING` when the driver has no `redirectCorrelations`
+repository, which is what a custom storage driver written before this table existed will look like.
+
+Starting a payment without a correlation store is refused by node-sisp itself
+(`CorrelationRequiredError`), so a misconfigured provider fails at the first checkout rather than at
+the first tampered callback.
 
 ## Declared capabilities
 
@@ -99,12 +115,20 @@ through `RedirectCallbackCapable`, not an asynchronous signed provider webhook.
 ### Injecting a pre-built instance (tests / advanced)
 
 A second constructor argument accepts an already-created node-sisp instance (or a structural
-`SispClient` fake), bypassing the lazy `createSisp`:
+`SispClient` fake), bypassing the lazy `createStatelessSisp`. A third accepts the function that turns
+a raw gateway body into a normalized callback payload; supply it whenever you inject a fake client,
+otherwise the provider loads node-sisp's `callbackPayloadFrom` and your hand-made payload will not
+match the field names SISP actually posts:
 
 ```ts
-const sisp = await createSisp(config);
+const sisp = createStatelessSisp(sispProviderConfig(config));
 new SispProvider(config, sisp); // reuse the same instance the node-sisp adapter is mounted on
 ```
+
+Build that instance from `sispProviderConfig(config)`, not from `config` directly. The provider
+normally applies one adjustment of its own before constructing the client (see the caveat on
+client-supplied merchant identifiers below), and an instance built without it rejects every checkout
+with a 422 instead of returning a form.
 
 ## Starting a payment - `redirectCheckout`
 
@@ -132,9 +156,10 @@ What `redirectCheckout(...).create()` does:
 2. Derives the `merchantRef`. When an `idempotencyKey` is present, it is hashed with SHA-256 and the
    reference becomes `R` + the first 14 hex characters upper-cased (`sispMerchantReference`), so the same
    key always yields the same reference. With no idempotency key it falls back to the configured
-   `generators.merchantReference()` (forwarded from node-sisp; override it through `SispConfig`).
-3. Calls node-sisp's `handlePayment`, which **persists** the pending transaction and renders the signed
-   auto-submit form - node-sisp stays the protocol store of record.
+   `generators.merchantReference()` (forwarded from node-sisp; override it through `StatelessSispConfig`).
+3. Calls node-sisp's `handlePayment`, which records the correlation row through the store you
+   configured and renders the signed auto-submit form. The `merchantSession` on that row is generated
+   by node-sisp, so a retry of the same `merchantRef` is its own row and its own claim.
 4. Records a pending `Payment` (`status: 'pending'`, `providerPaymentId: merchantRef`, linked to the
    local customer).
 
@@ -158,15 +183,52 @@ const result = await payable.receiveRedirectCallback({ provider: 'sisp', payload
 // result -> { providerPaymentId, status, paymentUpdated }
 ```
 
+Pass the gateway's POST body **verbatim**. The provider normalizes it with node-sisp's
+`callbackPayloadFrom`, which reads SISP's own field names (`merchantRespMerchantRef`,
+`merchantRespPurchaseAmount`, `resultFingerPrint`, ...). A hand-built payload using the camelCase
+names will normalize to empty strings and be rejected as unknown.
+
 This:
 
-1. Calls `provider.handleRedirectCallback(payload)`, which runs node-sisp's `handlePaymentCallback`
-   (fingerprint validation + protocol-store update) and returns a normalized
-   `{ providerPaymentId, status }`.
+1. Calls `provider.handleRedirectCallback(payload)`, which runs node-sisp's `handleCallback`:
+   fingerprint check, then the correlation claim and the amount/currency/transaction-code match.
 2. Looks up the `Payment` by `findByProviderId('sisp', merchantRef)` and updates its status.
+
+### Authenticity is not the payment verdict
+
+node-sisp's outcome carries `verified` and `status`, and they answer different questions.
+
+- `verified: true` means the message is authentic **and** matches the payment payable recorded. It
+  says nothing about whether the gateway approved the charge. A correctly signed decline is
+  `verified: true` with `status: 'failed'`.
+- `verified: false` means the message is not one payable can act on. `outcome.reason` says why.
+
+`SispProvider` keeps the two apart. A verified outcome is mapped to a `PaymentStatus` and returned; an
+unverified one throws `PROVIDER_SISP_INVALID_CALLBACK` with the reason in the error context:
+
+| `reason` | What happened |
+| --- | --- |
+| `invalid_callback_fingerprint` | the signature does not hold - the message is not from SISP, or was altered |
+| `unknown_transaction` | no correlation row for this `merchantRef` + `merchantSession` pair |
+| `callback_replayed` | that pair was already claimed; the gateway re-delivered |
+| `callback_details_mismatch` | authentic, but the amount, currency, transaction code or POS id is not what payable asked for |
+
+The same distinction applies to node-sisp's `callback:verified` event, which fires for every authentic
+callback including declines. If you listen to it, branch on `event.status`, never on the event name.
+
+**Cancellations are not reconciled here.** When the customer abandons the hosted page, vinti4 posts
+`UserCancelled` with a body that carries none of the fields a normal callback does. node-sisp handles
+that case in its own HTTP adapter, not in `handleCallback`, so a cancellation reaching
+`receiveRedirectCallback` fails the fingerprint check and the payment stays `pending`. The correlation
+row is never claimed, so it does not appear in the orphan list either. Mount node-sisp's own callback
+route if you need cancellations reconciled.
 
 SISP transaction status maps to `PaymentStatus` as: `completed -> succeeded`, `failed -> failed`,
 `cancelled -> canceled`, `refunded -> refunded`, `pending -> pending`.
+
+`verifyCallback(payload)` remains available and checks the fingerprint **only**. It does not claim the
+correlation, so it neither detects a replay nor compares the amount. Use `handleRedirectCallback` for
+anything that decides whether a customer has paid.
 
 After reconciliation, `payable.customer(billable).payments()` lists the SISP payment alongside any
 other provider's.
@@ -175,12 +237,13 @@ other provider's.
 sequenceDiagram
   participant App
   participant Payable
-  participant NodeSisp as node-sisp DB
+  participant NodeSisp as node-sisp
   participant Browser
   participant Vinti4
 
   App->>Payable: redirectCheckout(amount).create()
-  Payable->>NodeSisp: handlePayment - persist and sign
+  Payable->>NodeSisp: handlePayment - sign
+  NodeSisp->>Payable: correlation.record - expected amount
   NodeSisp-->>Payable: HTML auto-submit form
   Payable->>Payable: record pending Payment with merchantRef
   Payable-->>App: id, url, html
@@ -189,19 +252,18 @@ sequenceDiagram
   Vinti4-->>Browser: 3D Secure
   Vinti4->>App: POST callback to urlMerchantResponse
   App->>Payable: receiveRedirectCallback(payload)
-  Payable->>NodeSisp: handlePaymentCallback - validate and store
-  NodeSisp-->>Payable: transaction merchant_ref and status
+  Payable->>NodeSisp: handleCallback - fingerprint
+  NodeSisp->>Payable: correlation.claim - match and consume
+  NodeSisp-->>Payable: verified, status, reason
   Payable->>Payable: update Payment by merchantRef
 ```
 
 ## Refunds
 
 SISP does **not** declare the `refunds` capability. The vinti4 integration has no server-to-server
-reversal API: node-sisp's refund builder only updates the local transaction record, so a "refund"
-through it would report success while the customer never receives funds. `payable.refund(...)` on a
-SISP payment therefore throws `PROVIDER_CAPABILITY_NOT_SUPPORTED` and leaves the payment untouched.
-Reversals must be performed through SISP's own back office until the gateway exposes a real refund
-endpoint.
+reversal API, and stateless node-sisp has no refund surface at all. `payable.refund(...)` on a SISP
+payment throws `PROVIDER_CAPABILITY_NOT_SUPPORTED` and leaves the payment untouched. Reversals must be
+performed through SISP's own back office until the gateway exposes a real refund endpoint.
 
 ## Amounts
 
@@ -221,9 +283,26 @@ the fingerprint, so passing minor units would double-scale.
   node-sisp instance is configured with `is3DSec: '1'`, `handlePayment` fails for lack of 3D Secure
   fields. For payable's unified `redirectCheckout`, use `is3DSec: '0'`; for full 3D Secure, mount
   node-sisp's own adapter for the payment route.
-- **Rate limiting.** payable has no HTTP request context, so `handlePayment` runs node-sisp's pipeline
-  with an empty IP. If node-sisp rate limiting is enabled, payable-initiated checkouts share the
-  empty-IP bucket. Configure or disable rate limiting on the instance payable wraps.
+- **One payment per merchant reference.** The correlation store refuses a second checkout that reuses
+  a `merchantRef` under a different `merchantSession`, with
+  `PROVIDER_SISP_DUPLICATE_MERCHANT_REFERENCE`. Since the reference is derived from the idempotency
+  key, that means one live form per key. Without this, two forms could be signed for one pending
+  `Payment` and a customer who submitted both would be charged twice with nothing raised. Stateful
+  node-sisp refused the duplicate for the same reason.
+- **Client-supplied merchant identifiers.** node-sisp rejects a `merchantRef` in the request body by
+  default (`paymentValidation.allowClientMerchantIdentifiers: false`), because in its own HTTP adapter
+  that field arrives from a browser. Here payable *is* the server and derives the reference from the
+  idempotency key, so `SispProvider` turns the flag on unless your config sets it explicitly. Without
+  it, every checkout would come back as a 422 instead of a form.
+- **Claims that are never processed.** The callback is handled at-least-once: node-sisp claims the
+  correlation before it records the outcome. A process that dies in between leaves a row claimed with
+  no outcome, and that callback cannot be replayed - a second delivery is reported as
+  `callback_replayed`. The claim deliberately does not expire, because an expiring claim is a replay
+  window. Find these rows with `payable.orphanedRedirectClaims().run({ provider: 'sisp' })` and settle
+  them against the gateway; see [Operations](../30-operations.md).
+- **Tenancy.** `payableSispCorrelationStore` binds one `tenantId` when it is built, and the provider
+  is registered once. On a multi-tenant deployment, build one provider per tenant, or leave the tenant
+  null and scope reconciliation another way.
 
 ---
 

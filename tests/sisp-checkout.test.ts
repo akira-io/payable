@@ -5,19 +5,26 @@ import {
   SispProvider,
   type SispProviderOptions,
 } from '../src/infrastructure/providers/sisp/sisp-provider';
-import type { SispClient } from '../src/infrastructure/providers/sisp/sisp-types';
+import type {
+  SispClient,
+  SispNormalizedCallbackPayload,
+} from '../src/infrastructure/providers/sisp/sisp-types';
 import { KnexStorageDriver } from '../src/infrastructure/storage/knex/knex-storage-driver';
 import { migrate } from '../src/infrastructure/storage/knex/migrations/migrate';
 import { FakeClock } from '../src/support/clock/fake-clock';
 import { createTestDb } from './support/knex';
+import { inertCorrelationStore } from './support/sisp';
 
 const billable = { billableType: 'User', billableId: '1', email: 'user@example.com', name: 'User' };
 
 const OPTIONS: SispProviderOptions = {
   posId: '90000045',
   posAutCode: 'aut-code',
-  database: { client: 'better-sqlite3', connection: { filename: ':memory:' } },
+  correlation: inertCorrelationStore(),
 };
+
+const passthrough = (payload: Record<string, unknown>) =>
+  payload as unknown as SispNormalizedCallbackPayload;
 
 function fakeSispClient(seen: { body?: Record<string, unknown> }): SispClient {
   return {
@@ -29,18 +36,12 @@ function fakeSispClient(seen: { body?: Record<string, unknown> }): SispClient {
       },
     },
     driver: () => ({ paymentEndpoint: () => 'https://mc.vinti4net.cv/gateway' }),
-    models: { transactions: { findByRef: async () => null } },
-    refund: () => {
-      throw new Error('not used');
-    },
     validateCallback: () => true,
-    handlePaymentCallback: async (payload) => ({
-      id: 1,
-      merchant_ref: String(payload.merchantRef ?? 'R-CHECKOUT'),
-      amount: 1500,
-      currency: 'CVE',
+    handleCallback: async (payload) => ({
+      verified: true,
       status: 'completed',
-      transaction_id: 'TID-9',
+      reason: null,
+      payload,
     }),
   };
 }
@@ -51,7 +52,7 @@ describe('payable redirect checkout (SISP)', () => {
     await migrate(db);
     const seen: { body?: Record<string, unknown> } = {};
     const payable = createPayable({
-      providers: { sisp: new SispProvider(OPTIONS, fakeSispClient(seen)) },
+      providers: { sisp: new SispProvider(OPTIONS, fakeSispClient(seen), passthrough) },
       storage: new KnexStorageDriver(db, new FakeClock()),
     });
 
@@ -99,7 +100,7 @@ describe('payable redirect checkout (SISP)', () => {
     await migrate(db);
     const seen: { body?: Record<string, unknown> } = {};
     const payable = createPayable({
-      providers: { sisp: new SispProvider(OPTIONS, fakeSispClient(seen)) },
+      providers: { sisp: new SispProvider(OPTIONS, fakeSispClient(seen), passthrough) },
       storage: new KnexStorageDriver(db, new FakeClock()),
     });
 

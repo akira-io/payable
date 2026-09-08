@@ -19,6 +19,7 @@ import { addPaymentAuthorizationLifecycle } from './payment-authorization-lifecy
 import { addPaymentStatusPageIndex } from './payment-status-page-index';
 import { convergePostLedgerSchema } from './post-ledger-convergence';
 import { addProviderNeutralPageIndexes } from './provider-neutral-page-indexes';
+import { addRedirectCorrelations } from './redirect-correlations';
 import { addSubscriptionLifecycleMetadata } from './subscription-lifecycle-metadata';
 import { addSubscriptionMutationRecovery } from './subscription-mutation-recovery';
 import { addSubscriptionProviderSyncedAt } from './subscription-provider-synced-at';
@@ -147,5 +148,6 @@ export async function migrate(knex: Knex): Promise<void> {
       addPaymentAuthorizationLifecycle(knex),
     );
     await runStep(knex, '024-payment-status-page-index', () => addPaymentStatusPageIndex(knex));
+    await runStep(knex, '025-redirect-correlations', () => addRedirectCorrelations(knex));
   });
 }

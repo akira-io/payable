@@ -397,7 +397,7 @@ flowchart TD
   Contract -. implemented by .-> Custom[Your provider]
   Stripe --> StripeAPI[Stripe SDK]
   Paddle --> PaddleAPI[Paddle SDK]
-  Sisp --> SispPkg["@akira-io/sisp (node-sisp)"]
+  Sisp --> SispPkg["@akira-io/sisp (node-sisp, stateless)"]
   Revolut --> RevolutAPI[Revolut Merchant API]
 ```
 

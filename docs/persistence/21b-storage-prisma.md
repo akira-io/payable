@@ -78,6 +78,11 @@ product-provider bindings, price-provider bindings, canonical subscription snaps
 subscription-provider bindings alongside the legacy provider-first catalog and the remaining billing,
 webhook, audit, outbox, and idempotency models.
 
+It also includes `PayableRedirectCorrelation` (`payable_redirect_correlations`), which records what a
+redirect checkout asked the gateway for and whether that callback has been claimed and processed. Its
+`amount` is a `String` rather than a `BigInt`, because the value is compared against the decimal the
+gateway echoes back rather than summed. See [SISP](../integrations/20-sisp.md).
+
 ## Automated schema sync
 
 Prisma reads a single project-owned schema, so the models cannot be injected from this package

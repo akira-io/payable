@@ -13,6 +13,7 @@ import type {
   PrismaInvoiceProviderBindingRow,
   PrismaInvoiceRow,
 } from './prisma-invoice-row.types';
+import type { PrismaRedirectCorrelationRow } from './prisma-redirect-correlation-row.types';
 import type { PrismaSubscriptionMutationClaimRow } from './prisma-subscription-mutation-claim-row.types';
 import type { PrismaSubscriptionRow } from './prisma-subscription-row.types';
 import type {
@@ -30,6 +31,7 @@ export type {
   PrismaProductProviderBindingRow,
 } from './prisma-canonical-catalog-row.types';
 export type { PrismaInvoiceRow } from './prisma-invoice-row.types';
+export type { PrismaRedirectCorrelationRow } from './prisma-redirect-correlation-row.types';
 export type { PrismaSubscriptionMutationClaimRow } from './prisma-subscription-mutation-claim-row.types';
 export type { PrismaSubscriptionRow } from './prisma-subscription-row.types';
 export type {
@@ -280,6 +282,7 @@ export interface PrismaModelDelegates {
   payableInvoiceProviderBinding: PrismaDelegate<PrismaInvoiceProviderBindingRow>;
   payableInvoicePayment: PrismaDelegate<PrismaInvoicePaymentRow>;
   payablePayment: PrismaDelegate<PrismaPaymentRow>;
+  payableRedirectCorrelation: PrismaDelegate<PrismaRedirectCorrelationRow>;
   payableRefund: PrismaDelegate<PrismaRefundRow>;
   payableWebhookEvent: PrismaDelegate<PrismaWebhookEventRow>;
   payableWebhookEndpoint: PrismaDelegate<PrismaWebhookEndpointRow>;
