@@ -23,7 +23,7 @@ Install only the peers for the features you use:
 | --- | --- | --- |
 | Stripe provider | `npm i stripe` | `>=15` |
 | Paddle provider | `npm i @paddle/paddle-node-sdk` | `>=2` |
-| SISP provider | `npm i @akira-io/sisp` | `>=1.0.0-beta.5` |
+| SISP provider | `npm i @akira-io/sisp` | `>=1.0.0-beta.6 <1.0.0` |
 | Knex storage | `npm i knex` + a driver (`pg`, `better-sqlite3`, …) | `>=3` |
 | Prisma storage | `npm i @prisma/client` | `>=5` |
 | BullMQ queue | `npm i bullmq` | `>=5` |

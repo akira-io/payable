@@ -26,11 +26,15 @@ package, and surfacing those from the main entry would force **every** payable c
 `@akira-io/sisp` just to type-check. Keeping SISP on its own subpath means:
 
 - Consumers who do not use SISP import only `@akira-io/payable` and never need `@akira-io/sisp`.
-- Consumers who use SISP install `@akira-io/sisp` (an optional peer, `>=1.0.0-beta.5`) and import
+- Consumers who use SISP install `@akira-io/sisp` (an optional peer, `>=1.0.0-beta.6 <1.0.0`) and import
   `SispProvider` from `@akira-io/payable/sisp`.
 
 `@akira-io/sisp` is declared in `peerDependenciesMeta` as optional; it is never a hard dependency of
 payable.
+
+The range stops below `1.0.0` on purpose. node-sisp has shipped breaking changes in consecutive
+prereleases, so an open-ended range would claim a compatibility nobody has checked. Each prerelease
+payable adopts is verified against the suite before the floor moves.
 
 ## One store: payable owns the state
 
