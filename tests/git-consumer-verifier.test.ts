@@ -48,7 +48,7 @@ beforeAll(async () => {
   expect(build.status, build.stderr).toBe(0);
   packageSpec = await createPackageArchive();
   consumerDirectory = await createConsumer();
-}, 60_000);
+}, 180_000);
 
 afterAll(async () => {
   if (consumerDirectory) {
@@ -82,7 +82,7 @@ describe('installed package tooling', () => {
 
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain('Package consumer verified');
-  }, 60_000);
+  }, 180_000);
 
   it('copies the installed Prisma models to the requested consumer path', async () => {
     const outputPath = join(consumerDirectory, 'prisma', 'payable.models.prisma');

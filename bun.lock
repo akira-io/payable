@@ -9,7 +9,7 @@
         "zod": "^3.24.1",
       },
       "devDependencies": {
-        "@akira-io/sisp": "1.0.0-beta.5",
+        "@akira-io/sisp": "1.0.0-beta.6",
         "@biomejs/biome": "^2.3.0",
         "@fastify/rate-limit": "^11.0.0",
         "@modelcontextprotocol/sdk": "^1.29.0",
@@ -36,7 +36,7 @@
         "vitest": "^3.2.0",
       },
       "peerDependencies": {
-        "@akira-io/sisp": ">=1.0.0-beta.5",
+        "@akira-io/sisp": ">=1.0.0-beta.6",
         "@fastify/rate-limit": ">=9",
         "@modelcontextprotocol/sdk": ">=1.18",
         "@nestjs/common": ">=10",
@@ -71,7 +71,7 @@
     "esbuild": "^0.28.1",
   },
   "packages": {
-    "@akira-io/sisp": ["@akira-io/sisp@1.0.0-beta.5", "", { "dependencies": { "qs": "^6.15.2" }, "peerDependencies": { "@fastify/formbody": ">=7", "@nestjs/common": ">=10", "@prisma/client": ">=5", "better-sqlite3": ">=11", "express": ">=4.18", "fastify": ">=4.27", "knex": "^3.1.0", "mysql2": ">=3", "pg": ">=8" }, "optionalPeers": ["@fastify/formbody", "@nestjs/common", "@prisma/client", "better-sqlite3", "express", "fastify", "knex", "mysql2", "pg"], "bin": { "sisp": "dist/cli.js" } }, "sha512-ujku9OAtuSo9/aQ86LsBAPiLFl+84Yn9/5AT/IhzPlquXakmgZaBangCMaSVnqA2FD4HH4Na4P74ZqdN/5BMMg=="],
+    "@akira-io/sisp": ["@akira-io/sisp@1.0.0-beta.6", "", { "dependencies": { "qs": "^6.15.2" }, "peerDependencies": { "@fastify/formbody": ">=7", "@nestjs/common": ">=10", "@prisma/client": ">=5", "better-sqlite3": ">=11", "express": ">=4.18", "fastify": ">=4.27", "knex": "^3.1.0", "mysql2": ">=3", "pg": ">=8" }, "optionalPeers": ["@fastify/formbody", "@nestjs/common", "@prisma/client", "better-sqlite3", "express", "fastify", "knex", "mysql2", "pg"], "bin": { "sisp": "dist/cli.js" } }, "sha512-ZOTLLpa4dJ0KG/r9X2M7EIhQ8LaCRxdEUJd/e/llhFErP7RPPAWDQQyrMCADbQQ/u12a+X04tyeUSD75B70Y/w=="],
 
     "@ampproject/remapping": ["@ampproject/remapping@2.3.0", "", { "dependencies": { "@jridgewell/gen-mapping": "^0.3.5", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw=="],
 
