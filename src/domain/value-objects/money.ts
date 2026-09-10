@@ -11,6 +11,7 @@ import {
   toSnapshot,
 } from 'dinero.js';
 import { type CurrencyCode, type CurrencyInput, CurrencyManager } from './currency';
+import { divideMinorBig } from './minor-units';
 
 function assertSafeMinor(amount: number, context: string): void {
   if (!Number.isSafeInteger(amount)) {
@@ -31,27 +32,6 @@ function divideMinor(amount: number, divisor: number): number {
   const remainder = a - quotient * d;
   const rounded = remainder * 2 >= d ? quotient + 1 : quotient;
   return sign * rounded;
-}
-
-const MAX_SAFE_MINOR = BigInt(Number.MAX_SAFE_INTEGER);
-
-function divideMinorBig(amount: bigint, divisor: bigint): number {
-  if (divisor === 0n) {
-    throw new RangeError('Cannot divide money by zero');
-  }
-  const sign = (amount < 0n ? -1n : 1n) * (divisor < 0n ? -1n : 1n);
-  const a = amount < 0n ? -amount : amount;
-  const d = divisor < 0n ? -divisor : divisor;
-  const quotient = a / d;
-  const remainder = a - quotient * d;
-  const rounded = remainder * 2n >= d ? quotient + 1n : quotient;
-  const signed = sign * rounded;
-  if (signed > MAX_SAFE_MINOR || signed < -MAX_SAFE_MINOR) {
-    throw new RangeError(
-      `Money percentage (${signed}) exceeds the safe integer range; values beyond 2^53-1 lose precision`,
-    );
-  }
-  return Number(signed);
 }
 
 export class Money {
@@ -115,7 +95,11 @@ export class Money {
     if (!Number.isInteger(basisPoints)) {
       throw new TypeError(`Basis points must be an integer, got ${basisPoints}`);
     }
-    const result = divideMinorBig(BigInt(this.amount()) * BigInt(basisPoints), 10_000n);
+    const result = divideMinorBig(
+      BigInt(this.amount()) * BigInt(basisPoints),
+      10_000n,
+      'percentage',
+    );
     return Money.of(result, this.code);
   }
 
@@ -187,11 +171,7 @@ export class Money {
   }
 
   private nonDecimalUnits(): number {
-    const { base, exponent } = CurrencyManager.resolve(this.code);
-    const divisor = Array.isArray(base)
-      ? base.reduce((unit, value) => unit * value, 1)
-      : base ** exponent;
-    return this.amount() / divisor;
+    return this.amount() / CurrencyManager.minorUnitsPerMajor(this.code);
   }
 
   toJSON(): { amount: number; currency: CurrencyCode } {

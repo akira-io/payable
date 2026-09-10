@@ -19,6 +19,7 @@ tree.
 33. [domain/33-contracts.md](domain/33-contracts.md) - Repository, driver, provider, and cross-cutting dependency-inversion contracts.
 34. [domain/34-domain-events.md](domain/34-domain-events.md) - The `DomainEvent` base and the 14 domain events.
 35. [domain/35-subscription-price-migrations.md](domain/35-subscription-price-migrations.md) - Provider-neutral preview, scheduling, execution, and reconciliation for canonical subscription price migrations.
+36. [domain/36-currency-conversion.md](domain/36-currency-conversion.md) - Central conversion between currencies, configured parity rates, and the recorded provenance of every conversion.
 
 ## Features
 

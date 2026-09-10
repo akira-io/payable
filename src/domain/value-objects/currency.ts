@@ -45,6 +45,11 @@ export const CurrencyManager = {
     return CurrencyManager.resolve(code).base === 10;
   },
 
+  minorUnitsPerMajor(code: CurrencyCode): number {
+    const { base, exponent } = CurrencyManager.resolve(code);
+    return Array.isArray(base) ? base.reduce((unit, value) => unit * value, 1) : base ** exponent;
+  },
+
   normalize(code: CurrencyCode): CurrencyCode {
     return CurrencyManager.resolve(code).code;
   },

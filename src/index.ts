@@ -104,6 +104,7 @@ export { ListRefundsQuery } from './application/queries/refunds/list-refunds.que
 export { FindSubscriptionQuery } from './application/queries/subscriptions/find-subscription.query';
 export { ListAllSubscriptionsQuery } from './application/queries/subscriptions/list-all-subscriptions.query';
 export { ListSubscriptionsQuery } from './application/queries/subscriptions/list-subscriptions.query';
+export { CurrencyConverter } from './application/services/currency/currency-converter';
 export { DefaultIdempotencyKeyResolver } from './application/services/idempotency/default-idempotency-key-resolver';
 export {
   IdempotencyService,
@@ -138,9 +139,12 @@ export {
   type CheckoutKeyParts,
   CorrelationId,
   type CurrencyCode,
+  CurrencyConversion,
   type CurrencyInput,
   CurrencyManager,
   type DineroCurrency,
+  ExchangeRate,
+  type ExchangeRateInput,
   IdempotencyKey,
   INVOICE_STATUSES,
   type InvoiceStatus,
@@ -189,6 +193,10 @@ export {
   NodeEncryptionDriver,
 } from './infrastructure/encryption/node-encryption-driver';
 export { InMemoryEventBus } from './infrastructure/event-bus/in-memory-event-bus';
+export {
+  FixedExchangeRateProvider,
+  type FixedExchangeRateTable,
+} from './infrastructure/exchange/fixed-exchange-rate-provider';
 export { MemoryLockDriver } from './infrastructure/locks/memory-lock-driver';
 export {
   type OutboxDelivery,

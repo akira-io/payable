@@ -6,6 +6,8 @@ import type {
   CreateCanonicalProductInput,
   CreateMarketplaceTransferReversalInput,
   CreatePaymentMethodSetupInput,
+  ExchangeRateProvider,
+  FixedExchangeRateTable,
   ListSubscriptionPriceMigrationsInput,
   MarketplaceTransferReversalCapable,
   MarketplaceTransferReversalDTO,
@@ -109,6 +111,12 @@ describe('public API surface', () => {
     expect(typeof payable.isPausedSubscriptionResumeCapable).toBe('function');
     expect(typeof payable.isSubscriptionPaymentCollectionCapable).toBe('function');
     expect(typeof payable.isScheduledSubscriptionChangeCapable).toBe('function');
+    expect(typeof payable.CurrencyConverter).toBe('function');
+    expect(typeof payable.CurrencyConversion).toBe('function');
+    expect(typeof payable.ExchangeRate).toBe('function');
+    expect(typeof payable.ExchangeRateNotFoundError).toBe('function');
+    expect(typeof payable.ExchangeRatePairMismatchError).toBe('function');
+    expect(typeof payable.FixedExchangeRateProvider).toBe('function');
   });
 
   it('exports canonical catalog input types', () => {
@@ -259,6 +267,14 @@ describe('public API surface', () => {
     expect('RedisLockDriver' in payable).toBe(false);
     expect(typeof payable.MemoryCacheDriver).toBe('function');
     expect(typeof payable.MemoryLockDriver).toBe('function');
+  });
+
+  it('exports the currency conversion contract types', () => {
+    const table: FixedExchangeRateTable = { 'EUR/CVE': '110.265' };
+    const provider = new payable.FixedExchangeRateProvider(table) satisfies ExchangeRateProvider;
+    const converter = new payable.CurrencyConverter(provider);
+
+    expect(typeof converter.convert).toBe('function');
   });
 
   it('exports the redaction helpers for custom adapters and loggers', () => {

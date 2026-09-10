@@ -84,6 +84,7 @@ export type {
 } from './customer-repository.contract';
 export type { Encryption } from './encryption.contract';
 export type { EventBus, EventListener } from './event-bus.contract';
+export type { ExchangeRateProvider } from './exchange-rate-provider.contract';
 export type {
   IdempotencyKeyResolver,
   IdempotencyKeyResolverContext,

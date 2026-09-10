@@ -149,6 +149,7 @@ JPY has 0 decimal places, so `1000` minor units format as `¥1,000`; USD has 2, 
 | `resolve(code)` | Returns the `DineroCurrency`, or throws `RangeError` (`Unsupported currency code: <code>`) for an unknown code. |
 | `precision(code)` | The currency's decimal exponent (number of minor-unit digits). |
 | `isDecimalBase(code)` | `true` when the currency's `base` is `10`; used by `Money.format` to pick decimal vs non-decimal rendering. |
+| `minorUnitsPerMajor(code)` | The number of minor units in one major unit — `base ** exponent`, or the product of `base`'s entries for a non-uniform base such as `MGA`/`MRU`. Used by `Money.nonDecimalUnits` and by currency conversion. |
 | `normalize(code)` | The canonical (uppercase) code. |
 
 ```ts

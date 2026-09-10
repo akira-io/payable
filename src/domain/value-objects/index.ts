@@ -6,7 +6,9 @@ export {
   type DineroCurrency,
   type KnownCurrencyCode,
 } from './currency';
+export { CurrencyConversion } from './currency-conversion';
 export { Email } from './email';
+export { ExchangeRate, type ExchangeRateInput } from './exchange-rate';
 export {
   type BillableKeyParts,
   type ChargeKeyParts,
