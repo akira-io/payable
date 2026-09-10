@@ -53,9 +53,9 @@ describe('CurrencyConverter', () => {
     expect(result.converted.amount()).toBe(2488);
   });
 
-  it('keeps precision on amounts a float would corrupt', async () => {
-    const result = await converter().convert(Money.of(9_007_199_254, 'EUR'), 'CVE');
-    expect(result.converted.amount()).toBe(993_178_825_742);
+  it('keeps precision on an intermediate product a float cannot represent exactly', async () => {
+    const result = await converter().convert(Money.of(5_252_117_401_598, 'EUR'), 'CVE');
+    expect(result.converted.amount()).toBe(579_124_725_287_203);
   });
 
   it('refuses a result outside the safe integer range', async () => {
@@ -63,6 +63,13 @@ describe('CurrencyConverter', () => {
     await expect(huge.convert(Money.of(9_007_199_254, 'EUR'), 'CVE')).rejects.toThrow(
       /safe integer range/,
     );
+  });
+
+  it('rescales correctly against a base-5 minor unit', async () => {
+    const toMga = converter({ 'EUR/MGA': '4900' });
+    const result = await toMga.convert(Money.of(2500, 'EUR'), 'MGA');
+    expect(result.converted.currency()).toBe('MGA');
+    expect(result.converted.amount()).toBe(612_500);
   });
 
   it('carries the provenance into the serialized result', async () => {

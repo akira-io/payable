@@ -28,8 +28,8 @@ export class CurrencyConverter {
 }
 
 function applyRate(money: Money, rate: ExchangeRate, target: CurrencyCode): number {
-  const shift = CurrencyManager.precision(target) - CurrencyManager.precision(money.currency());
-  const numerator = rate.numerator * 10n ** BigInt(Math.max(shift, 0));
-  const denominator = rate.denominator * 10n ** BigInt(Math.max(-shift, 0));
+  const numerator = rate.numerator * BigInt(CurrencyManager.minorUnitsPerMajor(target));
+  const denominator =
+    rate.denominator * BigInt(CurrencyManager.minorUnitsPerMajor(money.currency()));
   return divideMinorBig(BigInt(money.amount()) * numerator, denominator, 'conversion');
 }

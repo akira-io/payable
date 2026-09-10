@@ -171,11 +171,7 @@ export class Money {
   }
 
   private nonDecimalUnits(): number {
-    const { base, exponent } = CurrencyManager.resolve(this.code);
-    const divisor = Array.isArray(base)
-      ? base.reduce((unit, value) => unit * value, 1)
-      : base ** exponent;
-    return this.amount() / divisor;
+    return this.amount() / CurrencyManager.minorUnitsPerMajor(this.code);
   }
 
   toJSON(): { amount: number; currency: CurrencyCode } {
