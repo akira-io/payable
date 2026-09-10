@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ExchangeRateNotFoundError } from '../src/domain/errors/exchange-rate-not-found.error';
 import { ExchangeRate } from '../src/domain/value-objects/exchange-rate';
 
 describe('ExchangeRate', () => {
@@ -51,5 +52,15 @@ describe('ExchangeRate', () => {
       to: 'CVE',
       rate: '110.265',
     });
+  });
+});
+
+describe('ExchangeRateNotFoundError', () => {
+  it('names the pair it could not resolve', () => {
+    const error = new ExchangeRateNotFoundError('EUR', 'CVE');
+    expect(error).toBeInstanceOf(Error);
+    expect(error.code).toBe('EXCHANGE_RATE_NOT_FOUND');
+    expect(error.message).toBe('Exchange rate not found for EUR to CVE');
+    expect(error.context).toEqual({ from: 'EUR', to: 'CVE' });
   });
 });
