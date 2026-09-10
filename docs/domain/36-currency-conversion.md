@@ -14,8 +14,10 @@ the price.
 ## Rates
 
 An `ExchangeRate` carries the pair and the exact decimal text of the rate, plus the `bigint`
-fraction derived from it. Rates are never held as `number`: `110.265` has no exact binary
-representation and the error grows with the amount.
+fraction derived from it. The rate is always a decimal string: `110.265` has no exact binary
+representation as a `number`, and a `number` in exponential notation (`7.3e-9`) cannot be
+distinguished from an invalid one by decimal-pattern matching. `ExchangeRate.of` accepts `string`
+only.
 
 ```ts
 import { ExchangeRate } from '@akira-io/payable';
@@ -23,6 +25,9 @@ import { ExchangeRate } from '@akira-io/payable';
 const rate = ExchangeRate.of('EUR', 'CVE', '110.265');
 rate.toJSON(); // { from: 'EUR', to: 'CVE', rate: '110.265' }
 ```
+
+The decimal text is capped at 40 characters, well past any real-world parity, so a provider that
+takes a rate from an external feed cannot hand `ExchangeRate.of` an unbounded string.
 
 Rates come from an `ExchangeRateProvider`. The one shipped today reads a configured parity table,
 which is legitimate for currencies pegged to each other and not for floating pairs. Pairs are
@@ -52,7 +57,10 @@ all of them: a conversion that leaves no trace cannot be reconciled later.
 
 Converting to the same currency is a transparent pass-through — the same `Money` instance, an
 identity rate, no rounding and no loss. A pair with no configured rate throws
-`ExchangeRateNotFoundError`; the converter never returns the unconverted amount.
+`ExchangeRateNotFoundError`; the converter never returns the unconverted amount. `convert` also
+checks that the rate returned by the provider is for the pair it asked for — a provider bug that
+returns a rate for a different pair throws `ExchangeRatePairMismatchError` rather than being
+trusted silently.
 
 ## Rounding
 

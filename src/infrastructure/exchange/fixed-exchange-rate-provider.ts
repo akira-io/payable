@@ -8,12 +8,15 @@ export class FixedExchangeRateProvider implements ExchangeRateProvider {
   private readonly rates: Map<string, ExchangeRate>;
 
   constructor(table: FixedExchangeRateTable) {
-    this.rates = new Map(
-      Object.entries(table).map(([pair, rate]) => {
-        const [from, to] = splitPair(pair);
-        return [pairKey(from, to), ExchangeRate.of(from, to, rate)];
-      }),
-    );
+    this.rates = new Map();
+    for (const [pair, rate] of Object.entries(table)) {
+      const [from, to] = splitPair(pair);
+      const key = pairKey(from, to);
+      if (this.rates.has(key)) {
+        throw new TypeError(`Duplicate exchange rate pair after normalization: ${key}`);
+      }
+      this.rates.set(key, ExchangeRate.of(from, to, rate));
+    }
   }
 
   async rateFor(from: CurrencyCode, to: CurrencyCode): Promise<ExchangeRate | undefined> {
@@ -24,7 +27,7 @@ export class FixedExchangeRateProvider implements ExchangeRateProvider {
 function splitPair(pair: string): [string, string] {
   const parts = pair.split('/');
   const [from, to] = parts;
-  if (parts.length !== 2 || from === undefined || to === undefined) {
+  if (parts.length !== 2 || !from || !to) {
     throw new TypeError(`Exchange rate pair must be formatted as FROM/TO, got ${pair}`);
   }
   return [from, to];

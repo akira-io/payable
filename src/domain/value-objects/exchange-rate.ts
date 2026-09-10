@@ -1,8 +1,9 @@
 import { type CurrencyCode, type CurrencyInput, CurrencyManager } from './currency';
 
-export type ExchangeRateInput = number | string;
+export type ExchangeRateInput = string;
 
 const DECIMAL_PATTERN = /^\d+(\.\d+)?$/;
+const MAX_DECIMAL_TEXT_LENGTH = 40;
 
 export class ExchangeRate {
   private constructor(
@@ -40,12 +41,14 @@ export class ExchangeRate {
 }
 
 function decimalText(rate: ExchangeRateInput): string {
-  if (typeof rate === 'number' && !Number.isFinite(rate)) {
-    throw new TypeError(`Exchange rate must be finite, got ${rate}`);
-  }
-  const text = typeof rate === 'number' ? String(rate) : rate.trim();
+  const text = rate.trim();
   if (!DECIMAL_PATTERN.test(text)) {
-    throw new TypeError(`Exchange rate must be a positive decimal, got ${String(rate)}`);
+    throw new TypeError(`Exchange rate must be a positive decimal, got ${rate}`);
+  }
+  if (text.length > MAX_DECIMAL_TEXT_LENGTH) {
+    throw new RangeError(
+      `Exchange rate must be at most ${MAX_DECIMAL_TEXT_LENGTH} characters, got ${text.length}`,
+    );
   }
   return text;
 }

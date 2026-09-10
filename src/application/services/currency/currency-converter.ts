@@ -1,5 +1,6 @@
 import type { ExchangeRateProvider } from '../../../domain/contracts/exchange-rate-provider.contract';
 import { ExchangeRateNotFoundError } from '../../../domain/errors/exchange-rate-not-found.error';
+import { ExchangeRatePairMismatchError } from '../../../domain/errors/exchange-rate-pair-mismatch.error';
 import {
   type CurrencyCode,
   type CurrencyInput,
@@ -22,6 +23,9 @@ export class CurrencyConverter {
     const rate = await this.rates.rateFor(source, target);
     if (rate === undefined) {
       throw new ExchangeRateNotFoundError(source, target);
+    }
+    if (rate.from !== source || rate.to !== target) {
+      throw new ExchangeRatePairMismatchError(source, target, rate.from, rate.to);
     }
     return new CurrencyConversion(money, Money.of(applyRate(money, rate, target), target), rate);
   }

@@ -115,6 +115,7 @@ describe('public API surface', () => {
     expect(typeof payable.CurrencyConversion).toBe('function');
     expect(typeof payable.ExchangeRate).toBe('function');
     expect(typeof payable.ExchangeRateNotFoundError).toBe('function');
+    expect(typeof payable.ExchangeRatePairMismatchError).toBe('function');
     expect(typeof payable.FixedExchangeRateProvider).toBe('function');
   });
 

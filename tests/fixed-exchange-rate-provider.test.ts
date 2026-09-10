@@ -30,6 +30,17 @@ describe('FixedExchangeRateProvider', () => {
     expect(() => new FixedExchangeRateProvider({ 'EUR/CVE/USD': '110.265' })).toThrow(TypeError);
   });
 
+  it('rejects a pair key with an empty segment', () => {
+    expect(() => new FixedExchangeRateProvider({ '/EUR': '110.265' })).toThrow(TypeError);
+    expect(() => new FixedExchangeRateProvider({ 'EUR/': '110.265' })).toThrow(TypeError);
+  });
+
+  it('rejects two pair keys that collide after normalization', () => {
+    expect(
+      () => new FixedExchangeRateProvider({ 'EUR/CVE': '110.265', 'eur/cve': '110.3' }),
+    ).toThrow(/EUR\/CVE/);
+  });
+
   it('rejects an invalid rate at construction', () => {
     expect(() => new FixedExchangeRateProvider({ 'EUR/CVE': '0' })).toThrow(RangeError);
   });

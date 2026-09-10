@@ -9,6 +9,7 @@ export { CustomerNotFoundError } from './customer-not-found.error';
 export { CustomerProviderBindingConflictError } from './customer-provider-binding-conflict.error';
 export { CustomerProviderBindingPersistenceError } from './customer-provider-binding-persistence.error';
 export { ExchangeRateNotFoundError } from './exchange-rate-not-found.error';
+export { ExchangeRatePairMismatchError } from './exchange-rate-pair-mismatch.error';
 export { IdempotencyConflictError } from './idempotency-conflict.error';
 export { IdempotencyInProgressError } from './idempotency-in-progress.error';
 export { IdempotencyReconciliationRequiredError } from './idempotency-reconciliation-required.error';

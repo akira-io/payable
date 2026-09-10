@@ -11,16 +11,15 @@ describe('ExchangeRate', () => {
   });
 
   it('normalizes the currency codes', () => {
-    const rate = ExchangeRate.of('eur', 'cve', 1);
+    const rate = ExchangeRate.of('eur', 'cve', '1');
     expect(rate.from).toBe('EUR');
     expect(rate.to).toBe('CVE');
   });
 
-  it('accepts a number and keeps its decimal representation', () => {
-    const rate = ExchangeRate.of('EUR', 'CVE', 110.265);
-    expect(rate.rate).toBe('110.265');
-    expect(rate.numerator).toBe(110_265n);
-    expect(rate.denominator).toBe(1000n);
+  it('accepts a rate too small for a number literal to round-trip exactly', () => {
+    const rate = ExchangeRate.of('EUR', 'CVE', '0.0000000073');
+    expect(rate.numerator).toBe(73n);
+    expect(rate.denominator).toBe(10n ** 10n);
   });
 
   it('builds an identity rate for a single currency', () => {
@@ -33,17 +32,24 @@ describe('ExchangeRate', () => {
   });
 
   it('rejects rates that are not positive decimals', () => {
-    expect(() => ExchangeRate.of('EUR', 'CVE', 0)).toThrow(RangeError);
+    expect(() => ExchangeRate.of('EUR', 'CVE', '0')).toThrow(RangeError);
     expect(() => ExchangeRate.of('EUR', 'CVE', '0.000')).toThrow(RangeError);
-    expect(() => ExchangeRate.of('EUR', 'CVE', -1)).toThrow(TypeError);
-    expect(() => ExchangeRate.of('EUR', 'CVE', Number.NaN)).toThrow(TypeError);
-    expect(() => ExchangeRate.of('EUR', 'CVE', Number.POSITIVE_INFINITY)).toThrow(TypeError);
+    expect(() => ExchangeRate.of('EUR', 'CVE', '-1')).toThrow(TypeError);
+    expect(() => ExchangeRate.of('EUR', 'CVE', 'NaN')).toThrow(TypeError);
+    expect(() => ExchangeRate.of('EUR', 'CVE', 'Infinity')).toThrow(TypeError);
     expect(() => ExchangeRate.of('EUR', 'CVE', '1e-7')).toThrow(TypeError);
-    expect(() => ExchangeRate.of('EUR', 'CVE', 0.0000001)).toThrow(TypeError);
   });
 
   it('rejects unsupported currency codes', () => {
-    expect(() => ExchangeRate.of('EUR', 'XYZ', 1)).toThrow(RangeError);
+    expect(() => ExchangeRate.of('EUR', 'XYZ', '1')).toThrow(RangeError);
+  });
+
+  it('rejects a rate whose decimal text exceeds the length bound', () => {
+    const longest = `1.${'0'.repeat(38)}`;
+    expect(longest.length).toBe(40);
+    expect(() => ExchangeRate.of('EUR', 'CVE', longest)).not.toThrow();
+    const tooLong = `1.${'0'.repeat(39)}`;
+    expect(() => ExchangeRate.of('EUR', 'CVE', tooLong)).toThrow(RangeError);
   });
 
   it('serializes the pair and the rate text', () => {

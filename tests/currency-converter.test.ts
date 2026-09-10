@@ -1,11 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { CurrencyConverter } from '../src/application/services/currency/currency-converter';
+import type { ExchangeRateProvider } from '../src/domain/contracts/exchange-rate-provider.contract';
 import { ExchangeRateNotFoundError } from '../src/domain/errors/exchange-rate-not-found.error';
+import { ExchangeRatePairMismatchError } from '../src/domain/errors/exchange-rate-pair-mismatch.error';
+import type { CurrencyCode } from '../src/domain/value-objects/currency';
+import { ExchangeRate } from '../src/domain/value-objects/exchange-rate';
 import { Money } from '../src/domain/value-objects/money';
 import { FixedExchangeRateProvider } from '../src/infrastructure/exchange/fixed-exchange-rate-provider';
 
 function converter(table: Record<string, string> = { 'EUR/CVE': '110.265' }): CurrencyConverter {
   return new CurrencyConverter(new FixedExchangeRateProvider(table));
+}
+
+class StubExchangeRateProvider implements ExchangeRateProvider {
+  constructor(private readonly rate: ExchangeRate | Error) {}
+
+  async rateFor(_from: CurrencyCode, _to: CurrencyCode): Promise<ExchangeRate | undefined> {
+    if (this.rate instanceof Error) {
+      throw this.rate;
+    }
+    return this.rate;
+  }
 }
 
 describe('CurrencyConverter', () => {
@@ -70,6 +85,25 @@ describe('CurrencyConverter', () => {
     const result = await toMga.convert(Money.of(2500, 'EUR'), 'MGA');
     expect(result.converted.currency()).toBe('MGA');
     expect(result.converted.amount()).toBe(612_500);
+  });
+
+  it('rejects a currency the CurrencyManager does not know', async () => {
+    await expect(converter().convert(Money.of(2500, 'EUR'), 'XXX')).rejects.toThrow(RangeError);
+  });
+
+  it('propagates an error thrown by the provider instead of swallowing it', async () => {
+    const failure = new Error('lookup failed');
+    const stub = new CurrencyConverter(new StubExchangeRateProvider(failure));
+    await expect(stub.convert(Money.of(2500, 'EUR'), 'CVE')).rejects.toThrow(failure);
+  });
+
+  it('rejects a rate for a pair different from the one requested', async () => {
+    const wrongPair = new CurrencyConverter(
+      new StubExchangeRateProvider(ExchangeRate.of('USD', 'CVE', '110.265')),
+    );
+    await expect(wrongPair.convert(Money.of(2500, 'EUR'), 'CVE')).rejects.toBeInstanceOf(
+      ExchangeRatePairMismatchError,
+    );
   });
 
   it('carries the provenance into the serialized result', async () => {
