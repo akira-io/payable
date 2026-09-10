@@ -7,6 +7,7 @@ export {
   type KnownCurrencyCode,
 } from './currency';
 export { Email } from './email';
+export { ExchangeRate, type ExchangeRateInput } from './exchange-rate';
 export {
   type BillableKeyParts,
   type ChargeKeyParts,
