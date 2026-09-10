@@ -33,4 +33,9 @@ describe('FixedExchangeRateProvider', () => {
   it('rejects an invalid rate at construction', () => {
     expect(() => new FixedExchangeRateProvider({ 'EUR/CVE': '0' })).toThrow(RangeError);
   });
+
+  it('rejects an unsupported currency code instead of resolving to undefined', async () => {
+    const provider = new FixedExchangeRateProvider({ 'EUR/CVE': '110.265' });
+    await expect(provider.rateFor('EUR', 'XXX')).rejects.toThrow(RangeError);
+  });
 });
